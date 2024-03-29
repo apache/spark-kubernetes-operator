@@ -65,7 +65,7 @@ GITHUB_OAUTH_KEY = os.environ.get("GITHUB_OAUTH_KEY")
 
 
 GITHUB_BASE = "https://github.com/apache/spark-kubernetes-operator/pull"
-GITHUB_API_BASE = "https://api.github.com/repos/spark-kubernetes-operator/spark"
+GITHUB_API_BASE = "https://api.github.com/repos/spark-kubernetes-operator"
 JIRA_BASE = "https://issues.apache.org/jira/browse"
 JIRA_API_BASE = "https://issues.apache.org/jira"
 # Prefix added to temporary branches
