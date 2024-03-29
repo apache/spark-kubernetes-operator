@@ -1,0 +1,8 @@
+*.swp
+*~
+.java-version
+.DS_Store
+.idea/
+.vscode
+/lib/
+target/

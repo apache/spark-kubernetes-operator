@@ -1,0 +1,14 @@
+target
+.gitignore
+.gitattributes
+.project
+.classpath
+.rat-excludes
+.*md
+.java-version
+licenses/*
+licenses-binary/*
+LICENSE
+NOTICE
+TAGS
+RELEASE
