@@ -1,0 +1,18 @@
+header:
+  license:
+    spdx-id: Apache-2.0
+    copyright-owner: Apache Software Foundation
+
+  paths:
+    - '**'
+
+  paths-ignore:
+    - '**/*.md'
+    - '**/.gitignore'
+    - '.github/**'
+    - 'dev/**'
+    - 'LICENSE'
+    - 'NOTICE'
+    - '.asf.yaml'
+
+  comment: on-failure
