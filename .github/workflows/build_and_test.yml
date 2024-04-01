@@ -26,4 +26,20 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           config: .github/.licenserc.yaml
-
+  test_ci:
+    name: "Test CI"
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        java-version: [ 11, 17 ]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Set up JDK ${{ matrix.java-version }}
+        uses: actions/setup-java@v2
+        with:
+          java-version: ${{ matrix.java-version }}
+          distribution: 'adopt'
+      - name: Build with Gradle
+        run: |
+          set -o pipefail; ./gradlew clean build; set +o pipefail

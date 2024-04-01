@@ -9,10 +9,16 @@ header:
   paths-ignore:
     - '**/*.md'
     - '**/.gitignore'
+    - '**/.gitattributes'
     - '.github/**'
     - 'dev/**'
     - 'LICENSE'
     - 'NOTICE'
     - '.asf.yaml'
+    - '**/.helmignore'
+    - '**/EcsLayout.json'
+    - '.editorconfig'
+    - 'gradle/**'
+    - '**/sparkapplications.org.apache.spark-v1.yml'
 
   comment: on-failure

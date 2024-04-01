@@ -1,0 +1,211 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+#
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "spark-operator.name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "spark-operator.deploymentSelectorLabels" . | nindent 4 }}
+    {{- include "spark-operator.commonLabels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.operatorDeployment.replicas }}
+  revisionHistoryLimit: 2
+  strategy:
+    {{- toYaml .Values.operatorDeployment.strategy | nindent 4 }}
+  selector:
+    matchLabels:
+      {{- include "spark-operator.deploymentSelectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "spark-operator.deploymentSelectorLabels" . | nindent 8 }}
+        {{- if index (.Values.operatorDeployment.operatorPod) "labels" }}
+          {{- with .Values.operatorDeployment.operatorPod.labels }}
+            {{- toYaml . | nindent 8 }}
+          {{- end }}
+        {{- end }}
+      annotations:
+        kubectl.kubernetes.io/default-container: {{ .Chart.Name }}
+        {{- if index (.Values.operatorDeployment.operatorPod) "annotations" }}
+          {{- with .Values.operatorDeployment.operatorPod.annotations }}
+            {{- toYaml . | nindent 8 }}
+          {{- end }}
+        {{- end }}
+    spec:
+      {{- with .Values.operatorDeployment.operatorPod.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      {{- with .Values.operatorDeployment.operatorPod.securityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.operatorDeployment.operatorPod.nodeSelector }}
+      nodeSelector: {{ toYaml .Values.operatorDeployment.operatorPod.nodeSelector | nindent 8 }}
+      {{- end }}
+      {{- with .Values.operatorDeployment.operatorPod.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.operatorDeployment.operatorPod.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "spark-operator.serviceAccountName" $ }}
+      {{- if .Values.operatorDeployment.operatorPod.topologySpreadConstraints }}
+      topologySpreadConstraints: {{ toYaml .Values.operatorDeployment.operatorPod.topologySpreadConstraints | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: {{ include "spark-operator.imagePath" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: [ "./docker-entrypoint.sh", "operator" ]
+          ports:
+            - containerPort: {{ include "spark-operator.probePort" . }}
+              name: probe-port
+            - containerPort: {{ include "spark-operator.metricsPort" . }}
+              name: metrics-port
+          env:
+            - name: OPERATOR_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: {{ include "spark-operator.name" . }}
+            - name: LOG_CONFIG
+              value: -Dlog4j.configurationFile=/opt/spark-operator/conf/log4j2.properties
+            - name: OPERATOR_JAVA_OPTS
+              value: {{ .Values.operatorDeployment.operatorPod.operatorContainer.jvmArgs }}
+            {{- with .Values.operatorDeployment.operatorPod.operatorContainer.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.operatorDeployment.operatorPod.operatorContainer.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.operatorDeployment.operatorPod.operatorContainer.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          readinessProbe:
+            httpGet:
+              port: probe-port
+              path: /startup
+            failureThreshold: {{ include "spark-operator.readinessProbe.failureThreshold" . }}
+            periodSeconds: {{ include "spark-operator.readinessProbe.periodSeconds" . }}
+          livenessProbe:
+            httpGet:
+              port: probe-port
+              path: /healthz
+            initialDelaySeconds: {{ include "spark-operator.livenessProbe.initialDelaySeconds" . }}
+            periodSeconds: {{ include "spark-operator.livenessProbe.periodSeconds" . }}
+          {{- with .Values.operatorDeployment.operatorPod.operatorContainer.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: spark-operator-config-volume
+              mountPath: /opt/spark-operator/conf
+            - name: logs-volume
+              mountPath: /opt/spark-operator/logs
+            {{- with .Values.operatorDeployment.operatorPod.operatorContainer.volumeMounts }}
+              {{- toYaml . | nindent 12 }}
+            {{- end }}
+        {{- with .Values.operatorDeployment.operatorPod.additionalContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- if index (.Values.operatorDeployment.operatorPod) "dnsPolicy" }}
+      dnsPolicy: {{ .Values.operatorDeployment.operatorPod.dnsPolicy | quote }}
+      {{- end }}
+      {{- if index (.Values.operatorDeployment.operatorPod) "dnsConfig" }}
+      dnsConfig:
+        {{- with .Values.operatorDeployment.operatorPod.dnsConfig }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
+      restartPolicy: Always
+      volumes:
+        - name: spark-operator-config-volume
+          configMap:
+            name: spark-kubernetes-operator-configuration
+        - name: logs-volume
+          emptyDir: { }
+        {{- with .Values.operatorDeployment.operatorPod.volumes }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spark-kubernetes-operator-configuration
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "spark-operator.initialConfigLabels" . | nindent 4 }}
+data:
+  log4j2.properties: |+
+{{- if .Values.operatorConfiguration.append }}
+  {{- $.Files.Get "conf/log4j2.properties"  | nindent 4 -}}
+{{- end }}
+{{- if index (.Values.operatorConfiguration) "log4j2.properties" }}
+  {{- index (.Values.operatorConfiguration) "log4j2.properties" | nindent 4 -}}
+{{- end }}
+  spark-operator.properties: |+
+  {{- include "spark-operator.defaultPropertyOverrides" . | nindent 4 }}
+{{- if .Values.operatorConfiguration.append }}
+  {{- $.Files.Get "conf/spark-operator.properties"  | nindent 4 -}}
+{{- end }}
+{{- if index (.Values.operatorConfiguration) "spark-operator.properties" }}
+  {{- index (.Values.operatorConfiguration) "spark-operator.properties" | nindent 4 -}}
+{{- end }}
+  metrics.properties: |+
+{{- if index (.Values.operatorConfiguration) "metrics.properties" }}
+  {{- index (.Values.operatorConfiguration) "metrics.properties" | nindent 4 -}}
+{{- end }}
+---
+{{- if .Values.operatorConfiguration.dynamicConfig.create }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spark-kubernetes-operator-dynamic-configuration
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "spark-operator.dynamicConfigLabels" . | nindent 4 }}
+  annotations:
+    {{- toYaml .Values.operatorConfiguration.dynamicConfig.annotations | nindent 4 }}
+{{- with .Values.operatorConfiguration.dynamicConfig.data }}
+data:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- end }}

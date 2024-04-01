@@ -1,0 +1,176 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+#
+
+image:
+  repository: spark-kubernetes-operator
+  pullPolicy: IfNotPresent
+  # tag: latest
+  # If image digest is set then it takes precedence and the image tag will be ignored
+  # digest: ""
+
+imagePullSecrets: [ ]
+
+operatorDeployment:
+  # Replicas must be 1
+  replicas: 1
+  # Strategy type must be 'Recreate' unless leader election is configured
+  strategy:
+    type: Recreate
+  operatorPod:
+    priorityClassName: null
+    annotations: { }
+    labels: { }
+    affinity: { }
+    nodeSelector: { }
+    # Node tolerations for operator pod assignment
+    # https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+    tolerations: [ ]
+    # Topology spread constrains
+    # https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/
+    topologySpreadConstraints: [ ]
+    operatorContainer:
+      jvmArgs: "-XX:+UseG1GC -Xms3G -Xmx3G -Dfile.encoding=UTF8"
+      env:
+      envFrom:
+      volumeMounts: { }
+      resources:
+        limits:
+          cpu: "1"
+          ephemeral-storage: 2Gi
+          memory: 2Gi
+        requests:
+          cpu: "1"
+          ephemeral-storage: 2Gi
+          memory: 2Gi
+      probes:
+        port: 18080
+        livenessProbe:
+          periodSeconds: 10
+          initialDelaySeconds: 30
+        startupProbe:
+          failureThreshold: 30
+          periodSeconds: 10
+      metrics:
+        port: 19090
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+        runAsNonRoot: true
+        runAsUser: 9999
+        seccompProfile:
+          type: RuntimeDefault
+    additionalContainers: { }
+    # additionalContainers:
+    #  - name: ""
+    #    image: ""
+    volumes: { }
+    # volumes:
+    #   - name: spark-artifacts
+    #     hostPath:
+    #       path: /tmp/spark/artifacts
+    #       type: DirectoryOrCreate
+    securityContext: { }
+    dnsPolicy:
+    dnsConfig:
+
+operatorRbac:
+  serviceAccount:
+    create: true
+    name: "spark-operator"
+  # If disabled, a Role would be created inside each app namespace for app operations
+  clusterRole:
+    create: true
+    name: "spark-operator-clusterrole"
+  # If disabled, a RoleBinding would be created inside each app namespace for app operations
+  clusterRoleBinding:
+    create: true
+    name: "spark-operator-clusterrolebinding"
+  configManagement:
+    roleName: "spark-operator-config-role"
+    roleBindingName: "spark-operator-config-role-binding"
+
+appResources:
+  # Create namespace(s), service account(s) and rolebinding(s) for SparkApps, if configured
+  # Operator would act at cluster level by default if no app namespace(s) are provided
+  namespaces:
+    create: true
+    # When enabled, operator would by default only watch namespace(s) provided in data field
+    watchGivenNamespacesOnly: false
+    data:
+  #    - "spark-demo"
+  serviceAccounts:
+    create: true
+    name: "spark"
+  roleBindings:
+    create: true
+    name: "spark-app-rolebinding"
+  roles:
+    # if enabled, a role would be created in each app namespace for Spark apps
+    create: false
+    name: "spark-app-role"
+  clusterRole:
+    # if enabled, a clusterrole would be created for Spark app service accounts to use
+    # If neither role nor clusterrole is enabled: Spark app would use the same access as operator
+    create: false
+    name: "spark-app-cluster-role"
+  sparkApplicationSentinel:
+    create: false
+    name: "spark-app-sentinel"
+    sentinelNamespaces:
+      data:
+      # When enabled, sentinel resources will be deployed to namespace(s) provided in data field.
+      # Note that sentinelNamespaces list shall be a subset of appResources.namespaces.data.
+#        - "spark-demo"
+  # App resources are by default annotated to avoid app abort due to operator upgrade
+  annotations:
+  #  "helm.sh/resource-policy": keep
+  # labels to be added on app resources
+  labels:
+    "app.kubernetes.io/component": "spark-apps"
+
+operatorConfiguration:
+  # If set to true, below conf file & properties would be appended to default conf.
+  # Otherwise, they would override default properties
+  append: true
+  log4j2.properties: |+
+    # Logging Overrides
+    # rootLogger.level=DEBUG
+  spark-operator.properties: |+
+    # Property Overrides.
+    #
+    # e.g. to watch namespace 'spark' and 'default' only, instead of 
+    # the cluster, use
+    # spark.operator.watched.namespaces=spark,default
+    # When deployed via Helm, please note that the value of spark.operator.watched.namespaces 
+    # should be a subset of .Values.appResources.namespaces.data so that the app namespaces 
+    # properly configured by Helm before operator starts.
+    #
+    # Enable this for hot property loading
+    # spark.operator.dynamic.config.enabled=false
+  metrics.properties: |+
+    # Metrics Properties Overrides
+  dynamicConfig:
+    # If set to true, a config map would be created & watched by operator as source of truth
+    # for hot properties loading.
+    create: false
+    annotations:
+    #  "helm.sh/resource-policy": keep
+    data:
+    # Spark Operator Config Runtime Properties Overrides
