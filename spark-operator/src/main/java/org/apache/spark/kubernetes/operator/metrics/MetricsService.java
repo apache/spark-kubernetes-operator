@@ -17,44 +17,46 @@
 
 package org.apache.spark.kubernetes.operator.metrics;
 
-import com.sun.net.httpserver.HttpServer;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.spark.kubernetes.operator.metrics.sink.PrometheusPullModelSink;
-import org.apache.spark.metrics.sink.Sink;
-
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.Optional;
 
+import com.sun.net.httpserver.HttpServer;
+import lombok.extern.slf4j.Slf4j;
+
+import org.apache.spark.kubernetes.operator.metrics.sink.PrometheusPullModelSink;
+import org.apache.spark.metrics.sink.Sink;
+
 import static org.apache.spark.kubernetes.operator.config.SparkOperatorConf.OperatorMetricsPort;
 
 @Slf4j
 public class MetricsService {
-    HttpServer server;
-    MetricsSystem metricsSystem;
-    public MetricsService(MetricsSystem metricsSystem) {
-        this.metricsSystem = metricsSystem;
-        try {
-            server = HttpServer.create(new InetSocketAddress(OperatorMetricsPort.getValue()), 0);
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to create Metrics Server", e);
-        }
-        server.setExecutor(null);
-    }
+  HttpServer server;
+  MetricsSystem metricsSystem;
 
-    public void start() {
-        log.info("Metrics Service started");
-        List<Sink> sinks = metricsSystem.getSinks();
-        Optional<Sink> instanceOptional =
-                sinks.stream().filter(x -> x instanceof PrometheusPullModelSink).findAny();
-        instanceOptional.ifPresent(sink ->
-                server.createContext("/prometheus", (PrometheusPullModelSink) sink));
-        server.start();
+  public MetricsService(MetricsSystem metricsSystem) {
+    this.metricsSystem = metricsSystem;
+    try {
+      server = HttpServer.create(new InetSocketAddress(OperatorMetricsPort.getValue()), 0);
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to create Metrics Server", e);
     }
+    server.setExecutor(null);
+  }
 
-    public void stop() {
-        log.info("Metrics Service stopped");
-        server.stop(0);
-    }
+  public void start() {
+    log.info("Metrics Service started");
+    List<Sink> sinks = metricsSystem.getSinks();
+    Optional<Sink> instanceOptional =
+        sinks.stream().filter(x -> x instanceof PrometheusPullModelSink).findAny();
+    instanceOptional.ifPresent(sink ->
+        server.createContext("/prometheus", (PrometheusPullModelSink) sink));
+    server.start();
+  }
+
+  public void stop() {
+    log.info("Metrics Service stopped");
+    server.stop(0);
+  }
 }

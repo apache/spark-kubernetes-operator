@@ -26,5 +26,5 @@ import lombok.Data;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class BaseAttemptSummary {
-    protected AttemptInfo attemptInfo = new AttemptInfo();
+  protected AttemptInfo attemptInfo = new AttemptInfo();
 }

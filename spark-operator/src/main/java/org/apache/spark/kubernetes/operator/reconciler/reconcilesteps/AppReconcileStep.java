@@ -18,7 +18,12 @@
 
 package org.apache.spark.kubernetes.operator.reconciler.reconcilesteps;
 
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
 import io.fabric8.kubernetes.api.model.Pod;
+
 import org.apache.spark.kubernetes.operator.SparkApplication;
 import org.apache.spark.kubernetes.operator.controller.SparkApplicationContext;
 import org.apache.spark.kubernetes.operator.reconciler.ReconcileProgress;
@@ -26,10 +31,6 @@ import org.apache.spark.kubernetes.operator.reconciler.observers.BaseAppDriverOb
 import org.apache.spark.kubernetes.operator.status.ApplicationState;
 import org.apache.spark.kubernetes.operator.status.ApplicationStatus;
 import org.apache.spark.kubernetes.operator.utils.StatusRecorder;
-
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static org.apache.spark.kubernetes.operator.reconciler.ReconcileProgress.completeAndImmediateRequeue;
 import static org.apache.spark.kubernetes.operator.reconciler.ReconcileProgress.proceed;
@@ -39,35 +40,35 @@ import static org.apache.spark.kubernetes.operator.utils.ApplicationStatusUtils.
  * Basic reconcile step for application
  */
 public abstract class AppReconcileStep {
-    public abstract ReconcileProgress reconcile(SparkApplicationContext context,
-                                                StatusRecorder statusRecorder);
+  public abstract ReconcileProgress reconcile(SparkApplicationContext context,
+                                              StatusRecorder statusRecorder);
 
-    protected ReconcileProgress observeDriver(final SparkApplicationContext context,
-                                              final StatusRecorder statusRecorder,
-                                              final List<BaseAppDriverObserver> observers) {
-        Optional<Pod> driverPodOptional = context.getDriverPod();
-        SparkApplication app = context.getSparkApplication();
-        ApplicationStatus currentStatus = app.getStatus();
-        if (driverPodOptional.isPresent()) {
-            List<ApplicationState> stateUpdates = observers.stream()
-                    .map(o -> o.observe(driverPodOptional.get(), app.getSpec(), app.getStatus()))
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .collect(Collectors.toList());
-            if (stateUpdates.isEmpty()) {
-                return proceed();
-            } else {
-                for (ApplicationState state : stateUpdates) {
-                    currentStatus = currentStatus.appendNewState(state);
-                }
-                statusRecorder.persistStatus(context, currentStatus);
-                return completeAndImmediateRequeue();
-            }
-        } else {
-            ApplicationStatus updatedStatus =
-                    currentStatus.appendNewState(driverUnexpectedRemoved());
-            statusRecorder.persistStatus(context, updatedStatus);
-            return completeAndImmediateRequeue();
+  protected ReconcileProgress observeDriver(final SparkApplicationContext context,
+                                            final StatusRecorder statusRecorder,
+                                            final List<BaseAppDriverObserver> observers) {
+    Optional<Pod> driverPodOptional = context.getDriverPod();
+    SparkApplication app = context.getSparkApplication();
+    ApplicationStatus currentStatus = app.getStatus();
+    if (driverPodOptional.isPresent()) {
+      List<ApplicationState> stateUpdates = observers.stream()
+          .map(o -> o.observe(driverPodOptional.get(), app.getSpec(), app.getStatus()))
+          .filter(Optional::isPresent)
+          .map(Optional::get)
+          .collect(Collectors.toList());
+      if (stateUpdates.isEmpty()) {
+        return proceed();
+      } else {
+        for (ApplicationState state : stateUpdates) {
+          currentStatus = currentStatus.appendNewState(state);
         }
+        statusRecorder.persistStatus(context, currentStatus);
+        return completeAndImmediateRequeue();
+      }
+    } else {
+      ApplicationStatus updatedStatus =
+          currentStatus.appendNewState(driverUnexpectedRemoved());
+      statusRecorder.persistStatus(context, updatedStatus);
+      return completeAndImmediateRequeue();
     }
+  }
 }

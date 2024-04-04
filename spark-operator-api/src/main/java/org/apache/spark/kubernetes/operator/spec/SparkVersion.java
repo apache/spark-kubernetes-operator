@@ -23,8 +23,8 @@ package org.apache.spark.kubernetes.operator.spec;
  * <a href="https://github.com/apache/spark-docker">official Spark images</a>
  */
 public enum SparkVersion {
-    v3_5_1,
-    v3_5_0,
-    v3_4_2,
-    v3_4_1,
+  v3_5_1,
+  v3_5_0,
+  v3_4_2,
+  v3_4_1,
 }

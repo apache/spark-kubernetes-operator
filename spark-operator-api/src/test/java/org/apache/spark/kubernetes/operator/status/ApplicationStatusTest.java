@@ -25,23 +25,23 @@ import static org.apache.spark.kubernetes.operator.status.ApplicationStateSummar
 
 class ApplicationStatusTest {
 
-    @Test
-    void testInitStatus() {
-        ApplicationStatus applicationStatus = new ApplicationStatus();
-        Assertions.assertEquals(SUBMITTED, applicationStatus.currentState.currentStateSummary);
-        Assertions.assertEquals(1, applicationStatus.stateTransitionHistory.size());
-        Assertions.assertEquals(applicationStatus.currentState,
-                applicationStatus.stateTransitionHistory.get(0L));
-    }
+  @Test
+  void testInitStatus() {
+    ApplicationStatus applicationStatus = new ApplicationStatus();
+    Assertions.assertEquals(SUBMITTED, applicationStatus.currentState.currentStateSummary);
+    Assertions.assertEquals(1, applicationStatus.stateTransitionHistory.size());
+    Assertions.assertEquals(applicationStatus.currentState,
+        applicationStatus.stateTransitionHistory.get(0L));
+  }
 
-    @Test
-    void testAppendNewState() {
-        ApplicationStatus applicationStatus = new ApplicationStatus();
-        ApplicationState newState =
-                new ApplicationState(ApplicationStateSummary.RUNNING_HEALTHY, "foo");
-        ApplicationStatus newStatus = applicationStatus.appendNewState(newState);
-        Assertions.assertEquals(2, newStatus.stateTransitionHistory.size());
-        Assertions.assertEquals(newState, newStatus.stateTransitionHistory.get(1L));
-    }
+  @Test
+  void testAppendNewState() {
+    ApplicationStatus applicationStatus = new ApplicationStatus();
+    ApplicationState newState =
+        new ApplicationState(ApplicationStateSummary.RUNNING_HEALTHY, "foo");
+    ApplicationStatus newStatus = applicationStatus.appendNewState(newState);
+    Assertions.assertEquals(2, newStatus.stateTransitionHistory.size());
+    Assertions.assertEquals(newState, newStatus.stateTransitionHistory.get(1L));
+  }
 
 }

@@ -19,7 +19,7 @@
 package org.apache.spark.kubernetes.operator.status;
 
 public interface BaseStateSummary {
-    boolean isFailure();
+  boolean isFailure();
 
-    boolean isInfrastructureFailure();
+  boolean isInfrastructureFailure();
 }

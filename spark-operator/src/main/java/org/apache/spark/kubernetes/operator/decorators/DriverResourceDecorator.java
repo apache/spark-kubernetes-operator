@@ -39,27 +39,27 @@ import static org.apache.spark.kubernetes.operator.utils.ModelUtils.buildOwnerRe
  */
 @RequiredArgsConstructor
 public class DriverResourceDecorator implements ResourceDecorator {
-    private final Pod driverPod;
+  private final Pod driverPod;
 
-    @Override
-    public <T extends HasMetadata> T decorate(T resource) {
-        boolean ownerReferenceExists = false;
-        if (CollectionUtils.isNotEmpty(resource.getMetadata().getOwnerReferences())) {
-            for (OwnerReference o : resource.getMetadata().getOwnerReferences()) {
-                if (driverPod.getKind().equals(o.getKind())
-                        && driverPod.getMetadata().getName().equals(o.getName())
-                        && driverPod.getMetadata().getUid().equals(o.getUid())) {
-                    ownerReferenceExists = true;
-                    break;
-                }
-            }
+  @Override
+  public <T extends HasMetadata> T decorate(T resource) {
+    boolean ownerReferenceExists = false;
+    if (CollectionUtils.isNotEmpty(resource.getMetadata().getOwnerReferences())) {
+      for (OwnerReference o : resource.getMetadata().getOwnerReferences()) {
+        if (driverPod.getKind().equals(o.getKind())
+            && driverPod.getMetadata().getName().equals(o.getName())
+            && driverPod.getMetadata().getUid().equals(o.getUid())) {
+          ownerReferenceExists = true;
+          break;
         }
-        if (!ownerReferenceExists) {
-            ObjectMeta metaData = new ObjectMetaBuilder(resource.getMetadata())
-                    .addToOwnerReferences(buildOwnerReferenceTo(driverPod))
-                    .build();
-            resource.setMetadata(metaData);
-        }
-        return resource;
+      }
     }
+    if (!ownerReferenceExists) {
+      ObjectMeta metaData = new ObjectMetaBuilder(resource.getMetadata())
+          .addToOwnerReferences(buildOwnerReferenceTo(driverPod))
+          .build();
+      resource.setMetadata(metaData);
+    }
+    return resource;
+  }
 }

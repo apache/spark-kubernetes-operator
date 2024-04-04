@@ -32,14 +32,14 @@ import lombok.NoArgsConstructor;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ApplicationTimeoutConfig {
-    @Builder.Default
-    protected Long driverStartTimeoutMillis = 300 * 1000L;
-    @Builder.Default
-    protected Long sparkSessionStartTimeoutMillis = 300 * 1000L;
-    @Builder.Default
-    protected Long executorStartTimeoutMillis = 300 * 1000L;
-    @Builder.Default
-    protected Long forceTerminationGracePeriodMillis = 300 * 1000L;
-    @Builder.Default
-    protected Long terminationRequeuePeriodMillis = 2 * 1000L;
+  @Builder.Default
+  protected Long driverStartTimeoutMillis = 300 * 1000L;
+  @Builder.Default
+  protected Long sparkSessionStartTimeoutMillis = 300 * 1000L;
+  @Builder.Default
+  protected Long executorStartTimeoutMillis = 300 * 1000L;
+  @Builder.Default
+  protected Long forceTerminationGracePeriodMillis = 300 * 1000L;
+  @Builder.Default
+  protected Long terminationRequeuePeriodMillis = 2 * 1000L;
 }

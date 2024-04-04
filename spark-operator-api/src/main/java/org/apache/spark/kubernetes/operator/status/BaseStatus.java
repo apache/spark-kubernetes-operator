@@ -18,49 +18,49 @@
 
 package org.apache.spark.kubernetes.operator.status;
 
+import java.util.Collections;
+import java.util.Map;
+import java.util.TreeMap;
+
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
 
-import java.util.Collections;
-import java.util.Map;
-import java.util.TreeMap;
-
 @ToString
 @EqualsAndHashCode
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class BaseStatus<S, STATE extends BaseState<S>, AS extends BaseAttemptSummary> {
-    @Getter
-    STATE currentState;
-    @Getter
-    Map<Long, STATE> stateTransitionHistory;
-    @Getter
-    AS previousAttemptSummary;
-    @Getter
-    AS currentAttemptSummary;
+  @Getter
+  STATE currentState;
+  @Getter
+  Map<Long, STATE> stateTransitionHistory;
+  @Getter
+  AS previousAttemptSummary;
+  @Getter
+  AS currentAttemptSummary;
 
-    public BaseStatus(STATE initState, AS currentAttemptSummary) {
-        this.currentState = initState;
-        this.stateTransitionHistory = new TreeMap<>();
-        this.stateTransitionHistory.put(0L, initState);
-        this.previousAttemptSummary = null;
-        this.currentAttemptSummary = currentAttemptSummary;
-    }
+  public BaseStatus(STATE initState, AS currentAttemptSummary) {
+    this.currentState = initState;
+    this.stateTransitionHistory = new TreeMap<>();
+    this.stateTransitionHistory.put(0L, initState);
+    this.previousAttemptSummary = null;
+    this.currentAttemptSummary = currentAttemptSummary;
+  }
 
-    public BaseStatus(STATE currentState,
-                      Map<Long, STATE> stateTransitionHistory,
-                      AS previousAttemptSummary,
-                      AS currentAttemptSummary) {
-        this.currentState = currentState;
-        this.stateTransitionHistory = new TreeMap<>(stateTransitionHistory);
-        this.previousAttemptSummary = previousAttemptSummary;
-        this.currentAttemptSummary = currentAttemptSummary;
-    }
+  public BaseStatus(STATE currentState,
+                    Map<Long, STATE> stateTransitionHistory,
+                    AS previousAttemptSummary,
+                    AS currentAttemptSummary) {
+    this.currentState = currentState;
+    this.stateTransitionHistory = new TreeMap<>(stateTransitionHistory);
+    this.previousAttemptSummary = previousAttemptSummary;
+    this.currentAttemptSummary = currentAttemptSummary;
+  }
 
-    protected long getCurrentStateId() {
-        return Collections.max(stateTransitionHistory.keySet());
-    }
+  protected long getCurrentStateId() {
+    return Collections.max(stateTransitionHistory.keySet());
+  }
 }

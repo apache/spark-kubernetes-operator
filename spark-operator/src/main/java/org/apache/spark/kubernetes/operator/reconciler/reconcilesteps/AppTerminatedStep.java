@@ -28,14 +28,14 @@ import static org.apache.spark.kubernetes.operator.reconciler.ReconcileProgress.
  * Observes whether app is already terminated. If so, end the reconcile.
  */
 public class AppTerminatedStep extends AppReconcileStep {
-    @Override
-    public ReconcileProgress reconcile(SparkApplicationContext context,
-                                       StatusRecorder statusRecorder) {
-        if (context.getSparkApplication().getStatus().getCurrentState().getCurrentStateSummary()
-                .isTerminated()) {
-            statusRecorder.removeCachedStatus(context.getSparkApplication());
-            return ReconcileProgress.completeAndNoRequeue();
-        }
-        return proceed();
+  @Override
+  public ReconcileProgress reconcile(SparkApplicationContext context,
+                                     StatusRecorder statusRecorder) {
+    if (context.getSparkApplication().getStatus().getCurrentState().getCurrentStateSummary()
+        .isTerminated()) {
+      statusRecorder.removeCachedStatus(context.getSparkApplication());
+      return ReconcileProgress.completeAndNoRequeue();
     }
+    return proceed();
+  }
 }

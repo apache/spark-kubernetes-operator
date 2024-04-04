@@ -17,43 +17,44 @@
 
 package org.apache.spark.kubernetes.operator.probe;
 
-import com.sun.net.httpserver.HttpServer;
-import io.javaoperatorsdk.operator.Operator;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.spark.kubernetes.operator.health.SentinelManager;
-
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.List;
+
+import com.sun.net.httpserver.HttpServer;
+import io.javaoperatorsdk.operator.Operator;
+import lombok.extern.slf4j.Slf4j;
+
+import org.apache.spark.kubernetes.operator.health.SentinelManager;
 
 import static org.apache.spark.kubernetes.operator.config.SparkOperatorConf.OperatorProbePort;
 
 @Slf4j
 public class ProbeService {
-    public static final String HEALTHZ = "/healthz";
-    public static final String READYZ = "/readyz";
-    HttpServer server;
+  public static final String HEALTHZ = "/healthz";
+  public static final String READYZ = "/readyz";
+  HttpServer server;
 
-    public ProbeService(List<Operator> operators, SentinelManager sentinelManager) {
-        HealthProbe healthProbe = new HealthProbe(operators);
-        healthProbe.registerSentinelResourceManager(sentinelManager);
-        try {
-            server = HttpServer.create(new InetSocketAddress(OperatorProbePort.getValue()), 0);
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to create Probe Service Server", e);
-        }
-        server.createContext(READYZ, new ReadinessProbe(operators));
-        server.createContext(HEALTHZ, healthProbe);
-        server.setExecutor(null);
+  public ProbeService(List<Operator> operators, SentinelManager sentinelManager) {
+    HealthProbe healthProbe = new HealthProbe(operators);
+    healthProbe.registerSentinelResourceManager(sentinelManager);
+    try {
+      server = HttpServer.create(new InetSocketAddress(OperatorProbePort.getValue()), 0);
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to create Probe Service Server", e);
     }
+    server.createContext(READYZ, new ReadinessProbe(operators));
+    server.createContext(HEALTHZ, healthProbe);
+    server.setExecutor(null);
+  }
 
-    public void start() {
-        log.info("Probe service started");
-        server.start();
-    }
+  public void start() {
+    log.info("Probe service started");
+    server.start();
+  }
 
-    public void stop() {
-        log.info("Probe service stopped");
-        server.stop(0);
-    }
+  public void stop() {
+    log.info("Probe service stopped");
+    server.stop(0);
+  }
 }

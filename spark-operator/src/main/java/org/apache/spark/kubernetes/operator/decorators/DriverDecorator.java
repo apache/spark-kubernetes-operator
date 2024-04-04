@@ -22,6 +22,7 @@ import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import lombok.RequiredArgsConstructor;
+
 import org.apache.spark.kubernetes.operator.SparkApplication;
 
 import static org.apache.spark.kubernetes.operator.reconciler.SparkReconcilerUtils.sparkAppResourceLabels;
@@ -34,19 +35,19 @@ import static org.apache.spark.kubernetes.operator.utils.ModelUtils.buildOwnerRe
 @RequiredArgsConstructor
 public class DriverDecorator implements ResourceDecorator {
 
-    private final SparkApplication app;
+  private final SparkApplication app;
 
-    /**
-     * Add labels and owner references to the app for all secondary resources
-     */
-    @Override
-    public <T extends HasMetadata> T decorate(T resource) {
-        ObjectMeta metaData = new ObjectMetaBuilder(resource.getMetadata())
-                .addToOwnerReferences(buildOwnerReferenceTo(app))
-                .addToLabels(sparkAppResourceLabels(app))
-                .withNamespace(app.getMetadata().getNamespace())
-                .build();
-        resource.setMetadata(metaData);
-        return resource;
-    }
+  /**
+   * Add labels and owner references to the app for all secondary resources
+   */
+  @Override
+  public <T extends HasMetadata> T decorate(T resource) {
+    ObjectMeta metaData = new ObjectMetaBuilder(resource.getMetadata())
+        .addToOwnerReferences(buildOwnerReferenceTo(app))
+        .addToLabels(sparkAppResourceLabels(app))
+        .withNamespace(app.getMetadata().getNamespace())
+        .build();
+    resource.setMetadata(metaData);
+    return resource;
+  }
 }

@@ -18,6 +18,9 @@
 
 package org.apache.spark.kubernetes.operator.status;
 
+import java.io.Serializable;
+import java.time.Instant;
+
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.fabric8.kubernetes.api.model.PodStatus;
@@ -25,9 +28,6 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
-
-import java.io.Serializable;
-import java.time.Instant;
 
 import static org.apache.spark.kubernetes.operator.Constants.SubmittedStateMessage;
 
@@ -37,15 +37,15 @@ import static org.apache.spark.kubernetes.operator.Constants.SubmittedStateMessa
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ApplicationState extends BaseState<ApplicationStateSummary> implements Serializable {
 
-    @Getter
-    @Setter
-    PodStatus lastObservedDriverStatus;
+  @Getter
+  @Setter
+  PodStatus lastObservedDriverStatus;
 
-    public ApplicationState() {
-        super(ApplicationStateSummary.SUBMITTED, Instant.now().toString(), SubmittedStateMessage);
-    }
+  public ApplicationState() {
+    super(ApplicationStateSummary.SUBMITTED, Instant.now().toString(), SubmittedStateMessage);
+  }
 
-    public ApplicationState(ApplicationStateSummary currentStateSummary, String message) {
-        super(currentStateSummary, Instant.now().toString(), message);
-    }
+  public ApplicationState(ApplicationStateSummary currentStateSummary, String message) {
+    super(currentStateSummary, Instant.now().toString(), message);
+  }
 }

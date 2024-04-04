@@ -18,21 +18,22 @@
 
 package org.apache.spark.kubernetes.operator.reconciler.observers;
 
+import java.util.Optional;
+
 import io.fabric8.kubernetes.api.model.Pod;
+
 import org.apache.spark.kubernetes.operator.spec.ApplicationSpec;
 import org.apache.spark.kubernetes.operator.status.ApplicationState;
 import org.apache.spark.kubernetes.operator.status.ApplicationStatus;
-
-import java.util.Optional;
 
 /**
  * Observes whether driver reaches running state (in other words, whether its at least scheduled)
  */
 public class AppDriverRunningObserver extends BaseAppDriverObserver {
-    @Override
-    public Optional<ApplicationState> observe(Pod driver,
-                                              ApplicationSpec spec,
-                                              ApplicationStatus currentStatus) {
-        return observeDriverTermination(driver, true, spec);
-    }
+  @Override
+  public Optional<ApplicationState> observe(Pod driver,
+                                            ApplicationSpec spec,
+                                            ApplicationStatus currentStatus) {
+    return observeDriverTermination(driver, true, spec);
+  }
 }

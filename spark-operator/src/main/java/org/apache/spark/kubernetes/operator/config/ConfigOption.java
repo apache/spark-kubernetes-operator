@@ -39,66 +39,66 @@ import org.apache.commons.lang3.StringUtils;
 @Builder
 @Slf4j
 public class ConfigOption<T> {
-    private static final ObjectMapper objectMapper = new ObjectMapper();
+  private static final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Getter
-    @Builder.Default
-    private boolean enableDynamicOverride = true;
-    @Getter
-    private String key;
-    @Getter
-    private String description;
-    private T defaultValue;
-    private Class<T> typeParameterClass;
+  @Getter
+  @Builder.Default
+  private boolean enableDynamicOverride = true;
+  @Getter
+  private String key;
+  @Getter
+  private String description;
+  private T defaultValue;
+  private Class<T> typeParameterClass;
 
-    public T getValue() {
-        return resolveValue();
+  public T getValue() {
+    return resolveValue();
+  }
+
+  private T resolveValue() {
+    try {
+      String value = SparkOperatorConfManager.INSTANCE.getValue(key);
+      if (!enableDynamicOverride) {
+        value = SparkOperatorConfManager.INSTANCE.getInitialValue(key);
+      }
+      if (StringUtils.isNotEmpty(value)) {
+        if (typeParameterClass.isPrimitive() || typeParameterClass == String.class) {
+          return (T) resolveValueToPrimitiveType(typeParameterClass, value);
+        } else {
+          return objectMapper.readValue(value, typeParameterClass);
+        }
+      } else {
+        return defaultValue;
+      }
+    } catch (Throwable t) {
+      log.error("Failed to resolve value for config key {}, using default value {}", key,
+          defaultValue, t);
+      return defaultValue;
     }
+  }
 
-    private T resolveValue() {
-        try {
-            String value = SparkOperatorConfManager.INSTANCE.getValue(key);
-            if (!enableDynamicOverride) {
-                value = SparkOperatorConfManager.INSTANCE.getInitialValue(key);
-            }
-            if (StringUtils.isNotEmpty(value)) {
-                if (typeParameterClass.isPrimitive() || typeParameterClass == String.class) {
-                    return (T) resolveValueToPrimitiveType(typeParameterClass, value);
-                } else {
-                    return objectMapper.readValue(value, typeParameterClass);
-                }
-            } else {
-                return defaultValue;
-            }
-        } catch (Throwable t) {
-            log.error("Failed to resolve value for config key {}, using default value {}", key,
-                    defaultValue, t);
-            return defaultValue;
-        }
+  public static Object resolveValueToPrimitiveType(Class clazz, String value) {
+    if (Boolean.class == clazz || Boolean.TYPE == clazz) {
+      return Boolean.parseBoolean(value);
     }
-
-    public static Object resolveValueToPrimitiveType(Class clazz, String value) {
-        if (Boolean.class == clazz || Boolean.TYPE == clazz) {
-            return Boolean.parseBoolean(value);
-        }
-        if (Byte.class == clazz || Byte.TYPE == clazz) {
-            return Byte.parseByte(value);
-        }
-        if (Short.class == clazz || Short.TYPE == clazz) {
-            return Short.parseShort(value);
-        }
-        if (Integer.class == clazz || Integer.TYPE == clazz) {
-            return Integer.parseInt(value);
-        }
-        if (Long.class == clazz || Long.TYPE == clazz) {
-            return Long.parseLong(value);
-        }
-        if (Float.class == clazz || Float.TYPE == clazz) {
-            return Float.parseFloat(value);
-        }
-        if (Double.class == clazz || Double.TYPE == clazz) {
-            return Double.parseDouble(value);
-        }
-        return value;
+    if (Byte.class == clazz || Byte.TYPE == clazz) {
+      return Byte.parseByte(value);
     }
+    if (Short.class == clazz || Short.TYPE == clazz) {
+      return Short.parseShort(value);
+    }
+    if (Integer.class == clazz || Integer.TYPE == clazz) {
+      return Integer.parseInt(value);
+    }
+    if (Long.class == clazz || Long.TYPE == clazz) {
+      return Long.parseLong(value);
+    }
+    if (Float.class == clazz || Float.TYPE == clazz) {
+      return Float.parseFloat(value);
+    }
+    if (Double.class == clazz || Double.TYPE == clazz) {
+      return Double.parseDouble(value);
+    }
+    return value;
+  }
 }

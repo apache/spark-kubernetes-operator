@@ -20,12 +20,13 @@ package org.apache.spark.kubernetes.operator;
 
 import io.fabric8.kubernetes.api.model.Namespaced;
 import io.fabric8.kubernetes.client.CustomResource;
+
 import org.apache.spark.kubernetes.operator.spec.BaseSpec;
 import org.apache.spark.kubernetes.operator.status.BaseAttemptSummary;
 import org.apache.spark.kubernetes.operator.status.BaseState;
 import org.apache.spark.kubernetes.operator.status.BaseStatus;
 
 public class BaseResource<S, AS extends BaseAttemptSummary, STATE extends BaseState<S>,
-        SPEC extends BaseSpec, STATUS extends BaseStatus<S, STATE, AS>>
-        extends CustomResource<SPEC, STATUS> implements Namespaced {
+    SPEC extends BaseSpec, STATUS extends BaseStatus<S, STATE, AS>>
+    extends CustomResource<SPEC, STATUS> implements Namespaced {
 }

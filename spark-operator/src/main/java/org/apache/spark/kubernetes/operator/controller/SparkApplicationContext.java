@@ -18,6 +18,11 @@
 
 package org.apache.spark.kubernetes.operator.controller;
 
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -25,14 +30,10 @@ import io.javaoperatorsdk.operator.api.reconciler.Context;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
 import org.apache.spark.kubernetes.operator.ApplicationResourceSpec;
 import org.apache.spark.kubernetes.operator.SparkApplication;
 import org.apache.spark.kubernetes.operator.reconciler.SparkApplicationReconcileUtils;
-
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 import static org.apache.spark.kubernetes.operator.reconciler.SparkReconcilerUtils.driverLabels;
 import static org.apache.spark.kubernetes.operator.reconciler.SparkReconcilerUtils.executorLabels;
@@ -44,48 +45,48 @@ import static org.apache.spark.kubernetes.operator.reconciler.SparkReconcilerUti
 @RequiredArgsConstructor
 @Slf4j
 public class SparkApplicationContext {
-    @Getter
-    private final SparkApplication sparkApplication;
-    private final Context<?> josdkContext;
-    private ApplicationResourceSpec secondaryResourceSpec;
+  @Getter
+  private final SparkApplication sparkApplication;
+  private final Context<?> josdkContext;
+  private ApplicationResourceSpec secondaryResourceSpec;
 
-    public Optional<Pod> getDriverPod() {
-        return josdkContext.getSecondaryResourcesAsStream(Pod.class)
-                .filter(p -> p.getMetadata().getLabels().entrySet()
-                        .containsAll(driverLabels(sparkApplication).entrySet()))
-                .findAny();
-    }
+  public Optional<Pod> getDriverPod() {
+    return josdkContext.getSecondaryResourcesAsStream(Pod.class)
+        .filter(p -> p.getMetadata().getLabels().entrySet()
+            .containsAll(driverLabels(sparkApplication).entrySet()))
+        .findAny();
+  }
 
-    public Set<Pod> getExecutorsForApplication() {
-        return josdkContext.getSecondaryResourcesAsStream(Pod.class)
-                .filter(p -> p.getMetadata().getLabels().entrySet()
-                        .containsAll(executorLabels(sparkApplication).entrySet()))
-                .collect(Collectors.toSet());
-    }
+  public Set<Pod> getExecutorsForApplication() {
+    return josdkContext.getSecondaryResourcesAsStream(Pod.class)
+        .filter(p -> p.getMetadata().getLabels().entrySet()
+            .containsAll(executorLabels(sparkApplication).entrySet()))
+        .collect(Collectors.toSet());
+  }
 
-    private ApplicationResourceSpec getSecondaryResourceSpec() {
-        synchronized (this) {
-            if (secondaryResourceSpec == null) {
-                secondaryResourceSpec = SparkApplicationReconcileUtils.buildResourceSpec(
-                        sparkApplication, josdkContext.getClient());
-            }
-            return secondaryResourceSpec;
-        }
+  private ApplicationResourceSpec getSecondaryResourceSpec() {
+    synchronized (this) {
+      if (secondaryResourceSpec == null) {
+        secondaryResourceSpec = SparkApplicationReconcileUtils.buildResourceSpec(
+            sparkApplication, josdkContext.getClient());
+      }
+      return secondaryResourceSpec;
     }
+  }
 
-    public KubernetesClient getClient() {
-        return josdkContext.getClient();
-    }
+  public KubernetesClient getClient() {
+    return josdkContext.getClient();
+  }
 
-    public List<HasMetadata> getDriverPreResourcesSpec() {
-        return getSecondaryResourceSpec().getDriverPreResources();
-    }
+  public List<HasMetadata> getDriverPreResourcesSpec() {
+    return getSecondaryResourceSpec().getDriverPreResources();
+  }
 
-    public Pod getDriverPodSpec() {
-        return getSecondaryResourceSpec().getConfiguredPod();
-    }
+  public Pod getDriverPodSpec() {
+    return getSecondaryResourceSpec().getConfiguredPod();
+  }
 
-    public List<HasMetadata> getDriverResourcesSpec() {
-        return getSecondaryResourceSpec().getDriverResources();
-    }
+  public List<HasMetadata> getDriverResourcesSpec() {
+    return getSecondaryResourceSpec().getDriverResources();
+  }
 }

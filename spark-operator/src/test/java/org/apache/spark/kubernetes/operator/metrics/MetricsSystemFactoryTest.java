@@ -18,35 +18,35 @@
 
 package org.apache.spark.kubernetes.operator.metrics;
 
+import java.util.Properties;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-
-import java.util.Properties;
 
 import static org.apache.spark.kubernetes.operator.metrics.MetricsSystemFactory.parseSinkProperties;
 import static org.junit.Assert.assertThrows;
 
 class MetricsSystemFactoryTest {
 
-    @Test
-    void testMetricsSystemFailFastWithNoClassFullName() {
-        Properties properties = new Properties();
-        properties.put("sink.mocksink.period", "10");
-        properties.put("sink.console.class", "org.apache.spark.metrics.sink.ConsoleSink");
-        RuntimeException e =
-                assertThrows(RuntimeException.class, () -> parseSinkProperties(properties));
-        Assertions.assertEquals(
-                "mocksink provides properties, but does not provide full class name",
-                e.getMessage());
-    }
+  @Test
+  void testMetricsSystemFailFastWithNoClassFullName() {
+    Properties properties = new Properties();
+    properties.put("sink.mocksink.period", "10");
+    properties.put("sink.console.class", "org.apache.spark.metrics.sink.ConsoleSink");
+    RuntimeException e =
+        assertThrows(RuntimeException.class, () -> parseSinkProperties(properties));
+    Assertions.assertEquals(
+        "mocksink provides properties, but does not provide full class name",
+        e.getMessage());
+  }
 
-    @Test
-    void testMetricsSystemFailFastWithNotFoundClassName() {
-        Properties properties = new Properties();
-        properties.put("sink.console.class", "org.apache.spark.metrics.sink.FooSink");
-        RuntimeException e =
-                assertThrows(RuntimeException.class, () -> parseSinkProperties(properties));
-        Assertions.assertEquals("Fail to find class org.apache.spark.metrics.sink.FooSink",
-                e.getMessage());
-    }
+  @Test
+  void testMetricsSystemFailFastWithNotFoundClassName() {
+    Properties properties = new Properties();
+    properties.put("sink.console.class", "org.apache.spark.metrics.sink.FooSink");
+    RuntimeException e =
+        assertThrows(RuntimeException.class, () -> parseSinkProperties(properties));
+    Assertions.assertEquals("Fail to find class org.apache.spark.metrics.sink.FooSink",
+        e.getMessage());
+  }
 }

@@ -18,14 +18,15 @@
 
 package org.apache.spark.kubernetes.operator.reconciler.reconcilesteps;
 
+import java.util.Optional;
+
 import io.fabric8.kubernetes.api.model.Pod;
+
 import org.apache.spark.kubernetes.operator.controller.SparkApplicationContext;
 import org.apache.spark.kubernetes.operator.reconciler.ReconcileProgress;
 import org.apache.spark.kubernetes.operator.status.ApplicationState;
 import org.apache.spark.kubernetes.operator.status.ApplicationStateSummary;
 import org.apache.spark.kubernetes.operator.utils.StatusRecorder;
-
-import java.util.Optional;
 
 import static org.apache.spark.kubernetes.operator.Constants.UnknownStateMessage;
 
@@ -33,15 +34,15 @@ import static org.apache.spark.kubernetes.operator.Constants.UnknownStateMessage
  * Abnormal state handler
  */
 public class UnknownStateStep extends AppReconcileStep {
-    @Override
-    public ReconcileProgress reconcile(SparkApplicationContext context,
-                                       StatusRecorder statusRecorder) {
-        ApplicationState state =
-                new ApplicationState(ApplicationStateSummary.FAILED, UnknownStateMessage);
-        Optional<Pod> driver = context.getDriverPod();
-        driver.ifPresent(pod -> state.setLastObservedDriverStatus(pod.getStatus()));
-        statusRecorder.persistStatus(context,
-                context.getSparkApplication().getStatus().appendNewState(state));
-        return ReconcileProgress.completeAndImmediateRequeue();
-    }
+  @Override
+  public ReconcileProgress reconcile(SparkApplicationContext context,
+                                     StatusRecorder statusRecorder) {
+    ApplicationState state =
+        new ApplicationState(ApplicationStateSummary.FAILED, UnknownStateMessage);
+    Optional<Pod> driver = context.getDriverPod();
+    driver.ifPresent(pod -> state.setLastObservedDriverStatus(pod.getStatus()));
+    statusRecorder.persistStatus(context,
+        context.getSparkApplication().getStatus().appendNewState(state));
+    return ReconcileProgress.completeAndImmediateRequeue();
+  }
 }

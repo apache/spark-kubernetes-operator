@@ -18,9 +18,9 @@
 
 package org.apache.spark.kubernetes.operator.reconciler;
 
-import lombok.Data;
-
 import java.time.Duration;
+
+import lombok.Data;
 
 import static org.apache.spark.kubernetes.operator.config.SparkOperatorConf.AppReconcileIntervalSeconds;
 
@@ -28,39 +28,39 @@ import static org.apache.spark.kubernetes.operator.config.SparkOperatorConf.AppR
  * Represents the progress of a reconcile request
  * - completed : is set to true if there's no more actions expected in the same reconciliation
  * - requeue : describes whether the mentioned resource need to be reconciled again - and if so,
- *     the frequency
+ * the frequency
  */
 @Data
 public class ReconcileProgress {
-    private boolean completed;
-    boolean requeue;
-    private Duration requeueAfterDuration;
+  private boolean completed;
+  boolean requeue;
+  private Duration requeueAfterDuration;
 
-    private ReconcileProgress(boolean completed, boolean requeue, Duration requeueAfterDuration) {
-        this.completed = completed;
-        this.requeue = requeue;
-        this.requeueAfterDuration = requeueAfterDuration;
-    }
+  private ReconcileProgress(boolean completed, boolean requeue, Duration requeueAfterDuration) {
+    this.completed = completed;
+    this.requeue = requeue;
+    this.requeueAfterDuration = requeueAfterDuration;
+  }
 
-    public static ReconcileProgress proceed() {
-        return new ReconcileProgress(false, true,
-                Duration.ofSeconds(AppReconcileIntervalSeconds.getValue()));
-    }
+  public static ReconcileProgress proceed() {
+    return new ReconcileProgress(false, true,
+        Duration.ofSeconds(AppReconcileIntervalSeconds.getValue()));
+  }
 
-    public static ReconcileProgress completeAndDefaultRequeue() {
-        return new ReconcileProgress(true, true,
-                Duration.ofSeconds(AppReconcileIntervalSeconds.getValue()));
-    }
+  public static ReconcileProgress completeAndDefaultRequeue() {
+    return new ReconcileProgress(true, true,
+        Duration.ofSeconds(AppReconcileIntervalSeconds.getValue()));
+  }
 
-    public static ReconcileProgress completeAndRequeueAfter(Duration requeueAfterDuration) {
-        return new ReconcileProgress(true, true, requeueAfterDuration);
-    }
+  public static ReconcileProgress completeAndRequeueAfter(Duration requeueAfterDuration) {
+    return new ReconcileProgress(true, true, requeueAfterDuration);
+  }
 
-    public static ReconcileProgress completeAndImmediateRequeue() {
-        return new ReconcileProgress(true, true, Duration.ZERO);
-    }
+  public static ReconcileProgress completeAndImmediateRequeue() {
+    return new ReconcileProgress(true, true, Duration.ZERO);
+  }
 
-    public static ReconcileProgress completeAndNoRequeue() {
-        return new ReconcileProgress(true, false, Duration.ZERO);
-    }
+  public static ReconcileProgress completeAndNoRequeue() {
+    return new ReconcileProgress(true, false, Duration.ZERO);
+  }
 }

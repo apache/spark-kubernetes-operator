@@ -25,6 +25,6 @@ import org.apache.spark.kubernetes.operator.status.BaseStatus;
  * Custom listeners, if added, would be listening to resource status change
  */
 public abstract class BaseStatusListener<STATUS extends BaseStatus<?, ?, ?>,
-        CR extends BaseResource<?, ?, ?, ?, STATUS>> {
-    public abstract void listenStatus(CR resource, STATUS prevStatus, STATUS updatedStatus);
+    CR extends BaseResource<?, ?, ?, ?, STATUS>> {
+  public abstract void listenStatus(CR resource, STATUS prevStatus, STATUS updatedStatus);
 }

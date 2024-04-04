@@ -18,21 +18,22 @@
 
 package org.apache.spark.kubernetes.operator.reconciler;
 
+import java.time.Instant;
+import java.util.Map;
+
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import org.apache.spark.kubernetes.operator.ApplicationClientWorker;
-import org.apache.spark.kubernetes.operator.ApplicationResourceSpec;
-import org.apache.spark.kubernetes.operator.SparkApplication;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
-import java.time.Instant;
-import java.util.Map;
+import org.apache.spark.kubernetes.operator.ApplicationClientWorker;
+import org.apache.spark.kubernetes.operator.ApplicationResourceSpec;
+import org.apache.spark.kubernetes.operator.SparkApplication;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -42,52 +43,53 @@ import static org.mockito.Mockito.when;
 
 class SparkApplicationReconcileUtilsTest {
 
-    @Test
-    void testForceDeleteEnabled() {
-        SparkApplication app = new SparkApplication();
-        app.getStatus().getCurrentState().setLastTransitionTime(
-                Instant.now().minusSeconds(5).toString());
-        app.getSpec().getApplicationTolerations().getApplicationTimeoutConfig()
-                .setForceTerminationGracePeriodMillis(3000L);
-        Assertions.assertTrue(SparkApplicationReconcileUtils.enableForceDelete(app));
+  @Test
+  void testForceDeleteEnabled() {
+    SparkApplication app = new SparkApplication();
+    app.getStatus().getCurrentState().setLastTransitionTime(
+        Instant.now().minusSeconds(5).toString());
+    app.getSpec().getApplicationTolerations().getApplicationTimeoutConfig()
+        .setForceTerminationGracePeriodMillis(3000L);
+    Assertions.assertTrue(SparkApplicationReconcileUtils.enableForceDelete(app));
+  }
+
+  @Test
+  void testBuildResourceSpecCoversBasicOverride() {
+    SparkApplication app = new SparkApplication();
+    app.setMetadata(new ObjectMetaBuilder()
+        .withNamespace("foo")
+        .withName("bar-app")
+        .withUid("uid")
+        .build());
+    KubernetesClient mockClient = mock(KubernetesClient.class);
+    Pod mockDriver = mock(Pod.class);
+    when(mockDriver.getMetadata()).thenReturn(new ObjectMeta());
+    try (MockedStatic<ApplicationClientWorker> worker =
+             Mockito.mockStatic(ApplicationClientWorker.class)) {
+      ApplicationResourceSpec mockSpec = mock(ApplicationResourceSpec.class);
+      when(mockSpec.getConfiguredPod()).thenReturn(mockDriver);
+      ArgumentCaptor<Map<String, String>> captor = ArgumentCaptor.forClass(Map.class);
+      worker.when(() -> ApplicationClientWorker.getResourceSpec(
+          any(), any(), captor.capture())).thenReturn(mockSpec);
+      ApplicationResourceSpec spec = SparkApplicationReconcileUtils.buildResourceSpec(app,
+          mockClient);
+      worker.verify(() -> ApplicationClientWorker.getResourceSpec(eq(app),
+          eq(mockClient), any()));
+      Map<String, String> props = captor.getValue();
+      Assertions.assertTrue(props.containsKey("spark.kubernetes.namespace"));
+      Assertions.assertEquals("foo", props.get("spark.kubernetes.namespace"));
+      ArgumentCaptor<ObjectMeta> metaArgumentCaptor =
+          ArgumentCaptor.forClass(ObjectMeta.class);
+      verify(mockDriver).setMetadata(metaArgumentCaptor.capture());
+      Assertions.assertEquals(mockSpec, spec);
+      ObjectMeta metaOverride = metaArgumentCaptor.getValue();
+      Assertions.assertEquals(1, metaOverride.getOwnerReferences().size());
+      Assertions.assertEquals("bar-app",
+          metaOverride.getOwnerReferences().get(0).getName());
+      Assertions.assertEquals("uid",
+          metaOverride.getOwnerReferences().get(0).getUid());
+      Assertions.assertEquals(app.getKind(),
+          metaOverride.getOwnerReferences().get(0).getKind());
     }
-    @Test
-    void testBuildResourceSpecCoversBasicOverride() {
-        SparkApplication app = new SparkApplication();
-        app.setMetadata(new ObjectMetaBuilder()
-                .withNamespace("foo")
-                .withName("bar-app")
-                .withUid("uid")
-                .build());
-        KubernetesClient mockClient = mock(KubernetesClient.class);
-        Pod mockDriver = mock(Pod.class);
-        when(mockDriver.getMetadata()).thenReturn(new ObjectMeta());
-        try (MockedStatic<ApplicationClientWorker> worker =
-                     Mockito.mockStatic(ApplicationClientWorker.class)) {
-            ApplicationResourceSpec mockSpec = mock(ApplicationResourceSpec.class);
-            when(mockSpec.getConfiguredPod()).thenReturn(mockDriver);
-            ArgumentCaptor<Map<String, String>> captor = ArgumentCaptor.forClass(Map.class);
-            worker.when(() -> ApplicationClientWorker.getResourceSpec(
-                    any(), any(), captor.capture())).thenReturn(mockSpec);
-            ApplicationResourceSpec spec = SparkApplicationReconcileUtils.buildResourceSpec(app,
-                    mockClient);
-            worker.verify(() -> ApplicationClientWorker.getResourceSpec(eq(app),
-                    eq(mockClient), any()));
-            Map<String, String> props = captor.getValue();
-            Assertions.assertTrue(props.containsKey("spark.kubernetes.namespace"));
-            Assertions.assertEquals("foo", props.get("spark.kubernetes.namespace"));
-            ArgumentCaptor<ObjectMeta> metaArgumentCaptor =
-                    ArgumentCaptor.forClass(ObjectMeta.class);
-            verify(mockDriver).setMetadata(metaArgumentCaptor.capture());
-            Assertions.assertEquals(mockSpec, spec);
-            ObjectMeta metaOverride = metaArgumentCaptor.getValue();
-            Assertions.assertEquals(1, metaOverride.getOwnerReferences().size());
-            Assertions.assertEquals("bar-app",
-                    metaOverride.getOwnerReferences().get(0).getName());
-            Assertions.assertEquals("uid",
-                    metaOverride.getOwnerReferences().get(0).getUid());
-            Assertions.assertEquals(app.getKind(),
-                    metaOverride.getOwnerReferences().get(0).getKind());
-        }
-    }
+  }
 }

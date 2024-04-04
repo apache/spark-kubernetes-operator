@@ -18,13 +18,14 @@
 
 package org.apache.spark.kubernetes.operator.reconciler.observers;
 
+import java.util.Optional;
+
 import io.fabric8.kubernetes.api.model.HasMetadata;
+
 import org.apache.spark.kubernetes.operator.spec.BaseSpec;
 import org.apache.spark.kubernetes.operator.status.BaseAttemptSummary;
 import org.apache.spark.kubernetes.operator.status.BaseState;
 import org.apache.spark.kubernetes.operator.status.BaseStatus;
-
-import java.util.Optional;
 
 /**
  * Observe given secondary resource, return state to be updated if applicable
@@ -32,12 +33,12 @@ import java.util.Optional;
  * status and update owner SparkApplication status if needed
  */
 public abstract class BaseSecondaryResourceObserver<S,
-        AS extends BaseAttemptSummary,
-        STATE extends BaseState<S>,
-        SPEC extends BaseSpec,
-        STATUS extends BaseStatus<S, STATE, AS>,
-        SR extends HasMetadata> {
-    public abstract Optional<STATE> observe(SR secondaryResource,
-                                            SPEC spec,
-                                            STATUS currentStatus);
+    AS extends BaseAttemptSummary,
+    STATE extends BaseState<S>,
+    SPEC extends BaseSpec,
+    STATUS extends BaseStatus<S, STATE, AS>,
+    SR extends HasMetadata> {
+  public abstract Optional<STATE> observe(SR secondaryResource,
+                                          SPEC spec,
+                                          STATUS currentStatus);
 }

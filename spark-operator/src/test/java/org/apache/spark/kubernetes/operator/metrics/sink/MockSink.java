@@ -18,51 +18,51 @@
 
 package org.apache.spark.kubernetes.operator.metrics.sink;
 
-import org.apache.spark.metrics.sink.Sink;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
 import com.codahale.metrics.MetricRegistry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import org.apache.spark.metrics.sink.Sink;
 
 @SuppressWarnings("PMD")
 public class MockSink implements Sink {
-    private static final Logger logger = LoggerFactory.getLogger(MockSink.class);
-    private Properties properties;
-    private MetricRegistry metricRegistry;
-    public static final String DEFAULT_UNIT = "SECONDS";
-    public static final int DEFAULT_PERIOD = 20;
-    public static final String KEY_PERIOD = "period";
-    public static final String KEY_UNIT = "unit";
+  private static final Logger logger = LoggerFactory.getLogger(MockSink.class);
+  private Properties properties;
+  private MetricRegistry metricRegistry;
+  public static final String DEFAULT_UNIT = "SECONDS";
+  public static final int DEFAULT_PERIOD = 20;
+  public static final String KEY_PERIOD = "period";
+  public static final String KEY_UNIT = "unit";
 
-    public int getPollPeriod() {
-        return Integer.parseInt((String) properties.getOrDefault(KEY_PERIOD, DEFAULT_PERIOD));
-    }
+  public int getPollPeriod() {
+    return Integer.parseInt((String) properties.getOrDefault(KEY_PERIOD, DEFAULT_PERIOD));
+  }
 
-    public TimeUnit getTimeUnit() {
-        return TimeUnit.valueOf((String) properties.getOrDefault(KEY_UNIT, DEFAULT_UNIT));
-    }
+  public TimeUnit getTimeUnit() {
+    return TimeUnit.valueOf((String) properties.getOrDefault(KEY_UNIT, DEFAULT_UNIT));
+  }
 
-    public MockSink(Properties properties, MetricRegistry metricRegistry) {
-        logger.info("Current properties: {}", properties);
-        this.properties = properties;
-        this.metricRegistry = metricRegistry;
-    }
+  public MockSink(Properties properties, MetricRegistry metricRegistry) {
+    logger.info("Current properties: {}", properties);
+    this.properties = properties;
+    this.metricRegistry = metricRegistry;
+  }
 
-    @Override
-    public void start() {
-        logger.info("Mock sink started");
-    }
+  @Override
+  public void start() {
+    logger.info("Mock sink started");
+  }
 
-    @Override
-    public void stop() {
-        logger.info("Mock sink stopped");
-    }
+  @Override
+  public void stop() {
+    logger.info("Mock sink stopped");
+  }
 
-    @Override
-    public void report() {
-        logger.info("Mock sink reported");
-    }
+  @Override
+  public void report() {
+    logger.info("Mock sink reported");
+  }
 }

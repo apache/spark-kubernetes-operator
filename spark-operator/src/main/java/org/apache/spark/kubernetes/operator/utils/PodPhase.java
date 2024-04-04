@@ -21,29 +21,29 @@ package org.apache.spark.kubernetes.operator.utils;
 import io.fabric8.kubernetes.api.model.Pod;
 
 public enum PodPhase {
-    // hope this is provided by k8s client in future
-    PENDING("pending"),
-    RUNNING("running"),
-    FAILED("failed"),
-    SUCCEEDED("succeeded"),
-    TERMINATING("terminating"),
-    UNKNOWN("unknown");
+  // hope this is provided by k8s client in future
+  PENDING("pending"),
+  RUNNING("running"),
+  FAILED("failed"),
+  SUCCEEDED("succeeded"),
+  TERMINATING("terminating"),
+  UNKNOWN("unknown");
 
-    private final String description;
+  private final String description;
 
-    PodPhase(String description) {
-        this.description = description;
-    }
+  PodPhase(String description) {
+    this.description = description;
+  }
 
-    public static PodPhase getPhase(final Pod pod) {
-        if (pod != null && pod.getStatus() != null) {
-            for (PodPhase podPhase : values()) {
-                if (podPhase.description.equalsIgnoreCase(pod.getStatus().getPhase())) {
-                    return podPhase;
-                }
-            }
+  public static PodPhase getPhase(final Pod pod) {
+    if (pod != null && pod.getStatus() != null) {
+      for (PodPhase podPhase : values()) {
+        if (podPhase.description.equalsIgnoreCase(pod.getStatus().getPhase())) {
+          return podPhase;
         }
-        return UNKNOWN;
+      }
     }
+    return UNKNOWN;
+  }
 }
 

@@ -28,45 +28,45 @@ import org.apache.spark.kubernetes.operator.status.ApplicationStateSummary;
  */
 public class ApplicationStatusUtils {
 
-    public static boolean isValidApplicationStatus(SparkApplication app) {
-        // null check
-        return app.getStatus() != null
-                && app.getStatus().getCurrentState() != null
-                && app.getStatus().getCurrentState().getCurrentStateSummary() != null;
-    }
+  public static boolean isValidApplicationStatus(SparkApplication app) {
+    // null check
+    return app.getStatus() != null
+        && app.getStatus().getCurrentState() != null
+        && app.getStatus().getCurrentState().getCurrentStateSummary() != null;
+  }
 
-    public static ApplicationState driverUnexpectedRemoved() {
-        return new ApplicationState(ApplicationStateSummary.FAILED,
-                Constants.DriverUnexpectedRemovedMessage);
-    }
+  public static ApplicationState driverUnexpectedRemoved() {
+    return new ApplicationState(ApplicationStateSummary.FAILED,
+        Constants.DriverUnexpectedRemovedMessage);
+  }
 
-    public static ApplicationState driverLaunchTimedOut() {
-        return new ApplicationState(ApplicationStateSummary.DRIVER_LAUNCH_TIMED_OUT,
-                Constants.DriverLaunchTimeoutMessage);
-    }
+  public static ApplicationState driverLaunchTimedOut() {
+    return new ApplicationState(ApplicationStateSummary.DRIVER_LAUNCH_TIMED_OUT,
+        Constants.DriverLaunchTimeoutMessage);
+  }
 
-    public static ApplicationState driverReadyTimedOut() {
-        return new ApplicationState(ApplicationStateSummary.SPARK_SESSION_INITIALIZATION_TIMED_OUT,
-                Constants.DriverLaunchTimeoutMessage);
-    }
+  public static ApplicationState driverReadyTimedOut() {
+    return new ApplicationState(ApplicationStateSummary.SPARK_SESSION_INITIALIZATION_TIMED_OUT,
+        Constants.DriverLaunchTimeoutMessage);
+  }
 
-    public static ApplicationState executorLaunchTimedOut() {
-        return new ApplicationState(ApplicationStateSummary.EXECUTORS_LAUNCH_TIMED_OUT,
-                Constants.ExecutorLaunchTimeoutMessage);
-    }
+  public static ApplicationState executorLaunchTimedOut() {
+    return new ApplicationState(ApplicationStateSummary.EXECUTORS_LAUNCH_TIMED_OUT,
+        Constants.ExecutorLaunchTimeoutMessage);
+  }
 
-    public static ApplicationState appCancelled() {
-        return new ApplicationState(ApplicationStateSummary.RESOURCE_RELEASED,
-                Constants.AppCancelledMessage);
-    }
+  public static ApplicationState appCancelled() {
+    return new ApplicationState(ApplicationStateSummary.RESOURCE_RELEASED,
+        Constants.AppCancelledMessage);
+  }
 
-    public static boolean hasReachedState(SparkApplication application,
-                                          ApplicationState stateToCheck) {
-        if (!isValidApplicationStatus(application)) {
-            return false;
-        }
-        return application.getStatus().getStateTransitionHistory().keySet().parallelStream()
-                .anyMatch(stateId -> stateToCheck.equals(
-                        application.getStatus().getStateTransitionHistory().get(stateId)));
+  public static boolean hasReachedState(SparkApplication application,
+                                        ApplicationState stateToCheck) {
+    if (!isValidApplicationStatus(application)) {
+      return false;
     }
+    return application.getStatus().getStateTransitionHistory().keySet().parallelStream()
+        .anyMatch(stateId -> stateToCheck.equals(
+            application.getStatus().getStateTransitionHistory().get(stateId)));
+  }
 }

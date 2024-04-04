@@ -18,6 +18,10 @@
 
 package org.apache.spark.kubernetes.operator.metrics;
 
+import java.lang.management.ManagementFactory;
+import java.util.HashMap;
+import java.util.Map;
+
 import com.codahale.metrics.Metric;
 import com.codahale.metrics.MetricSet;
 import com.codahale.metrics.jvm.BufferPoolMetricSet;
@@ -26,41 +30,37 @@ import com.codahale.metrics.jvm.GarbageCollectorMetricSet;
 import com.codahale.metrics.jvm.MemoryUsageGaugeSet;
 import com.codahale.metrics.jvm.ThreadStatesGaugeSet;
 
-import java.lang.management.ManagementFactory;
-import java.util.HashMap;
-import java.util.Map;
-
 public class JVMMetricSet implements MetricSet {
-    public static final String FILE_DESC_RATIO_OPEN_MAX = "fileDesc.ratio.open/max";
-    private final BufferPoolMetricSet bufferPoolMetricSet;
-    private final FileDescriptorRatioGauge fileDescriptorRatioGauge;
-    private final GarbageCollectorMetricSet garbageCollectorMetricSet;
-    private final MemoryUsageGaugeSet memoryUsageGaugeSet;
-    private final ThreadStatesGaugeSet threadStatesGaugeSet;
+  public static final String FILE_DESC_RATIO_OPEN_MAX = "fileDesc.ratio.open/max";
+  private final BufferPoolMetricSet bufferPoolMetricSet;
+  private final FileDescriptorRatioGauge fileDescriptorRatioGauge;
+  private final GarbageCollectorMetricSet garbageCollectorMetricSet;
+  private final MemoryUsageGaugeSet memoryUsageGaugeSet;
+  private final ThreadStatesGaugeSet threadStatesGaugeSet;
 
-    public JVMMetricSet() {
-        bufferPoolMetricSet = new BufferPoolMetricSet(ManagementFactory.getPlatformMBeanServer());
-        fileDescriptorRatioGauge = new FileDescriptorRatioGauge();
-        garbageCollectorMetricSet = new GarbageCollectorMetricSet();
-        memoryUsageGaugeSet = new MemoryUsageGaugeSet();
-        threadStatesGaugeSet = new ThreadStatesGaugeSet();
-    }
+  public JVMMetricSet() {
+    bufferPoolMetricSet = new BufferPoolMetricSet(ManagementFactory.getPlatformMBeanServer());
+    fileDescriptorRatioGauge = new FileDescriptorRatioGauge();
+    garbageCollectorMetricSet = new GarbageCollectorMetricSet();
+    memoryUsageGaugeSet = new MemoryUsageGaugeSet();
+    threadStatesGaugeSet = new ThreadStatesGaugeSet();
+  }
 
-    @Override
-    public Map<String, Metric> getMetrics() {
-        final Map<String, Metric> jvmMetrics = new HashMap<>();
-        putAllMetrics(jvmMetrics, bufferPoolMetricSet, "bufferPool");
-        jvmMetrics.put(FILE_DESC_RATIO_OPEN_MAX, fileDescriptorRatioGauge);
-        putAllMetrics(jvmMetrics, garbageCollectorMetricSet, "gc");
-        putAllMetrics(jvmMetrics, memoryUsageGaugeSet, "memoryUsage");
-        putAllMetrics(jvmMetrics, threadStatesGaugeSet, "threadStates");
-        return jvmMetrics;
-    }
+  @Override
+  public Map<String, Metric> getMetrics() {
+    final Map<String, Metric> jvmMetrics = new HashMap<>();
+    putAllMetrics(jvmMetrics, bufferPoolMetricSet, "bufferPool");
+    jvmMetrics.put(FILE_DESC_RATIO_OPEN_MAX, fileDescriptorRatioGauge);
+    putAllMetrics(jvmMetrics, garbageCollectorMetricSet, "gc");
+    putAllMetrics(jvmMetrics, memoryUsageGaugeSet, "memoryUsage");
+    putAllMetrics(jvmMetrics, threadStatesGaugeSet, "threadStates");
+    return jvmMetrics;
+  }
 
-    private void putAllMetrics(final Map<String, Metric> destination, final MetricSet origin,
-                               final String prefix) {
-        for (Map.Entry<String, Metric> entry : origin.getMetrics().entrySet()) {
-            destination.put(prefix + "." + entry.getKey(), entry.getValue());
-        }
+  private void putAllMetrics(final Map<String, Metric> destination, final MetricSet origin,
+                             final String prefix) {
+    for (Map.Entry<String, Metric> entry : origin.getMetrics().entrySet()) {
+      destination.put(prefix + "." + entry.getKey(), entry.getValue());
     }
+  }
 }

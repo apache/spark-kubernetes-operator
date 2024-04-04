@@ -33,5 +33,5 @@ import lombok.NoArgsConstructor;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class BaseApplicationTemplateSpec {
-    protected PodTemplateSpec podTemplateSpec;
+  protected PodTemplateSpec podTemplateSpec;
 }

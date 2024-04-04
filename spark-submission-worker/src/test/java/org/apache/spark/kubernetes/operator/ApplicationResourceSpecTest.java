@@ -18,6 +18,8 @@
 
 package org.apache.spark.kubernetes.operator;
 
+import java.util.Collections;
+
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerBuilder;
@@ -25,84 +27,83 @@ import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.api.model.Volume;
 import io.fabric8.kubernetes.api.model.VolumeMount;
-import org.apache.spark.SparkConf;
-import org.apache.spark.deploy.k8s.KubernetesDriverSpec;
-import org.apache.spark.deploy.k8s.SparkPod;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import scala.collection.immutable.HashMap;
 
-import java.util.Collections;
+import org.apache.spark.SparkConf;
+import org.apache.spark.deploy.k8s.KubernetesDriverSpec;
+import org.apache.spark.deploy.k8s.SparkPod;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class ApplicationResourceSpecTest {
 
-    @Test
-    void testDriverResourceIncludesConfigMap() {
-        ApplicationDriverConf mockConf = mock(ApplicationDriverConf.class);
-        when(mockConf.configMapNameDriver()).thenReturn("foo-configmap");
-        when(mockConf.sparkConf()).thenReturn(
-                new SparkConf().set("spark.kubernetes.namespace", "foo-namespace"));
+  @Test
+  void testDriverResourceIncludesConfigMap() {
+    ApplicationDriverConf mockConf = mock(ApplicationDriverConf.class);
+    when(mockConf.configMapNameDriver()).thenReturn("foo-configmap");
+    when(mockConf.sparkConf()).thenReturn(
+        new SparkConf().set("spark.kubernetes.namespace", "foo-namespace"));
 
-        KubernetesDriverSpec mockSpec = mock(KubernetesDriverSpec.class);
-        Container container = new ContainerBuilder()
-                .withName("foo-container")
-                .addNewVolumeMount()
-                .withName("placeholder")
-                .endVolumeMount()
-                .build();
-        Pod pod = new PodBuilder()
-                .withNewMetadata()
-                .endMetadata()
-                .withNewSpec()
-                .addNewContainer()
-                .withName("placeholder")
-                .endContainer()
-                .addNewVolume()
-                .withName("placeholder")
-                .endVolume()
-                .endSpec()
-                .build();
-        SparkPod sparkPod = new SparkPod(pod, container);
-        when(mockSpec.driverKubernetesResources()).thenReturn(
-                scala.collection.JavaConverters.asScalaBuffer(Collections.emptyList()));
-        when(mockSpec.driverPreKubernetesResources()).thenReturn(
-                scala.collection.JavaConverters.asScalaBuffer(Collections.emptyList()));
-        when(mockSpec.pod()).thenReturn(sparkPod);
-        when(mockSpec.systemProperties()).thenReturn(new HashMap<>());
+    KubernetesDriverSpec mockSpec = mock(KubernetesDriverSpec.class);
+    Container container = new ContainerBuilder()
+        .withName("foo-container")
+        .addNewVolumeMount()
+        .withName("placeholder")
+        .endVolumeMount()
+        .build();
+    Pod pod = new PodBuilder()
+        .withNewMetadata()
+        .endMetadata()
+        .withNewSpec()
+        .addNewContainer()
+        .withName("placeholder")
+        .endContainer()
+        .addNewVolume()
+        .withName("placeholder")
+        .endVolume()
+        .endSpec()
+        .build();
+    SparkPod sparkPod = new SparkPod(pod, container);
+    when(mockSpec.driverKubernetesResources()).thenReturn(
+        scala.collection.JavaConverters.asScalaBuffer(Collections.emptyList()));
+    when(mockSpec.driverPreKubernetesResources()).thenReturn(
+        scala.collection.JavaConverters.asScalaBuffer(Collections.emptyList()));
+    when(mockSpec.pod()).thenReturn(sparkPod);
+    when(mockSpec.systemProperties()).thenReturn(new HashMap<>());
 
-        ApplicationResourceSpec applicationResourceSpec =
-                new ApplicationResourceSpec(mockConf, mockSpec);
+    ApplicationResourceSpec applicationResourceSpec =
+        new ApplicationResourceSpec(mockConf, mockSpec);
 
-        Assertions.assertEquals(1, applicationResourceSpec.getDriverResources().size());
-        Assertions.assertEquals(ConfigMap.class,
-                applicationResourceSpec.getDriverResources().get(0).getClass());
+    Assertions.assertEquals(1, applicationResourceSpec.getDriverResources().size());
+    Assertions.assertEquals(ConfigMap.class,
+        applicationResourceSpec.getDriverResources().get(0).getClass());
 
-        ConfigMap proposedConfigMap =
-                (ConfigMap) applicationResourceSpec.getDriverResources().get(0);
-        Assertions.assertEquals("foo-configmap", proposedConfigMap.getMetadata().getName());
-        Assertions.assertEquals("foo-namespace",
-                proposedConfigMap.getData().get("spark.kubernetes.namespace"));
-        Assertions.assertEquals("foo-namespace", proposedConfigMap.getMetadata().getNamespace());
+    ConfigMap proposedConfigMap =
+        (ConfigMap) applicationResourceSpec.getDriverResources().get(0);
+    Assertions.assertEquals("foo-configmap", proposedConfigMap.getMetadata().getName());
+    Assertions.assertEquals("foo-namespace",
+        proposedConfigMap.getData().get("spark.kubernetes.namespace"));
+    Assertions.assertEquals("foo-namespace", proposedConfigMap.getMetadata().getNamespace());
 
-        Assertions.assertEquals(2,
-                applicationResourceSpec.getConfiguredPod().getSpec().getVolumes().size());
-        Volume proposedConfigVolume =
-                applicationResourceSpec.getConfiguredPod().getSpec().getVolumes().get(1);
-        Assertions.assertEquals("foo-configmap", proposedConfigVolume.getConfigMap().getName());
+    Assertions.assertEquals(2,
+        applicationResourceSpec.getConfiguredPod().getSpec().getVolumes().size());
+    Volume proposedConfigVolume =
+        applicationResourceSpec.getConfiguredPod().getSpec().getVolumes().get(1);
+    Assertions.assertEquals("foo-configmap", proposedConfigVolume.getConfigMap().getName());
 
-        Assertions.assertEquals(2,
-                applicationResourceSpec.getConfiguredPod().getSpec().getContainers().size());
-        Assertions.assertEquals(2,
-                applicationResourceSpec.getConfiguredPod().getSpec().getContainers().get(1)
-                        .getVolumeMounts().size());
-        VolumeMount proposedConfigVolumeMount =
-                applicationResourceSpec.getConfiguredPod().getSpec().getContainers().get(1)
-                        .getVolumeMounts().get(1);
-        Assertions.assertEquals(proposedConfigVolume.getName(),
-                proposedConfigVolumeMount.getName());
-    }
+    Assertions.assertEquals(2,
+        applicationResourceSpec.getConfiguredPod().getSpec().getContainers().size());
+    Assertions.assertEquals(2,
+        applicationResourceSpec.getConfiguredPod().getSpec().getContainers().get(1)
+            .getVolumeMounts().size());
+    VolumeMount proposedConfigVolumeMount =
+        applicationResourceSpec.getConfiguredPod().getSpec().getContainers().get(1)
+            .getVolumeMounts().get(1);
+    Assertions.assertEquals(proposedConfigVolume.getName(),
+        proposedConfigVolumeMount.getName());
+  }
 
 }

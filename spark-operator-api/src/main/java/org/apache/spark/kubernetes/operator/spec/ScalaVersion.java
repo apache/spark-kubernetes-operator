@@ -19,6 +19,6 @@
 package org.apache.spark.kubernetes.operator.spec;
 
 public enum ScalaVersion {
-    v2_12,
-    v2_13
+  v2_12,
+  v2_13
 }

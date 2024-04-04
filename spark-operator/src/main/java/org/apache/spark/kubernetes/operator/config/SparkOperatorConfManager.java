@@ -18,13 +18,13 @@
 
 package org.apache.spark.kubernetes.operator.config;
 
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
-
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.Map;
 import java.util.Properties;
+
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * Loads ConfigOption from properties file. In addition, loads hot properties override
@@ -32,71 +32,71 @@ import java.util.Properties;
  */
 @Slf4j
 public class SparkOperatorConfManager {
-    public static final String INITIAL_CONFIG_FILE_PATH =
-            "/opt/spark-operator/conf/spark-operator.properties";
+  public static final String INITIAL_CONFIG_FILE_PATH =
+      "/opt/spark-operator/conf/spark-operator.properties";
 
-    public static final String METRICS_CONFIG_FILE_PATH =
-            "/opt/spark-operator/conf/metrics.properties";
+  public static final String METRICS_CONFIG_FILE_PATH =
+      "/opt/spark-operator/conf/metrics.properties";
 
-    public static final String INITIAL_CONFIG_FILE_PATH_PROPS_KEY =
-            "spark.operator.base.property.file.name";
+  public static final String INITIAL_CONFIG_FILE_PATH_PROPS_KEY =
+      "spark.operator.base.property.file.name";
 
-    public static final String METRICS_CONFIG_FILE_PATH_PROPS_KEY =
-            "spark.operator.metrics.property.file.name";
+  public static final String METRICS_CONFIG_FILE_PATH_PROPS_KEY =
+      "spark.operator.metrics.property.file.name";
 
-    public static final SparkOperatorConfManager INSTANCE = new SparkOperatorConfManager();
-    protected final Properties initialConfig;
-    protected final Properties metricsConfig;
-    protected Properties configOverrides;
+  public static final SparkOperatorConfManager INSTANCE = new SparkOperatorConfManager();
+  protected final Properties initialConfig;
+  protected final Properties metricsConfig;
+  protected Properties configOverrides;
 
-    protected SparkOperatorConfManager() {
-        this.initialConfig = new Properties();
-        this.configOverrides = new Properties();
-        this.metricsConfig = new Properties();
-        initialize();
+  protected SparkOperatorConfManager() {
+    this.initialConfig = new Properties();
+    this.configOverrides = new Properties();
+    this.metricsConfig = new Properties();
+    initialize();
+  }
+
+  public String getValue(String key) {
+    String currentValue = configOverrides.getProperty(key);
+    return StringUtils.isEmpty(currentValue) ? getInitialValue(key) : currentValue;
+  }
+
+  public String getInitialValue(String key) {
+    return initialConfig.getProperty(key);
+  }
+
+  public void refresh(Map<String, String> updatedConfig) {
+    synchronized (this) {
+      this.configOverrides = new Properties();
+      configOverrides.putAll(updatedConfig);
     }
+  }
 
-    public String getValue(String key) {
-        String currentValue = configOverrides.getProperty(key);
-        return StringUtils.isEmpty(currentValue) ? getInitialValue(key) : currentValue;
-    }
+  public Properties getMetricsProperties() {
+    return metricsConfig;
+  }
 
-    public String getInitialValue(String key) {
-        return initialConfig.getProperty(key);
-    }
+  private void initialize() {
+    initialConfig.putAll(System.getProperties());
+    Properties properties = getProperties(
+        System.getProperty(INITIAL_CONFIG_FILE_PATH_PROPS_KEY, INITIAL_CONFIG_FILE_PATH));
+    initialConfig.putAll(properties);
+    initializeMetricsProperties();
+  }
 
-    public void refresh(Map<String, String> updatedConfig) {
-        synchronized (this) {
-            this.configOverrides = new Properties();
-            configOverrides.putAll(updatedConfig);
-        }
-    }
+  private void initializeMetricsProperties() {
+    Properties properties = getProperties(
+        System.getProperty(METRICS_CONFIG_FILE_PATH_PROPS_KEY, METRICS_CONFIG_FILE_PATH));
+    metricsConfig.putAll(properties);
+  }
 
-    public Properties getMetricsProperties() {
-        return metricsConfig;
+  private Properties getProperties(String filePath) {
+    Properties properties = new Properties();
+    try (InputStream inputStream = new FileInputStream(filePath)) {
+      properties.load(inputStream);
+    } catch (Exception e) {
+      log.error("Failed to load properties from {}.", filePath, e);
     }
-
-    private void initialize() {
-        initialConfig.putAll(System.getProperties());
-        Properties properties = getProperties(
-                System.getProperty(INITIAL_CONFIG_FILE_PATH_PROPS_KEY, INITIAL_CONFIG_FILE_PATH));
-        initialConfig.putAll(properties);
-        initializeMetricsProperties();
-    }
-
-    private void initializeMetricsProperties() {
-        Properties properties = getProperties(
-                System.getProperty(METRICS_CONFIG_FILE_PATH_PROPS_KEY, METRICS_CONFIG_FILE_PATH));
-        metricsConfig.putAll(properties);
-    }
-
-    private Properties getProperties(String filePath) {
-        Properties properties = new Properties();
-        try (InputStream inputStream = new FileInputStream(filePath)) {
-            properties.load(inputStream);
-        } catch (Exception e) {
-            log.error("Failed to load properties from {}.", filePath, e);
-        }
-        return properties;
-    }
+    return properties;
+  }
 }

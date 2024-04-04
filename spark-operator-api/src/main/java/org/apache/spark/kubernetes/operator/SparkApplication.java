@@ -24,6 +24,7 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import io.fabric8.kubernetes.model.annotation.Group;
 import io.fabric8.kubernetes.model.annotation.ShortNames;
 import io.fabric8.kubernetes.model.annotation.Version;
+
 import org.apache.spark.kubernetes.operator.spec.ApplicationSpec;
 import org.apache.spark.kubernetes.operator.status.ApplicationAttemptSummary;
 import org.apache.spark.kubernetes.operator.status.ApplicationState;
@@ -37,15 +38,15 @@ import org.apache.spark.kubernetes.operator.status.ApplicationStatus;
 @ShortNames({"sparkapp"})
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class SparkApplication extends
-        BaseResource<ApplicationStateSummary, ApplicationAttemptSummary, ApplicationState,
-                ApplicationSpec, ApplicationStatus> {
-    @Override
-    public ApplicationStatus initStatus() {
-        return new ApplicationStatus();
-    }
+    BaseResource<ApplicationStateSummary, ApplicationAttemptSummary, ApplicationState,
+        ApplicationSpec, ApplicationStatus> {
+  @Override
+  public ApplicationStatus initStatus() {
+    return new ApplicationStatus();
+  }
 
-    @Override
-    public ApplicationSpec initSpec() {
-        return new ApplicationSpec();
-    }
+  @Override
+  public ApplicationSpec initSpec() {
+    return new ApplicationSpec();
+  }
 }

@@ -17,42 +17,43 @@
 
 package org.apache.spark.kubernetes.operator.utils;
 
-import io.fabric8.kubernetes.api.model.ObjectMeta;
-import org.apache.spark.kubernetes.operator.SparkApplication;
-
 import java.io.File;
 import java.util.Map;
+
+import io.fabric8.kubernetes.api.model.ObjectMeta;
+
+import org.apache.spark.kubernetes.operator.SparkApplication;
 
 import static org.apache.spark.kubernetes.operator.Constants.SENTINEL_LABEL;
 
 public class TestUtils {
-    public static SparkApplication createMockDeployment(String namespace) {
-        var cr = new SparkApplication();
-        cr.setKind("org.apache.spark/v1alpha1");
-        cr.setApiVersion("SparkApplication");
-        cr.setSpec(cr.initSpec());
-        var meta = new ObjectMeta();
-        meta.setGeneration(0L);
-        meta.setLabels(Map.of(SENTINEL_LABEL, "true"));
-        meta.setName("sentinel");
-        meta.setNamespace(namespace);
-        cr.setMetadata(meta);
-        return cr;
-    }
+  public static SparkApplication createMockDeployment(String namespace) {
+    var cr = new SparkApplication();
+    cr.setKind("org.apache.spark/v1alpha1");
+    cr.setApiVersion("SparkApplication");
+    cr.setSpec(cr.initSpec());
+    var meta = new ObjectMeta();
+    meta.setGeneration(0L);
+    meta.setLabels(Map.of(SENTINEL_LABEL, "true"));
+    meta.setName("sentinel");
+    meta.setNamespace(namespace);
+    cr.setMetadata(meta);
+    return cr;
+  }
 
-    public static void cleanPropertiesFile(String filePath) {
-        File myObj = new File(filePath);
-        if (!myObj.delete()) {
-            throw new RuntimeException("Failed to clean properties file: " + filePath);
-        }
+  public static void cleanPropertiesFile(String filePath) {
+    File myObj = new File(filePath);
+    if (!myObj.delete()) {
+      throw new RuntimeException("Failed to clean properties file: " + filePath);
     }
+  }
 
-    public static boolean notTimedOut(long startTime, long maxWaitTimeInMills) {
-        long elapsedTimeInMills = calculateElapsedTimeInMills(startTime);
-        return elapsedTimeInMills < maxWaitTimeInMills;
-    }
+  public static boolean notTimedOut(long startTime, long maxWaitTimeInMills) {
+    long elapsedTimeInMills = calculateElapsedTimeInMills(startTime);
+    return elapsedTimeInMills < maxWaitTimeInMills;
+  }
 
-    public static long calculateElapsedTimeInMills(long startTime) {
-        return System.currentTimeMillis() - startTime;
-    }
+  public static long calculateElapsedTimeInMills(long startTime) {
+    return System.currentTimeMillis() - startTime;
+  }
 }

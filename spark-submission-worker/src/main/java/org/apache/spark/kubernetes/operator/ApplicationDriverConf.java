@@ -18,48 +18,49 @@
 
 package org.apache.spark.kubernetes.operator;
 
+import scala.Option;
+
 import org.apache.spark.SparkConf;
 import org.apache.spark.deploy.k8s.Config;
 import org.apache.spark.deploy.k8s.KubernetesDriverConf;
 import org.apache.spark.deploy.k8s.KubernetesVolumeUtils;
 import org.apache.spark.deploy.k8s.submit.KubernetesClientUtils;
 import org.apache.spark.deploy.k8s.submit.MainAppResource;
-import scala.Option;
 
 public class ApplicationDriverConf extends KubernetesDriverConf {
-    private ApplicationDriverConf(SparkConf sparkConf,
-                                  String appId,
-                                  MainAppResource mainAppResource,
-                                  String mainClass,
-                                  String[] appArgs,
-                                  Option<String> proxyUser) {
-        super(sparkConf, appId, mainAppResource, mainClass, appArgs, proxyUser);
-    }
+  private ApplicationDriverConf(SparkConf sparkConf,
+                                String appId,
+                                MainAppResource mainAppResource,
+                                String mainClass,
+                                String[] appArgs,
+                                Option<String> proxyUser) {
+    super(sparkConf, appId, mainAppResource, mainClass, appArgs, proxyUser);
+  }
 
-    public static ApplicationDriverConf create(SparkConf sparkConf,
-                                               String appId,
-                                               MainAppResource mainAppResource,
-                                               String mainClass,
-                                               String[] appArgs,
-                                               Option<String> proxyUser) {
-        // pre-create check only
-        KubernetesVolumeUtils.parseVolumesWithPrefix(sparkConf,
-                Config.KUBERNETES_EXECUTOR_VOLUMES_PREFIX());
-        return new ApplicationDriverConf(sparkConf, appId, mainAppResource, mainClass, appArgs,
-                proxyUser);
-    }
+  public static ApplicationDriverConf create(SparkConf sparkConf,
+                                             String appId,
+                                             MainAppResource mainAppResource,
+                                             String mainClass,
+                                             String[] appArgs,
+                                             Option<String> proxyUser) {
+    // pre-create check only
+    KubernetesVolumeUtils.parseVolumesWithPrefix(sparkConf,
+        Config.KUBERNETES_EXECUTOR_VOLUMES_PREFIX());
+    return new ApplicationDriverConf(sparkConf, appId, mainAppResource, mainClass, appArgs,
+        proxyUser);
+  }
 
-    /**
-     * Application managed by operator has a deterministic prefix
-     */
-    @Override
-    public String resourceNamePrefix() {
-        return sparkConf().getOption(Config.KUBERNETES_DRIVER_POD_NAME_PREFIX().key()).isEmpty()
-                ? appId() : sparkConf().get(Config.KUBERNETES_DRIVER_POD_NAME_PREFIX().key());
-    }
+  /**
+   * Application managed by operator has a deterministic prefix
+   */
+  @Override
+  public String resourceNamePrefix() {
+    return sparkConf().getOption(Config.KUBERNETES_DRIVER_POD_NAME_PREFIX().key()).isEmpty()
+        ? appId() : sparkConf().get(Config.KUBERNETES_DRIVER_POD_NAME_PREFIX().key());
+  }
 
-    public String configMapNameDriver() {
-        return KubernetesClientUtils.configMapName(
-                String.format("spark-drv-%s", resourceNamePrefix()));
-    }
+  public String configMapNameDriver() {
+    return KubernetesClientUtils.configMapName(
+        String.format("spark-drv-%s", resourceNamePrefix()));
+  }
 }

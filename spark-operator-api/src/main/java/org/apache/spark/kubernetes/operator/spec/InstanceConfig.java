@@ -43,12 +43,12 @@ import lombok.NoArgsConstructor;
  * Spark would try to bring up 10 executors as defined in SparkConf. In addition, from SparkApp
  * perspective,
  * + If Spark app acquires less than 5 executors in given tine window
- *   (.spec.applicationTolerations.applicationTimeoutConfig.executorStartTimeoutMillis) after
- *   submitted, it would be shut down proactively in order to avoid resource deadlock.
+ * (.spec.applicationTolerations.applicationTimeoutConfig.executorStartTimeoutMillis) after
+ * submitted, it would be shut down proactively in order to avoid resource deadlock.
  * + Spark app would be marked as 'RUNNING_WITH_PARTIAL_CAPACITY' if it loses executors after
- *   successfully start up.
+ * successfully start up.
  * + Spark app would be marked as 'RUNNING_HEALTHY' if it has at least min executors after
- *   successfully start up.
+ * successfully start up.
  */
 @Data
 @NoArgsConstructor
@@ -57,10 +57,10 @@ import lombok.NoArgsConstructor;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class InstanceConfig {
-    @Builder.Default
-    protected long initExecutors = 0L;
-    @Builder.Default
-    protected long minExecutors = 0L;
-    @Builder.Default
-    protected long maxExecutors = 0L;
+  @Builder.Default
+  protected long initExecutors = 0L;
+  @Builder.Default
+  protected long minExecutors = 0L;
+  @Builder.Default
+  protected long maxExecutors = 0L;
 }

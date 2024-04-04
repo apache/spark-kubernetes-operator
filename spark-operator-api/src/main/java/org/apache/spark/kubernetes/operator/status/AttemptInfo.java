@@ -32,10 +32,10 @@ import lombok.NoArgsConstructor;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class AttemptInfo {
-    @Builder.Default
-    protected final Long id = 0L;
+  @Builder.Default
+  protected final Long id = 0L;
 
-    public AttemptInfo createNextAttemptInfo() {
-        return new AttemptInfo(id + 1L);
-    }
+  public AttemptInfo createNextAttemptInfo() {
+    return new AttemptInfo(id + 1L);
+  }
 }

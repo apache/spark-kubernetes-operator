@@ -18,14 +18,14 @@
 
 package org.apache.spark.kubernetes.operator.status;
 
+import java.util.Map;
+
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
-
-import java.util.Map;
 
 @Data
 @NoArgsConstructor
@@ -34,7 +34,7 @@ import java.util.Map;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ApplicationAttemptSummary extends BaseAttemptSummary {
-    // The state transition history for given attempt
-    // This is used when state history trimming is enabled
-    protected Map<Long, ApplicationState> stateTransitionHistory;
+  // The state transition history for given attempt
+  // This is used when state history trimming is enabled
+  protected Map<Long, ApplicationState> stateTransitionHistory;
 }

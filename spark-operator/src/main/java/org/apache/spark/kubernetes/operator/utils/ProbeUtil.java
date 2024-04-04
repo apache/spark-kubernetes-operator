@@ -17,38 +17,38 @@
 
 package org.apache.spark.kubernetes.operator.utils;
 
-import com.sun.net.httpserver.HttpExchange;
-import io.javaoperatorsdk.operator.Operator;
-import lombok.extern.slf4j.Slf4j;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
 
+import com.sun.net.httpserver.HttpExchange;
+import io.javaoperatorsdk.operator.Operator;
+import lombok.extern.slf4j.Slf4j;
+
 @Slf4j
 public class ProbeUtil {
-    public static void sendMessage(HttpExchange httpExchange, int code, String message)
-            throws IOException {
-        try (var outputStream = httpExchange.getResponseBody()) {
-            var bytes = message.getBytes(StandardCharsets.UTF_8);
-            httpExchange.sendResponseHeaders(code, bytes.length);
-            outputStream.write(bytes);
-            outputStream.flush();
-        }
+  public static void sendMessage(HttpExchange httpExchange, int code, String message)
+      throws IOException {
+    try (var outputStream = httpExchange.getResponseBody()) {
+      var bytes = message.getBytes(StandardCharsets.UTF_8);
+      httpExchange.sendResponseHeaders(code, bytes.length);
+      outputStream.write(bytes);
+      outputStream.flush();
     }
+  }
 
-    public static Optional<Boolean> areOperatorsStarted(List<Operator> operators) {
-        return operators.stream().map(operator -> {
-            var runtimeInfo = operator.getRuntimeInfo();
-            if (runtimeInfo != null) {
-                if (!operator.getRuntimeInfo().isStarted()) {
-                    log.error("Operator is not running");
-                    return false;
-                }
-                return true;
-            }
-            return false;
-        }).reduce((a, b) -> a && b);
-    }
+  public static Optional<Boolean> areOperatorsStarted(List<Operator> operators) {
+    return operators.stream().map(operator -> {
+      var runtimeInfo = operator.getRuntimeInfo();
+      if (runtimeInfo != null) {
+        if (!operator.getRuntimeInfo().isStarted()) {
+          log.error("Operator is not running");
+          return false;
+        }
+        return true;
+      }
+      return false;
+    }).reduce((a, b) -> a && b);
+  }
 }

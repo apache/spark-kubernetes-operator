@@ -19,20 +19,21 @@
 package org.apache.spark.kubernetes.operator.metrics.source;
 
 import com.codahale.metrics.MetricRegistry;
+
 import org.apache.spark.kubernetes.operator.metrics.JVMMetricSet;
 import org.apache.spark.metrics.source.Source;
 
 public class JVMSource implements Source {
 
-    @Override
-    public String sourceName() {
-        return "jvm";
-    }
+  @Override
+  public String sourceName() {
+    return "jvm";
+  }
 
-    @Override
-    public MetricRegistry metricRegistry() {
-        MetricRegistry metricRegistry = new MetricRegistry();
-        metricRegistry.registerAll(new JVMMetricSet());
-        return metricRegistry;
-    }
+  @Override
+  public MetricRegistry metricRegistry() {
+    MetricRegistry metricRegistry = new MetricRegistry();
+    metricRegistry.registerAll(new JVMMetricSet());
+    return metricRegistry;
+  }
 }

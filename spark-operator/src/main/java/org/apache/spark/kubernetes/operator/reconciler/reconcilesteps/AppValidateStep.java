@@ -19,6 +19,7 @@
 package org.apache.spark.kubernetes.operator.reconciler.reconcilesteps;
 
 import lombok.extern.slf4j.Slf4j;
+
 import org.apache.spark.kubernetes.operator.controller.SparkApplicationContext;
 import org.apache.spark.kubernetes.operator.reconciler.ReconcileProgress;
 import org.apache.spark.kubernetes.operator.spec.DeploymentMode;
@@ -36,20 +37,20 @@ import static org.apache.spark.kubernetes.operator.utils.ApplicationStatusUtils.
  */
 @Slf4j
 public class AppValidateStep extends AppReconcileStep {
-    @Override
-    public ReconcileProgress reconcile(SparkApplicationContext context,
-                                       StatusRecorder statusRecorder) {
-        if (!isValidApplicationStatus(context.getSparkApplication())) {
-            log.warn("Spark application found with empty status. Resetting to initial state.");
-            statusRecorder.persistStatus(context, new ApplicationStatus());
-        }
-        if (DeploymentMode.ClientMode.equals(context.getSparkApplication().getSpec())) {
-            ApplicationState failure = new ApplicationState(ApplicationStateSummary.FAILED,
-                    "Client mode is not supported yet.");
-            statusRecorder.persistStatus(context,
-                    context.getSparkApplication().getStatus().appendNewState(failure));
-            return completeAndImmediateRequeue();
-        }
-        return proceed();
+  @Override
+  public ReconcileProgress reconcile(SparkApplicationContext context,
+                                     StatusRecorder statusRecorder) {
+    if (!isValidApplicationStatus(context.getSparkApplication())) {
+      log.warn("Spark application found with empty status. Resetting to initial state.");
+      statusRecorder.persistStatus(context, new ApplicationStatus());
     }
+    if (DeploymentMode.ClientMode.equals(context.getSparkApplication().getSpec())) {
+      ApplicationState failure = new ApplicationState(ApplicationStateSummary.FAILED,
+          "Client mode is not supported yet.");
+      statusRecorder.persistStatus(context,
+          context.getSparkApplication().getStatus().appendNewState(failure));
+      return completeAndImmediateRequeue();
+    }
+    return proceed();
+  }
 }

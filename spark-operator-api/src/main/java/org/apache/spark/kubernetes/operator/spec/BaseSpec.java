@@ -18,17 +18,18 @@
 
 package org.apache.spark.kubernetes.operator.spec;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
-import org.apache.spark.kubernetes.operator.diff.Diffable;
 
-import java.util.HashMap;
-import java.util.Map;
+import org.apache.spark.kubernetes.operator.diff.Diffable;
 
 @Data
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class BaseSpec implements Diffable<BaseSpec> {
-    protected Map<String, String> sparkConf = new HashMap<>();
+  protected Map<String, String> sparkConf = new HashMap<>();
 }

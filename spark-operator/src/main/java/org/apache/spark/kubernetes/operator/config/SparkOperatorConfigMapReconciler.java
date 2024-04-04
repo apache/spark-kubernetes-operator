@@ -18,6 +18,10 @@
 
 package org.apache.spark.kubernetes.operator.config;
 
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.javaoperatorsdk.operator.api.config.informer.InformerConfiguration;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
@@ -33,11 +37,8 @@ import io.javaoperatorsdk.operator.processing.event.source.EventSource;
 import io.javaoperatorsdk.operator.processing.event.source.informer.InformerEventSource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.spark.kubernetes.operator.reconciler.SparkReconcilerUtils;
 
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Function;
+import org.apache.spark.kubernetes.operator.reconciler.SparkReconcilerUtils;
 
 import static org.apache.spark.kubernetes.operator.config.SparkOperatorConf.OperatorNamespace;
 
@@ -51,31 +52,31 @@ import static org.apache.spark.kubernetes.operator.config.SparkOperatorConf.Oper
 @RequiredArgsConstructor
 @Slf4j
 public class SparkOperatorConfigMapReconciler implements Reconciler<ConfigMap>,
-        ErrorStatusHandler<ConfigMap>, EventSourceInitializer<ConfigMap> {
-    private final Function<Set<String>, Boolean> namespaceUpdater;
+    ErrorStatusHandler<ConfigMap>, EventSourceInitializer<ConfigMap> {
+  private final Function<Set<String>, Boolean> namespaceUpdater;
 
-    @Override
-    public ErrorStatusUpdateControl<ConfigMap> updateErrorStatus(ConfigMap resource,
-                                                                 Context<ConfigMap> context,
-                                                                 Exception e) {
-        log.error("Failed to reconcile dynamic config change.");
-        return ErrorStatusUpdateControl.noStatusUpdate();
-    }
+  @Override
+  public ErrorStatusUpdateControl<ConfigMap> updateErrorStatus(ConfigMap resource,
+                                                               Context<ConfigMap> context,
+                                                               Exception e) {
+    log.error("Failed to reconcile dynamic config change.");
+    return ErrorStatusUpdateControl.noStatusUpdate();
+  }
 
-    @Override
-    public Map<String, EventSource> prepareEventSources(EventSourceContext<ConfigMap> context) {
-        var configMapEventSource =
-                new InformerEventSource<>(InformerConfiguration.from(ConfigMap.class, context)
-                        .withNamespaces(OperatorNamespace.getValue())
-                        .build(), context);
-        return EventSourceInitializer.nameEventSources(configMapEventSource);
-    }
+  @Override
+  public Map<String, EventSource> prepareEventSources(EventSourceContext<ConfigMap> context) {
+    var configMapEventSource =
+        new InformerEventSource<>(InformerConfiguration.from(ConfigMap.class, context)
+            .withNamespaces(OperatorNamespace.getValue())
+            .build(), context);
+    return EventSourceInitializer.nameEventSources(configMapEventSource);
+  }
 
-    @Override
-    public UpdateControl<ConfigMap> reconcile(ConfigMap resource, Context<ConfigMap> context)
-            throws Exception {
-        SparkOperatorConfManager.INSTANCE.refresh(resource.getData());
-        namespaceUpdater.apply(SparkReconcilerUtils.getWatchedNamespaces());
-        return UpdateControl.noUpdate();
-    }
+  @Override
+  public UpdateControl<ConfigMap> reconcile(ConfigMap resource, Context<ConfigMap> context)
+      throws Exception {
+    SparkOperatorConfManager.INSTANCE.refresh(resource.getData());
+    namespaceUpdater.apply(SparkReconcilerUtils.getWatchedNamespaces());
+    return UpdateControl.noUpdate();
+  }
 }

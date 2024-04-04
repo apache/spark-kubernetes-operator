@@ -23,16 +23,16 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 
 public class SparkExceptionUtils {
-    public static boolean isConflictForExistingResource(KubernetesClientException e) {
-        return e != null &&
-                e.getCode() == 409 &&
-                e.getStatus() != null &&
-                StringUtils.isNotEmpty(e.getStatus().toString()) &&
-                e.getStatus().toString().toLowerCase().contains("alreadyexists");
-    }
+  public static boolean isConflictForExistingResource(KubernetesClientException e) {
+    return e != null &&
+        e.getCode() == 409 &&
+        e.getStatus() != null &&
+        StringUtils.isNotEmpty(e.getStatus().toString()) &&
+        e.getStatus().toString().toLowerCase().contains("alreadyexists");
+  }
 
-    public static String buildGeneralErrorMessage(Exception e) {
-        return ExceptionUtils.getStackTrace(e);
-    }
+  public static String buildGeneralErrorMessage(Exception e) {
+    return ExceptionUtils.getStackTrace(e);
+  }
 
 }

@@ -18,7 +18,10 @@
 
 package org.apache.spark.kubernetes.operator.reconciler.observers;
 
+import java.util.Optional;
+
 import io.fabric8.kubernetes.api.model.Pod;
+
 import org.apache.spark.kubernetes.operator.Constants;
 import org.apache.spark.kubernetes.operator.spec.ApplicationSpec;
 import org.apache.spark.kubernetes.operator.status.ApplicationState;
@@ -26,21 +29,19 @@ import org.apache.spark.kubernetes.operator.status.ApplicationStateSummary;
 import org.apache.spark.kubernetes.operator.status.ApplicationStatus;
 import org.apache.spark.kubernetes.operator.utils.PodUtils;
 
-import java.util.Optional;
-
 public class AppDriverStartObserver extends BaseAppDriverObserver {
-    @Override
-    public Optional<ApplicationState> observe(Pod driver,
-                                              ApplicationSpec spec,
-                                              ApplicationStatus currentStatus) {
-        if (ApplicationStateSummary.DRIVER_STARTED.ordinal()
-                <= currentStatus.getCurrentState().getCurrentStateSummary().ordinal()) {
-            return Optional.empty();
-        }
-        if (PodUtils.isPodStarted(driver, spec)) {
-            return Optional.of(new ApplicationState(ApplicationStateSummary.DRIVER_STARTED,
-                    Constants.DriverRunning));
-        }
-        return observeDriverTermination(driver, false, spec);
+  @Override
+  public Optional<ApplicationState> observe(Pod driver,
+                                            ApplicationSpec spec,
+                                            ApplicationStatus currentStatus) {
+    if (ApplicationStateSummary.DRIVER_STARTED.ordinal()
+        <= currentStatus.getCurrentState().getCurrentStateSummary().ordinal()) {
+      return Optional.empty();
     }
+    if (PodUtils.isPodStarted(driver, spec)) {
+      return Optional.of(new ApplicationState(ApplicationStateSummary.DRIVER_STARTED,
+          Constants.DriverRunning));
+    }
+    return observeDriverTermination(driver, false, spec);
+  }
 }

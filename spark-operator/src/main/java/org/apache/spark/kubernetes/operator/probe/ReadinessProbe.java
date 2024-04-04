@@ -17,40 +17,40 @@
 
 package org.apache.spark.kubernetes.operator.probe;
 
+import java.io.IOException;
+import java.util.List;
+
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import io.javaoperatorsdk.operator.Operator;
 import lombok.extern.slf4j.Slf4j;
-
-import java.io.IOException;
-import java.util.List;
 
 import static org.apache.spark.kubernetes.operator.utils.ProbeUtil.areOperatorsStarted;
 import static org.apache.spark.kubernetes.operator.utils.ProbeUtil.sendMessage;
 
 @Slf4j
 public class ReadinessProbe implements HttpHandler {
-    private final List<Operator> operators;
+  private final List<Operator> operators;
 
-    public ReadinessProbe(List<Operator> operators) {
-        this.operators = operators;
+  public ReadinessProbe(List<Operator> operators) {
+    this.operators = operators;
+  }
+
+  @Override
+  public void handle(HttpExchange httpExchange) throws IOException {
+    var operatorsAreReady = areOperatorsStarted(operators);
+    if (operatorsAreReady.isEmpty() || !operatorsAreReady.get()) {
+      sendMessage(httpExchange, 400, "spark operators are not ready yet");
     }
 
-    @Override
-    public void handle(HttpExchange httpExchange) throws IOException {
-        var operatorsAreReady = areOperatorsStarted(operators);
-        if (operatorsAreReady.isEmpty() || !operatorsAreReady.get()) {
-            sendMessage(httpExchange, 400, "spark operators are not ready yet");
-        }
-
-        if (!passRbacCheck()) {
-            sendMessage(httpExchange, 403, "required rbac test failed, operators are not ready");
-        }
-
-        sendMessage(httpExchange, 200, "started");
+    if (!passRbacCheck()) {
+      sendMessage(httpExchange, 403, "required rbac test failed, operators are not ready");
     }
 
-    public boolean passRbacCheck() {
-        return true;
-    }
+    sendMessage(httpExchange, 200, "started");
+  }
+
+  public boolean passRbacCheck() {
+    return true;
+  }
 }

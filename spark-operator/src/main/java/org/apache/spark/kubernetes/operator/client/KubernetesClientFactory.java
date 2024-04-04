@@ -18,55 +18,56 @@
 
 package org.apache.spark.kubernetes.operator.client;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import io.fabric8.kubernetes.client.Config;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 import io.fabric8.kubernetes.client.okhttp.OkHttpClientFactory;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
+
 import org.apache.spark.kubernetes.operator.config.SparkOperatorConf;
 import org.apache.spark.kubernetes.operator.metrics.MetricsSystem;
 import org.apache.spark.kubernetes.operator.metrics.source.KubernetesMetricsInterceptor;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Build Kubernetes Client with metrics configured
  */
 public class KubernetesClientFactory {
-    private static final KubernetesMetricsInterceptor kubernetesMetricsInterceptor =
-            new KubernetesMetricsInterceptor();
+  private static final KubernetesMetricsInterceptor kubernetesMetricsInterceptor =
+      new KubernetesMetricsInterceptor();
 
-    public static KubernetesClient buildKubernetesClient(MetricsSystem metricsSystem) {
-        return buildKubernetesClient(metricsSystem, null);
+  public static KubernetesClient buildKubernetesClient(MetricsSystem metricsSystem) {
+    return buildKubernetesClient(metricsSystem, null);
+  }
+
+  public static KubernetesClient buildKubernetesClient(MetricsSystem metricsSystem,
+                                                       Config kubernetesClientConfig) {
+    List<Interceptor> clientInterceptors = new ArrayList<>();
+    clientInterceptors.add(new RetryInterceptor());
+
+    if (SparkOperatorConf.KubernetesClientMetricsEnabled.getValue()) {
+      clientInterceptors.add(kubernetesMetricsInterceptor);
+      // Avoid duplicate register metrics exception
+      if (!metricsSystem.getSources().contains(kubernetesMetricsInterceptor)) {
+        metricsSystem.registerSource(kubernetesMetricsInterceptor);
+      }
     }
 
-    public static KubernetesClient buildKubernetesClient(MetricsSystem metricsSystem,
-                                                         Config kubernetesClientConfig) {
-        List<Interceptor> clientInterceptors = new ArrayList<>();
-        clientInterceptors.add(new RetryInterceptor());
-
-        if (SparkOperatorConf.KubernetesClientMetricsEnabled.getValue()) {
-            clientInterceptors.add(kubernetesMetricsInterceptor);
-            // Avoid duplicate register metrics exception
-            if (!metricsSystem.getSources().contains(kubernetesMetricsInterceptor)) {
-                metricsSystem.registerSource(kubernetesMetricsInterceptor);
+    return new KubernetesClientBuilder()
+        .withConfig(kubernetesClientConfig)
+        .withHttpClientFactory(
+            new OkHttpClientFactory() {
+              @Override
+              protected void additionalConfig(OkHttpClient.Builder builder) {
+                for (Interceptor interceptor : clientInterceptors) {
+                  builder.addInterceptor(interceptor);
+                }
+              }
             }
-        }
-
-        return new KubernetesClientBuilder()
-                .withConfig(kubernetesClientConfig)
-                .withHttpClientFactory(
-                        new OkHttpClientFactory() {
-                            @Override
-                            protected void additionalConfig(OkHttpClient.Builder builder) {
-                                for (Interceptor interceptor : clientInterceptors) {
-                                    builder.addInterceptor(interceptor);
-                                }
-                            }
-                        }
-                )
-                .build();
-    }
+        )
+        .build();
+  }
 }

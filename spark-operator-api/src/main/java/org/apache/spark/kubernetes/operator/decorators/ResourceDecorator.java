@@ -21,5 +21,5 @@ package org.apache.spark.kubernetes.operator.decorators;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 
 public interface ResourceDecorator {
-    <T extends HasMetadata> T decorate(T resource);
+  <T extends HasMetadata> T decorate(T resource);
 }
