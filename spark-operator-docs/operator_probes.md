@@ -37,7 +37,7 @@ livenessProbe:
 readinessProbe:
   httpGet:
     port: probe-port
-    path: /startup
+    path: /readyz
   failureThreshold: 30
   periodSeconds: 10
 ```

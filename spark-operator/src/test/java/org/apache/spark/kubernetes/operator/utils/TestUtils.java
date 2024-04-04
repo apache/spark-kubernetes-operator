@@ -49,10 +49,7 @@ public class TestUtils {
 
     public static boolean notTimedOut(long startTime, long maxWaitTimeInMills) {
         long elapsedTimeInMills = calculateElapsedTimeInMills(startTime);
-        if (elapsedTimeInMills >= maxWaitTimeInMills) {
-            return false;
-        }
-        return true;
+        return elapsedTimeInMills < maxWaitTimeInMills;
     }
 
     public static long calculateElapsedTimeInMills(long startTime) {

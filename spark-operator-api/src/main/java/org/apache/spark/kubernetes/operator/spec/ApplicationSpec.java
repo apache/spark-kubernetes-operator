@@ -46,7 +46,7 @@ public class ApplicationSpec extends BaseSpec {
     protected String sparkRFiles;
     protected String files;
     @Builder.Default
-    protected DeploymentMode deploymentMode = DeploymentMode.CLUSTER_MODE;
+    protected DeploymentMode deploymentMode = DeploymentMode.ClusterMode;
     protected String proxyUser;
     @Builder.Default
     protected List<String> driverArgs = new ArrayList<>();

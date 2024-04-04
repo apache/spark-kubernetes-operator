@@ -22,7 +22,7 @@ under the License.
 Spark operator,
 following [Apache Spark](https://spark.apache.org/docs/latest/monitoring.html#metrics),
 has a configurable metrics system based on
-the [Dropwizard Metrics Library](https://metrics.dropwizard.io/4.2.0/). Note that Spark Operator 
+the [Dropwizard Metrics Library](https://metrics.dropwizard.io/4.2.25/). Note that Spark Operator 
 does not have Spark UI, MetricsServlet 
 and PrometheusServlet from org.apache.spark.metrics.sink package are not supported. If you are 
 interested in Prometheus metrics exporting, please take a look at below section `Forward Metrics to Prometheus`
@@ -45,8 +45,6 @@ via [Codahale JVM Metrics](https://javadoc.io/doc/com.codahale.metrics/metrics-j
 | kubernetes.client.http.request                            | Meter      | Tracking the rates of HTTP request sent to the Kubernetes API Server                                                     |
 | kubernetes.client.http.response                           | Meter      | Tracking the rates of HTTP response from the Kubernetes API Server                                                       |
 | kubernetes.client.http.response.failed                    | Meter      | Tracking the rates of HTTP requests which have no response from the Kubernetes API Server                                |
-| kubernetes.client.http.response.failed                    | Meter      | Tracking the rates of HTTP requests which have no response from the Kubernetes API Server                                |
-| kubernetes.client.http.response.failed                    | Meter      | Tracking the rates of HTTP requests which have no response from the Kubernetes API Server                                |
 | kubernetes.client.http.response.latency.nanos             | Histograms | Measures the statistical distribution of HTTP response latency from the Kubernetes API Server                            |
 | kubernetes.client.http.response.<ResponseCode>            | Meter      | Tracking the rates of HTTP response based on response code from the Kubernetes API Server                                |
 | kubernetes.client.http.request.<RequestMethod>            | Meter      | Tracking the rates of HTTP request based type of method to the Kubernetes API Server                                     |
@@ -68,7 +66,8 @@ to [Prometheus](https://prometheus.io).
 
 ```properties
 metrics.properties:|+
-  spark.metrics.conf.operator.sink.mosaic.class=org.apache.spark.kubernetes.operator.metrics.sink.PrometheusPullModelSink
+  spark.metrics.conf.operator.sink.prometheus.class=org.apache.spark.kubernetes.operator.metrics.
+sink.PrometheusPullModelSink
 ```
 
 * Install the Spark Operator

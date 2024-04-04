@@ -33,7 +33,7 @@ import lombok.NoArgsConstructor;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class RestartConfig {
     @Builder.Default
-    protected RestartPolicy restartPolicy = RestartPolicy.NEVER;
+    protected RestartPolicy restartPolicy = RestartPolicy.Never;
     @Builder.Default
     protected Long maxRestartAttempts = 3L;
     @Builder.Default

@@ -33,9 +33,9 @@ cluster.
 
 ### Compatibility
 
-- JDK11 or later
+- JDK11, 17, or 23
 - Operator used fabric8 which assumes to be compatible with available k8s versions.
-- Spark versions 3.2 and above
+- Spark versions 3.4 and above
 
 ### Start minikube
 

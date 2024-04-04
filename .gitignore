@@ -38,24 +38,29 @@ Thumbs.db
 .gradle
 .m2
 
-# IntelliJ specific files/directories
+# IntelliJ specific files/directories #
+#######################################
 out
 .idea
 *.ipr
 *.iws
 *.iml
 
-# Eclipse specific files/directories
+# Eclipse specific files/directories #
+######################################
 .classpath
 .project
 .settings
 .metadata
 **/.cache-main
 
-# build
-**/generated
+# Other build and generated files #
+###################################
 .out
+.java-version
+.vscode
 build/
 **/build/
+**/generated
 lib
 target

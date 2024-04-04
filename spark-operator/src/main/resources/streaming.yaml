@@ -23,7 +23,7 @@ metadata:
 spec:
   applicationTolerations:
     restartConfig:
-      restartPolicy: ALWAYS
+      restartPolicy: Always
       maxRestartAttempts: 3
       restartBackoffMillis: 300000
     applicationTimeoutConfig:

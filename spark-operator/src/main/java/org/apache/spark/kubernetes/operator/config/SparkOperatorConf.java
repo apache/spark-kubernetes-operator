@@ -169,7 +169,7 @@ public class SparkOperatorConf {
             .build();
     public static final ConfigOption<Long> MaxRetryAttemptOnKubeServerFailure =
             ConfigOption.<Long>builder()
-                    .key(PREFIX + "max.retry.attempts.on.kube.failure")
+                    .key(PREFIX + "max.retry.attempts.on.k8s.failure")
                     .description(
                             "Maximal number of retry attempts of requests to k8s server upon " +
                                     "response 429 and 5xx.")

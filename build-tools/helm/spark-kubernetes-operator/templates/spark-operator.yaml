@@ -122,7 +122,7 @@ spec:
           readinessProbe:
             httpGet:
               port: probe-port
-              path: /startup
+              path: /readyz
             failureThreshold: {{ include "spark-operator.readinessProbe.failureThreshold" . }}
             periodSeconds: {{ include "spark-operator.readinessProbe.periodSeconds" . }}
           livenessProbe:
@@ -198,7 +198,7 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: spark-kubernetes-operator-dynamic-configuration
+  name: {{ include "spark-operator.dynamicConfigMapName" . }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "spark-operator.dynamicConfigLabels" . | nindent 4 }}

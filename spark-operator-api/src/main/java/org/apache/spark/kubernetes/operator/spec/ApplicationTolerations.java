@@ -45,7 +45,7 @@ public class ApplicationTolerations {
      * If disabled, operator would not attempt to delete resources after app terminates.
      * While this can be helpful in dev phase, it shall not be enabled for prod use cases.
      * Caution: in order to avoid resource conflicts among multiple attempts, this can be disabled
-     * iff restart policy is set to NEVER.
+     * iff restart policy is set to Never.
      */
     @Builder.Default
     protected Boolean deleteOnTermination = true;

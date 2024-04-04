@@ -21,21 +21,21 @@ package org.apache.spark.kubernetes.operator.spec;
 import org.apache.spark.kubernetes.operator.status.BaseStateSummary;
 
 public enum RestartPolicy {
-    ALWAYS,
-    NEVER,
-    ON_FAILURE,
-    ON_INFRASTRUCTURE_FAILURE;
+    Always,
+    Never,
+    OnFailure,
+    OnInfrastructureFailure;
 
     public static boolean attemptRestartOnState(final RestartPolicy policy,
                                                 final BaseStateSummary stateSummary) {
         switch (policy) {
-            case NEVER:
-                return false;
-            case ALWAYS:
+            case Always:
                 return true;
-            case ON_FAILURE:
+            case Never:
+                return false;
+            case OnFailure:
                 return stateSummary.isFailure();
-            case ON_INFRASTRUCTURE_FAILURE:
+            case OnInfrastructureFailure:
                 return stateSummary.isInfrastructureFailure();
         }
         return false;

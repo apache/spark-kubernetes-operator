@@ -23,21 +23,21 @@ metadata:
   namespace: spark-test
 spec:
   mainClass: "org.apache.spark.examples.SparkPi"
-  jars: "local:///opt/spark/examples/jars/spark-examples.jar"
+  jars: "local:///opt/spark/examples/jars/spark-examples_2.12-3.5.1.jar"
   sparkConf:
     spark.executor.instances: "5"
-    spark.kubernetes.container.image: "spark:3.4.1-scala2.12-java11-python3-r-ubuntu"
+    spark.kubernetes.container.image: "spark:3.5.1-scala2.12-java17-python3-ubuntu"
     spark.kubernetes.namespace: "spark-test"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
   runtimeVersions:
     scalaVersion: v2_12
-    sparkVersion: v3_4_1
+    sparkVersion: v3_5_1
 
 ```
 
 
-After submitted, Operator will add status information to your application based on the 
-observed state:
+After application is submitted, Operator will add status information to your application based on 
+the observed state:
 
 ```
 kubectl get sparkapp spark-pi -o yaml

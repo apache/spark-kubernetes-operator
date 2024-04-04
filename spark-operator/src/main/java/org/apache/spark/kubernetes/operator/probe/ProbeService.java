@@ -31,7 +31,7 @@ import static org.apache.spark.kubernetes.operator.config.SparkOperatorConf.Oper
 @Slf4j
 public class ProbeService {
     public static final String HEALTHZ = "/healthz";
-    public static final String STARTUP = "/startup";
+    public static final String READYZ = "/readyz";
     HttpServer server;
 
     public ProbeService(List<Operator> operators, SentinelManager sentinelManager) {
@@ -42,7 +42,7 @@ public class ProbeService {
         } catch (IOException e) {
             throw new RuntimeException("Failed to create Probe Service Server", e);
         }
-        server.createContext(STARTUP, new ReadinessProbe(operators));
+        server.createContext(READYZ, new ReadinessProbe(operators));
         server.createContext(HEALTHZ, healthProbe);
         server.setExecutor(null);
     }

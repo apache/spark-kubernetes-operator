@@ -80,9 +80,9 @@ class SentinelManagerTest {
         Set<String> namespaces = new HashSet<>();
         sparkApplication.getMetadata().setNamespace("spark-test");
         namespaces.add("spark-test");
-        try (MockedStatic<SparkReconcilerUtils> mockUtilsKube =
+        try (MockedStatic<SparkReconcilerUtils> mockUtils =
                      mockStatic(SparkReconcilerUtils.class)) {
-            mockUtilsKube.when(SparkReconcilerUtils::getWatchedNamespaces).thenReturn(namespaces);
+            mockUtils.when(SparkReconcilerUtils::getWatchedNamespaces).thenReturn(namespaces);
             Assertions.assertTrue(SentinelManager.isSentinelResource(sparkApplication));
         }
     }
@@ -159,9 +159,9 @@ class SentinelManagerTest {
         namespaces.add(DEFAULT);
         namespaces.add(SPARK_DEMO);
 
-        try (MockedStatic<SparkReconcilerUtils> mockUtilsKube =
+        try (MockedStatic<SparkReconcilerUtils> mockUtils =
                      mockStatic(SparkReconcilerUtils.class)) {
-            mockUtilsKube.when(SparkReconcilerUtils::getWatchedNamespaces).thenReturn(namespaces);
+            mockUtils.when(SparkReconcilerUtils::getWatchedNamespaces).thenReturn(namespaces);
             SentinelManager sentinelManager = new SentinelManager<SparkApplication>();
             NonNamespaceOperation<SparkApplication, KubernetesResourceList<SparkApplication>,
                     Resource<SparkApplication>> cr1 =

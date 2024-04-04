@@ -58,7 +58,7 @@ Kubernetes API Server.
 
 * Spark application are expected to run from submitted to succeeded before releasing resources
 * User may configure the app CR to time-out after given threshold of time
-* In User may configure the app CR to skip releasing resources after terminated. This is
+* In addition, user may configure the app CR to skip releasing resources after terminated. This is
   typically used at dev phase: pods / configmaps. etc would be kept for debugging. They have
   ownerreference to the Application CR and therefore can still be cleaned up when the owner
   SparkApplication CR is deleted. 

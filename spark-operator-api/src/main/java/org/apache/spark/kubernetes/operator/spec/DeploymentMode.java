@@ -19,6 +19,6 @@
 package org.apache.spark.kubernetes.operator.spec;
 
 public enum DeploymentMode {
-    CLUSTER_MODE,
-    CLIENT_MODE
+    ClusterMode,
+    ClientMode
 }

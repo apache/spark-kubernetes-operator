@@ -51,9 +51,6 @@ subprojects {
     checkstyle {
         toolVersion = checkstyleVersion
         configFile = file("$rootDir/config/checkstyle/checkstyle.xml")
-        configFile = file("$rootDir/config/checkstyle/checkstyle.xml")
-        configProperties = [
-                "org.checkstyle.google.suppressionfilter.config": rootProject.file("config/checkstyle/checkstyle-suppressions.xml")]
         ignoreFailures = false
         showViolations = true
     }
@@ -73,7 +70,6 @@ subprojects {
         afterEvaluate {
             reportsDir = file("${project.reporting.baseDir}/findbugs")
         }
-        excludeFilter = file("$rootDir/config/spotbugs/exclude.xml")
         ignoreFailures = false
     }
 

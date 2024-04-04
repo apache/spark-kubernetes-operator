@@ -31,7 +31,7 @@ import java.util.HashMap;
 
 import static org.apache.spark.kubernetes.operator.config.SparkOperatorConf.OperatorProbePort;
 import static org.apache.spark.kubernetes.operator.probe.ProbeService.HEALTHZ;
-import static org.apache.spark.kubernetes.operator.probe.ProbeService.STARTUP;
+import static org.apache.spark.kubernetes.operator.probe.ProbeService.READYZ;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -115,7 +115,7 @@ class ProbeServiceTest {
     }
 
     private void hitStartedUpEndpoint() throws Exception {
-        URL u = new URL("http://localhost:" + OperatorProbePort.getValue() + STARTUP);
+        URL u = new URL("http://localhost:" + OperatorProbePort.getValue() + READYZ);
         HttpURLConnection connection = (HttpURLConnection) u.openConnection();
         connection.setConnectTimeout(100000);
         connection.connect();

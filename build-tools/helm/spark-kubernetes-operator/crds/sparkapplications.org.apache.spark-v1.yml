@@ -29,12 +29,6 @@ spec:
                         - v3_5_0
                         - v3_4_2
                         - v3_4_1
-                        - v3_4_0
-                        - v3_3_3
-                        - v3_3_2
-                        - v3_3_1
-                        - v3_3_0
-                        - v3_2_0
                       type: string
                     scalaVersion:
                       enum:
@@ -45,6 +39,7 @@ spec:
                       enum:
                         - Java11
                         - Java17
+                        - Java23
                       type: string
                   required:
                     - sparkVersion
@@ -59,8 +54,8 @@ spec:
                   type: string
                 deploymentMode:
                   enum:
-                    - CLUSTER_MODE
-                    - CLIENT_MODE
+                    - ClusterMode
+                    - ClientMode
                   type: string
                 proxyUser:
                   type: string
@@ -74,10 +69,10 @@ spec:
                       properties:
                         restartPolicy:
                           enum:
-                            - ALWAYS
-                            - NEVER
-                            - ON_FAILURE
-                            - ON_INFRASTRUCTURE_FAILURE
+                            - Always
+                            - Never
+                            - OnFailure
+                            - OnInfrastructureFailure
                           type: string
                         maxRestartAttempts:
                           type: integer

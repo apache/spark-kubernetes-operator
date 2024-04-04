@@ -61,7 +61,7 @@ public class AppCleanUpStep extends AppReconcileStep {
         String stateMessage = null;
         if (!tolerations.getDeleteOnTermination()) {
             if (tolerations.getRestartConfig() != null
-                    && !RestartPolicy.NEVER.equals(
+                    && !RestartPolicy.Never.equals(
                     tolerations.getRestartConfig().getRestartPolicy())) {
                 stateMessage =
                         "Application is configured to restart, resources created in current " +

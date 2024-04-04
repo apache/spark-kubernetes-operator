@@ -52,11 +52,11 @@ operatorDeployment:
         limits:
           cpu: "1"
           ephemeral-storage: 2Gi
-          memory: 2Gi
+          memory: 4Gi
         requests:
           cpu: "1"
           ephemeral-storage: 2Gi
-          memory: 2Gi
+          memory: 4Gi
       probes:
         port: 18080
         livenessProbe:
@@ -115,6 +115,7 @@ appResources:
     watchGivenNamespacesOnly: false
     data:
   #    - "spark-demo"
+  #    - "spark-demo"
   serviceAccounts:
     create: true
     name: "spark"
@@ -137,7 +138,7 @@ appResources:
       data:
       # When enabled, sentinel resources will be deployed to namespace(s) provided in data field.
       # Note that sentinelNamespaces list shall be a subset of appResources.namespaces.data.
-#        - "spark-demo"
+      #  - "spark-demo"
   # App resources are by default annotated to avoid app abort due to operator upgrade
   annotations:
   #  "helm.sh/resource-policy": keep
@@ -170,6 +171,7 @@ operatorConfiguration:
     # If set to true, a config map would be created & watched by operator as source of truth
     # for hot properties loading.
     create: false
+    name: spark-kubernetes-operator-dynamic-configuration
     annotations:
     #  "helm.sh/resource-policy": keep
     data:
