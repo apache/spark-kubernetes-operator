@@ -26,9 +26,7 @@ spec:
                     sparkVersion:
                       enum:
                         - v3_5_1
-                        - v3_5_0
                         - v3_4_2
-                        - v3_4_1
                       type: string
                     scalaVersion:
                       enum:
@@ -39,7 +37,7 @@ spec:
                       enum:
                         - Java11
                         - Java17
-                        - Java23
+                        - Java21
                       type: string
                   required:
                     - sparkVersion

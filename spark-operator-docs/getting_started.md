@@ -127,15 +127,15 @@ spec:
       restartPolicy: NEVER
   deploymentMode: CLUSTER_MODE
   driverArgs: []
-  jars: local:///opt/spark/examples/jars/spark-examples_2.12-3.4.1.jar
+  jars: local:///opt/spark/examples/jars/spark-examples_2.12-3.5.1.jar
   mainClass: org.apache.spark.examples.SparkPi
   runtimeVersions:
     scalaVersion: v2_12
-    sparkVersion: v3_4_1
+    sparkVersion: v3_5_1
   sparkConf:
     spark.executor.instances: "5"
     spark.kubernetes.authenticate.driver.serviceAccountName: spark
-    spark.kubernetes.container.image: spark:3.4.1-scala2.12-java11-python3-r-ubuntu
+    spark.kubernetes.container.image: spark:3.5.1-scala2.12-java11-python3-r-ubuntu
     spark.kubernetes.namespace: spark-test
 status:
   currentAttemptSummary:
