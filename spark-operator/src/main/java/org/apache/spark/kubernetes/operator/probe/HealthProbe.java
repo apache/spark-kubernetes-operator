@@ -85,7 +85,7 @@ public class HealthProbe implements HttpHandler {
   }
 
   private boolean checkInformersHealth(RuntimeInfo operatorRuntimeInfo) {
-    log.info("Checking informer health");
+    log.debug("Checking informer health");
     List<Boolean> informersHealthList = new ArrayList<>();
     for (var controllerEntry :
         operatorRuntimeInfo.unhealthyInformerWrappingEventSourceHealthIndicator()

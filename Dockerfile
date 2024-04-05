@@ -16,13 +16,13 @@
 #
 #
 
-FROM gradle:8.6-jdk11-alpine AS builder
+FROM gradle:8.6-jdk17-alpine AS builder
 ARG BASE_VERSION
 WORKDIR /app
 COPY . .
 RUN ./gradlew clean build -x test
 
-FROM eclipse-temurin:11-jre-jammy
+FROM eclipse-temurin:17-jre-jammy
 ARG BASE_VERSION
 
 ENV SPARK_OPERATOR_HOME=/opt/spark-operator
