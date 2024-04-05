@@ -21,5 +21,5 @@ package org.apache.spark.kubernetes.operator.spec;
 public enum JDKVersion {
   Java11,
   Java17,
-  Java23
+  Java21
 }

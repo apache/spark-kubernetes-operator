@@ -24,7 +24,5 @@ package org.apache.spark.kubernetes.operator.spec;
  */
 public enum SparkVersion {
   v3_5_1,
-  v3_5_0,
-  v3_4_2,
-  v3_4_1,
+  v3_4_2
 }
