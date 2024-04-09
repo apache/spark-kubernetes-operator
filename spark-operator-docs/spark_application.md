@@ -149,7 +149,17 @@ applicationTimeoutConfig:
   # time to wait for force delete resources at the end of attempt
   forceTerminationGracePeriodMillis: 300000
 ```
- 
+
+
+| Field                                                                                   | Type    | Default Value | Descritpion                                                                                                        |
+|-----------------------------------------------------------------------------------------|---------|---------------|--------------------------------------------------------------------------------------------------------------------|
+| .spec.applicationTolerations.applicationTimeoutConfig.driverStartTimeoutMillis          | integer | 300000        | Time to wait for driver reaches running state after requested driver.                                              |
+| .spec.applicationTolerations.applicationTimeoutConfig.executorStartTimeoutMillis        | integer | 300000        | Time to wait for driver to acquire minimal number of running executors.                                            |
+| .spec.applicationTolerations.applicationTimeoutConfig.forceTerminationGracePeriodMillis | integer | 300000        | Time to wait for force delete resources at the end of attempt.                                                     |
+| .spec.applicationTolerations.applicationTimeoutConfig.sparkSessionStartTimeoutMillis    | integer | 300000        | Time to wait for driver reaches ready state.                                                                       |
+| .spec.applicationTolerations.applicationTimeoutConfig.terminationRequeuePeriodMillis    | integer | 2000          | Back-off time when releasing resource need to be re-attempted for application.                                     |
+
+
 ### Instance Config
 
 Instance Config helps operator to decide whether an application is running healthy. When 
@@ -191,12 +201,15 @@ On the other hand, when developing an application, it's possible to configure
 
 ```yaml
 applicationTolerations:
-  deleteOnTermination: false
+  # Acceptable values are 'AlwaysDelete', 'RetainOnFailure', 'NeverDelete'
+  resourceRetentionPolicy: RetainOnFailure 
 ```
 
-So operator would not attempt to delete resources after app terminates. Note that this 
-applies only to operator-created resources (driver .etc). You may also want to tune
-`spark.kubernetes.executor.deleteOnTermination` to control the behavior of driver-created 
+So operator would not attempt to delete driver pod and driver resources if app fails. Similarly, 
+if resourceRetentionPolicy is set to `NeverDelete`, operator would not delete driver resources 
+when app ends. Note that this applies only to operator-created resources (driver pod, SparkConf 
+configmap .etc). You may also want to tune `spark.kubernetes.driver.service.deleteOnTermination` 
+and `spark.kubernetes.executor.deleteOnTermination` to control the behavior of driver-created 
 resources.
 
 ## Supported Spark Versions

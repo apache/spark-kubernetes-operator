@@ -37,6 +37,7 @@ import org.apache.spark.kubernetes.operator.reconciler.ReconcileProgress;
 import org.apache.spark.kubernetes.operator.reconciler.SparkApplicationReconcileUtils;
 import org.apache.spark.kubernetes.operator.reconciler.SparkReconcilerUtils;
 import org.apache.spark.kubernetes.operator.spec.ApplicationTolerations;
+import org.apache.spark.kubernetes.operator.spec.ResourceRetentionPolicy;
 import org.apache.spark.kubernetes.operator.spec.RestartPolicy;
 import org.apache.spark.kubernetes.operator.status.ApplicationState;
 import org.apache.spark.kubernetes.operator.status.ApplicationStateSummary;
@@ -59,8 +60,10 @@ public class AppCleanUpStep extends AppReconcileStep {
     ApplicationStatus currentStatus = context.getSparkApplication().getStatus();
     ApplicationTolerations tolerations =
         context.getSparkApplication().getSpec().getApplicationTolerations();
+    ResourceRetentionPolicy resourceRetentionPolicy = tolerations.getResourceRetentionPolicy();
     String stateMessage = null;
-    if (!tolerations.getDeleteOnTermination()) {
+
+    if (retainReleaseResource(resourceRetentionPolicy, currentStatus.getCurrentState())) {
       if (tolerations.getRestartConfig() != null
           && !RestartPolicy.Never.equals(
           tolerations.getRestartConfig().getRestartPolicy())) {
@@ -137,6 +140,18 @@ public class AppCleanUpStep extends AppReconcileStep {
           requeueAfterMillis);
     }
 
+  }
+
+  protected boolean retainReleaseResource(ResourceRetentionPolicy resourceRetentionPolicy,
+                                          ApplicationState currentState) {
+    switch (resourceRetentionPolicy) {
+      case AlwaysDelete:
+        return false;
+      case RetainOnFailure:
+        return currentState.getCurrentStateSummary().isFailure();
+      default:
+        return true;
+    }
   }
 
   private ReconcileProgress updateStateAndProceed(SparkApplicationContext context,

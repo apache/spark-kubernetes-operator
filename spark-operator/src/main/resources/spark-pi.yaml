@@ -29,7 +29,7 @@ spec:
     spark.kubernetes.namespace: "spark-test"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
   applicationTolerations:
-    deleteOnTermination: false
+    resourceRetentionPolicy: RetainOnFailure
   runtimeVersions:
     scalaVersion: v2_12
     sparkVersion: v3_5_1

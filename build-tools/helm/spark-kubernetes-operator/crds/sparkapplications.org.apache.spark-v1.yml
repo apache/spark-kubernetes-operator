@@ -99,8 +99,12 @@ spec:
                         maxExecutors:
                           type: integer
                       type: object
-                    deleteOnTermination:
-                      type: boolean
+                    resourceRetentionPolicy:
+                      enum:
+                        - AlwaysDelete
+                        - RetainOnFailure
+                        - NeverDelete
+                      type: string
                   type: object
                 driverSpec:
                   properties:

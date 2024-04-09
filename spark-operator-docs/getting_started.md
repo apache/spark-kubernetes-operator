@@ -116,7 +116,7 @@ spec:
       forceTerminationGracePeriodMillis: 300000
       sparkSessionStartTimeoutMillis: 300000
       terminationRequeuePeriodMillis: 2000
-    deleteOnTermination: false
+    resourceRetentionPolicy: OnFailure
     instanceConfig:
       initExecutors: 0
       maxExecutors: 0

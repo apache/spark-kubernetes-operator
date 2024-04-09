@@ -42,11 +42,12 @@ public class ApplicationTolerations {
   @Builder.Default
   protected InstanceConfig instanceConfig = new InstanceConfig();
   /**
-   * If disabled, operator would not attempt to delete resources after app terminates.
-   * While this can be helpful in dev phase, it shall not be enabled for prod use cases.
-   * Caution: in order to avoid resource conflicts among multiple attempts, this can be disabled
-   * iff restart policy is set to Never.
+   * Configure operator to delete / retain resources for an app after it terminates.
+   * While this can be helpful in dev phase, it shall not be enabled (or enabled with caution) for
+   * prod use cases: this could cause resource quota usage increase unexpectedly.
+   * Caution: in order to avoid resource conflicts among multiple attempts, this should be set to
+   * 'AlwaysDelete' unless restart policy is set to 'Never'.
    */
   @Builder.Default
-  protected Boolean deleteOnTermination = true;
+  protected ResourceRetentionPolicy resourceRetentionPolicy = ResourceRetentionPolicy.AlwaysDelete;
 }
