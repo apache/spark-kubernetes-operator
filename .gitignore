@@ -64,3 +64,4 @@ build/
 **/generated
 lib
 target
+build-tools/helm/spark-kubernetes-operator/crds/
