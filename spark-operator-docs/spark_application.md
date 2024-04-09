@@ -220,6 +220,6 @@ single submission-worker mode to support all listed versions.
 ```yaml
 runtimeVersions:
   # Supported values are:
-  # v3_5_1, v3_5_0, v3_4_1, v3_4_0, v3_3_3, v3_3_1, v3_3_0, v3_2_0
-  sparkVersion: v3_4_0
+  # v3_5_1, v3_4_2
+  sparkVersion: v3_4_2
 ```
