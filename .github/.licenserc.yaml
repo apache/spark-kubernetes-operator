@@ -14,5 +14,6 @@ header:
     - 'LICENSE'
     - 'NOTICE'
     - '.asf.yaml'
+    - '**/*.gradle'
 
   comment: on-failure
