@@ -199,3 +199,13 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
+
+--------------------------------------------------------------------------------
+
+This product includes a gradle wrapper.
+
+* gradlew and gradle/wrapper/gradle-wrapper.properties
+
+Copyright: 2015-2021 Gradle Authors.
+Home page: https://github.com/gradle/gradle
+License: https://www.apache.org/licenses/LICENSE-2.0
