@@ -15,5 +15,6 @@ header:
     - 'NOTICE'
     - '.asf.yaml'
     - '**/*.gradle'
+    - gradlew
 
   comment: on-failure
