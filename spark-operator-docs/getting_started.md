@@ -33,7 +33,7 @@ cluster.
 
 ### Compatibility
 
-- JDK11, 17, or 23
+- JDK17, or 23
 - Operator used fabric8 which assumes to be compatible with available k8s versions.
 - Spark versions 3.4 and above
 
@@ -52,7 +52,7 @@ eval $(minikube docker-env)
    # Build a local container image which can be used for minikube.etc. 
    # For testing in remote k8s cluster, please also do `docker push` to make it available 
    # to the cluster / nodes 
-   docker build --build-arg BASE_VERSION=1.0.0-alpha -t spark-kubernetes-operator:1.0.0-alpha .
+   docker build --build-arg BASE_VERSION=0.1.0 -t spark-kubernetes-operator:0.1.0 .
    
    # Generate CRD yaml and make it available for chart deployment
    ./gradlew spark-operator-api:copyGeneratedCRD     

@@ -41,7 +41,7 @@ If you are working on API (CRD) changes, remember to update CRD yaml in chart as
    # Build a local container image which can be used for minikube.etc. 
    # For testing in remote k8s cluster, please also do `docker push` to make it available 
    # to the cluster / nodes 
-   docker build --build-arg BASE_VERSION=1.0.0-alpha -t spark-kubernetes-operator:1.0.0-alpha .    
+   docker build --build-arg BASE_VERSION=0.1.0 -t spark-kubernetes-operator:0.1.0 .    
    ```
 
 ## Deploy Operator

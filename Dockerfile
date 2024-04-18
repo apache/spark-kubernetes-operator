@@ -16,7 +16,7 @@
 #
 #
 
-FROM gradle:8.6-jdk17-alpine AS builder
+FROM gradle:8.7-jdk17-alpine AS builder
 ARG BASE_VERSION
 WORKDIR /app
 COPY . .
