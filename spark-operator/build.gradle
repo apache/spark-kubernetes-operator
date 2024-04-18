@@ -1,93 +1,76 @@
-// Licensed to the Apache Software Foundation (ASF) under one
-// or more contributor license agreements.  See the NOTICE file
-// distributed with this work for additional information
-// regarding copyright ownership.  The ASF licenses this file
-// to you under the Apache License, Version 2.0 (the
-//         "License"); you may not use this file except in compliance
-// with the License.  You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-//         software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-
 apply plugin: 'com.github.johnrengelman.shadow'
 
 buildscript {
-    repositories {
-        maven {
-            url = uri("https://plugins.gradle.org/m2/")
-        }
+  repositories {
+    maven {
+      url = uri("https://plugins.gradle.org/m2/")
     }
-    dependencies {
-        classpath "com.github.johnrengelman:shadow:$shadowJarPluginVersion"
-    }
+  }
+  dependencies {
+    classpath "com.github.johnrengelman:shadow:$shadowJarPluginVersion"
+  }
 }
 
 dependencies {
-    implementation project(":spark-operator-api")
-    implementation project(":spark-submission-worker")
+  implementation project(":spark-operator-api")
+  implementation project(":spark-submission-worker")
 
-    implementation("io.javaoperatorsdk:operator-framework:$operatorSDKVersion") {
-        exclude group: 'com.squareup.okio'
-    }
+  implementation("io.javaoperatorsdk:operator-framework:$operatorSDKVersion") {
+    exclude group: 'com.squareup.okio'
+  }
 
-    testImplementation("io.javaoperatorsdk:operator-framework-junit-5:$operatorSDKVersion") {
-        exclude group: 'com.squareup.okio'
-    }
+  testImplementation("io.javaoperatorsdk:operator-framework-junit-5:$operatorSDKVersion") {
+    exclude group: 'com.squareup.okio'
+  }
 
-    implementation("io.fabric8:kubernetes-httpclient-okhttp:$fabric8Version") {
-        exclude group: 'com.squareup.okhttp3'
-    }
-    implementation("com.squareup.okhttp3:okhttp:$okHttpVersion")
-    implementation("com.squareup.okhttp3:logging-interceptor:$okHttpVersion")
-    implementation("io.dropwizard.metrics:metrics-core:$dropwizardMetricsVersion")
-    implementation("io.dropwizard.metrics:metrics-jvm:$dropwizardMetricsVersion")
-    compileOnly("org.projectlombok:lombok:$lombokVersion")
-    implementation("io.dropwizard.metrics:metrics-healthchecks:$dropwizardMetricsVersion")
-    compileOnly("org.apache.spark:spark-core_$sparkScalaVersion:$sparkVersion") {
-        exclude group: "org.apache.logging.log4j"
-        exclude group: "org.slf4j"
-    }
-    annotationProcessor("org.projectlombok:lombok:$lombokVersion")
+  implementation("io.fabric8:kubernetes-httpclient-okhttp:$fabric8Version") {
+    exclude group: 'com.squareup.okhttp3'
+  }
+  implementation("com.squareup.okhttp3:okhttp:$okHttpVersion")
+  implementation("com.squareup.okhttp3:logging-interceptor:$okHttpVersion")
+  implementation("io.dropwizard.metrics:metrics-core:$dropwizardMetricsVersion")
+  implementation("io.dropwizard.metrics:metrics-jvm:$dropwizardMetricsVersion")
+  compileOnly("org.projectlombok:lombok:$lombokVersion")
+  implementation("io.dropwizard.metrics:metrics-healthchecks:$dropwizardMetricsVersion")
+  compileOnly("org.apache.spark:spark-core_$sparkScalaVersion:$sparkVersion") {
+    exclude group: "org.apache.logging.log4j"
+    exclude group: "org.slf4j"
+  }
+  annotationProcessor("org.projectlombok:lombok:$lombokVersion")
 
-    // logging
-    implementation("org.apache.logging.log4j:log4j-api:$log4jVersion")
-    implementation("org.apache.logging.log4j:log4j-core:$log4jVersion")
-    implementation("org.apache.logging.log4j:log4j-slf4j-impl:$log4jVersion")
-    implementation("org.apache.logging.log4j:log4j-1.2-api:$log4jVersion")
-    implementation("org.apache.logging.log4j:log4j-layout-template-json:$log4jLayoutVersion")
+  // logging
+  implementation("org.apache.logging.log4j:log4j-api:$log4jVersion")
+  implementation("org.apache.logging.log4j:log4j-core:$log4jVersion")
+  implementation("org.apache.logging.log4j:log4j-slf4j-impl:$log4jVersion")
+  implementation("org.apache.logging.log4j:log4j-1.2-api:$log4jVersion")
+  implementation("org.apache.logging.log4j:log4j-layout-template-json:$log4jLayoutVersion")
 
-    testImplementation("io.fabric8:kubernetes-server-mock:$fabric8Version") {
-        exclude group: 'junit'
-    }
-    testImplementation("org.apache.spark:spark-core_$sparkScalaVersion:$sparkVersion")
-    testImplementation("com.squareup.okhttp3:mockwebserver:$okHttpVersion")
-    testImplementation platform("org.junit:junit-bom:$junitVersion")
-    testImplementation("org.junit.jupiter:junit-jupiter:$junitVersion")
-    testImplementation("org.mockito:mockito-core:$mockitoVersion")
+  testImplementation("io.fabric8:kubernetes-server-mock:$fabric8Version") {
+    exclude group: 'junit'
+  }
+  testImplementation("org.apache.spark:spark-core_$sparkScalaVersion:$sparkVersion")
+  testImplementation("com.squareup.okhttp3:mockwebserver:$okHttpVersion")
+  testImplementation platform("org.junit:junit-bom:$junitVersion")
+  testImplementation("org.junit.jupiter:junit-jupiter:$junitVersion")
+  testImplementation("org.mockito:mockito-core:$mockitoVersion")
 }
 
 test {
-    useJUnitPlatform()
+  useJUnitPlatform()
 }
 
 jar.dependsOn shadowJar
 
 jar {
-    zip64 = true
-    archiveVersion.set('')
+  zip64 = true
+  archiveVersion.set('')
 }
 
 
 shadowJar {
-    zip64 = true
-    mergeServiceFiles()
-    transform(com.github.jengelman.gradle.plugins.shadow.transformers.Log4j2PluginsCacheFileTransformer)
+  zip64 = true
+  mergeServiceFiles()
+  transform(com.github.jengelman.gradle.plugins.shadow.transformers.Log4j2PluginsCacheFileTransformer)
 }
 
 description = "Spark Kubernetes Operator"

@@ -1,3 +1,22 @@
+*.swp
+*~
+.java-version
+.DS_Store
+.idea/
+.vscode
+/lib/
+target/
+
+# Gradle Files #
+################
+.gradle
+.m2
+.out/
+build
+dependencies.lock
+**/dependencies.lock
+gradle/wrapper/gradle-wrapper.jar
+
 # Compiled source #
 ###################
 *.class
@@ -21,47 +40,6 @@
 ######################
 *.log
 
-# OS generated files #
-######################
-.DS_Store*
-ehthumbs.db
-Icon?
-Thumbs.db
-
-# Editor Files #
-################
-*~
-*.swp
-
-# Gradle Files #
-################
-.gradle
-.m2
-
-# IntelliJ specific files/directories #
-#######################################
-out
-.idea
-*.ipr
-*.iws
-*.iml
-
-# Eclipse specific files/directories #
-######################################
-.classpath
-.project
-.settings
-.metadata
-**/.cache-main
-
 # Other build and generated files #
 ###################################
-.out
-.java-version
-.vscode
-build/
-**/build/
-**/generated
-lib
-target
 build-tools/helm/spark-kubernetes-operator/crds/
