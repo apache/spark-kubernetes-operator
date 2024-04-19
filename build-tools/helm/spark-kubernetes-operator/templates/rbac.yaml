@@ -1,0 +1,124 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+#
+
+{{/*
+RBAC rules used to create the operator (cluster)role
+*/}}
+{{- define "spark-operator.operatorRbacRules" }}
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+      - services
+      - configmaps
+      - persistentvolumeclaims
+    verbs:
+      - '*'
+  - apiGroups:
+      - "org.apache.spark"
+    resources:
+      - '*'
+    verbs:
+      - '*'
+{{- end }}
+
+{{/*
+Labels and annotations to be applied on rbacResources
+*/}}
+{{- define "spark-operator.rbacLabelsAnnotations" }}
+  labels:
+  {{- with .Values.operatorRbac.labels }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{ include "spark-operator.commonLabels" . | nindent 4 }}
+  {{- with .Values.operatorRbac.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}
+
+---
+#Service account and rolebindings for operator
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "spark-operator.serviceAccountName" $ }}
+  namespace: {{ .Release.Namespace }}
+{{- template "spark-operator.rbacLabelsAnnotations" $ }}
+---
+{{- if .Values.operatorRbac.clusterRoleBinding.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Values.operatorRbac.clusterRoleBinding.name }}
+{{- template "spark-operator.rbacLabelsAnnotations" $ }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Values.operatorRbac.clusterRole.name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "spark-operator.serviceAccountName" $ }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}
+---
+{{- if .Values.operatorRbac.clusterRole.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Values.operatorRbac.clusterRole.name }}
+  namespace: {{ .Release.Namespace }}
+{{- template "spark-operator.rbacLabelsAnnotations" $ }}
+{{- template "spark-operator.operatorRbacRules" $ }}
+{{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .Values.operatorRbac.configManagement.roleName }}
+  namespace: {{ .Release.Namespace }}
+{{- template "spark-operator.rbacLabelsAnnotations" $ }}
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - '*'
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
+      - "*"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Values.operatorRbac.configManagement.roleBindingName }}
+  namespace: {{ .Release.Namespace }}
+{{- template "spark-operator.rbacLabelsAnnotations" $ }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ .Values.operatorRbac.configManagement.roleName }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "spark-operator.serviceAccountName" $ }}
+    namespace: {{ .Release.Namespace }}

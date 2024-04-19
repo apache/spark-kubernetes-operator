@@ -1,0 +1,27 @@
+dependencies {
+  implementation project(":spark-operator-api")
+
+  implementation("org.apache.spark:spark-kubernetes_$sparkScalaVersion:$sparkVersion") {
+    exclude group: "org.apache.logging.log4j"
+    exclude group: "org.slf4j"
+  }
+
+  compileOnly("org.projectlombok:lombok:$lombokVersion")
+  annotationProcessor("org.projectlombok:lombok:$lombokVersion")
+
+  // logging
+  implementation("org.apache.logging.log4j:log4j-layout-template-json:$log4jLayoutVersion")
+  implementation("org.apache.logging.log4j:log4j-api:$log4jVersion")
+  implementation("org.apache.logging.log4j:log4j-core:$log4jVersion")
+  implementation("org.apache.logging.log4j:log4j-slf4j-impl:$log4jVersion")
+  implementation("org.apache.logging.log4j:log4j-1.2-api:$log4jVersion")
+
+  testImplementation platform("org.junit:junit-bom:$junitVersion")
+  testImplementation "org.mockito:mockito-core:$mockitoVersion"
+  testImplementation "org.junit.jupiter:junit-jupiter:$junitVersion"
+  testImplementation "io.fabric8:kubernetes-server-mock:$fabric8Version"
+}
+
+test {
+  useJUnitPlatform()
+}

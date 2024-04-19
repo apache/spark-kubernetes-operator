@@ -1,3 +1,16 @@
+buildscript {
+  repositories {
+    maven {
+      url = uri("https://plugins.gradle.org/m2/")
+    }
+  }
+  dependencies {
+    classpath "com.github.spotbugs.snom:spotbugs-gradle-plugin:${spotBugsGradlePluginVersion}"
+  }
+}
+
+assert JavaVersion.current().isJava11Compatible(): "Java 11 or newer is required"
+
 subprojects {
   apply plugin: 'idea'
   apply plugin: 'eclipse'
@@ -6,7 +19,48 @@ subprojects {
   targetCompatibility = 17
 
   repositories {
-      mavenCentral()
-      jcenter()
+    mavenCentral()
+    jcenter()
+  }
+
+  configurations.all {
+    resolutionStrategy {
+        force "org.slf4j:slf4j-api:$slf4jVersion"
+        force "io.fabric8:kubernetes-model-core:$fabric8Version"
+    }
+  }
+
+  apply plugin: 'checkstyle'
+  checkstyle {
+    toolVersion = checkstyleVersion
+    configFile = file("$rootDir/config/checkstyle/checkstyle.xml")
+    ignoreFailures = false
+    showViolations = true
+  }
+
+  apply plugin: 'pmd'
+  pmd {
+    ruleSets = ["java-basic", "java-braces"]
+    ruleSetFiles = files("$rootDir/config/pmd/ruleset.xml")
+    toolVersion = pmdVersion
+    consoleOutput = true
+    ignoreFailures = false
+  }
+
+  apply plugin: 'com.github.spotbugs'
+  spotbugs {
+    toolVersion = spotBugsVersion
+    afterEvaluate {
+      reportsDir = file("${project.reporting.baseDir}/findbugs")
+    }
+    ignoreFailures = false
+  }
+
+  apply plugin: 'jacoco'
+  jacoco {
+    toolVersion = jacocoVersion
+  }
+  jacocoTestReport {
+    dependsOn test
   }
 }

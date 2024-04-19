@@ -1,0 +1,216 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+#
+
+{{/*
+RBAC rules used to create the app (cluster)role based on the scope
+*/}}
+{{- define "spark-operator.appRbacRules" }}
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+      - services
+      - configmaps
+      - persistentvolumeclaims
+    verbs:
+      - '*'
+{{- end }}
+
+{{/*
+RoleRef for app service account rolebindings
+*/}}
+{{- define "spark-operator.appRoleRef" }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+{{- if .Values.appResources.clusterRole.create }}
+  kind: ClusterRole
+  name: {{ .Values.appResources.clusterRole.name }}
+{{- else if .Values.appResources.roles.create }}
+  kind: Role
+  name: {{ .Values.appResources.roles.name }}
+{{- else }}
+  kind: ClusterRole
+  name: {{ .Values.operatorRbac.clusterRole.name }}
+{{- end }}
+{{- end }}
+
+{{/*
+Labels and annotations to be applied
+*/}}
+{{- define "spark-operator.appLabels" }}
+  {{- with .Values.appResources.labels }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{ include "spark-operator.commonLabels" . | nindent 4 }}
+{{- end }}
+
+{{- define "spark-operator.appAnnotations" }}
+  {{- with .Values.appResources.annotations }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}
+
+{{- define "spark-operator.appLabelsAnnotations" }}
+  labels:
+  {{ template "spark-operator.appLabels" $ }}
+  annotations:
+  {{ template "spark-operator.appAnnotations" $ }}
+{{- end }}
+---
+{{- $appResources := .Values.appResources -}}
+{{- $systemNs := .Release.Namespace -}}
+{{- $operatorRbac := .Values.operatorRbac -}}
+{{- if index (.Values.appResources.namespaces) "data" }}
+{{- range $appNs := .Values.appResources.namespaces.data }}
+{{- if $appResources.namespaces.create }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ $appNs }}
+{{- template "spark-operator.appLabelsAnnotations" $ }}
+---
+{{- end }}
+{{- if $appResources.serviceAccounts.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $appResources.serviceAccounts.name }}
+  namespace: {{ $appNs }}
+{{- template "spark-operator.appLabelsAnnotations" $ }}
+---
+{{- end }}
+{{- if $appResources.roles.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $appResources.roles.name }}
+  namespace: {{ $appNs }}
+{{- template "spark-operator.appLabelsAnnotations" $ }}
+{{- template "spark-operator.appRbacRules" $ }}
+---
+{{- end }}
+{{- if $appResources.roleBindings.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $appResources.roleBindings.name }}
+  namespace: {{ $appNs }}
+{{- template "spark-operator.appLabelsAnnotations" $ }}
+{{- template "spark-operator.appRoleRef" $ }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $appResources.serviceAccounts.name }}
+    namespace: {{ $appNs }}
+---
+{{- end }}
+{{- if not $operatorRbac.clusterRoleBinding.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: spark-operator-rolebinding
+  namespace: {{ $appNs }}
+{{- template "spark-operator.appLabelsAnnotations" $ }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $operatorRbac.clusterRole.name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $operatorRbac.serviceAccount.name }}
+    namespace: {{ $systemNs }}
+---
+{{- end }}
+{{- end }}
+{{- else }}
+{{- if $appResources.serviceAccounts.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $appResources.serviceAccounts.name }}
+  namespace: {{ $systemNs }}
+{{- template "spark-operator.appLabelsAnnotations" $ }}
+---
+{{- end }}
+{{- if $appResources.roles.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $appResources.roles.name }}
+  namespace: {{ $systemNs }}
+{{- template "spark-operator.appLabelsAnnotations" $ }}
+{{- template "spark-operator.appRbacRules" $ }}
+---
+{{- end }}
+{{- if $appResources.roleBindings.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $appResources.serviceAccounts.name }}
+  namespace: {{ $systemNs }}
+{{- template "spark-operator.appLabelsAnnotations" $ }}
+{{- template "spark-operator.appRoleRef" $ }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $appResources.serviceAccounts.name }}
+    namespace: {{ $systemNs }}
+---
+{{- end }}
+{{- if not $operatorRbac.clusterRoleBinding.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: spark-operator-rolebinding
+  namespace: {{ $systemNs }}
+{{- template "spark-operator.appLabelsAnnotations" $ }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $operatorRbac.clusterRole.name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $operatorRbac.serviceAccount.name }}
+    namespace: {{ $systemNs }}
+---
+{{- end }}
+{{- end }}
+
+{{- if $appResources.clusterRole.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $appResources.clusterRole.name }}
+{{- template "spark-operator.appLabelsAnnotations" $ }}
+{{- template "spark-operator.appRbacRules" $ }}
+---
+{{- end }}
+{{- if $appResources.sparkApplicationSentinel.create }}
+{{- range $sentinelNs := .Values.appResources.sparkApplicationSentinel.sentinelNamespaces.data }}
+apiVersion: org.apache.spark/v1alpha1
+kind: SparkApplication
+metadata:
+  name: {{ $appResources.sparkApplicationSentinel.name }}
+  namespace: {{ $sentinelNs }}
+  labels:
+    "spark.operator/sentinel": "true"
+    {{- template "spark-operator.appLabels" $ }}
+  annotations:
+    {{- template "spark-operator.appAnnotations" $ }}
+{{- end }}
+---
+{{- end }}

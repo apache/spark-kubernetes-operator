@@ -16,3 +16,30 @@ build
 dependencies.lock
 **/dependencies.lock
 gradle/wrapper/gradle-wrapper.jar
+
+# Compiled source #
+###################
+*.class
+*.dll
+*.exe
+*.o
+*.so
+*.pyc
+
+# Packages #
+############
+*.7z
+*.dmg
+*.gz
+*.iso
+*.rar
+*.tar
+*.zip
+
+# Logs and databases #
+######################
+*.log
+
+# Other build and generated files #
+###################################
+build-tools/helm/spark-kubernetes-operator/crds/

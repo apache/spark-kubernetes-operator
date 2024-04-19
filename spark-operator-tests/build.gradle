@@ -1,0 +1,13 @@
+dependencies {
+  testImplementation project(":spark-operator-api")
+
+  testImplementation("io.fabric8:kubernetes-client:$fabric8Version")
+  testImplementation("org.apache.logging.log4j:log4j-slf4j-impl:$log4jVersion")
+  testImplementation("org.apache.logging.log4j:log4j-core:$log4jVersion")
+  testImplementation platform("org.junit:junit-bom:$junitVersion")
+  testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+test {
+  useJUnitPlatform()
+}

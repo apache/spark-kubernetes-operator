@@ -12,3 +12,10 @@ LICENSE
 NOTICE
 TAGS
 RELEASE
+build
+.helmignore
+.editorconfig
+gradle
+build.gradle
+gradlew
+sparkapplications.org.apache.spark-v1.yml
