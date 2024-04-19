@@ -30,14 +30,14 @@ import lombok.extern.slf4j.Slf4j;
 
 import org.apache.spark.kubernetes.operator.Constants;
 import org.apache.spark.kubernetes.operator.SparkApplication;
-import org.apache.spark.kubernetes.operator.controller.SparkApplicationContext;
+import org.apache.spark.kubernetes.operator.controller.SparkAppContext;
 import org.apache.spark.kubernetes.operator.decorators.DriverResourceDecorator;
 import org.apache.spark.kubernetes.operator.reconciler.ReconcileProgress;
 import org.apache.spark.kubernetes.operator.reconciler.SparkReconcilerUtils;
 import org.apache.spark.kubernetes.operator.status.ApplicationState;
 import org.apache.spark.kubernetes.operator.status.ApplicationStateSummary;
 import org.apache.spark.kubernetes.operator.status.ApplicationStatus;
-import org.apache.spark.kubernetes.operator.utils.StatusRecorder;
+import org.apache.spark.kubernetes.operator.utils.SparkAppStatusRecorder;
 
 import static org.apache.spark.kubernetes.operator.Constants.ScheduleFailureMessage;
 import static org.apache.spark.kubernetes.operator.reconciler.ReconcileProgress.completeAndDefaultRequeue;
@@ -51,13 +51,13 @@ import static org.apache.spark.kubernetes.operator.utils.SparkExceptionUtils.bui
 @Slf4j
 public class AppInitStep extends AppReconcileStep {
   @Override
-  public ReconcileProgress reconcile(SparkApplicationContext context,
-                                     StatusRecorder statusRecorder) {
-    ApplicationState currentState = context.getSparkApplication().getStatus().getCurrentState();
+  public ReconcileProgress reconcile(SparkAppContext context,
+                                     SparkAppStatusRecorder statusRecorder) {
+    ApplicationState currentState = context.getResource().getStatus().getCurrentState();
     if (!currentState.getCurrentStateSummary().isInitializing()) {
       return proceed();
     }
-    SparkApplication app = context.getSparkApplication();
+    SparkApplication app = context.getResource();
     if (app.getStatus().getPreviousAttemptSummary() != null) {
       Instant lastTransitionTime = Instant.parse(currentState.getLastTransitionTime());
       Instant restartTime = lastTransitionTime.plusMillis(
@@ -102,7 +102,7 @@ public class AppInitStep extends AppReconcileStep {
           }
         }
       }
-      ApplicationStatus updatedStatus = context.getSparkApplication().getStatus()
+      ApplicationStatus updatedStatus = context.getResource().getStatus()
           .appendNewState(new ApplicationState(ApplicationStateSummary.DRIVER_REQUESTED,
               Constants.DriverRequestedMessage));
       statusRecorder.persistStatus(context, updatedStatus);
@@ -114,21 +114,21 @@ public class AppInitStep extends AppReconcileStep {
       String errorMessage = ScheduleFailureMessage +
           " StackTrace: " +
           buildGeneralErrorMessage(e);
-      statusRecorder.persistStatus(context, context.getSparkApplication().getStatus()
+      statusRecorder.persistStatus(context, context.getResource().getStatus()
           .appendNewState(new ApplicationState(ApplicationStateSummary.SCHEDULING_FAILURE,
               errorMessage)));
       return completeAndImmediateRequeue();
     }
   }
 
-  private void updateStatusForCreationFailure(SparkApplicationContext context,
+  private void updateStatusForCreationFailure(SparkAppContext context,
                                               HasMetadata resourceSpec,
-                                              StatusRecorder statusRecorder) {
+                                              SparkAppStatusRecorder statusRecorder) {
     if (log.isErrorEnabled()) {
       log.error("Failed all attempts to request driver resource {}.",
           resourceSpec.getMetadata());
     }
-    statusRecorder.persistStatus(context, context.getSparkApplication().getStatus()
+    statusRecorder.persistStatus(context, context.getResource().getStatus()
         .appendNewState(new ApplicationState(ApplicationStateSummary.SCHEDULING_FAILURE,
             "Failed to request resource for driver with kind: "
                 + resourceSpec.getKind()

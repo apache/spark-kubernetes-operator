@@ -32,13 +32,14 @@ import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
+import org.apache.spark.kubernetes.operator.SparkAppSubmissionWorker;
 import org.apache.spark.kubernetes.operator.SparkApplication;
-import org.apache.spark.kubernetes.operator.controller.SparkApplicationContext;
+import org.apache.spark.kubernetes.operator.controller.SparkAppContext;
 import org.apache.spark.kubernetes.operator.health.SentinelManager;
 import org.apache.spark.kubernetes.operator.status.ApplicationState;
 import org.apache.spark.kubernetes.operator.status.ApplicationStateSummary;
 import org.apache.spark.kubernetes.operator.status.ApplicationStatus;
-import org.apache.spark.kubernetes.operator.utils.StatusRecorder;
+import org.apache.spark.kubernetes.operator.utils.SparkAppStatusRecorder;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -47,14 +48,15 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.when;
 
-class SparkApplicationReconcilerTest {
-  private StatusRecorder mockRecorder = mock(StatusRecorder.class);
+class SparkAppReconcilerTest {
+  private SparkAppStatusRecorder mockRecorder = mock(SparkAppStatusRecorder.class);
   private SentinelManager<SparkApplication> mockSentinelManager = mock(SentinelManager.class);
   private KubernetesClient mockClient = mock(KubernetesClient.class);
   private Context<SparkApplication> mockContext = mock(Context.class);
   private Pod mockDriver = mock(Pod.class);
+  private SparkAppSubmissionWorker mockWorker = mock(SparkAppSubmissionWorker.class);
   SparkApplication app = new SparkApplication();
-  SparkApplicationReconciler reconciler = new SparkApplicationReconciler(mockRecorder,
+  SparkAppReconciler reconciler = new SparkAppReconciler(mockWorker, mockRecorder,
       mockSentinelManager);
 
   @BeforeEach
@@ -64,15 +66,15 @@ class SparkApplicationReconcilerTest {
     doAnswer(invocation -> {
       app.setStatus(invocation.getArgument(1));
       return null;
-    }).when(mockRecorder).persistStatus(any(SparkApplicationContext.class),
+    }).when(mockRecorder).persistStatus(any(SparkAppContext.class),
         any(ApplicationStatus.class));
   }
 
   @Test
   void testCleanupRunningApp() {
-    try (MockedConstruction<SparkApplicationContext> mockAppContext = mockConstruction(
-        SparkApplicationContext.class, (mock, context) -> {
-          when(mock.getSparkApplication()).thenReturn(app);
+    try (MockedConstruction<SparkAppContext> mockAppContext = mockConstruction(
+        SparkAppContext.class, (mock, context) -> {
+          when(mock.getResource()).thenReturn(app);
           when(mock.getClient()).thenReturn(mockClient);
           when(mock.getDriverPod()).thenReturn(Optional.of(mockDriver));
           when(mock.getDriverPodSpec()).thenReturn(mockDriver);

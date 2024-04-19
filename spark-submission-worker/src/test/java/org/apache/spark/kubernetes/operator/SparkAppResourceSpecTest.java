@@ -38,11 +38,11 @@ import org.apache.spark.deploy.k8s.SparkPod;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-class ApplicationResourceSpecTest {
+class SparkAppResourceSpecTest {
 
   @Test
   void testDriverResourceIncludesConfigMap() {
-    ApplicationDriverConf mockConf = mock(ApplicationDriverConf.class);
+    SparkAppDriverConf mockConf = mock(SparkAppDriverConf.class);
     when(mockConf.configMapNameDriver()).thenReturn("foo-configmap");
     when(mockConf.sparkConf()).thenReturn(
         new SparkConf().set("spark.kubernetes.namespace", "foo-namespace"));
@@ -74,33 +74,33 @@ class ApplicationResourceSpecTest {
     when(mockSpec.pod()).thenReturn(sparkPod);
     when(mockSpec.systemProperties()).thenReturn(new HashMap<>());
 
-    ApplicationResourceSpec applicationResourceSpec =
-        new ApplicationResourceSpec(mockConf, mockSpec);
+    SparkAppResourceSpec appResourceSpec =
+        new SparkAppResourceSpec(mockConf, mockSpec);
 
-    Assertions.assertEquals(1, applicationResourceSpec.getDriverResources().size());
+    Assertions.assertEquals(1, appResourceSpec.getDriverResources().size());
     Assertions.assertEquals(ConfigMap.class,
-        applicationResourceSpec.getDriverResources().get(0).getClass());
+        appResourceSpec.getDriverResources().get(0).getClass());
 
     ConfigMap proposedConfigMap =
-        (ConfigMap) applicationResourceSpec.getDriverResources().get(0);
+        (ConfigMap) appResourceSpec.getDriverResources().get(0);
     Assertions.assertEquals("foo-configmap", proposedConfigMap.getMetadata().getName());
     Assertions.assertEquals("foo-namespace",
         proposedConfigMap.getData().get("spark.kubernetes.namespace"));
     Assertions.assertEquals("foo-namespace", proposedConfigMap.getMetadata().getNamespace());
 
     Assertions.assertEquals(2,
-        applicationResourceSpec.getConfiguredPod().getSpec().getVolumes().size());
+        appResourceSpec.getConfiguredPod().getSpec().getVolumes().size());
     Volume proposedConfigVolume =
-        applicationResourceSpec.getConfiguredPod().getSpec().getVolumes().get(1);
+        appResourceSpec.getConfiguredPod().getSpec().getVolumes().get(1);
     Assertions.assertEquals("foo-configmap", proposedConfigVolume.getConfigMap().getName());
 
     Assertions.assertEquals(2,
-        applicationResourceSpec.getConfiguredPod().getSpec().getContainers().size());
+        appResourceSpec.getConfiguredPod().getSpec().getContainers().size());
     Assertions.assertEquals(2,
-        applicationResourceSpec.getConfiguredPod().getSpec().getContainers().get(1)
+        appResourceSpec.getConfiguredPod().getSpec().getContainers().get(1)
             .getVolumeMounts().size());
     VolumeMount proposedConfigVolumeMount =
-        applicationResourceSpec.getConfiguredPod().getSpec().getContainers().get(1)
+        appResourceSpec.getConfiguredPod().getSpec().getContainers().get(1)
             .getVolumeMounts().get(1);
     Assertions.assertEquals(proposedConfigVolume.getName(),
         proposedConfigVolumeMount.getName());

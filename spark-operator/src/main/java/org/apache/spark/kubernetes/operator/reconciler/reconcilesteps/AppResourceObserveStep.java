@@ -22,10 +22,10 @@ import java.util.List;
 
 import lombok.RequiredArgsConstructor;
 
-import org.apache.spark.kubernetes.operator.controller.SparkApplicationContext;
+import org.apache.spark.kubernetes.operator.controller.SparkAppContext;
 import org.apache.spark.kubernetes.operator.reconciler.ReconcileProgress;
 import org.apache.spark.kubernetes.operator.reconciler.observers.BaseAppDriverObserver;
-import org.apache.spark.kubernetes.operator.utils.StatusRecorder;
+import org.apache.spark.kubernetes.operator.utils.SparkAppStatusRecorder;
 
 /**
  * Observes secondary resource and update app status if needed
@@ -36,8 +36,8 @@ public class AppResourceObserveStep extends AppReconcileStep {
   private final List<BaseAppDriverObserver> observers;
 
   @Override
-  public ReconcileProgress reconcile(final SparkApplicationContext context,
-                                     final StatusRecorder statusRecorder) {
+  public ReconcileProgress reconcile(final SparkAppContext context,
+                                     final SparkAppStatusRecorder statusRecorder) {
     return observeDriver(context, statusRecorder, observers);
   }
 }

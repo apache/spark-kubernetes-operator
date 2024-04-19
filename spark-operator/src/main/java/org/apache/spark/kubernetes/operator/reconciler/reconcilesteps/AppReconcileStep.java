@@ -25,29 +25,29 @@ import java.util.stream.Collectors;
 import io.fabric8.kubernetes.api.model.Pod;
 
 import org.apache.spark.kubernetes.operator.SparkApplication;
-import org.apache.spark.kubernetes.operator.controller.SparkApplicationContext;
+import org.apache.spark.kubernetes.operator.controller.SparkAppContext;
 import org.apache.spark.kubernetes.operator.reconciler.ReconcileProgress;
 import org.apache.spark.kubernetes.operator.reconciler.observers.BaseAppDriverObserver;
 import org.apache.spark.kubernetes.operator.status.ApplicationState;
 import org.apache.spark.kubernetes.operator.status.ApplicationStatus;
-import org.apache.spark.kubernetes.operator.utils.StatusRecorder;
+import org.apache.spark.kubernetes.operator.utils.SparkAppStatusRecorder;
 
 import static org.apache.spark.kubernetes.operator.reconciler.ReconcileProgress.completeAndImmediateRequeue;
 import static org.apache.spark.kubernetes.operator.reconciler.ReconcileProgress.proceed;
-import static org.apache.spark.kubernetes.operator.utils.ApplicationStatusUtils.driverUnexpectedRemoved;
+import static org.apache.spark.kubernetes.operator.utils.SparkAppStatusUtils.driverUnexpectedRemoved;
 
 /**
  * Basic reconcile step for application
  */
 public abstract class AppReconcileStep {
-  public abstract ReconcileProgress reconcile(SparkApplicationContext context,
-                                              StatusRecorder statusRecorder);
+  public abstract ReconcileProgress reconcile(SparkAppContext context,
+                                              SparkAppStatusRecorder statusRecorder);
 
-  protected ReconcileProgress observeDriver(final SparkApplicationContext context,
-                                            final StatusRecorder statusRecorder,
+  protected ReconcileProgress observeDriver(final SparkAppContext context,
+                                            final SparkAppStatusRecorder statusRecorder,
                                             final List<BaseAppDriverObserver> observers) {
     Optional<Pod> driverPodOptional = context.getDriverPod();
-    SparkApplication app = context.getSparkApplication();
+    SparkApplication app = context.getResource();
     ApplicationStatus currentStatus = app.getStatus();
     if (driverPodOptional.isPresent()) {
       List<ApplicationState> stateUpdates = observers.stream()

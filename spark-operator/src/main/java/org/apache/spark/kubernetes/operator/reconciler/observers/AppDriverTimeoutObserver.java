@@ -28,7 +28,7 @@ import org.apache.spark.kubernetes.operator.spec.ApplicationSpec;
 import org.apache.spark.kubernetes.operator.spec.ApplicationTimeoutConfig;
 import org.apache.spark.kubernetes.operator.status.ApplicationState;
 import org.apache.spark.kubernetes.operator.status.ApplicationStatus;
-import org.apache.spark.kubernetes.operator.utils.ApplicationStatusUtils;
+import org.apache.spark.kubernetes.operator.utils.SparkAppStatusUtils;
 
 /**
  * Observes driver status and time-out as configured in app spec
@@ -65,16 +65,16 @@ public class AppDriverTimeoutObserver extends BaseAppDriverObserver {
     switch (currentStatus.getCurrentState().getCurrentStateSummary()) {
       case DRIVER_REQUESTED:
         timeoutThreshold = timeoutConfig.getDriverStartTimeoutMillis();
-        supplier = ApplicationStatusUtils::driverLaunchTimedOut;
+        supplier = SparkAppStatusUtils::driverLaunchTimedOut;
         break;
       case DRIVER_STARTED:
         timeoutThreshold = timeoutConfig.getSparkSessionStartTimeoutMillis();
-        supplier = ApplicationStatusUtils::driverReadyTimedOut;
+        supplier = SparkAppStatusUtils::driverReadyTimedOut;
         break;
       case DRIVER_READY:
       case INITIALIZED_BELOW_THRESHOLD_EXECUTORS:
         timeoutThreshold = timeoutConfig.getExecutorStartTimeoutMillis();
-        supplier = ApplicationStatusUtils::executorLaunchTimedOut;
+        supplier = SparkAppStatusUtils::executorLaunchTimedOut;
         break;
       default:
         // No timeout check needed for other states

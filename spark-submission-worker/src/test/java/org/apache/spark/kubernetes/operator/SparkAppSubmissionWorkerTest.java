@@ -43,12 +43,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.when;
 
-class ApplicationClientWorkerTest {
+class SparkAppSubmissionWorkerTest {
   @Test
   void buildDriverConfShouldApplySpecAndPropertiesOverride() {
-    Map<ApplicationDriverConf, List<Object>> constructorArgs = new HashMap<>();
-    try (MockedConstruction<ApplicationDriverConf> mocked = mockConstruction(
-        ApplicationDriverConf.class,
+    Map<SparkAppDriverConf, List<Object>> constructorArgs = new HashMap<>();
+    try (MockedConstruction<SparkAppDriverConf> mocked = mockConstruction(
+        SparkAppDriverConf.class,
         (mock, context) -> constructorArgs.put(mock,
             new ArrayList<>(context.arguments())))) {
       SparkApplication mockApp = mock(SparkApplication.class);
@@ -71,8 +71,8 @@ class ApplicationClientWorkerTest {
       when(mockSpec.getMainClass()).thenReturn("foo-class");
       when(mockSpec.getDriverArgs()).thenReturn(List.of("a", "b"));
 
-      ApplicationDriverConf conf =
-          ApplicationClientWorker.buildDriverConf(mockApp, overrides);
+      SparkAppSubmissionWorker submissionWorker = new SparkAppSubmissionWorker();
+      SparkAppDriverConf conf = submissionWorker.buildDriverConf(mockApp, overrides);
       Assertions.assertEquals(6, constructorArgs.get(conf).size());
 
       // validate SparkConf with override
@@ -102,9 +102,9 @@ class ApplicationClientWorkerTest {
 
   @Test
   void buildDriverConfForPythonApp() {
-    Map<ApplicationDriverConf, List<Object>> constructorArgs = new HashMap<>();
-    try (MockedConstruction<ApplicationDriverConf> mocked = mockConstruction(
-        ApplicationDriverConf.class,
+    Map<SparkAppDriverConf, List<Object>> constructorArgs = new HashMap<>();
+    try (MockedConstruction<SparkAppDriverConf> mocked = mockConstruction(
+        SparkAppDriverConf.class,
         (mock, context) -> constructorArgs.put(mock,
             new ArrayList<>(context.arguments())))) {
       SparkApplication mockApp = mock(SparkApplication.class);
@@ -117,8 +117,9 @@ class ApplicationClientWorkerTest {
       when(mockApp.getMetadata()).thenReturn(appMeta);
       when(mockSpec.getPyFiles()).thenReturn("foo");
 
-      ApplicationDriverConf conf =
-          ApplicationClientWorker.buildDriverConf(mockApp, Collections.emptyMap());
+      SparkAppSubmissionWorker submissionWorker = new SparkAppSubmissionWorker();
+      SparkAppDriverConf conf =
+          submissionWorker.buildDriverConf(mockApp, Collections.emptyMap());
       Assertions.assertEquals(6, constructorArgs.get(conf).size());
 
       // validate main resources
@@ -132,9 +133,9 @@ class ApplicationClientWorkerTest {
 
   @Test
   void buildDriverConfForRApp() {
-    Map<ApplicationDriverConf, List<Object>> constructorArgs = new HashMap<>();
-    try (MockedConstruction<ApplicationDriverConf> mocked = mockConstruction(
-        ApplicationDriverConf.class,
+    Map<SparkAppDriverConf, List<Object>> constructorArgs = new HashMap<>();
+    try (MockedConstruction<SparkAppDriverConf> mocked = mockConstruction(
+        SparkAppDriverConf.class,
         (mock, context) -> constructorArgs.put(mock,
             new ArrayList<>(context.arguments())))) {
       SparkApplication mockApp = mock(SparkApplication.class);
@@ -147,8 +148,9 @@ class ApplicationClientWorkerTest {
       when(mockApp.getMetadata()).thenReturn(appMeta);
       when(mockSpec.getSparkRFiles()).thenReturn("foo");
 
-      ApplicationDriverConf conf =
-          ApplicationClientWorker.buildDriverConf(mockApp, Collections.emptyMap());
+      SparkAppSubmissionWorker submissionWorker = new SparkAppSubmissionWorker();
+      SparkAppDriverConf conf =
+          submissionWorker.buildDriverConf(mockApp, Collections.emptyMap());
       Assertions.assertEquals(6, constructorArgs.get(conf).size());
 
       // validate main resources
@@ -179,13 +181,14 @@ class ApplicationClientWorkerTest {
     when(mockApp1.getStatus()).thenReturn(mockStatus1);
     when(mockApp2.getStatus()).thenReturn(mockStatus2);
 
-    String appId1 = ApplicationClientWorker.createSparkAppId(mockApp1);
-    String appId2 = ApplicationClientWorker.createSparkAppId(mockApp2);
+    SparkAppSubmissionWorker submissionWorker = new SparkAppSubmissionWorker();
+    String appId1 = submissionWorker.createSparkAppId(mockApp1);
+    String appId2 = submissionWorker.createSparkAppId(mockApp2);
 
     Assertions.assertNotEquals(appId1, appId2);
     Assertions.assertTrue(appId1.contains(appName1));
     // multiple invoke shall give same result
-    Assertions.assertEquals(appId1, ApplicationClientWorker.createSparkAppId(mockApp1));
+    Assertions.assertEquals(appId1, submissionWorker.createSparkAppId(mockApp1));
 
     ApplicationAttemptSummary mockAttempt = mock(ApplicationAttemptSummary.class);
     AttemptInfo mockAttemptInfo = mock(AttemptInfo.class);
@@ -193,10 +196,10 @@ class ApplicationClientWorkerTest {
     when(mockAttemptInfo.getId()).thenReturn(2L);
     when(mockStatus1.getCurrentAttemptSummary()).thenReturn(mockAttempt);
 
-    String appId1Attempt2 = ApplicationClientWorker.createSparkAppId(mockApp1);
+    String appId1Attempt2 = submissionWorker.createSparkAppId(mockApp1);
     Assertions.assertTrue(appId1Attempt2.contains(appName1));
     Assertions.assertNotEquals(appId1, appId1Attempt2);
 
-    Assertions.assertEquals(appId1Attempt2, ApplicationClientWorker.createSparkAppId(mockApp1));
+    Assertions.assertEquals(appId1Attempt2, submissionWorker.createSparkAppId(mockApp1));
   }
 }

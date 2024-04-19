@@ -20,17 +20,17 @@ package org.apache.spark.kubernetes.operator.reconciler.reconcilesteps;
 
 import lombok.extern.slf4j.Slf4j;
 
-import org.apache.spark.kubernetes.operator.controller.SparkApplicationContext;
+import org.apache.spark.kubernetes.operator.controller.SparkAppContext;
 import org.apache.spark.kubernetes.operator.reconciler.ReconcileProgress;
 import org.apache.spark.kubernetes.operator.spec.DeploymentMode;
 import org.apache.spark.kubernetes.operator.status.ApplicationState;
 import org.apache.spark.kubernetes.operator.status.ApplicationStateSummary;
 import org.apache.spark.kubernetes.operator.status.ApplicationStatus;
-import org.apache.spark.kubernetes.operator.utils.StatusRecorder;
+import org.apache.spark.kubernetes.operator.utils.SparkAppStatusRecorder;
 
 import static org.apache.spark.kubernetes.operator.reconciler.ReconcileProgress.completeAndImmediateRequeue;
 import static org.apache.spark.kubernetes.operator.reconciler.ReconcileProgress.proceed;
-import static org.apache.spark.kubernetes.operator.utils.ApplicationStatusUtils.isValidApplicationStatus;
+import static org.apache.spark.kubernetes.operator.utils.SparkAppStatusUtils.isValidApplicationStatus;
 
 /**
  * Validates the submitted app. This can be re-factored into webhook in future.
@@ -38,17 +38,17 @@ import static org.apache.spark.kubernetes.operator.utils.ApplicationStatusUtils.
 @Slf4j
 public class AppValidateStep extends AppReconcileStep {
   @Override
-  public ReconcileProgress reconcile(SparkApplicationContext context,
-                                     StatusRecorder statusRecorder) {
-    if (!isValidApplicationStatus(context.getSparkApplication())) {
+  public ReconcileProgress reconcile(SparkAppContext context,
+                                     SparkAppStatusRecorder statusRecorder) {
+    if (!isValidApplicationStatus(context.getResource())) {
       log.warn("Spark application found with empty status. Resetting to initial state.");
       statusRecorder.persistStatus(context, new ApplicationStatus());
     }
-    if (DeploymentMode.ClientMode.equals(context.getSparkApplication().getSpec())) {
+    if (DeploymentMode.ClientMode.equals(context.getResource().getSpec())) {
       ApplicationState failure = new ApplicationState(ApplicationStateSummary.FAILED,
           "Client mode is not supported yet.");
       statusRecorder.persistStatus(context,
-          context.getSparkApplication().getStatus().appendNewState(failure));
+          context.getResource().getStatus().appendNewState(failure));
       return completeAndImmediateRequeue();
     }
     return proceed();

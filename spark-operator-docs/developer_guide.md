@@ -80,5 +80,5 @@ For now, in order to manually run e2e tests:
 ```shell
 java -cp /path/to/spark-operator-test.jar \
     -Dspark.operator.test.app.yaml.files.dir=/path/to/e2e-tests/ \
-    org.apache.spark.kubernetes.operator.AppSubmitToSucceedTest
+    org.apache.spark.kubernetes.operator.SparkAppSubmitToSucceedTest
 ```

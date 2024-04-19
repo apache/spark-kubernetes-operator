@@ -36,7 +36,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import org.apache.spark.kubernetes.operator.SparkApplication;
-import org.apache.spark.kubernetes.operator.reconciler.SparkApplicationReconciler;
+import org.apache.spark.kubernetes.operator.reconciler.SparkAppReconciler;
 
 class OperatorJosdkMetricsTest {
   public static final String DEFAULT_NAMESPACE = "default";
@@ -46,7 +46,7 @@ class OperatorJosdkMetricsTest {
   private static final Map<String, Object> metadata =
       Map.of(Constants.RESOURCE_GVK_KEY, GroupVersionKind.gvkFor(SparkApplication.class),
           Constants.CONTROLLER_NAME, "test-controller-name");
-  private static final String controllerName = SparkApplicationReconciler.class.getSimpleName();
+  private static final String controllerName = SparkAppReconciler.class.getSimpleName();
 
   private OperatorJosdkMetrics operatorMetrics;
 
@@ -63,13 +63,13 @@ class OperatorJosdkMetricsTest {
     Map<String, Metric> metrics = operatorMetrics.metricRegistry().getMetrics();
     Assertions.assertEquals(4, metrics.size());
     Assertions.assertTrue(
-        metrics.containsKey("sparkapplication.sparkapplicationreconciler.reconcile.both"));
+        metrics.containsKey("sparkapplication.sparkappreconciler.reconcile.both"));
     Assertions.assertTrue(metrics.containsKey(
-        "sparkapplication.testns.sparkapplicationreconciler.reconcile.both"));
+        "sparkapplication.testns.sparkappreconciler.reconcile.both"));
     Assertions.assertTrue(metrics.containsKey(
-        "sparkapplication.sparkapplicationreconciler.reconcile.success.both"));
+        "sparkapplication.sparkappreconciler.reconcile.success.both"));
     Assertions.assertTrue(metrics.containsKey(
-        "sparkapplication.testns.sparkapplicationreconciler.reconcile.success.both"));
+        "sparkapplication.testns.sparkappreconciler.reconcile.success.both"));
 
     var failedExecution = new FooTestingExecutionBase<>();
     try {
@@ -78,14 +78,14 @@ class OperatorJosdkMetricsTest {
       Assertions.assertEquals(e.getMessage(), "Foo exception");
       Assertions.assertEquals(8, metrics.size());
       Assertions.assertTrue(metrics.containsKey(
-          "sparkapplication.sparkapplicationreconciler.reconcile.failure"));
+          "sparkapplication.sparkappreconciler.reconcile.failure"));
       Assertions.assertTrue(metrics.containsKey(
-          "sparkapplication.sparkapplicationreconciler.reconcile.failure.exception" +
+          "sparkapplication.sparkappreconciler.reconcile.failure.exception" +
               ".nosuchfieldexception"));
       Assertions.assertTrue(metrics.containsKey(
-          "sparkapplication.testns.sparkapplicationreconciler.reconcile.failure"));
+          "sparkapplication.testns.sparkappreconciler.reconcile.failure"));
       Assertions.assertTrue(metrics.containsKey(
-          "sparkapplication.testns.sparkapplicationreconciler.reconcile.failure." +
+          "sparkapplication.testns.sparkappreconciler.reconcile.failure." +
               "exception.nosuchfieldexception"));
     }
   }

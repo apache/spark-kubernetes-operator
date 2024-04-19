@@ -41,9 +41,10 @@ import io.javaoperatorsdk.operator.processing.event.source.informer.Mappers;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import org.apache.spark.kubernetes.operator.SparkAppSubmissionWorker;
 import org.apache.spark.kubernetes.operator.Constants;
 import org.apache.spark.kubernetes.operator.SparkApplication;
-import org.apache.spark.kubernetes.operator.controller.SparkApplicationContext;
+import org.apache.spark.kubernetes.operator.controller.SparkAppContext;
 import org.apache.spark.kubernetes.operator.health.SentinelManager;
 import org.apache.spark.kubernetes.operator.reconciler.observers.AppDriverReadyObserver;
 import org.apache.spark.kubernetes.operator.reconciler.observers.AppDriverRunningObserver;
@@ -57,9 +58,9 @@ import org.apache.spark.kubernetes.operator.reconciler.reconcilesteps.AppRunning
 import org.apache.spark.kubernetes.operator.reconciler.reconcilesteps.AppTerminatedStep;
 import org.apache.spark.kubernetes.operator.reconciler.reconcilesteps.AppValidateStep;
 import org.apache.spark.kubernetes.operator.reconciler.reconcilesteps.UnknownStateStep;
-import org.apache.spark.kubernetes.operator.utils.ApplicationStatusUtils;
+import org.apache.spark.kubernetes.operator.utils.SparkAppStatusUtils;
 import org.apache.spark.kubernetes.operator.utils.LoggingUtils;
-import org.apache.spark.kubernetes.operator.utils.StatusRecorder;
+import org.apache.spark.kubernetes.operator.utils.SparkAppStatusRecorder;
 
 import static org.apache.spark.kubernetes.operator.reconciler.ReconcileProgress.completeAndDefaultRequeue;
 import static org.apache.spark.kubernetes.operator.reconciler.SparkReconcilerUtils.commonResourceLabelsStr;
@@ -72,12 +73,13 @@ import static org.apache.spark.kubernetes.operator.reconciler.SparkReconcilerUti
 @ControllerConfiguration
 @Slf4j
 @RequiredArgsConstructor
-public class SparkApplicationReconciler
+public class SparkAppReconciler
     implements Reconciler<SparkApplication>,
     ErrorStatusHandler<SparkApplication>,
     EventSourceInitializer<SparkApplication>,
     Cleaner<SparkApplication> {
-  private final StatusRecorder statusRecorder;
+  private final SparkAppSubmissionWorker submissionWorker;
+  private final SparkAppStatusRecorder sparkAppStatusRecorder;
   private final SentinelManager<SparkApplication> sentinelManager;
 
   @Override
@@ -92,11 +94,12 @@ public class SparkApplicationReconciler
         return UpdateControl.noUpdate();
       }
       log.debug("Start reconciliation.");
-      statusRecorder.updateStatusFromCache(sparkApplication);
-      SparkApplicationContext ctx = new SparkApplicationContext(sparkApplication, context);
+      sparkAppStatusRecorder.updateStatusFromCache(sparkApplication);
+      SparkAppContext ctx = new SparkAppContext(sparkApplication, context,
+          submissionWorker);
       List<AppReconcileStep> reconcileSteps = getReconcileSteps(sparkApplication);
       for (AppReconcileStep step : reconcileSteps) {
-        ReconcileProgress progress = step.reconcile(ctx, statusRecorder);
+        ReconcileProgress progress = step.reconcile(ctx, sparkAppStatusRecorder);
         if (progress.isCompleted()) {
           return SparkReconcilerUtils.toUpdateControl(sparkApplication, progress);
         }
@@ -201,13 +204,14 @@ public class SparkApplicationReconciler
     try {
       trackedMDC.set(sparkApplication);
       log.info("Cleaning up resources for SparkApp.");
-      SparkApplicationContext ctx = new SparkApplicationContext(sparkApplication, context);
+      SparkAppContext ctx = new SparkAppContext(sparkApplication, context,
+          submissionWorker);
       List<AppReconcileStep> cleanupSteps = new ArrayList<>();
       cleanupSteps.add(new AppValidateStep());
       cleanupSteps.add(new AppTerminatedStep());
-      cleanupSteps.add(new AppCleanUpStep(ApplicationStatusUtils::appCancelled));
+      cleanupSteps.add(new AppCleanUpStep(SparkAppStatusUtils::appCancelled));
       for (AppReconcileStep step : cleanupSteps) {
-        ReconcileProgress progress = step.reconcile(ctx, statusRecorder);
+        ReconcileProgress progress = step.reconcile(ctx, sparkAppStatusRecorder);
         if (progress.isCompleted()) {
           if (progress.isRequeue()) {
             return DeleteControl.noFinalizerRemoval().rescheduleAfter(
@@ -221,7 +225,7 @@ public class SparkApplicationReconciler
       log.info("Cleanup completed");
       trackedMDC.reset();
     }
-    statusRecorder.removeCachedStatus(sparkApplication);
+    sparkAppStatusRecorder.removeCachedStatus(sparkApplication);
     return deleteControl;
   }
 }

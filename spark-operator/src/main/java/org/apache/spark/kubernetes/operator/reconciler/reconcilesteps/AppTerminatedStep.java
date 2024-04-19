@@ -18,9 +18,9 @@
 
 package org.apache.spark.kubernetes.operator.reconciler.reconcilesteps;
 
-import org.apache.spark.kubernetes.operator.controller.SparkApplicationContext;
+import org.apache.spark.kubernetes.operator.controller.SparkAppContext;
 import org.apache.spark.kubernetes.operator.reconciler.ReconcileProgress;
-import org.apache.spark.kubernetes.operator.utils.StatusRecorder;
+import org.apache.spark.kubernetes.operator.utils.SparkAppStatusRecorder;
 
 import static org.apache.spark.kubernetes.operator.reconciler.ReconcileProgress.proceed;
 
@@ -29,11 +29,11 @@ import static org.apache.spark.kubernetes.operator.reconciler.ReconcileProgress.
  */
 public class AppTerminatedStep extends AppReconcileStep {
   @Override
-  public ReconcileProgress reconcile(SparkApplicationContext context,
-                                     StatusRecorder statusRecorder) {
-    if (context.getSparkApplication().getStatus().getCurrentState().getCurrentStateSummary()
+  public ReconcileProgress reconcile(SparkAppContext context,
+                                     SparkAppStatusRecorder statusRecorder) {
+    if (context.getResource().getStatus().getCurrentState().getCurrentStateSummary()
         .isTerminated()) {
-      statusRecorder.removeCachedStatus(context.getSparkApplication());
+      statusRecorder.removeCachedStatus(context.getResource());
       return ReconcileProgress.completeAndNoRequeue();
     }
     return proceed();

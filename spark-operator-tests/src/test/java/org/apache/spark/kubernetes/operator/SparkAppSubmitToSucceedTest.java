@@ -40,8 +40,8 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.spark.kubernetes.operator.status.ApplicationStateSummary;
 
-class AppSubmitToSucceedTest {
-  private static final Logger logger = LoggerFactory.getLogger(AppSubmitToSucceedTest.class);
+class SparkAppSubmitToSucceedTest {
+  private static final Logger logger = LoggerFactory.getLogger(SparkAppSubmitToSucceedTest.class);
 
   /**
    * Create Spark app(s) & wait them for complete.
@@ -71,7 +71,7 @@ class AppSubmitToSucceedTest {
     String testAppYamlFilesDir = System.getProperty("spark.operator.test.app.yaml.files.dir",
         "e2e-tests/spark-apps/");
     String testAppNamespace = System.getProperty("spark.operator.test.app.namespace",
-        "spark-test");
+        "default");
 
     Set<SparkApplication> testApps =
         loadSparkAppsFromFile(client, new File(testAppYamlFilesDir));

@@ -83,7 +83,6 @@ spec:
   sparkConf:
     spark.executor.instances: "5"
     spark.kubernetes.container.image: "spark:3.5.1-scala2.12-java11-python3-r-ubuntu"
-    spark.kubernetes.namespace: "spark-test"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
     spark.kubernetes.driver.podTemplateContainerName: "main-container"
   runtimeVersions:

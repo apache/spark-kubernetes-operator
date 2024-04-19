@@ -24,14 +24,14 @@ import java.util.Set;
 import io.fabric8.kubernetes.api.model.Pod;
 
 import org.apache.spark.kubernetes.operator.Constants;
-import org.apache.spark.kubernetes.operator.controller.SparkApplicationContext;
+import org.apache.spark.kubernetes.operator.controller.SparkAppContext;
 import org.apache.spark.kubernetes.operator.reconciler.ReconcileProgress;
 import org.apache.spark.kubernetes.operator.reconciler.observers.AppDriverRunningObserver;
 import org.apache.spark.kubernetes.operator.spec.InstanceConfig;
 import org.apache.spark.kubernetes.operator.status.ApplicationState;
 import org.apache.spark.kubernetes.operator.status.ApplicationStateSummary;
 import org.apache.spark.kubernetes.operator.utils.PodUtils;
-import org.apache.spark.kubernetes.operator.utils.StatusRecorder;
+import org.apache.spark.kubernetes.operator.utils.SparkAppStatusRecorder;
 
 import static org.apache.spark.kubernetes.operator.reconciler.ReconcileProgress.completeAndDefaultRequeue;
 
@@ -40,17 +40,14 @@ import static org.apache.spark.kubernetes.operator.reconciler.ReconcileProgress.
  */
 public class AppRunningStep extends AppReconcileStep {
   @Override
-  public ReconcileProgress reconcile(SparkApplicationContext context,
-                                     StatusRecorder statusRecorder) {
-    InstanceConfig instanceConfig =
-        context.getSparkApplication().getSpec().getApplicationTolerations()
+  public ReconcileProgress reconcile(SparkAppContext context,
+                                     SparkAppStatusRecorder statusRecorder) {
+    InstanceConfig instanceConfig = context.getResource().getSpec().getApplicationTolerations()
             .getInstanceConfig();
-    ApplicationStateSummary prevStateSummary =
-        context.getSparkApplication().getStatus().getCurrentState()
+    ApplicationStateSummary prevStateSummary = context.getResource().getStatus().getCurrentState()
             .getCurrentStateSummary();
     ApplicationStateSummary proposedStateSummary;
-    String stateMessage =
-        context.getSparkApplication().getStatus().getCurrentState().getMessage();
+    String stateMessage = context.getResource().getStatus().getCurrentState().getMessage();
     if (instanceConfig == null
         || instanceConfig.getInitExecutors() == 0L
         || (!prevStateSummary.isStarting() && instanceConfig.getMinExecutors() == 0L)) {
@@ -85,7 +82,7 @@ public class AppRunningStep extends AppReconcileStep {
       }
     }
     if (!proposedStateSummary.equals(prevStateSummary)) {
-      statusRecorder.persistStatus(context, context.getSparkApplication().getStatus()
+      statusRecorder.persistStatus(context, context.getResource().getStatus()
           .appendNewState(new ApplicationState(proposedStateSummary, stateMessage)));
       return completeAndDefaultRequeue();
     } else {

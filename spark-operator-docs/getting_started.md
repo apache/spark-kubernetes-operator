@@ -139,7 +139,6 @@ spec:
     spark.executor.instances: "5"
     spark.kubernetes.authenticate.driver.serviceAccountName: spark
     spark.kubernetes.container.image: spark:3.5.1-scala2.12-java11-python3-r-ubuntu
-    spark.kubernetes.namespace: spark-test
 status:
   currentAttemptSummary:
     attemptInfo:
@@ -180,10 +179,13 @@ Delete application Spark-pi and its secondary resources with
 
 #### Uninstallation
 
-To remove the installed resources from your cluster, use:
+To remove the installed resources from your cluster, reset environment to the defaults and 
+shutdown the cluster:
 
 ```bash
 helm uninstall spark-kubernetes-operator
+eval $(minikube docker-env --unset)
+minikube stop
 ```
 
 ### More examples

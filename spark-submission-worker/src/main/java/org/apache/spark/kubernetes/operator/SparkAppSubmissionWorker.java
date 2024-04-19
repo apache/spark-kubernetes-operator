@@ -38,17 +38,17 @@ import org.apache.spark.kubernetes.operator.spec.ApplicationSpec;
  * Similar to org.apache.spark.deploy.k8s.submit.KubernetesClientApplication
  * this reads args from SparkApplication instead of starting separate spark-submit process
  */
-public class ApplicationClientWorker {
+public class SparkAppSubmissionWorker {
 
-  public static ApplicationResourceSpec getResourceSpec(
+  public SparkAppResourceSpec getResourceSpec(
       org.apache.spark.kubernetes.operator.SparkApplication app,
       KubernetesClient client,
       Map<String, String> confOverrides) {
-    ApplicationDriverConf applicationDriverConf = buildDriverConf(app, confOverrides);
-    return buildResourceSpec(applicationDriverConf, client);
+    SparkAppDriverConf appDriverConf = buildDriverConf(app, confOverrides);
+    return buildResourceSpec(appDriverConf, client);
   }
 
-  protected static ApplicationDriverConf buildDriverConf(
+  protected SparkAppDriverConf buildDriverConf(
       org.apache.spark.kubernetes.operator.SparkApplication app,
       Map<String, String> confOverrides) {
     ApplicationSpec applicationSpec = app.getSpec();
@@ -76,7 +76,7 @@ public class ApplicationClientWorker {
     }
     effectiveSparkConf.setMaster(
         "k8s://https://$KUBERNETES_SERVICE_HOST:$KUBERNETES_SERVICE_PORT");
-    return ApplicationDriverConf.create(effectiveSparkConf,
+    return SparkAppDriverConf.create(effectiveSparkConf,
         createSparkAppId(app),
         primaryResource,
         applicationSpec.getMainClass(),
@@ -84,20 +84,20 @@ public class ApplicationClientWorker {
         Option.apply(applicationSpec.getProxyUser()));
   }
 
-  protected static ApplicationResourceSpec buildResourceSpec(
-      ApplicationDriverConf kubernetesDriverConf,
+  protected SparkAppResourceSpec buildResourceSpec(
+      SparkAppDriverConf kubernetesDriverConf,
       KubernetesClient client) {
     KubernetesDriverBuilder builder = new KubernetesDriverBuilder();
     KubernetesDriverSpec kubernetesDriverSpec =
         builder.buildFromFeatures(kubernetesDriverConf, client);
-    return new ApplicationResourceSpec(kubernetesDriverConf, kubernetesDriverSpec);
+    return new SparkAppResourceSpec(kubernetesDriverConf, kubernetesDriverSpec);
   }
 
   /**
    * Spark application id need to be deterministic per attempt per Spark App.
    * This is to ensure operator reconciliation idempotency
    */
-  protected static String createSparkAppId(
+  protected String createSparkAppId(
       final org.apache.spark.kubernetes.operator.SparkApplication app) {
     long attemptId = 0L;
     if (app.getStatus() != null && app.getStatus().getCurrentAttemptSummary() != null) {

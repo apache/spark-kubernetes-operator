@@ -47,9 +47,9 @@ import org.apache.spark.kubernetes.operator.metrics.MetricsSystem;
 import org.apache.spark.kubernetes.operator.metrics.MetricsSystemFactory;
 import org.apache.spark.kubernetes.operator.metrics.source.OperatorJosdkMetrics;
 import org.apache.spark.kubernetes.operator.probe.ProbeService;
-import org.apache.spark.kubernetes.operator.reconciler.SparkApplicationReconciler;
+import org.apache.spark.kubernetes.operator.reconciler.SparkAppReconciler;
 import org.apache.spark.kubernetes.operator.reconciler.SparkReconcilerUtils;
-import org.apache.spark.kubernetes.operator.utils.StatusRecorder;
+import org.apache.spark.kubernetes.operator.utils.SparkAppStatusRecorder;
 
 import static org.apache.spark.kubernetes.operator.config.SparkOperatorConf.DynamicConfigEnabled;
 import static org.apache.spark.kubernetes.operator.config.SparkOperatorConf.DynamicConfigSelectorStr;
@@ -67,11 +67,12 @@ public class SparkOperator {
   private Operator sparkOperator;
   private Operator sparkOperatorConfMonitor;
   private KubernetesClient client;
-  private StatusRecorder statusRecorder;
-  private MetricsSystem metricsSystem;
+  private SparkAppSubmissionWorker appSubmissionWorker;
+  private SparkAppStatusRecorder sparkAppStatusRecorder;
   protected Set<RegisteredController<?>> registeredSparkControllers;
   protected Set<String> watchedNamespaces;
 
+  private MetricsSystem metricsSystem;
   private SentinelManager sentinelManager;
   private ProbeService probeService;
   private MetricsService metricsService;
@@ -80,7 +81,9 @@ public class SparkOperator {
   public SparkOperator() {
     this.metricsSystem = MetricsSystemFactory.createMetricsSystem();
     this.client = KubernetesClientFactory.buildKubernetesClient(metricsSystem);
-    this.statusRecorder = new StatusRecorder(SparkOperatorConf.getApplicationStatusListener());
+    this.appSubmissionWorker = new SparkAppSubmissionWorker();
+    this.sparkAppStatusRecorder = new SparkAppStatusRecorder(
+        SparkOperatorConf.getAppStatusListener());
     this.registeredSparkControllers = new HashSet<>();
     this.watchedNamespaces = SparkReconcilerUtils.getWatchedNamespaces();
     this.sentinelManager = new SentinelManager<SparkApplication>();
@@ -96,8 +99,8 @@ public class SparkOperator {
   protected Operator createOperator() {
     Operator op = new Operator(this::overrideOperatorConfigs);
     registeredSparkControllers.add(
-        op.register(new SparkApplicationReconciler(statusRecorder, sentinelManager),
-            this::overrideControllerConfigs));
+        op.register(new SparkAppReconciler(appSubmissionWorker, sparkAppStatusRecorder,
+                sentinelManager), this::overrideControllerConfigs));
     return op;
   }
 

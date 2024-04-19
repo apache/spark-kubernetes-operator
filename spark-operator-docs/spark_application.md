@@ -20,14 +20,12 @@ apiVersion: org.apache.spark/v1alpha1
 kind: SparkApplication
 metadata:
   name: spark-pi
-  namespace: spark-test
 spec:
   mainClass: "org.apache.spark.examples.SparkPi"
   jars: "local:///opt/spark/examples/jars/spark-examples_2.12-3.5.1.jar"
   sparkConf:
     spark.executor.instances: "5"
     spark.kubernetes.container.image: "spark:3.5.1-scala2.12-java17-python3-ubuntu"
-    spark.kubernetes.namespace: "spark-test"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
   runtimeVersions:
     scalaVersion: v2_12

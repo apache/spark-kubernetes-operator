@@ -24,6 +24,6 @@ import org.apache.spark.kubernetes.operator.status.ApplicationStatus;
 /**
  * Custom listeners, if added, would be listening to Spark App status change
  */
-public abstract class ApplicationStatusListener extends BaseStatusListener<ApplicationStatus,
+public abstract class SparkAppStatusListener extends BaseStatusListener<ApplicationStatus,
     SparkApplication> {
 }

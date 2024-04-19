@@ -28,7 +28,7 @@ import io.javaoperatorsdk.operator.api.config.LeaderElectionConfiguration;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
-import org.apache.spark.kubernetes.operator.listeners.ApplicationStatusListener;
+import org.apache.spark.kubernetes.operator.listeners.SparkAppStatusListener;
 
 import static org.apache.spark.kubernetes.operator.reconciler.SparkReconcilerUtils.defaultOperatorConfigLabels;
 import static org.apache.spark.kubernetes.operator.reconciler.SparkReconcilerUtils.labelsAsStr;
@@ -208,9 +208,9 @@ public class SparkOperatorConf {
           .defaultValue(3L)
           .typeParameterClass(Long.class)
           .build();
-  public static final ConfigOption<Long> AppReconcileIntervalSeconds =
+  public static final ConfigOption<Long> SparkAppReconcileIntervalSeconds =
       ConfigOption.<Long>builder()
-          .key("spark.operator.app.reconcile.interval.seconds")
+          .key("spark.operator.application.reconcile.interval.seconds")
           .description(
               "Interval (in seconds) to reconcile when application is is starting " +
                   "up. Note that reconcile is always expected to be triggered " +
@@ -315,12 +315,12 @@ public class SparkOperatorConf {
           .enableDynamicOverride(true)
           .typeParameterClass(Long.class)
           .build();
-  public static final ConfigOption<String> APPLICATION_STATUS_LISTENER_CLASS_NAMES =
+  public static final ConfigOption<String> SPARK_APP_STATUS_LISTENER_CLASS_NAMES =
       ConfigOption.<String>builder()
           .key("spark.operator.application.status.listener.class.names")
           .defaultValue("")
           .description(
-              "Comma-separated names of ApplicationStatusListener class " +
+              "Comma-separated names of SparkAppStatusListener class " +
                   "implementations")
           .enableDynamicOverride(false)
           .typeParameterClass(String.class)
@@ -370,10 +370,10 @@ public class SparkOperatorConf {
           .typeParameterClass(Long.class)
           .build();
 
-  public static List<ApplicationStatusListener> getApplicationStatusListener() {
-    List<ApplicationStatusListener> listeners = new ArrayList<>();
+  public static List<SparkAppStatusListener> getAppStatusListener() {
+    List<SparkAppStatusListener> listeners = new ArrayList<>();
     String listenerNamesStr =
-        SparkOperatorConf.APPLICATION_STATUS_LISTENER_CLASS_NAMES.getValue();
+        SparkOperatorConf.SPARK_APP_STATUS_LISTENER_CLASS_NAMES.getValue();
     if (StringUtils.isNotBlank(listenerNamesStr)) {
       try {
         List<String> listenerNames =
@@ -381,8 +381,8 @@ public class SparkOperatorConf {
                 .collect(Collectors.toList());
         for (String name : listenerNames) {
           Class listenerClass = Class.forName(name);
-          if (ApplicationStatusListener.class.isAssignableFrom(listenerClass)) {
-            listeners.add((ApplicationStatusListener)
+          if (SparkAppStatusListener.class.isAssignableFrom(listenerClass)) {
+            listeners.add((SparkAppStatusListener)
                 listenerClass.getConstructor().newInstance());
           }
         }

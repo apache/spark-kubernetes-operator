@@ -27,13 +27,13 @@ import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
-import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import org.apache.spark.kubernetes.operator.ApplicationResourceSpec;
+import org.apache.spark.kubernetes.operator.SparkAppResourceSpec;
+import org.apache.spark.kubernetes.operator.SparkAppSubmissionWorker;
 import org.apache.spark.kubernetes.operator.SparkApplication;
-import org.apache.spark.kubernetes.operator.reconciler.SparkApplicationReconcileUtils;
+import org.apache.spark.kubernetes.operator.reconciler.SparkAppReconcileUtils;
 
 import static org.apache.spark.kubernetes.operator.reconciler.SparkReconcilerUtils.driverLabels;
 import static org.apache.spark.kubernetes.operator.reconciler.SparkReconcilerUtils.executorLabels;
@@ -44,11 +44,11 @@ import static org.apache.spark.kubernetes.operator.reconciler.SparkReconcilerUti
  */
 @RequiredArgsConstructor
 @Slf4j
-public class SparkApplicationContext {
-  @Getter
+public class SparkAppContext extends BaseContext<SparkApplication> {
   private final SparkApplication sparkApplication;
   private final Context<?> josdkContext;
-  private ApplicationResourceSpec secondaryResourceSpec;
+  private final SparkAppSubmissionWorker submissionWorker;
+  private SparkAppResourceSpec secondaryResourceSpec;
 
   public Optional<Pod> getDriverPod() {
     return josdkContext.getSecondaryResourcesAsStream(Pod.class)
@@ -64,16 +64,22 @@ public class SparkApplicationContext {
         .collect(Collectors.toSet());
   }
 
-  private ApplicationResourceSpec getSecondaryResourceSpec() {
+  private SparkAppResourceSpec getSecondaryResourceSpec() {
     synchronized (this) {
       if (secondaryResourceSpec == null) {
-        secondaryResourceSpec = SparkApplicationReconcileUtils.buildResourceSpec(
-            sparkApplication, josdkContext.getClient());
+        secondaryResourceSpec = SparkAppReconcileUtils.buildResourceSpec(sparkApplication,
+            josdkContext.getClient(), submissionWorker);
       }
       return secondaryResourceSpec;
     }
   }
 
+  @Override
+  public SparkApplication getResource() {
+    return sparkApplication;
+  }
+
+  @Override
   public KubernetesClient getClient() {
     return josdkContext.getClient();
   }

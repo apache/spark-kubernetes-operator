@@ -32,8 +32,8 @@ import io.fabric8.kubernetes.api.model.PodTemplateSpec;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import lombok.extern.slf4j.Slf4j;
 
-import org.apache.spark.kubernetes.operator.ApplicationClientWorker;
-import org.apache.spark.kubernetes.operator.ApplicationResourceSpec;
+import org.apache.spark.kubernetes.operator.SparkAppResourceSpec;
+import org.apache.spark.kubernetes.operator.SparkAppSubmissionWorker;
 import org.apache.spark.kubernetes.operator.SparkApplication;
 import org.apache.spark.kubernetes.operator.decorators.DriverDecorator;
 import org.apache.spark.kubernetes.operator.utils.ModelUtils;
@@ -44,7 +44,7 @@ import static org.apache.spark.kubernetes.operator.utils.ModelUtils.overrideDriv
 import static org.apache.spark.kubernetes.operator.utils.ModelUtils.overrideExecutorTemplate;
 
 @Slf4j
-public class SparkApplicationReconcileUtils {
+public class SparkAppReconcileUtils {
   public static boolean enableForceDelete(SparkApplication app) {
     long timeoutThreshold = app.getSpec().getApplicationTolerations()
         .getApplicationTimeoutConfig().getForceTerminationGracePeriodMillis();
@@ -53,19 +53,18 @@ public class SparkApplicationReconcileUtils {
     return lastTransitionTime.plusMillis(timeoutThreshold).isBefore(Instant.now());
   }
 
-  public static ApplicationResourceSpec buildResourceSpec(final SparkApplication app,
-                                                          final KubernetesClient client) {
-    Map<String, String> confOverrides = overrideMetadataForSecondaryResources(app);
-    ApplicationResourceSpec resourceSpec =
-        ApplicationClientWorker.getResourceSpec(app, client, confOverrides);
+  public static SparkAppResourceSpec buildResourceSpec(final SparkApplication app,
+                                                       final KubernetesClient client,
+                                                       final SparkAppSubmissionWorker worker) {
+    Map<String, String> confOverrides = overrideDependencyConf(app);
+    SparkAppResourceSpec resourceSpec = worker.getResourceSpec(app, client, confOverrides);
     cleanUpTempResourcesForApp(app, confOverrides);
     DriverDecorator decorator = new DriverDecorator(app);
     decorator.decorate(resourceSpec.getConfiguredPod());
     return resourceSpec;
   }
 
-  private static Map<String, String> overrideMetadataForSecondaryResources(
-      final SparkApplication app) {
+  private static Map<String, String> overrideDependencyConf(final SparkApplication app) {
     Map<String, String> confOverrides = new HashMap<>();
     SparkReconcilerUtils.sparkAppResourceLabels(app).forEach((k, v) -> {
       confOverrides.put("spark.kubernetes.driver.label." + k, v);

@@ -32,9 +32,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
 import org.apache.spark.kubernetes.operator.config.SparkOperatorConf;
-import org.apache.spark.kubernetes.operator.controller.SparkApplicationContext;
+import org.apache.spark.kubernetes.operator.controller.SparkAppContext;
 import org.apache.spark.kubernetes.operator.reconciler.ReconcileProgress;
-import org.apache.spark.kubernetes.operator.reconciler.SparkApplicationReconcileUtils;
+import org.apache.spark.kubernetes.operator.reconciler.SparkAppReconcileUtils;
 import org.apache.spark.kubernetes.operator.reconciler.SparkReconcilerUtils;
 import org.apache.spark.kubernetes.operator.spec.ApplicationTolerations;
 import org.apache.spark.kubernetes.operator.spec.ResourceRetentionPolicy;
@@ -42,7 +42,7 @@ import org.apache.spark.kubernetes.operator.spec.RestartPolicy;
 import org.apache.spark.kubernetes.operator.status.ApplicationState;
 import org.apache.spark.kubernetes.operator.status.ApplicationStateSummary;
 import org.apache.spark.kubernetes.operator.status.ApplicationStatus;
-import org.apache.spark.kubernetes.operator.utils.StatusRecorder;
+import org.apache.spark.kubernetes.operator.utils.SparkAppStatusRecorder;
 
 /**
  * Cleanup all secondary resources when application is deleted, or at the end of each attempt
@@ -55,11 +55,11 @@ public class AppCleanUpStep extends AppReconcileStep {
   private Supplier<ApplicationState> cleanUpSuccessStateSupplier;
 
   @Override
-  public ReconcileProgress reconcile(SparkApplicationContext context,
-                                     StatusRecorder statusRecorder) {
-    ApplicationStatus currentStatus = context.getSparkApplication().getStatus();
+  public ReconcileProgress reconcile(SparkAppContext context,
+                                     SparkAppStatusRecorder statusRecorder) {
+    ApplicationStatus currentStatus = context.getResource().getStatus();
     ApplicationTolerations tolerations =
-        context.getSparkApplication().getSpec().getApplicationTolerations();
+        context.getResource().getSpec().getApplicationTolerations();
     ResourceRetentionPolicy resourceRetentionPolicy = tolerations.getResourceRetentionPolicy();
     String stateMessage = null;
 
@@ -110,8 +110,7 @@ public class AppCleanUpStep extends AppReconcileStep {
       Optional<Pod> driver = context.getDriverPod();
       driver.ifPresent(resourcesToRemove::add);
     }
-    boolean forceDelete =
-        SparkApplicationReconcileUtils.enableForceDelete(context.getSparkApplication());
+    boolean forceDelete = SparkAppReconcileUtils.enableForceDelete(context.getResource());
     for (HasMetadata resource : resourcesToRemove) {
       SparkReconcilerUtils.deleteResourceIfExists(context.getClient(), resource, forceDelete);
     }
@@ -154,8 +153,8 @@ public class AppCleanUpStep extends AppReconcileStep {
     }
   }
 
-  private ReconcileProgress updateStateAndProceed(SparkApplicationContext context,
-                                                  StatusRecorder statusRecorder,
+  private ReconcileProgress updateStateAndProceed(SparkAppContext context,
+                                                  SparkAppStatusRecorder statusRecorder,
                                                   ApplicationStatus updatedStatus,
                                                   long requeueAfterMillis) {
     statusRecorder.persistStatus(context, updatedStatus);

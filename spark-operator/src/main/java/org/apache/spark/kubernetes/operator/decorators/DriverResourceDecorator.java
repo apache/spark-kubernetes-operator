@@ -57,6 +57,7 @@ public class DriverResourceDecorator implements ResourceDecorator {
     if (!ownerReferenceExists) {
       ObjectMeta metaData = new ObjectMetaBuilder(resource.getMetadata())
           .addToOwnerReferences(buildOwnerReferenceTo(driverPod))
+          .addToLabels(driverPod.getMetadata().getLabels())
           .build();
       resource.setMetadata(metaData);
     }

@@ -47,17 +47,17 @@ import org.apache.spark.deploy.k8s.submit.KubernetesClientUtils;
  * <p>
  * This is not thread safe
  */
-public class ApplicationResourceSpec {
+public class SparkAppResourceSpec {
   @Getter
   private final Pod configuredPod;
   @Getter
   private final List<HasMetadata> driverPreResources;
   @Getter
   private final List<HasMetadata> driverResources;
-  private final ApplicationDriverConf kubernetesDriverConf;
+  private final SparkAppDriverConf kubernetesDriverConf;
 
-  public ApplicationResourceSpec(ApplicationDriverConf kubernetesDriverConf,
-                                 KubernetesDriverSpec kubernetesDriverSpec) {
+  public SparkAppResourceSpec(SparkAppDriverConf kubernetesDriverConf,
+                              KubernetesDriverSpec kubernetesDriverSpec) {
     this.kubernetesDriverConf = kubernetesDriverConf;
     String namespace =
         kubernetesDriverConf.sparkConf().get(Config.KUBERNETES_NAMESPACE().key());

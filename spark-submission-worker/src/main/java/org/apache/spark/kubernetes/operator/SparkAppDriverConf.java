@@ -27,27 +27,26 @@ import org.apache.spark.deploy.k8s.KubernetesVolumeUtils;
 import org.apache.spark.deploy.k8s.submit.KubernetesClientUtils;
 import org.apache.spark.deploy.k8s.submit.MainAppResource;
 
-public class ApplicationDriverConf extends KubernetesDriverConf {
-  private ApplicationDriverConf(SparkConf sparkConf,
-                                String appId,
-                                MainAppResource mainAppResource,
-                                String mainClass,
-                                String[] appArgs,
-                                Option<String> proxyUser) {
+public class SparkAppDriverConf extends KubernetesDriverConf {
+  private SparkAppDriverConf(SparkConf sparkConf,
+                             String appId,
+                             MainAppResource mainAppResource,
+                             String mainClass,
+                             String[] appArgs,
+                             Option<String> proxyUser) {
     super(sparkConf, appId, mainAppResource, mainClass, appArgs, proxyUser);
   }
 
-  public static ApplicationDriverConf create(SparkConf sparkConf,
-                                             String appId,
-                                             MainAppResource mainAppResource,
-                                             String mainClass,
-                                             String[] appArgs,
-                                             Option<String> proxyUser) {
+  public static SparkAppDriverConf create(SparkConf sparkConf,
+                                          String appId,
+                                          MainAppResource mainAppResource,
+                                          String mainClass,
+                                          String[] appArgs,
+                                          Option<String> proxyUser) {
     // pre-create check only
     KubernetesVolumeUtils.parseVolumesWithPrefix(sparkConf,
         Config.KUBERNETES_EXECUTOR_VOLUMES_PREFIX());
-    return new ApplicationDriverConf(sparkConf, appId, mainAppResource, mainClass, appArgs,
-        proxyUser);
+    return new SparkAppDriverConf(sparkConf, appId, mainAppResource, mainClass, appArgs, proxyUser);
   }
 
   /**

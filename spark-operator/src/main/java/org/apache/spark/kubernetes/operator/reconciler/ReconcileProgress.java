@@ -22,7 +22,7 @@ import java.time.Duration;
 
 import lombok.Data;
 
-import static org.apache.spark.kubernetes.operator.config.SparkOperatorConf.AppReconcileIntervalSeconds;
+import static org.apache.spark.kubernetes.operator.config.SparkOperatorConf.SparkAppReconcileIntervalSeconds;
 
 /**
  * Represents the progress of a reconcile request
@@ -44,12 +44,12 @@ public class ReconcileProgress {
 
   public static ReconcileProgress proceed() {
     return new ReconcileProgress(false, true,
-        Duration.ofSeconds(AppReconcileIntervalSeconds.getValue()));
+        Duration.ofSeconds(SparkAppReconcileIntervalSeconds.getValue()));
   }
 
   public static ReconcileProgress completeAndDefaultRequeue() {
     return new ReconcileProgress(true, true,
-        Duration.ofSeconds(AppReconcileIntervalSeconds.getValue()));
+        Duration.ofSeconds(SparkAppReconcileIntervalSeconds.getValue()));
   }
 
   public static ReconcileProgress completeAndRequeueAfter(Duration requeueAfterDuration) {

@@ -22,11 +22,11 @@ import java.util.Optional;
 
 import io.fabric8.kubernetes.api.model.Pod;
 
-import org.apache.spark.kubernetes.operator.controller.SparkApplicationContext;
+import org.apache.spark.kubernetes.operator.controller.SparkAppContext;
 import org.apache.spark.kubernetes.operator.reconciler.ReconcileProgress;
 import org.apache.spark.kubernetes.operator.status.ApplicationState;
 import org.apache.spark.kubernetes.operator.status.ApplicationStateSummary;
-import org.apache.spark.kubernetes.operator.utils.StatusRecorder;
+import org.apache.spark.kubernetes.operator.utils.SparkAppStatusRecorder;
 
 import static org.apache.spark.kubernetes.operator.Constants.UnknownStateMessage;
 
@@ -35,14 +35,13 @@ import static org.apache.spark.kubernetes.operator.Constants.UnknownStateMessage
  */
 public class UnknownStateStep extends AppReconcileStep {
   @Override
-  public ReconcileProgress reconcile(SparkApplicationContext context,
-                                     StatusRecorder statusRecorder) {
+  public ReconcileProgress reconcile(SparkAppContext context,
+                                     SparkAppStatusRecorder statusRecorder) {
     ApplicationState state =
         new ApplicationState(ApplicationStateSummary.FAILED, UnknownStateMessage);
     Optional<Pod> driver = context.getDriverPod();
     driver.ifPresent(pod -> state.setLastObservedDriverStatus(pod.getStatus()));
-    statusRecorder.persistStatus(context,
-        context.getSparkApplication().getStatus().appendNewState(state));
+    statusRecorder.persistStatus(context, context.getResource().getStatus().appendNewState(state));
     return ReconcileProgress.completeAndImmediateRequeue();
   }
 }
