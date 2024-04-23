@@ -1,3 +1,18 @@
+buildscript {
+  repositories {
+    maven {
+      url = uri("https://plugins.gradle.org/m2/")
+    }
+  }
+  dependencies {
+    classpath "com.github.spotbugs.snom:spotbugs-gradle-plugin:${spotBugsGradlePluginVersion}"
+    classpath "com.diffplug.spotless:spotless-plugin-gradle:${spotlessPluginVersion}"
+  }
+}
+
+assert JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_17): "Java 17 or newer is " +
+    "required"
+
 subprojects {
   apply plugin: 'idea'
   apply plugin: 'eclipse'
@@ -6,7 +21,64 @@ subprojects {
   targetCompatibility = 17
 
   repositories {
-      mavenCentral()
-      jcenter()
+    mavenCentral()
+    jcenter()
+  }
+
+  apply plugin: 'checkstyle'
+  checkstyle {
+    toolVersion = checkstyleVersion
+    configFile = file("$rootDir/config/checkstyle/checkstyle.xml")
+    ignoreFailures = false
+    showViolations = true
+  }
+
+  apply plugin: 'pmd'
+  pmd {
+    ruleSets = ["java-basic", "java-braces"]
+    ruleSetFiles = files("$rootDir/config/pmd/ruleset.xml")
+    toolVersion = pmdVersion
+    consoleOutput = true
+    ignoreFailures = false
+  }
+
+  apply plugin: 'com.github.spotbugs'
+  spotbugs {
+    toolVersion = spotBugsVersion
+    afterEvaluate {
+      reportsDir = file("${project.reporting.baseDir}/findbugs")
+    }
+    excludeFilter = file("$rootDir/config/spotbugs/spotbugs_exclude.xml")
+    ignoreFailures = false
+  }
+
+  apply plugin: 'jacoco'
+  jacoco {
+    toolVersion = jacocoVersion
+  }
+  jacocoTestReport {
+    dependsOn test
+  }
+
+  apply plugin: 'com.diffplug.spotless'
+  spotless {
+    java {
+      endWithNewline()
+      googleJavaFormat('1.17.0')
+      importOrder(
+        'java',
+        'javax',
+        'scala',
+        '',
+        'org.apache.spark',
+      )
+      trimTrailingWhitespace()
+      removeUnusedImports()
+    }
+    format 'misc', {
+      target '*.md', '*.gradle', '**/*.properties', '**/*.xml', '**/*.yaml', '**/*.yml'
+      endWithNewline()
+      trimTrailingWhitespace()
+    }
   }
 }
