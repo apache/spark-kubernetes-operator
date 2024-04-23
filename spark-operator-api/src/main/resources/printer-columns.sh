@@ -1,3 +1,5 @@
+#!/bin/bash
+
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -14,25 +16,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+#
 
-group=org.apache.spark.kubernetes.operator
-version=0.1.0
+# This is a workaround. See https://github.com/fabric8io/kubernetes-client/issues/3069
+# We do a yq to add printer columns
 
-fabric8Version=6.12.1
-commonsLang3Version=3.14.0
-commonsIOVersion=2.16.1
-lombokVersion=1.18.32
+script_path=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+crd_path="${script_path}/../../../build/classes/java/main/META-INF/fabric8/sparkapplications.org.apache.spark-v1.yml"
+yq -i '.spec.versions[0] += ({"additionalPrinterColumns": [{"jsonPath": ".status.currentState.currentStateSummary", "name": "Current State", "type": "string"}, {"jsonPath": ".metadata.creationTimestamp", "name": "Age", "type": "date"}]})' $crd_path
 
-# Logging
-log4jVersion=2.22.1
-
-# Test
-junitVersion=5.10.2
-jacocoVersion=0.8.12
-
-# Build Analysis
-checkstyleVersion=10.15.0
-pmdVersion=6.55.0
-spotBugsGradlePluginVersion=6.0.12
-spotBugsVersion=4.8.4
-spotlessPluginVersion=6.25.0

@@ -1,0 +1,2 @@
+rootProject.name = 'apache-spark-kubernetes-operator'
+include 'spark-operator-api'

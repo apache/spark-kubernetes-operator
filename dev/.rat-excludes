@@ -12,3 +12,5 @@ LICENSE
 NOTICE
 TAGS
 RELEASE
+build
+.*gradle
