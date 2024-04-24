@@ -39,7 +39,8 @@ public class Constants {
   public static final String DriverFailedInitContainersMessage =
       "Driver has failed init container(s). Refer last observed status for details.";
   public static final String DriverFailedMessage =
-      "Driver has one or more failed critical container(s), refer last observed status for details.";
+      "Driver has one or more failed critical container(s), refer last observed status for "
+          + "details.";
   public static final String DriverSucceededMessage =
       "Driver has critical container(s) exited with 0.";
   public static final String DriverRestartedMessage =

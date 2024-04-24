@@ -22,7 +22,7 @@ package org.apache.spark.k8s.operator.status;
 import java.util.Set;
 
 public enum ApplicationStateSummary implements BaseStateSummary {
-  /** Spark application is submitted to the cluster but yet scheduled. */
+  /** Spark application is submitted to the cluster but yet scheduled */
   SUBMITTED,
 
   /** Spark application will be restarted with same configuration */
@@ -31,16 +31,30 @@ public enum ApplicationStateSummary implements BaseStateSummary {
   /** A request has been made to start driver pod in the cluster */
   DRIVER_REQUESTED,
 
-  /** Driver pod has reached running state */
+  /**
+   * Driver pod has reached 'Running' state and thus bound to a node Refer
+   * https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/
+   */
   DRIVER_STARTED,
 
-  /** Spark session is initialized */
+  /**
+   * Driver pod is ready to serve connections from executors Refer Refer
+   * https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/
+   */
   DRIVER_READY,
 
-  /** Less that minimal required executor pods become ready during starting up */
+  /**
+   * Less that minimal required executor pods reached condition 'Ready' during starting up Note that
+   * reaching 'Ready' does not necessarily mean that the executor has successfully registered with
+   * driver. This is a best-effort from operator to detect executor status
+   */
   INITIALIZED_BELOW_THRESHOLD_EXECUTORS,
 
-  /** All required executor pods started */
+  /**
+   * All required executor pods started reached condition 'Ready' Note that reaching 'Ready' does
+   * not necessarily mean that the executor has successfully registered with driver. This is a
+   * best-effort from operator to detect executor status
+   */
   RUNNING_HEALTHY,
 
   /** The application has lost a fraction of executors for external reasons */
@@ -55,7 +69,9 @@ public enum ApplicationStateSummary implements BaseStateSummary {
   /** Timed out waiting for context to be initialized */
   SPARK_SESSION_INITIALIZATION_TIMED_OUT,
 
-  /** The application completed successfully, or System.exit is called explicitly with zero state */
+  /**
+   * The application completed successfully, or System.exit() is called explicitly with zero state
+   */
   SUCCEEDED,
 
   /**
@@ -65,8 +81,9 @@ public enum ApplicationStateSummary implements BaseStateSummary {
   FAILED,
 
   /**
-   * The job has failed because of a scheduler side issue. e.g. driver scheduled on node with
-   * insufficient resources
+   * Operator failed to orchestrate Spark application in cluster. For example, the given pod
+   * template is rejected by API server because it's invalid or does not meet cluster security
+   * standard; operator is not able to schedule pods due to insufficient quota or missing RBAC
    */
   SCHEDULING_FAILURE,
 
@@ -78,7 +95,7 @@ public enum ApplicationStateSummary implements BaseStateSummary {
 
   /**
    * If configured, operator may mark app as terminated without releasing resources. While this can
-   * be helpful in dev phase, it shall not be enabled for prod use cases.
+   * be helpful in dev phase, it shall not be enabled for prod use cases
    */
   TERMINATED_WITHOUT_RELEASE_RESOURCES;
 

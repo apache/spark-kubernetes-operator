@@ -42,11 +42,16 @@ public class ApplicationTolerations {
   @Builder.Default protected InstanceConfig instanceConfig = new InstanceConfig();
 
   /**
-   * Configure operator to delete / retain resources for an app after it terminates. While this can
-   * be helpful in dev phase, it shall not be enabled (or enabled with caution) for prod use cases:
-   * this could cause resource quota usage increase unexpectedly. Caution: in order to avoid
+   * Configure operator to delete / retain resources for an app after it terminates Please be
+   * advised that: - This controls the resources created directly by Operator (spark-submit),
+   * including driver and its configmap. - Resources created by driver are still controlled by
+   * driver (via SparkConf). Tuning 'spark .kubernetes.driver.service.deleteOnTermination' and
+   * `spark.kubernetes.executor .deleteOnTermination`in application for resource retaining policy is
+   * still necessary. Setting this to "RetainOnFailure" / "NeverDelete" can be helpful in dev phase,
+   * to debug Spark pod behavior. These shall not be enabled (or enabled with caution) for prod use
+   * cases: this could cause resource quota usage increase unexpectedly Caution: in order to avoid
    * resource conflicts among multiple attempts, this should be set to 'AlwaysDelete' unless restart
-   * policy is set to 'Never'.
+   * policy is set to 'Never'
    */
   @Builder.Default
   protected ResourceRetentionPolicy resourceRetentionPolicy = ResourceRetentionPolicy.AlwaysDelete;

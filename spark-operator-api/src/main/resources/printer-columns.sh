@@ -16,7 +16,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-#
 
 # This is a workaround. See https://github.com/fabric8io/kubernetes-client/issues/3069
 # We do a yq to add printer columns

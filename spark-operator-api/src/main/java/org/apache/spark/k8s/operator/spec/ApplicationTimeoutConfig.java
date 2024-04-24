@@ -33,9 +33,23 @@ import lombok.NoArgsConstructor;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ApplicationTimeoutConfig {
+  /**
+   * Operator may proactively terminate apps that cannot reach running healthy state to avoid
+   * resource deadlock when batch scheduler is not integrated in the cluster.
+   */
+
+  /* Time to wait for driver reaches 'Running' state after requested driver */
   @Builder.Default protected Long driverStartTimeoutMillis = 300 * 1000L;
+
+  /* Time to wait for driver becomes 'Ready' */
   @Builder.Default protected Long sparkSessionStartTimeoutMillis = 300 * 1000L;
+  /* Time to wait for minimal desired number of executor pods become 'Ready' */
   @Builder.Default protected Long executorStartTimeoutMillis = 300 * 1000L;
+  /* Time to wait for force delete resources at the end of attempt */
   @Builder.Default protected Long forceTerminationGracePeriodMillis = 300 * 1000L;
+  /*
+   * Backoff time before operator requeues the reconcile request when it cannot delete app
+   * resource when cleaning up
+   */
   @Builder.Default protected Long terminationRequeuePeriodMillis = 2 * 1000L;
 }
