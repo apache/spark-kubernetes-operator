@@ -29,16 +29,11 @@ public enum RestartPolicy {
 
   public static boolean attemptRestartOnState(
       final RestartPolicy policy, final BaseStateSummary stateSummary) {
-    switch (policy) {
-      case Always:
-        return true;
-      case Never:
-        return false;
-      case OnFailure:
-        return stateSummary.isFailure();
-      case OnInfrastructureFailure:
-        return stateSummary.isInfrastructureFailure();
-    }
-    return false;
+    return switch (policy) {
+      case Always -> true;
+      case Never -> false;
+      case OnFailure -> stateSummary.isFailure();
+      case OnInfrastructureFailure -> stateSummary.isInfrastructureFailure();
+    };
   }
 }

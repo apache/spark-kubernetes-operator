@@ -38,18 +38,29 @@ public class ApplicationTimeoutConfig {
    * resource deadlock when batch scheduler is not integrated in the cluster.
    */
 
-  /* Time to wait for driver reaches 'Running' state after requested driver */
+  /*
+   * Time to wait for driver reaches 'Running' state after requested driver, default to 5min
+   * https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase
+   */
   @Builder.Default protected Long driverStartTimeoutMillis = 300 * 1000L;
 
-  /* Time to wait for driver becomes 'Ready' */
-  @Builder.Default protected Long sparkSessionStartTimeoutMillis = 300 * 1000L;
-  /* Time to wait for minimal desired number of executor pods become 'Ready' */
+  /*
+   * Time to wait for driver becomes 'Ready', default to 5min
+   * https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-conditions
+   */
+  @Builder.Default protected Long driverReadyTimeoutMillis = 300 * 1000L;
+  /*
+   * Time to wait for minimal desired number of executor pods become 'Ready', default to 5min
+   * https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-conditions
+   */
   @Builder.Default protected Long executorStartTimeoutMillis = 300 * 1000L;
-  /* Time to wait for force delete resources at the end of attempt */
+  /*
+   * Time to wait for force delete resources at the end of attempt, default to 5min
+   */
   @Builder.Default protected Long forceTerminationGracePeriodMillis = 300 * 1000L;
   /*
    * Backoff time before operator requeues the reconcile request when it cannot delete app
-   * resource when cleaning up
+   * resource when cleaning up, default to 2s
    */
   @Builder.Default protected Long terminationRequeuePeriodMillis = 2 * 1000L;
 }
