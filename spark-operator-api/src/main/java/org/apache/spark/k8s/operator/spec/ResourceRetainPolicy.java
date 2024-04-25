@@ -29,9 +29,8 @@ public enum ResourceRetainPolicy {
    * to 'Never' so operator deletes all created Spark resources after app terminates. Setting this
    * to 'Always' / 'OnFailure' to indicate operator not to delete resources based on app state, this
    * can be helpful in dev phase to debug failed Spark pod behavior. Driver has owner reference
-   * configured to make sure it's garbage collected by k8s. Please be advised that resource retain
-   * policy would be force set to 'Never' unless applicationTolerations.restartConfig.restartPolicy
-   * is set to 'RestartPolicy.Never', because other retain policies could cause resource quota usage
+   * configured to make sure it's garbage collected by k8s. Please be advised that resource would
+   * not be retained if application is configured to restart, this is to avoid resource quota usage
    * increase unexpectedly or resource conflicts among multiple attempts.
    */
   Always,

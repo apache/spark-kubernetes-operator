@@ -61,13 +61,13 @@ public enum ApplicationStateSummary implements BaseStateSummary {
   RUNNING_WITH_BELOW_THRESHOLD_EXECUTORS,
 
   /** The request timed out for driver */
-  DRIVER_LAUNCH_TIMED_OUT,
+  DRIVER_START_TIMED_OUT,
 
   /** The request timed out for executors */
   EXECUTORS_LAUNCH_TIMED_OUT,
 
-  /** Timed out waiting for context to be initialized */
-  SPARK_SESSION_INITIALIZATION_TIMED_OUT,
+  /** Timed out waiting for driver to become ready */
+  DRIVER_READY_TIMED_OUT,
 
   /**
    * The application completed successfully, or System.exit() is called explicitly with zero state
@@ -113,19 +113,20 @@ public enum ApplicationStateSummary implements BaseStateSummary {
   }
 
   public boolean isStopping() {
-    return RUNNING_HEALTHY.ordinal() < this.ordinal() && !isTerminated();
+    return RUNNING_WITH_BELOW_THRESHOLD_EXECUTORS.ordinal() < this.ordinal() && !isTerminated();
   }
 
   public static final Set<ApplicationStateSummary> infrastructureFailures =
-      Set.of(DRIVER_LAUNCH_TIMED_OUT, EXECUTORS_LAUNCH_TIMED_OUT, SCHEDULING_FAILURE);
+      Set.of(DRIVER_START_TIMED_OUT, EXECUTORS_LAUNCH_TIMED_OUT, SCHEDULING_FAILURE);
 
   public static final Set<ApplicationStateSummary> failures =
       Set.of(
-          DRIVER_LAUNCH_TIMED_OUT,
+          DRIVER_START_TIMED_OUT,
           EXECUTORS_LAUNCH_TIMED_OUT,
           SCHEDULING_FAILURE,
+          DRIVER_EVICTED,
           FAILED,
-          SPARK_SESSION_INITIALIZATION_TIMED_OUT);
+          DRIVER_READY_TIMED_OUT);
 
   @Override
   public boolean isFailure() {

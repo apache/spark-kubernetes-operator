@@ -31,6 +31,7 @@ import lombok.EqualsAndHashCode;
 import lombok.ToString;
 import org.apache.commons.lang3.StringUtils;
 
+import org.apache.spark.k8s.operator.spec.ResourceRetainPolicy;
 import org.apache.spark.k8s.operator.spec.RestartConfig;
 import org.apache.spark.k8s.operator.spec.RestartPolicy;
 
@@ -69,6 +70,7 @@ public class ApplicationStatus
    * current state and restart config.
    *
    * @param restartConfig restart config for the app
+   * @param resourceRetainPolicy resourceRetainPolicy for the app
    * @param stateMessageOverride state message to be applied
    * @param trimStateTransitionHistory if enabled, operator would trim the state history, keeping
    *     only previous and current attempt.
@@ -76,6 +78,7 @@ public class ApplicationStatus
    */
   public ApplicationStatus terminateOrRestart(
       final RestartConfig restartConfig,
+      final ResourceRetainPolicy resourceRetainPolicy,
       String stateMessageOverride,
       boolean trimStateTransitionHistory) {
     if (!currentState.currentStateSummary.isStopping()) {
@@ -91,6 +94,11 @@ public class ApplicationStatus
       // no restart configured
       ApplicationState state =
           new ApplicationState(ApplicationStateSummary.RESOURCE_RELEASED, stateMessageOverride);
+      if (ResourceRetainPolicy.Always.equals(resourceRetainPolicy)
+          || (ResourceRetainPolicy.OnFailure.equals(resourceRetainPolicy)
+              && currentState.currentStateSummary.isFailure())) {
+        state = terminateAppWithoutReleaseResource(stateMessageOverride);
+      }
       return new ApplicationStatus(
           state,
           createUpdatedHistoryWithNewState(state),
@@ -107,6 +115,11 @@ public class ApplicationStatus
       // max number of restart attempt reached
       ApplicationState state =
           new ApplicationState(ApplicationStateSummary.RESOURCE_RELEASED, stateMessage);
+      if (ResourceRetainPolicy.Always.equals(resourceRetainPolicy)
+          || (ResourceRetainPolicy.OnFailure.equals(resourceRetainPolicy)
+              && currentState.currentStateSummary.isFailure())) {
+        state = terminateAppWithoutReleaseResource(stateMessage);
+      }
       // still use previous & current attempt summary - they are to be updated only upon
       // new restart
       return new ApplicationStatus(
@@ -136,6 +149,14 @@ public class ApplicationStatus
           currentAttemptSummary,
           nextAttemptSummary);
     }
+  }
+
+  private ApplicationState terminateAppWithoutReleaseResource(String stateMessageOverride) {
+    String stateMessage =
+        "Application is terminated without releasing resources as configured."
+            + stateMessageOverride;
+    return new ApplicationState(
+        ApplicationStateSummary.TERMINATED_WITHOUT_RELEASE_RESOURCES, stateMessage);
   }
 
   private Map<Long, ApplicationState> createUpdatedHistoryWithNewState(ApplicationState state) {

@@ -19,14 +19,19 @@
 
 package org.apache.spark.k8s.operator.utils;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.fabric8.kubernetes.api.model.ContainerStatus;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.OwnerReference;
 import io.fabric8.kubernetes.api.model.OwnerReferenceBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.api.model.PodTemplateSpec;
+import org.apache.commons.lang3.StringUtils;
 
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 
@@ -39,10 +44,6 @@ public class ModelUtils {
       "spark.kubernetes.executor.podTemplateFile";
   public static final ObjectMapper objectMapper = new ObjectMapper();
 
-  public static Pod defaultPod() {
-    return new PodBuilder().withNewMetadata().endMetadata().withNewSpec().endSpec().build();
-  }
-
   public static Pod getPodFromTemplateSpec(PodTemplateSpec podTemplateSpec) {
     if (podTemplateSpec != null) {
       return new PodBuilder()
@@ -51,26 +52,29 @@ public class ModelUtils {
           .withAdditionalProperties(podTemplateSpec.getAdditionalProperties())
           .build();
     } else {
-      return defaultPod();
+      return new PodBuilder().withNewMetadata().endMetadata().withNewSpec().endSpec().build();
     }
   }
 
   /**
-   * Return true if given container name is main container in driver pod If
-   * `spark.kubernetes.driver.podTemplateContainerName` is not set, all containers are considered as
-   * main
+   * Find the Spark main container(s) in driver pod. If `spark.kubernetes.driver
+   * .podTemplateContainerName` is not set, all containers are considered as main container from
+   * health monitoring perspective
    */
-  public static boolean isDriverMainContainer(
-      final ApplicationSpec appSpec, final String containerName) {
+  public static List<ContainerStatus> findDriverMainContainerStatus(
+      final ApplicationSpec appSpec, final List<ContainerStatus> containerStatusList) {
     if (appSpec == null
         || appSpec.getSparkConf() == null
         || !appSpec.getSparkConf().containsKey(DRIVER_SPARK_CONTAINER_PROP_KEY)) {
-      return true;
+      return containerStatusList;
     }
-    return appSpec
-        .getSparkConf()
-        .get(DRIVER_SPARK_CONTAINER_PROP_KEY)
-        .equalsIgnoreCase(containerName);
+    String mainContainerName = appSpec.getSparkConf().get(DRIVER_SPARK_CONTAINER_PROP_KEY);
+    if (StringUtils.isEmpty(mainContainerName)) {
+      return containerStatusList;
+    }
+    return containerStatusList.stream()
+        .filter(c -> mainContainerName.equalsIgnoreCase(c.getName()))
+        .collect(Collectors.toList());
   }
 
   /**
@@ -97,13 +101,13 @@ public class ModelUtils {
     }
   }
 
-  public static boolean overrideDriverTemplate(ApplicationSpec applicationSpec) {
+  public static boolean overrideDriverTemplateEnabled(ApplicationSpec applicationSpec) {
     return applicationSpec != null
         && applicationSpec.getDriverSpec() != null
         && applicationSpec.getDriverSpec().getPodTemplateSpec() != null;
   }
 
-  public static boolean overrideExecutorTemplate(ApplicationSpec applicationSpec) {
+  public static boolean overrideExecutorTemplateEnabled(ApplicationSpec applicationSpec) {
     return applicationSpec != null
         && applicationSpec.getExecutorSpec() != null
         && applicationSpec.getExecutorSpec().getPodTemplateSpec() != null;
