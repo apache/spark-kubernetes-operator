@@ -19,8 +19,11 @@
 
 package org.apache.spark.k8s.operator.status;
 
+/** State for Spark Custom Resource */
 public interface BaseStateSummary {
+  /** The CustomResource has failed */
   boolean isFailure();
 
+  /** The CustomResource has failed for infrastructure reasons */
   boolean isInfrastructureFailure();
 }

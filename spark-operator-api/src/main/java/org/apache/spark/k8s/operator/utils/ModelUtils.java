@@ -19,7 +19,10 @@
 
 package org.apache.spark.k8s.operator.utils;
 
+import static org.apache.spark.k8s.operator.Constants.DRIVER_SPARK_CONTAINER_PROP_KEY;
+
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -36,24 +39,17 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 
 public class ModelUtils {
-  public static final String DRIVER_SPARK_CONTAINER_PROP_KEY =
-      "spark.kubernetes.driver.podTemplateContainerName";
-  public static final String DRIVER_SPARK_TEMPLATE_FILE_PROP_KEY =
-      "spark.kubernetes.driver.podTemplateFile";
-  public static final String EXECUTOR_SPARK_TEMPLATE_FILE_PROP_KEY =
-      "spark.kubernetes.executor.podTemplateFile";
   public static final ObjectMapper objectMapper = new ObjectMapper();
 
   public static Pod getPodFromTemplateSpec(PodTemplateSpec podTemplateSpec) {
-    if (podTemplateSpec != null) {
-      return new PodBuilder()
-          .withMetadata(podTemplateSpec.getMetadata())
-          .withSpec(podTemplateSpec.getSpec())
-          .withAdditionalProperties(podTemplateSpec.getAdditionalProperties())
-          .build();
-    } else {
+    if (podTemplateSpec == null) {
       return new PodBuilder().withNewMetadata().endMetadata().withNewSpec().endSpec().build();
     }
+    return new PodBuilder()
+        .withMetadata(podTemplateSpec.getMetadata())
+        .withSpec(podTemplateSpec.getSpec())
+        .withAdditionalProperties(podTemplateSpec.getAdditionalProperties())
+        .build();
   }
 
   /**
@@ -63,15 +59,14 @@ public class ModelUtils {
    */
   public static List<ContainerStatus> findDriverMainContainerStatus(
       final ApplicationSpec appSpec, final List<ContainerStatus> containerStatusList) {
-    if (appSpec == null
-        || appSpec.getSparkConf() == null
-        || !appSpec.getSparkConf().containsKey(DRIVER_SPARK_CONTAINER_PROP_KEY)) {
+    if (appSpec == null) {
       return containerStatusList;
     }
-    String mainContainerName = appSpec.getSparkConf().get(DRIVER_SPARK_CONTAINER_PROP_KEY);
-    if (StringUtils.isEmpty(mainContainerName)) {
+    Map<String, String> sparkConf = appSpec.getSparkConf();
+    if (sparkConf == null || StringUtils.isEmpty(sparkConf.get(DRIVER_SPARK_CONTAINER_PROP_KEY))) {
       return containerStatusList;
     }
+    String mainContainerName = sparkConf.get(DRIVER_SPARK_CONTAINER_PROP_KEY);
     return containerStatusList.stream()
         .filter(c -> mainContainerName.equalsIgnoreCase(c.getName()))
         .collect(Collectors.toList());

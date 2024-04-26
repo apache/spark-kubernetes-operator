@@ -19,7 +19,7 @@
 
 package org.apache.spark.k8s.operator.status;
 
-import static org.apache.spark.k8s.operator.Constants.ExceedMaxRetryAttemptMessage;
+import static org.apache.spark.k8s.operator.Constants.EXCEED_MAX_RETRY_ATTEMPT_MESSAGE;
 
 import java.util.Collections;
 import java.util.Map;
@@ -93,7 +93,7 @@ public class ApplicationStatus
         restartConfig.getRestartPolicy(), currentState.getCurrentStateSummary())) {
       // no restart configured
       ApplicationState state =
-          new ApplicationState(ApplicationStateSummary.RESOURCE_RELEASED, stateMessageOverride);
+          new ApplicationState(ApplicationStateSummary.ResourceReleased, stateMessageOverride);
       if (ResourceRetainPolicy.Always.equals(resourceRetainPolicy)
           || (ResourceRetainPolicy.OnFailure.equals(resourceRetainPolicy)
               && currentState.currentStateSummary.isFailure())) {
@@ -108,13 +108,13 @@ public class ApplicationStatus
 
     if (currentAttemptSummary.getAttemptInfo().getId() >= restartConfig.getMaxRestartAttempts()) {
       String stateMessage =
-          String.format(ExceedMaxRetryAttemptMessage, restartConfig.getMaxRestartAttempts());
+          String.format(EXCEED_MAX_RETRY_ATTEMPT_MESSAGE, restartConfig.getMaxRestartAttempts());
       if (StringUtils.isNotEmpty(stateMessageOverride)) {
         stateMessage += stateMessageOverride;
       }
       // max number of restart attempt reached
       ApplicationState state =
-          new ApplicationState(ApplicationStateSummary.RESOURCE_RELEASED, stateMessage);
+          new ApplicationState(ApplicationStateSummary.ResourceReleased, stateMessage);
       if (ResourceRetainPolicy.Always.equals(resourceRetainPolicy)
           || (ResourceRetainPolicy.OnFailure.equals(resourceRetainPolicy)
               && currentState.currentStateSummary.isFailure())) {
@@ -133,7 +133,7 @@ public class ApplicationStatus
     nextAttemptSummary.setAttemptInfo(
         currentAttemptSummary.getAttemptInfo().createNextAttemptInfo());
     ApplicationState state =
-        new ApplicationState(ApplicationStateSummary.SCHEDULED_TO_RESTART, stateMessageOverride);
+        new ApplicationState(ApplicationStateSummary.ScheduledToRestart, stateMessageOverride);
 
     if (trimStateTransitionHistory) {
       currentAttemptSummary.setStateTransitionHistory(stateTransitionHistory);
@@ -156,7 +156,7 @@ public class ApplicationStatus
         "Application is terminated without releasing resources as configured."
             + stateMessageOverride;
     return new ApplicationState(
-        ApplicationStateSummary.TERMINATED_WITHOUT_RELEASE_RESOURCES, stateMessage);
+        ApplicationStateSummary.TerminatedWithoutReleaseResources, stateMessage);
   }
 
   private Map<Long, ApplicationState> createUpdatedHistoryWithNewState(ApplicationState state) {

@@ -34,7 +34,7 @@ import lombok.NoArgsConstructor;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class RuntimeVersions {
-  @Required protected SparkVersion sparkVersion;
-  protected ScalaVersion scalaVersion;
-  protected JDKVersion jdkVersion;
+  @Required protected String sparkVersion;
+  protected String scalaVersion;
+  protected String jdkVersion;
 }

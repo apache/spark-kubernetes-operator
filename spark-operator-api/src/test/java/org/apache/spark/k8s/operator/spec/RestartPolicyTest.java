@@ -19,6 +19,16 @@
 
 package org.apache.spark.k8s.operator.spec;
 
+import static org.apache.spark.k8s.operator.spec.RestartPolicy.OnFailure;
+import static org.apache.spark.k8s.operator.spec.RestartPolicy.OnInfrastructureFailure;
+import static org.apache.spark.k8s.operator.spec.RestartPolicy.attemptRestartOnState;
+import static org.apache.spark.k8s.operator.status.ApplicationStateSummary.DriverEvicted;
+import static org.apache.spark.k8s.operator.status.ApplicationStateSummary.DriverReadyTimedOut;
+import static org.apache.spark.k8s.operator.status.ApplicationStateSummary.DriverStartTimedOut;
+import static org.apache.spark.k8s.operator.status.ApplicationStateSummary.ExecutorsStartTimedOut;
+import static org.apache.spark.k8s.operator.status.ApplicationStateSummary.Failed;
+import static org.apache.spark.k8s.operator.status.ApplicationStateSummary.Succeeded;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -29,54 +39,24 @@ class RestartPolicyTest {
   @Test
   void testAttemptRestartOnState() {
     for (ApplicationStateSummary stateSummary : ApplicationStateSummary.values()) {
-      Assertions.assertTrue(
-          RestartPolicy.attemptRestartOnState(RestartPolicy.Always, stateSummary));
-      Assertions.assertFalse(
-          RestartPolicy.attemptRestartOnState(RestartPolicy.Never, stateSummary));
+      Assertions.assertTrue(attemptRestartOnState(RestartPolicy.Always, stateSummary));
+      Assertions.assertFalse(attemptRestartOnState(RestartPolicy.Never, stateSummary));
       if (!stateSummary.isStopping()) {
-        Assertions.assertFalse(
-            RestartPolicy.attemptRestartOnState(RestartPolicy.OnFailure, stateSummary));
-        Assertions.assertFalse(
-            RestartPolicy.attemptRestartOnState(
-                RestartPolicy.OnInfrastructureFailure, stateSummary));
+        Assertions.assertFalse(attemptRestartOnState(OnFailure, stateSummary));
+        Assertions.assertFalse(attemptRestartOnState(OnInfrastructureFailure, stateSummary));
       }
     }
-    Assertions.assertFalse(
-        RestartPolicy.attemptRestartOnState(
-            RestartPolicy.OnFailure, ApplicationStateSummary.SUCCEEDED));
-    Assertions.assertFalse(
-        RestartPolicy.attemptRestartOnState(
-            RestartPolicy.OnInfrastructureFailure, ApplicationStateSummary.SUCCEEDED));
-    Assertions.assertTrue(
-        RestartPolicy.attemptRestartOnState(
-            RestartPolicy.OnFailure, ApplicationStateSummary.FAILED));
-    Assertions.assertFalse(
-        RestartPolicy.attemptRestartOnState(
-            RestartPolicy.OnInfrastructureFailure, ApplicationStateSummary.FAILED));
-    Assertions.assertTrue(
-        RestartPolicy.attemptRestartOnState(
-            RestartPolicy.OnFailure, ApplicationStateSummary.DRIVER_START_TIMED_OUT));
-    Assertions.assertTrue(
-        RestartPolicy.attemptRestartOnState(
-            RestartPolicy.OnInfrastructureFailure, ApplicationStateSummary.DRIVER_START_TIMED_OUT));
-    Assertions.assertTrue(
-        RestartPolicy.attemptRestartOnState(
-            RestartPolicy.OnFailure, ApplicationStateSummary.DRIVER_READY_TIMED_OUT));
-    Assertions.assertFalse(
-        RestartPolicy.attemptRestartOnState(
-            RestartPolicy.OnInfrastructureFailure, ApplicationStateSummary.DRIVER_READY_TIMED_OUT));
-    Assertions.assertTrue(
-        RestartPolicy.attemptRestartOnState(
-            RestartPolicy.OnFailure, ApplicationStateSummary.DRIVER_EVICTED));
-    Assertions.assertFalse(
-        RestartPolicy.attemptRestartOnState(
-            RestartPolicy.OnInfrastructureFailure, ApplicationStateSummary.DRIVER_EVICTED));
-    Assertions.assertTrue(
-        RestartPolicy.attemptRestartOnState(
-            RestartPolicy.OnFailure, ApplicationStateSummary.EXECUTORS_LAUNCH_TIMED_OUT));
-    Assertions.assertTrue(
-        RestartPolicy.attemptRestartOnState(
-            RestartPolicy.OnInfrastructureFailure,
-            ApplicationStateSummary.EXECUTORS_LAUNCH_TIMED_OUT));
+    Assertions.assertFalse(attemptRestartOnState(OnFailure, Succeeded));
+    Assertions.assertFalse(attemptRestartOnState(OnInfrastructureFailure, Succeeded));
+    Assertions.assertTrue(attemptRestartOnState(OnFailure, Failed));
+    Assertions.assertFalse(attemptRestartOnState(OnInfrastructureFailure, Failed));
+    Assertions.assertTrue(attemptRestartOnState(OnFailure, DriverStartTimedOut));
+    Assertions.assertTrue(attemptRestartOnState(OnInfrastructureFailure, DriverStartTimedOut));
+    Assertions.assertTrue(attemptRestartOnState(OnFailure, DriverReadyTimedOut));
+    Assertions.assertFalse(attemptRestartOnState(OnInfrastructureFailure, DriverReadyTimedOut));
+    Assertions.assertTrue(attemptRestartOnState(OnFailure, DriverEvicted));
+    Assertions.assertFalse(attemptRestartOnState(OnInfrastructureFailure, DriverEvicted));
+    Assertions.assertTrue(attemptRestartOnState(OnFailure, ExecutorsStartTimedOut));
+    Assertions.assertTrue(attemptRestartOnState(OnInfrastructureFailure, ExecutorsStartTimedOut));
   }
 }

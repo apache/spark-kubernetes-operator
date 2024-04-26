@@ -38,7 +38,7 @@ import lombok.NoArgsConstructor;
  * (.spec.applicationTolerations.applicationTimeoutConfig.executorStartTimeoutMillis) after
  * submitted, it would be shut down proactively in order to avoid resource deadlock. + Spark app
  * would be marked as 'RUNNING_WITH_PARTIAL_CAPACITY' if it loses executors after successfully start
- * up. + Spark app would be marked as 'RUNNING_HEALTHY' if it has at least min executors after
+ * up. + Spark app would be marked as 'RunningHealthy' if it has at least min executors after
  * successfully start up.
  */
 @Data

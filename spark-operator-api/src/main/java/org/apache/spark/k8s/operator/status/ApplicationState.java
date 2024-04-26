@@ -19,7 +19,7 @@
 
 package org.apache.spark.k8s.operator.status;
 
-import static org.apache.spark.k8s.operator.Constants.SubmittedStateMessage;
+import static org.apache.spark.k8s.operator.Constants.SUBMITTED_STATE_MESSAGE;
 
 import java.io.Serializable;
 import java.time.Instant;
@@ -41,7 +41,7 @@ public class ApplicationState extends BaseState<ApplicationStateSummary> impleme
   @Getter @Setter PodStatus lastObservedDriverStatus;
 
   public ApplicationState() {
-    super(ApplicationStateSummary.SUBMITTED, Instant.now().toString(), SubmittedStateMessage);
+    super(ApplicationStateSummary.Submitted, Instant.now().toString(), SUBMITTED_STATE_MESSAGE);
   }
 
   public ApplicationState(ApplicationStateSummary currentStateSummary, String message) {

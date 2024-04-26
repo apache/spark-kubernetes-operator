@@ -31,46 +31,52 @@ public class Constants {
   public static final String LABEL_SPARK_ROLE_EXECUTOR_VALUE = "executor";
   public static final String SENTINEL_RESOURCE_DUMMY_FIELD = "sentinel.dummy.number";
 
+  public static final String DRIVER_SPARK_CONTAINER_PROP_KEY =
+      "spark.kubernetes.driver.podTemplateContainerName";
+  public static final String DRIVER_SPARK_TEMPLATE_FILE_PROP_KEY =
+      "spark.kubernetes.driver.podTemplateFile";
+  public static final String EXECUTOR_SPARK_TEMPLATE_FILE_PROP_KEY =
+      "spark.kubernetes.executor.podTemplateFile";
+
   // Default state messages
-  public static final String DriverRequestedMessage = "Requested driver from resource scheduler.";
-  public static final String DriverCompletedMessage = "Spark application completed successfully.";
-  public static final String DriverTerminatedBeforeInitializationMessage =
+  public static final String DRIVER_REQUESTED_MESSAGE = "Requested driver from resource scheduler.";
+  public static final String DRIVER_COMPLETED_MESSAGE = "Spark application completed successfully.";
+  public static final String DRIVER_TERMINATED_BEFORE_INITIALIZATION_MESSAGE =
       "Driver container is terminated without SparkContext / SparkSession initialization.";
-  public static final String DriverFailedInitContainersMessage =
+  public static final String DRIVER_FAILED_INIT_CONTAINERS_MESSAGE =
       "Driver has failed init container(s). Refer last observed status for details.";
-  public static final String DriverFailedMessage =
+  public static final String DRIVER_FAILED_MESSAGE =
       "Driver has one or more failed critical container(s), refer last observed status for "
           + "details.";
-  public static final String DriverSucceededMessage =
+  public static final String DRIVER_SUCCEEDED_MESSAGE =
       "Driver has critical container(s) exited with 0.";
-  public static final String DriverRestartedMessage =
+  public static final String DRIVER_RESTARTED_MESSAGE =
       "Driver has one or more critical container(s) restarted unexpectedly, refer last "
           + "observed status for details.";
-  public static final String AppCancelledMessage =
+  public static final String APP_CANCELLED_MESSAGE =
       "Spark application has been shutdown as requested.";
-  public static final String DriverUnexpectedRemovedMessage =
+  public static final String DRIVER_UNEXPECTED_REMOVED_MESSAGE =
       "Driver removed. This could caused by 'exit' called in driver process with non-zero "
           + "code, involuntary disruptions or unintentional destroy behavior, check "
           + "Kubernetes events for more details.";
-  public static final String DriverLaunchTimeoutMessage =
+  public static final String DRIVER_LAUNCH_TIMEOUT_MESSAGE =
       "The driver has not responded to the initial health check request within the "
           + "allotted start-up time. This can be configured by setting "
           + ".spec.applicationTolerations.applicationTimeoutConfig.";
-  public static final String DriverRunning = "Driver has started running.";
-  public static final String DriverReady = "Driver has reached ready state.";
-  public static final String SubmittedStateMessage =
+  public static final String DRIVER_RUNNING = "Driver has started running.";
+  public static final String DRIVER_READY = "Driver has reached ready state.";
+  public static final String SUBMITTED_STATE_MESSAGE =
       "Spark application has been created on Kubernetes Cluster.";
-  public static final String UnknownStateMessage = "Cannot process application status.";
-  public static final String ExceedMaxRetryAttemptMessage =
+  public static final String UNKNOWN_STATE_MESSAGE = "Cannot process application status.";
+  public static final String EXCEED_MAX_RETRY_ATTEMPT_MESSAGE =
       "The maximum number of restart attempts (%d) has been exceeded.";
-  public static final String ScheduleFailureMessage =
+  public static final String SCHEDULE_FAILURE_MESSAGE =
       "Failed to request driver from scheduler backend.";
-  public static final String RunningHealthyMessage = "Application is running healthy.";
-  public static final String InitializedWithBelowThresholdExecutorsMessage =
-      "The application is running with less than minimal number of requested initial "
-          + "executors.";
-  public static final String RunningWithBelowThresholdExecutorsMessage =
-      "The Spark application is running with less than minimal number of requested " + "executors.";
-  public static final String ExecutorLaunchTimeoutMessage =
+  public static final String RUNNING_HEALTHY_MESSAGE = "Application is running healthy.";
+  public static final String INITIALIZED_WITH_BELOW_THRESHOLD_EXECUTORS_MESSAGE =
+      "The application is running with less than minimal number of requested initial executors.";
+  public static final String RUNNING_WITH_BELOW_THRESHOLD_EXECUTORS_MESSAGE =
+      "The Spark application is running with less than minimal number of requested executors.";
+  public static final String EXECUTOR_LAUNCH_TIMEOUT_MESSAGE =
       "The Spark application failed to get enough executors in the given time threshold.";
 }

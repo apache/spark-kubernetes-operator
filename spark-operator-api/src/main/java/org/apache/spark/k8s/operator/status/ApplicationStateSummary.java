@@ -23,110 +23,110 @@ import java.util.Set;
 
 public enum ApplicationStateSummary implements BaseStateSummary {
   /** Spark application is submitted to the cluster but yet scheduled */
-  SUBMITTED,
+  Submitted,
 
   /** Spark application will be restarted with same configuration */
-  SCHEDULED_TO_RESTART,
+  ScheduledToRestart,
 
   /** A request has been made to start driver pod in the cluster */
-  DRIVER_REQUESTED,
+  DriverRequested,
 
   /**
    * Driver pod has reached 'Running' state and thus bound to a node Refer
    * https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/
    */
-  DRIVER_STARTED,
+  DriverStarted,
 
   /**
    * Driver pod is ready to serve connections from executors Refer Refer
    * https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/
    */
-  DRIVER_READY,
+  DriverReady,
 
   /**
    * Less that minimal required executor pods reached condition 'Ready' during starting up Note that
    * reaching 'Ready' does not necessarily mean that the executor has successfully registered with
    * driver. This is a best-effort from operator to detect executor status
    */
-  INITIALIZED_BELOW_THRESHOLD_EXECUTORS,
+  InitializedBelowThresholdExecutors,
 
   /**
    * All required executor pods started reached condition 'Ready' Note that reaching 'Ready' does
    * not necessarily mean that the executor has successfully registered with driver. This is a
    * best-effort from operator to detect executor status
    */
-  RUNNING_HEALTHY,
+  RunningHealthy,
 
   /** The application has lost a fraction of executors for external reasons */
-  RUNNING_WITH_BELOW_THRESHOLD_EXECUTORS,
+  RunningWithBelowThresholdExecutors,
 
   /** The request timed out for driver */
-  DRIVER_START_TIMED_OUT,
+  DriverStartTimedOut,
 
   /** The request timed out for executors */
-  EXECUTORS_LAUNCH_TIMED_OUT,
+  ExecutorsStartTimedOut,
 
   /** Timed out waiting for driver to become ready */
-  DRIVER_READY_TIMED_OUT,
+  DriverReadyTimedOut,
 
   /**
    * The application completed successfully, or System.exit() is called explicitly with zero state
    */
-  SUCCEEDED,
+  Succeeded,
 
   /**
    * The application has failed, JVM exited abnormally, or System.exit is called explicitly with
    * non-zero state
    */
-  FAILED,
+  Failed,
 
   /**
    * Operator failed to orchestrate Spark application in cluster. For example, the given pod
    * template is rejected by API server because it's invalid or does not meet cluster security
    * standard; operator is not able to schedule pods due to insufficient quota or missing RBAC
    */
-  SCHEDULING_FAILURE,
+  SchedulingFailure,
 
   /** The driver pod was failed with Evicted reason */
-  DRIVER_EVICTED,
+  DriverEvicted,
 
   /** all resources (pods, services .etc have been cleaned up) */
-  RESOURCE_RELEASED,
+  ResourceReleased,
 
   /**
    * If configured, operator may mark app as terminated without releasing resources. While this can
    * be helpful in dev phase, it shall not be enabled for prod use cases
    */
-  TERMINATED_WITHOUT_RELEASE_RESOURCES;
+  TerminatedWithoutReleaseResources;
 
   public boolean isInitializing() {
-    return SUBMITTED.equals(this) || SCHEDULED_TO_RESTART.equals(this);
+    return Submitted.equals(this) || ScheduledToRestart.equals(this);
   }
 
   public boolean isStarting() {
-    return SCHEDULED_TO_RESTART.ordinal() < this.ordinal()
-        && RUNNING_HEALTHY.ordinal() > this.ordinal();
+    return ScheduledToRestart.ordinal() < this.ordinal()
+        && RunningHealthy.ordinal() > this.ordinal();
   }
 
   public boolean isTerminated() {
-    return RESOURCE_RELEASED.equals(this) || TERMINATED_WITHOUT_RELEASE_RESOURCES.equals(this);
+    return ResourceReleased.equals(this) || TerminatedWithoutReleaseResources.equals(this);
   }
 
   public boolean isStopping() {
-    return RUNNING_WITH_BELOW_THRESHOLD_EXECUTORS.ordinal() < this.ordinal() && !isTerminated();
+    return RunningWithBelowThresholdExecutors.ordinal() < this.ordinal() && !isTerminated();
   }
 
   public static final Set<ApplicationStateSummary> infrastructureFailures =
-      Set.of(DRIVER_START_TIMED_OUT, EXECUTORS_LAUNCH_TIMED_OUT, SCHEDULING_FAILURE);
+      Set.of(DriverStartTimedOut, ExecutorsStartTimedOut, SchedulingFailure);
 
   public static final Set<ApplicationStateSummary> failures =
       Set.of(
-          DRIVER_START_TIMED_OUT,
-          EXECUTORS_LAUNCH_TIMED_OUT,
-          SCHEDULING_FAILURE,
-          DRIVER_EVICTED,
-          FAILED,
-          DRIVER_READY_TIMED_OUT);
+          DriverStartTimedOut,
+          ExecutorsStartTimedOut,
+          SchedulingFailure,
+          DriverEvicted,
+          Failed,
+          DriverReadyTimedOut);
 
   @Override
   public boolean isFailure() {

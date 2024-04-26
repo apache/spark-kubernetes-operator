@@ -19,8 +19,8 @@
 
 package org.apache.spark.k8s.operator.status;
 
-import java.util.Collections;
 import java.util.Map;
+import java.util.SortedMap;
 import java.util.TreeMap;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -35,7 +35,7 @@ import lombok.ToString;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class BaseStatus<S, STATE extends BaseState<S>, AS extends BaseAttemptSummary> {
   @Getter STATE currentState;
-  @Getter Map<Long, STATE> stateTransitionHistory;
+  @Getter SortedMap<Long, STATE> stateTransitionHistory;
   @Getter AS previousAttemptSummary;
   @Getter AS currentAttemptSummary;
 
@@ -59,6 +59,6 @@ public class BaseStatus<S, STATE extends BaseState<S>, AS extends BaseAttemptSum
   }
 
   protected long getCurrentStateId() {
-    return Collections.max(stateTransitionHistory.keySet());
+    return stateTransitionHistory.lastKey();
   }
 }
