@@ -1,0 +1,32 @@
+dependencies {
+  // fabric8
+  implementation("io.fabric8:kubernetes-client:$fabric8Version") {
+    exclude group: 'com.squareup.okhttp3'
+  }
+  compileOnly("io.fabric8:crd-generator-apt:$fabric8Version")
+  annotationProcessor("io.fabric8:crd-generator-apt:$fabric8Version")
+
+  // utils
+  implementation("org.apache.commons:commons-lang3:$commonsLang3Version")
+  implementation("commons-io:commons-io:$commonsIOVersion")
+  implementation("org.projectlombok:lombok:$lombokVersion")
+  annotationProcessor("org.projectlombok:lombok:$lombokVersion")
+
+  // logging
+  implementation("org.apache.logging.log4j:log4j-slf4j-impl:$log4jVersion")
+  implementation("org.apache.logging.log4j:log4j-core:$log4jVersion")
+
+  testImplementation platform("org.junit:junit-bom:$junitVersion")
+  testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+test {
+  useJUnitPlatform()
+}
+
+// Adds additional printer columns to generated yaml
+// This requires yq
+task finalizeGeneratedCRD(type: Exec, dependsOn: jar) {
+  println "Updating PrinterColumns for generated CRD"
+  commandLine 'sh', './src/main/resources/printer-columns.sh'
+}

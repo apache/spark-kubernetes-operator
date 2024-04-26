@@ -72,6 +72,8 @@ subprojects {
         '',
         'org.apache.spark',
       )
+      toggleOffOn()
+      targetExclude "**/BaseResource.java"
       trimTrailingWhitespace()
       removeUnusedImports()
     }

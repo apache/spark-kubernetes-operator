@@ -16,5 +16,6 @@ header:
     - '.asf.yaml'
     - '**/*.gradle'
     - gradlew
+    - 'build/**'
 
   comment: on-failure
