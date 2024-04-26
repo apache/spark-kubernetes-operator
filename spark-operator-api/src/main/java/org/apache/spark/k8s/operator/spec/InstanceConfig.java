@@ -30,16 +30,30 @@ import lombok.NoArgsConstructor;
  * Config tolerations of executor instances for the application. Used then the target cluster is
  * lack of batch / gang scheduling This is different from SparkConf: spark.executor.instances
  *
- * <p>For example, with below spec: spec: applicationTolerations: instanceConfig: minExecutors: 3
- * initExecutors: 5 maxExecutors: 10 sparkConf: spark.executor.instances: "10"
+ * <p>For example, with below spec:
  *
- * <p>Spark would try to bring up 10 executors as defined in SparkConf. In addition, from SparkApp
- * perspective, + If Spark app acquires less than 5 executors in given tine window
- * (.spec.applicationTolerations.applicationTimeoutConfig.executorStartTimeoutMillis) after
- * submitted, it would be shut down proactively in order to avoid resource deadlock. + Spark app
- * would be marked as 'RUNNING_WITH_PARTIAL_CAPACITY' if it loses executors after successfully start
- * up. + Spark app would be marked as 'RunningHealthy' if it has at least min executors after
- * successfully start up.
+ * <pre>{@code
+ * spec:
+ *   applicationTolerations:
+ *     instanceConfig: minExecutors: 3
+ *     initExecutors: 5
+ *     maxExecutors: 10
+ *   sparkConf:
+ *     spark.executor.instances: "10"
+ * }</pre>
+ *
+ * Spark would try to bring up 10 executors as defined in SparkConf. In addition, from SparkApp
+ * perspective,
+ *
+ * <ul>
+ *   <li>If Spark app acquires less than 5 executors in given tine window
+ *       (.spec.applicationTolerations.applicationTimeoutConfig.executorStartTimeoutMillis) after
+ *       submitted, it would be shut down proactively in order to avoid resource deadlock.
+ *   <li>Spark app would be marked as 'RUNNING_WITH_PARTIAL_CAPACITY' if it loses executors after
+ *       successfully start up.
+ *   <li>Spark app would be marked as 'RunningHealthy' if it has at least min executors after
+ *       successfully start up.
+ * </ul>
  */
 @Data
 @NoArgsConstructor

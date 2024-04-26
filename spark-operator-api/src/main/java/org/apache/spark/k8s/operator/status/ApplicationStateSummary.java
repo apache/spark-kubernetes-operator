@@ -108,10 +108,21 @@ public enum ApplicationStateSummary implements BaseStateSummary {
         && RunningHealthy.ordinal() > this.ordinal();
   }
 
+  /**
+   * A state is 'terminated' if and only if no further actions are needed to reconcile it
+   *
+   * @return true if the state indicates app has terminated
+   */
   public boolean isTerminated() {
     return ResourceReleased.equals(this) || TerminatedWithoutReleaseResources.equals(this);
   }
 
+  /**
+   * When state is 'stopping', operator releases its resources based on retain policy, and perform
+   * retry based on retry policy
+   *
+   * @return true if an app is stopping
+   */
   public boolean isStopping() {
     return RunningWithBelowThresholdExecutors.ordinal() < this.ordinal() && !isTerminated();
   }
