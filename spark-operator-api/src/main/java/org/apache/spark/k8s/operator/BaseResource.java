@@ -27,12 +27,10 @@ import org.apache.spark.k8s.operator.status.BaseAttemptSummary;
 import org.apache.spark.k8s.operator.status.BaseState;
 import org.apache.spark.k8s.operator.status.BaseStatus;
 
-// spotless:off
 public class BaseResource<
-        S,
-        AS extends BaseAttemptSummary,
-        STATE extends BaseState<S>,
-        SPEC extends BaseSpec,
-        STATUS extends BaseStatus<S, STATE, AS>>
-    extends CustomResource<SPEC, STATUS> implements Namespaced {}
-// spotless:off
+    S,
+    AS extends BaseAttemptSummary,
+    STATE extends BaseState<S>,
+    SPEC extends BaseSpec,
+    STATUS extends BaseStatus<S, STATE, AS>>
+  extends CustomResource<SPEC, STATUS> implements Namespaced {}
