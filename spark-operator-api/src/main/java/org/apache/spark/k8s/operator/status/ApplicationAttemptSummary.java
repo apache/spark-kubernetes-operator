@@ -19,23 +19,35 @@
 
 package org.apache.spark.k8s.operator.status;
 
-import java.util.Map;
+import java.util.SortedMap;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import lombok.AllArgsConstructor;
-import lombok.Data;
 import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
+import lombok.Getter;
+import lombok.ToString;
 
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
+@Getter
 @EqualsAndHashCode(callSuper = true)
+@ToString(callSuper = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ApplicationAttemptSummary extends BaseAttemptSummary {
   // The state transition history for given attempt
   // This is used when state history trimming is enabled
-  protected Map<Long, ApplicationState> stateTransitionHistory;
+  protected final SortedMap<Long, ApplicationState> stateTransitionHistory;
+
+  public ApplicationAttemptSummary(
+      AttemptInfo attemptInfo, SortedMap<Long, ApplicationState> stateTransitionHistory) {
+    super(attemptInfo);
+    this.stateTransitionHistory = stateTransitionHistory;
+  }
+
+  public ApplicationAttemptSummary() {
+    this(new AttemptInfo(), null);
+  }
+
+  public ApplicationAttemptSummary(AttemptInfo attemptInfo) {
+    this(attemptInfo, null);
+  }
 }

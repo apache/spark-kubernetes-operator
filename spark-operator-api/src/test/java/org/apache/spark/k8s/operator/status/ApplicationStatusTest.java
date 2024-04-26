@@ -35,9 +35,9 @@ class ApplicationStatusTest {
   void testInitStatus() {
     ApplicationStatus applicationStatus = new ApplicationStatus();
     Assertions.assertEquals(Submitted, applicationStatus.currentState.currentStateSummary);
-    Assertions.assertEquals(1, applicationStatus.stateTransitionHistory.size());
+    Assertions.assertEquals(1, applicationStatus.getStateTransitionHistory().size());
     Assertions.assertEquals(
-        applicationStatus.currentState, applicationStatus.stateTransitionHistory.get(0L));
+        applicationStatus.currentState, applicationStatus.getStateTransitionHistory().get(0L));
   }
 
   @Test
@@ -45,8 +45,8 @@ class ApplicationStatusTest {
     ApplicationStatus applicationStatus = new ApplicationStatus();
     ApplicationState newState = new ApplicationState(ApplicationStateSummary.RunningHealthy, "foo");
     ApplicationStatus newStatus = applicationStatus.appendNewState(newState);
-    Assertions.assertEquals(2, newStatus.stateTransitionHistory.size());
-    Assertions.assertEquals(newState, newStatus.stateTransitionHistory.get(1L));
+    Assertions.assertEquals(2, newStatus.getStateTransitionHistory().size());
+    Assertions.assertEquals(newState, newStatus.getStateTransitionHistory().get(1L));
   }
 
   @Test
@@ -66,7 +66,8 @@ class ApplicationStatusTest {
         updatedStatusReleaseResource.getCurrentState().getCurrentStateSummary());
     Assertions.assertTrue(
         updatedStatusReleaseResource.getCurrentState().getMessage().contains(messageOverride));
-    Assertions.assertEquals(0L, updatedStatusReleaseResource.currentAttemptSummary.attemptInfo.id);
+    Assertions.assertEquals(
+        0L, updatedStatusReleaseResource.getCurrentAttemptSummary().getAttemptInfo().getId());
 
     ApplicationStatus updatedStatusRetainResource =
         status.terminateOrRestart(
@@ -76,7 +77,8 @@ class ApplicationStatusTest {
         updatedStatusRetainResource.getCurrentState().getCurrentStateSummary());
     Assertions.assertTrue(
         updatedStatusRetainResource.getCurrentState().getMessage().contains(messageOverride));
-    Assertions.assertEquals(0L, updatedStatusRetainResource.currentAttemptSummary.attemptInfo.id);
+    Assertions.assertEquals(
+        0L, updatedStatusRetainResource.getCurrentAttemptSummary().getAttemptInfo().getId());
   }
 
   @Test
@@ -98,7 +100,8 @@ class ApplicationStatusTest {
         restartReleaseResource.getCurrentState().getCurrentStateSummary());
     Assertions.assertTrue(
         restartReleaseResource.getCurrentState().getMessage().contains(messageOverride));
-    Assertions.assertEquals(1L, restartReleaseResource.currentAttemptSummary.attemptInfo.id);
+    Assertions.assertEquals(
+        1L, restartReleaseResource.getCurrentAttemptSummary().getAttemptInfo().getId());
 
     ApplicationStatus restartRetainResource =
         status.terminateOrRestart(
@@ -108,7 +111,8 @@ class ApplicationStatusTest {
         restartRetainResource.getCurrentState().getCurrentStateSummary());
     Assertions.assertTrue(
         restartRetainResource.getCurrentState().getMessage().contains(messageOverride));
-    Assertions.assertEquals(1L, restartRetainResource.currentAttemptSummary.attemptInfo.id);
+    Assertions.assertEquals(
+        1L, restartRetainResource.getCurrentAttemptSummary().getAttemptInfo().getId());
 
     // trim state history for new restart
     ApplicationStatus restartTrimHistory =
@@ -119,12 +123,14 @@ class ApplicationStatusTest {
         restartTrimHistory.getCurrentState().getCurrentStateSummary());
     Assertions.assertTrue(
         restartTrimHistory.getCurrentState().getMessage().contains(messageOverride));
-    Assertions.assertEquals(1L, restartTrimHistory.currentAttemptSummary.attemptInfo.id);
-    Assertions.assertEquals(1L, restartTrimHistory.stateTransitionHistory.size());
-    Assertions.assertNotNull(restartTrimHistory.previousAttemptSummary.stateTransitionHistory);
+    Assertions.assertEquals(
+        1L, restartTrimHistory.getCurrentAttemptSummary().getAttemptInfo().getId());
+    Assertions.assertEquals(1L, restartTrimHistory.getStateTransitionHistory().size());
+    Assertions.assertNotNull(
+        restartTrimHistory.getPreviousAttemptSummary().getStateTransitionHistory());
     Assertions.assertEquals(
         status.getStateTransitionHistory(),
-        restartTrimHistory.previousAttemptSummary.stateTransitionHistory);
+        restartTrimHistory.getPreviousAttemptSummary().getStateTransitionHistory());
 
     ApplicationStatus restartRetainResourceTrimHistory =
         status.terminateOrRestart(
@@ -135,12 +141,12 @@ class ApplicationStatusTest {
     Assertions.assertTrue(
         restartRetainResourceTrimHistory.getCurrentState().getMessage().contains(messageOverride));
     Assertions.assertEquals(
-        1L, restartRetainResourceTrimHistory.currentAttemptSummary.attemptInfo.id);
+        1L, restartRetainResourceTrimHistory.getCurrentAttemptSummary().getAttemptInfo().getId());
     Assertions.assertNotNull(
-        restartRetainResourceTrimHistory.previousAttemptSummary.stateTransitionHistory);
+        restartRetainResourceTrimHistory.getPreviousAttemptSummary().getStateTransitionHistory());
     Assertions.assertEquals(
         status.getStateTransitionHistory(),
-        restartRetainResourceTrimHistory.previousAttemptSummary.stateTransitionHistory);
+        restartRetainResourceTrimHistory.getPreviousAttemptSummary().getStateTransitionHistory());
 
     // retry policy set but max retry attempt reached
     alwaysRetryConfig.setMaxRestartAttempts(1L);
@@ -156,7 +162,7 @@ class ApplicationStatusTest {
     Assertions.assertTrue(
         maxRestartExceededReleaseResource.getCurrentState().getMessage().contains(messageOverride));
     Assertions.assertEquals(
-        1L, maxRestartExceededReleaseResource.currentAttemptSummary.attemptInfo.id);
+        1L, maxRestartExceededReleaseResource.getCurrentAttemptSummary().getAttemptInfo().getId());
 
     ApplicationStatus maxRestartExceededRetainResource =
         restartFailed.terminateOrRestart(
@@ -167,6 +173,6 @@ class ApplicationStatusTest {
     Assertions.assertTrue(
         maxRestartExceededRetainResource.getCurrentState().getMessage().contains(messageOverride));
     Assertions.assertEquals(
-        1L, maxRestartExceededRetainResource.currentAttemptSummary.attemptInfo.id);
+        1L, maxRestartExceededRetainResource.getCurrentAttemptSummary().getAttemptInfo().getId());
   }
 }

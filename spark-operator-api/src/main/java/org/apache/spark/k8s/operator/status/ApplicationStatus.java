@@ -129,20 +129,23 @@ public class ApplicationStatus
           currentAttemptSummary);
     }
 
-    ApplicationAttemptSummary nextAttemptSummary = new ApplicationAttemptSummary();
-    nextAttemptSummary.setAttemptInfo(
-        currentAttemptSummary.getAttemptInfo().createNextAttemptInfo());
+    AttemptInfo nextAttemptInfo = currentAttemptSummary.getAttemptInfo().createNextAttemptInfo();
+    ApplicationAttemptSummary nextAttemptSummary = new ApplicationAttemptSummary(nextAttemptInfo);
     ApplicationState state =
         new ApplicationState(ApplicationStateSummary.ScheduledToRestart, stateMessageOverride);
 
     if (trimStateTransitionHistory) {
-      currentAttemptSummary.setStateTransitionHistory(stateTransitionHistory);
+      // when truncating, put all previous history entries into previous attempt summary
+      ApplicationAttemptSummary newPrevSummary =
+          new ApplicationAttemptSummary(
+              currentAttemptSummary.getAttemptInfo(), stateTransitionHistory);
       return new ApplicationStatus(
           state,
           Collections.singletonMap(getCurrentStateId() + 1, state),
-          currentAttemptSummary,
+          newPrevSummary,
           nextAttemptSummary);
     } else {
+      // when truncating is disabled, currentAttempt becomes the new 'previous'
       return new ApplicationStatus(
           state,
           createUpdatedHistoryWithNewState(state),

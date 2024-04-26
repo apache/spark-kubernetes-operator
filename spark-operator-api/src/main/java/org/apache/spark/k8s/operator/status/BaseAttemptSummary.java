@@ -21,11 +21,17 @@ package org.apache.spark.k8s.operator.status;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.ToString;
 
-@Data
+@EqualsAndHashCode
+@ToString
+@Getter
+@RequiredArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class BaseAttemptSummary {
-  protected AttemptInfo attemptInfo = new AttemptInfo();
+  protected final AttemptInfo attemptInfo;
 }
