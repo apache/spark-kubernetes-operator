@@ -1,0 +1,18 @@
+dependencies {
+  implementation project(":spark-operator-api")
+
+  implementation("org.apache.spark:spark-kubernetes_$scalaVersion:$sparkVersion")
+
+  compileOnly("org.projectlombok:lombok:$lombokVersion")
+  annotationProcessor("org.projectlombok:lombok:$lombokVersion")
+
+  testImplementation platform("org.junit:junit-bom:$junitVersion")
+  testImplementation "org.mockito:mockito-core:$mockitoVersion"
+  testImplementation "org.junit.jupiter:junit-jupiter:$junitVersion"
+  testImplementation "io.fabric8:kubernetes-server-mock:$fabric8Version"
+  testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}
+
+test {
+  useJUnitPlatform()
+}
