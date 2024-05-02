@@ -100,12 +100,12 @@ public class SparkAppResourceSpec {
     Container containerWithVolume =
         new ContainerBuilder(pod.container())
             .addNewEnv()
-            .withName(org.apache.spark.deploy.k8s.Constants.ENV_SPARK_CONF_DIR())
-            .withValue(org.apache.spark.deploy.k8s.Constants.SPARK_CONF_DIR_INTERNAL())
+            .withName(Constants.ENV_SPARK_CONF_DIR())
+            .withValue(Constants.SPARK_CONF_DIR_INTERNAL())
             .endEnv()
             .addNewVolumeMount()
-            .withName(org.apache.spark.deploy.k8s.Constants.SPARK_CONF_VOLUME_DRIVER())
-            .withMountPath(org.apache.spark.deploy.k8s.Constants.SPARK_CONF_DIR_INTERNAL())
+            .withName(Constants.SPARK_CONF_VOLUME_DRIVER())
+            .withMountPath(Constants.SPARK_CONF_DIR_INTERNAL())
             .endVolumeMount()
             .build();
     Pod podWithVolume =
