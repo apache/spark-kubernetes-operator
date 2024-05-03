@@ -26,6 +26,7 @@ github:
     merge: false
     squash: true
     rebase: true
+  autolink_jira: SPARK
 
 notifications:
   pullrequests: reviews@spark.apache.org
