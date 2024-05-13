@@ -36,6 +36,7 @@ import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.api.model.PodTemplateSpec;
 import org.apache.commons.lang3.StringUtils;
 
+import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 
 public class ModelUtils {
@@ -106,5 +107,13 @@ public class ModelUtils {
     return applicationSpec != null
         && applicationSpec.getExecutorSpec() != null
         && applicationSpec.getExecutorSpec().getPodTemplateSpec() != null;
+  }
+
+  public static long getAttemptId(final SparkApplication app) {
+    long attemptId = 0L;
+    if (app.getStatus() != null && app.getStatus().getCurrentAttemptSummary() != null) {
+      attemptId = app.getStatus().getCurrentAttemptSummary().getAttemptInfo().getId();
+    }
+    return attemptId;
   }
 }

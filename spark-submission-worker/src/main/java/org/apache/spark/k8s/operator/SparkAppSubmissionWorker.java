@@ -37,6 +37,7 @@ import org.apache.spark.deploy.k8s.submit.MainAppResource;
 import org.apache.spark.deploy.k8s.submit.PythonMainAppResource;
 import org.apache.spark.deploy.k8s.submit.RMainAppResource;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
+import org.apache.spark.k8s.operator.utils.ModelUtils;
 
 /**
  * Similar to org.apache.spark.deploy.k8s.submit.KubernetesClientApplication. This reads args from
@@ -87,7 +88,7 @@ public class SparkAppSubmissionWorker {
     }
     effectiveSparkConf.setIfMissing(
         "spark.master", "k8s://https://$KUBERNETES_SERVICE_HOST:$KUBERNETES_SERVICE_PORT");
-    String appId = createSparkAppId(app);
+    String appId = generateSparkAppId(app);
     effectiveSparkConf.setIfMissing("spark.app.id", appId);
     return SparkAppDriverConf.create(
         effectiveSparkConf,
@@ -107,11 +108,11 @@ public class SparkAppSubmissionWorker {
   }
 
   /**
-   * Spark application id need to be deterministic per attempt per Spark App. This is to ensure
-   * operator reconciliation idempotency
+   * Generate a Spark application id. Similar to `KubernetesConf.getKubernetesAppId()`. This is
+   * deterministic per attempt per Spark App in order to ensure operator reconciliation idempotency
    */
-  protected String createSparkAppId(final SparkApplication app) {
-    long attemptId = getAttemptId(app);
+  public static String generateSparkAppId(final SparkApplication app) {
+    long attemptId = ModelUtils.getAttemptId(app);
     String preferredId = String.format("%s-%d", app.getMetadata().getName(), attemptId);
     if (preferredId.length() > DEFAULT_ID_LENGTH_LIMIT) {
       int preferredIdPrefixLength =
@@ -127,20 +128,12 @@ public class SparkAppSubmissionWorker {
     }
   }
 
-  protected long getAttemptId(final SparkApplication app) {
-    long attemptId = 0L;
-    if (app.getStatus() != null && app.getStatus().getCurrentAttemptSummary() != null) {
-      attemptId = app.getStatus().getCurrentAttemptSummary().getAttemptInfo().getId();
-    }
-    return attemptId;
-  }
-
-  public String generateHashBasedId(final String prefix, final String... identifiers) {
+  public static String generateHashBasedId(final String prefix, final String... identifiers) {
     return generateHashBasedId(
         prefix, DEFAULT_ENCODE_BASE, DEFAULT_HASH_BASED_IDENTIFIER_LENGTH_LIMIT, identifiers);
   }
 
-  public String generateHashBasedId(
+  public static String generateHashBasedId(
       final String prefix,
       final int hashEncodeBaseRadix,
       final int identifiersHashLengthLimit,
