@@ -23,9 +23,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import scala.Tuple2;
-import scala.collection.JavaConverters;
 import scala.collection.immutable.HashMap;
 import scala.collection.immutable.Map;
+import scala.jdk.CollectionConverters;
 
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerBuilder;
@@ -77,14 +77,15 @@ public class SparkAppResourceSpec {
             .build();
     this.driverPreResources =
         new ArrayList<>(
-            JavaConverters.seqAsJavaList(kubernetesDriverSpec.driverPreKubernetesResources()));
+            CollectionConverters.SeqHasAsJava(kubernetesDriverSpec.driverPreKubernetesResources())
+                .asJava());
     this.driverResources =
         new ArrayList<>(
-            JavaConverters.seqAsJavaList(kubernetesDriverSpec.driverKubernetesResources()));
+            CollectionConverters.SeqHasAsJava(kubernetesDriverSpec.driverKubernetesResources())
+                .asJava());
     this.driverResources.add(
         KubernetesClientUtils.buildConfigMap(
             kubernetesDriverConf.configMapNameDriver(), confFilesMap, new HashMap<>()));
-    // 'metadata.namespace' might be absent from template files.
     this.driverPreResources.forEach(r -> setNamespaceIfMissing(r, namespace));
     this.driverResources.forEach(r -> setNamespaceIfMissing(r, namespace));
   }
@@ -115,8 +116,9 @@ public class SparkAppResourceSpec {
             .withName(Constants.SPARK_CONF_VOLUME_DRIVER())
             .withNewConfigMap()
             .withItems(
-                JavaConverters.seqAsJavaList(
-                    KubernetesClientUtils.buildKeyToPathObjects(confFilesMap)))
+                CollectionConverters.SeqHasAsJava(
+                        KubernetesClientUtils.buildKeyToPathObjects(confFilesMap))
+                    .asJava())
             .withName(kubernetesDriverConf.configMapNameDriver())
             .endConfigMap()
             .endVolume()

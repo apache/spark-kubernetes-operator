@@ -36,7 +36,7 @@ public class SparkAppDriverConf extends KubernetesDriverConf {
       String mainClass,
       String[] appArgs,
       Option<String> proxyUser) {
-    super(sparkConf, appId, mainAppResource, mainClass, appArgs, proxyUser);
+    super(sparkConf, appId, mainAppResource, mainClass, appArgs, proxyUser, null);
   }
 
   public static SparkAppDriverConf create(
@@ -55,9 +55,7 @@ public class SparkAppDriverConf extends KubernetesDriverConf {
   /** Application managed by operator has a deterministic prefix */
   @Override
   public String resourceNamePrefix() {
-    return sparkConf().getOption(Config.KUBERNETES_DRIVER_POD_NAME_PREFIX().key()).isEmpty()
-        ? appId()
-        : sparkConf().get(Config.KUBERNETES_DRIVER_POD_NAME_PREFIX().key());
+    return appId();
   }
 
   public String configMapNameDriver() {

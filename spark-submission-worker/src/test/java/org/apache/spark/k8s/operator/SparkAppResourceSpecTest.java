@@ -25,8 +25,9 @@ import static org.mockito.Mockito.when;
 import java.util.Collections;
 import java.util.List;
 
-import scala.collection.Seq;
 import scala.collection.immutable.HashMap;
+import scala.collection.immutable.Seq;
+import scala.jdk.javaapi.CollectionConverters;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.Container;
@@ -53,44 +54,32 @@ class SparkAppResourceSpecTest {
         .thenReturn(new SparkConf().set("spark.kubernetes.namespace", "foo-namespace"));
 
     KubernetesDriverSpec mockSpec = mock(KubernetesDriverSpec.class);
-    Container container =
-        new ContainerBuilder()
-            .withName("foo-container")
-            .addNewVolumeMount()
-            .withName("placeholder")
-            .endVolumeMount()
-            .build();
-    Pod pod =
-        new PodBuilder()
-            .withNewMetadata()
-            .endMetadata()
-            .withNewSpec()
-            .addNewContainer()
-            .withName("placeholder")
-            .endContainer()
-            .addNewVolume()
-            .withName("placeholder")
-            .endVolume()
-            .endSpec()
-            .build();
-    SparkPod sparkPod = new SparkPod(pod, container);
-    List<HasMetadata> emptyList = Collections.emptyList();
-    Seq<HasMetadata> emptySeq =
-        scala.collection.JavaConverters.collectionAsScalaIterableConverter(emptyList)
-            .asScala()
-            .toSeq();
-    when(mockSpec.driverKubernetesResources()).thenReturn(emptySeq);
-    when(mockSpec.driverPreKubernetesResources()).thenReturn(emptySeq);
+    Pod driver = buildBasicPod("driver");
+    SparkPod sparkPod = new SparkPod(driver, buildBasicContainer());
+
+    // Add some mock resources and pre-resources
+    Pod pod1 = buildBasicPod("pod-1");
+    Pod pod2 = buildBasicPod("pod-2");
+    List<HasMetadata> preResourceList = Collections.singletonList(pod1);
+    List<HasMetadata> resourceList = Collections.singletonList(pod2);
+    Seq<HasMetadata> preResourceSeq = CollectionConverters.asScala(preResourceList).toList();
+    Seq<HasMetadata> resourceSeq = CollectionConverters.asScala(resourceList).toList();
+    when(mockSpec.driverKubernetesResources()).thenReturn(resourceSeq);
+    when(mockSpec.driverPreKubernetesResources()).thenReturn(preResourceSeq);
     when(mockSpec.pod()).thenReturn(sparkPod);
     when(mockSpec.systemProperties()).thenReturn(new HashMap<>());
 
     SparkAppResourceSpec appResourceSpec = new SparkAppResourceSpec(mockConf, mockSpec);
 
-    Assertions.assertEquals(1, appResourceSpec.getDriverResources().size());
+    Assertions.assertEquals(2, appResourceSpec.getDriverResources().size());
+    Assertions.assertEquals(1, appResourceSpec.getDriverPreResources().size());
+    Assertions.assertEquals(Pod.class, appResourceSpec.getDriverResources().get(0).getClass());
     Assertions.assertEquals(
-        ConfigMap.class, appResourceSpec.getDriverResources().get(0).getClass());
+        ConfigMap.class, appResourceSpec.getDriverResources().get(1).getClass());
+    Assertions.assertEquals(pod1, appResourceSpec.getDriverPreResources().get(0));
+    Assertions.assertEquals(pod2, appResourceSpec.getDriverResources().get(0));
 
-    ConfigMap proposedConfigMap = (ConfigMap) appResourceSpec.getDriverResources().get(0);
+    ConfigMap proposedConfigMap = (ConfigMap) appResourceSpec.getDriverResources().get(1);
     Assertions.assertEquals("foo-configmap", proposedConfigMap.getMetadata().getName());
     Assertions.assertEquals(
         "foo-namespace", proposedConfigMap.getData().get("spark.kubernetes.namespace"));
@@ -119,5 +108,30 @@ class SparkAppResourceSpecTest {
             .getVolumeMounts()
             .get(1);
     Assertions.assertEquals(proposedConfigVolume.getName(), proposedConfigVolumeMount.getName());
+  }
+
+  protected Container buildBasicContainer() {
+    return new ContainerBuilder()
+        .withName("foo-container")
+        .addNewVolumeMount()
+        .withName("placeholder")
+        .endVolumeMount()
+        .build();
+  }
+
+  protected Pod buildBasicPod(String name) {
+    return new PodBuilder()
+        .withNewMetadata()
+        .withName(name)
+        .endMetadata()
+        .withNewSpec()
+        .addNewContainer()
+        .withName("placeholder")
+        .endContainer()
+        .addNewVolume()
+        .withName("placeholder")
+        .endVolume()
+        .endSpec()
+        .build();
   }
 }

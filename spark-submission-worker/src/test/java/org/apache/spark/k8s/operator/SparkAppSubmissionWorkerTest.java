@@ -19,6 +19,7 @@
 
 package org.apache.spark.k8s.operator;
 
+import static org.apache.spark.k8s.operator.SparkAppSubmissionWorker.DEFAULT_ID_LENGTH_LIMIT;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.when;
@@ -31,6 +32,7 @@ import java.util.Map;
 
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedConstruction;
@@ -154,7 +156,7 @@ class SparkAppSubmissionWorkerTest {
     ApplicationStatus mockStatus1 = mock(ApplicationStatus.class);
     ApplicationStatus mockStatus2 = mock(ApplicationStatus.class);
     String appName1 = "app1";
-    String appName2 = "app2";
+    String appName2 = RandomStringUtils.randomAlphabetic(100);
     ObjectMeta appMeta1 = new ObjectMetaBuilder().withName(appName1).withNamespace("ns").build();
     ObjectMeta appMeta2 = new ObjectMetaBuilder().withName(appName2).withNamespace("ns").build();
     when(mockApp1.getMetadata()).thenReturn(appMeta1);
@@ -168,18 +170,28 @@ class SparkAppSubmissionWorkerTest {
 
     Assertions.assertNotEquals(appId1, appId2);
     Assertions.assertTrue(appId1.contains(appName1));
+    Assertions.assertTrue(appId1.length() <= DEFAULT_ID_LENGTH_LIMIT);
+    Assertions.assertTrue(appId2.length() <= DEFAULT_ID_LENGTH_LIMIT);
     // multiple invoke shall give same result
     Assertions.assertEquals(appId1, submissionWorker.createSparkAppId(mockApp1));
+    Assertions.assertEquals(appId2, submissionWorker.createSparkAppId(mockApp2));
 
     ApplicationAttemptSummary mockAttempt = mock(ApplicationAttemptSummary.class);
     AttemptInfo mockAttemptInfo = mock(AttemptInfo.class);
     when(mockAttempt.getAttemptInfo()).thenReturn(mockAttemptInfo);
     when(mockAttemptInfo.getId()).thenReturn(2L);
     when(mockStatus1.getCurrentAttemptSummary()).thenReturn(mockAttempt);
+    when(mockStatus2.getCurrentAttemptSummary()).thenReturn(mockAttempt);
 
     String appId1Attempt2 = submissionWorker.createSparkAppId(mockApp1);
     Assertions.assertTrue(appId1Attempt2.contains(appName1));
     Assertions.assertNotEquals(appId1, appId1Attempt2);
+    Assertions.assertTrue(appId1Attempt2.length() <= DEFAULT_ID_LENGTH_LIMIT);
+
+    String appId2Attempt2 = submissionWorker.createSparkAppId(mockApp2);
+    Assertions.assertNotEquals(appId2, appId2Attempt2);
+    Assertions.assertEquals(appId2Attempt2, submissionWorker.createSparkAppId(mockApp2));
+    Assertions.assertTrue(appId2Attempt2.length() <= DEFAULT_ID_LENGTH_LIMIT);
 
     Assertions.assertEquals(appId1Attempt2, submissionWorker.createSparkAppId(mockApp1));
   }
