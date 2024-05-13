@@ -108,7 +108,7 @@ public class SparkAppSubmissionWorker {
 
   /**
    * Spark application id need to be deterministic per attempt per Spark App. This is to ensure
-   * operator reconciliation idempotency.
+   * operator reconciliation idempotency
    */
   protected String createSparkAppId(final SparkApplication app) {
     long attemptId = getAttemptId(app);
