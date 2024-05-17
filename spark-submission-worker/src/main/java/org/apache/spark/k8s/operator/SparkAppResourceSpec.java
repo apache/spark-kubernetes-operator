@@ -98,7 +98,7 @@ public class SparkAppResourceSpec {
   }
 
   private SparkPod addConfigMap(SparkPod pod, Map<String, String> confFilesMap) {
-    Container containerWithVolume =
+    Container containerWithConfigMapVolume =
         new ContainerBuilder(pod.container())
             .addNewEnv()
             .withName(Constants.ENV_SPARK_CONF_DIR())
@@ -109,7 +109,7 @@ public class SparkAppResourceSpec {
             .withMountPath(Constants.SPARK_CONF_DIR_INTERNAL())
             .endVolumeMount()
             .build();
-    Pod podWithVolume =
+    Pod podWithConfigMapVolume =
         new PodBuilder(pod.pod())
             .editSpec()
             .addNewVolume()
@@ -124,6 +124,6 @@ public class SparkAppResourceSpec {
             .endVolume()
             .endSpec()
             .build();
-    return new SparkPod(podWithVolume, containerWithVolume);
+    return new SparkPod(podWithConfigMapVolume, containerWithConfigMapVolume);
   }
 }

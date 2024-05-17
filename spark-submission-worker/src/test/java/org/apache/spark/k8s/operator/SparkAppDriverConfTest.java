@@ -19,13 +19,15 @@
 
 package org.apache.spark.k8s.operator;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import java.util.UUID;
 
 import scala.Option;
 
-import org.junit.jupiter.api.Assertions;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.Test;
 
 import org.apache.spark.SparkConf;
@@ -43,8 +45,31 @@ class SparkAppDriverConfTest {
         SparkAppDriverConf.create(
             sparkConf, appId, mock(JavaMainAppResource.class), "foo", null, Option.empty());
     String resourcePrefix = sparkAppDriverConf.resourceNamePrefix();
-    Assertions.assertEquals(resourcePrefix, appId);
-    Assertions.assertTrue(sparkAppDriverConf.configMapNameDriver().contains(resourcePrefix));
-    Assertions.assertTrue(sparkAppDriverConf.driverServiceName().contains(resourcePrefix));
+    assertEquals(
+        resourcePrefix,
+        appId,
+        "Secondary resource prfix should be the same as app id, "
+            + "but different values are detected");
+    assertTrue(
+        sparkAppDriverConf.configMapNameDriver().contains(resourcePrefix),
+        "ConfigMap name" + " should include secondary resource prefix");
+    assertTrue(
+        sparkAppDriverConf.driverServiceName().contains(resourcePrefix),
+        "Driver service " + "name should include secondary resource prefix");
+  }
+
+  @Test
+  void testConfigMapNameDriver() {
+    SparkConf sparkConf = new SparkConf();
+    sparkConf.set("foo", "bar");
+    sparkConf.set("spark.executor.instances", "1");
+    String appId = RandomStringUtils.randomAlphabetic(1000);
+    SparkAppDriverConf sparkAppDriverConf =
+        SparkAppDriverConf.create(
+            sparkConf, appId, mock(JavaMainAppResource.class), "foo", null, Option.empty());
+    String configMapNameDriver = sparkAppDriverConf.configMapNameDriver();
+    assertTrue(
+        configMapNameDriver.length() <= 253,
+        "config map name length should always comply k8s DNS subdomain length");
   }
 }

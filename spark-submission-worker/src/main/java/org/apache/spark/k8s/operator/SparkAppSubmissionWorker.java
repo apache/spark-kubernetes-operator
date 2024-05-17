@@ -46,7 +46,7 @@ import org.apache.spark.k8s.operator.utils.ModelUtils;
 public class SparkAppSubmissionWorker {
   // Default length limit for generated app id. Generated id is used as resource-prefix when
   // user-provided id is too long for this purpose. This applied to all resources associated with
-  // the Spark app (including k8s service which has different naming length limit). This we
+  // the Spark app (including k8s service which has different naming length limit). Thus, we
   // truncate the hash part to 46 chars to leave some margin for spark resource prefix and suffix
   // (e.g. 'spark-', '-driver-svc' . etc)
   public static final int DEFAULT_ID_LENGTH_LIMIT = 46;
@@ -54,7 +54,31 @@ public class SparkAppSubmissionWorker {
   public static final int DEFAULT_HASH_BASED_IDENTIFIER_LENGTH_LIMIT = 36;
   // Radix value used when generating hash-based identifier
   public static final int DEFAULT_ENCODE_BASE = 36;
+  public static final String DEFAULT_MASTER_URL_PREFIX = "k8s://";
+  public static final String MASTER_URL_PREFIX_PROPS_NAME = "spark.master.url.prefix";
 
+  /**
+   * Build secondary resource spec for given app with Spark developer API, with defaults / overrides
+   * as:
+   *
+   * <ul>
+   *   <li>spark.kubernetes.namespace - if provided and the provided value is different from the
+   *       namespace that the SparkApp resides in, it would be force override to the same value as
+   *       the SparkApp custom resource.
+   *   <li>spark.jars - if not provided, this would be set to the value in .spec.jars
+   *   <li>spark.submit.pyFiles - if not provided, this would be set to the value in .spec.PyFiles
+   *   <li>spark.master - if not provided, this would be automatically built with
+   *       KUBERNETES_SERVICE_HOST and KUBERNETES_SERVICE_PORT, and prefix 'k8s://' for native Spark
+   *       ExternalClusterManager. It is possible to invoke custom ClusterManager: to do so, either
+   *       set 'spark.master', or set `spark.master.url.prefix` so submission worker can build
+   *       master url based on it.
+   * </ul>
+   *
+   * @param app the SparkApp resource
+   * @param client k8s client
+   * @param confOverrides key-value pairs of conf overrides for the given app.
+   * @return secondary resources spec as `SparkAppResourceSpec`
+   */
   public SparkAppResourceSpec getResourceSpec(
       SparkApplication app, KubernetesClient client, Map<String, String> confOverrides) {
     SparkAppDriverConf appDriverConf = buildDriverConf(app, confOverrides);
@@ -86,8 +110,11 @@ public class SparkAppSubmissionWorker {
     } else if (StringUtils.isNotEmpty(applicationSpec.getSparkRFiles())) {
       primaryResource = new RMainAppResource(applicationSpec.getSparkRFiles());
     }
+    String sparkMasterUrlPrefix =
+        effectiveSparkConf.get(MASTER_URL_PREFIX_PROPS_NAME, DEFAULT_MASTER_URL_PREFIX);
     effectiveSparkConf.setIfMissing(
-        "spark.master", "k8s://https://$KUBERNETES_SERVICE_HOST:$KUBERNETES_SERVICE_PORT");
+        "spark.master",
+        sparkMasterUrlPrefix + "https://$KUBERNETES_SERVICE_HOST:$KUBERNETES_SERVICE_PORT");
     String appId = generateSparkAppId(app);
     effectiveSparkConf.setIfMissing("spark.app.id", appId);
     return SparkAppDriverConf.create(
@@ -95,7 +122,7 @@ public class SparkAppSubmissionWorker {
         appId,
         primaryResource,
         applicationSpec.getMainClass(),
-        applicationSpec.getDriverArgs().toArray(new String[0]),
+        applicationSpec.getDriverArgs().toArray(String[]::new),
         Option.apply(applicationSpec.getProxyUser()));
   }
 
@@ -128,20 +155,21 @@ public class SparkAppSubmissionWorker {
     }
   }
 
+  /**
+   * Generate a hash-based id with given identifiers. The hash part would have a length-limit of
+   * `DEFAULT_HASH_BASED_IDENTIFIER_LENGTH_LIMIT`. In addition, prefix would be applied upon
+   * generated hash.
+   *
+   * @param prefix string prefix to be applied to generated hash-based id.
+   * @param identifiers keys to generate hash
+   * @return generated hash-based id
+   */
   public static String generateHashBasedId(final String prefix, final String... identifiers) {
-    return generateHashBasedId(
-        prefix, DEFAULT_ENCODE_BASE, DEFAULT_HASH_BASED_IDENTIFIER_LENGTH_LIMIT, identifiers);
-  }
-
-  public static String generateHashBasedId(
-      final String prefix,
-      final int hashEncodeBaseRadix,
-      final int identifiersHashLengthLimit,
-      final String... identifiers) {
     String sha256Hash =
         new BigInteger(1, DigestUtils.sha256(String.join("/", identifiers)))
-            .toString(hashEncodeBaseRadix);
-    String truncatedIdentifiersHash = sha256Hash.substring(0, identifiersHashLengthLimit);
+            .toString(DEFAULT_ENCODE_BASE);
+    String truncatedIdentifiersHash =
+        sha256Hash.substring(0, DEFAULT_HASH_BASED_IDENTIFIER_LENGTH_LIMIT);
     return String.join("-", prefix, truncatedIdentifiersHash);
   }
 }

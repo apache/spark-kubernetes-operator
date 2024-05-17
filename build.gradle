@@ -25,8 +25,7 @@ subprojects {
 
   repositories {
     mavenCentral()
-    // This is a workaround to resolve Spark 4.0.0-preview-1
-    // To be removed for official release
+    // TODO(SPARK-48326) Upgrade submission worker base Spark version to 4.0.0-preview2
     maven {
       url "https://repository.apache.org/content/repositories/orgapachespark-1454/"
     }

@@ -81,8 +81,10 @@ class SparkAppSubmissionWorkerTest {
       Assertions.assertEquals("bar", createdConf.get("foo"));
       Assertions.assertEquals("5", createdConf.get("spark.executor.instances"));
 
-      // namespace from CR takes highest precedence
-      Assertions.assertEquals("ns1", createdConf.get("spark.kubernetes.namespace"));
+      Assertions.assertEquals(
+          "ns1",
+          createdConf.get("spark.kubernetes.namespace"),
+          "namespace from CR takes highest precedence");
 
       // validate main resources
       Assertions.assertTrue(constructorArgs.get(conf).get(2) instanceof JavaMainAppResource);
@@ -156,7 +158,7 @@ class SparkAppSubmissionWorkerTest {
     ApplicationStatus mockStatus1 = mock(ApplicationStatus.class);
     ApplicationStatus mockStatus2 = mock(ApplicationStatus.class);
     String appName1 = "app1";
-    String appName2 = RandomStringUtils.randomAlphabetic(100);
+    String appName2 = "app2";
     ObjectMeta appMeta1 = new ObjectMetaBuilder().withName(appName1).withNamespace("ns").build();
     ObjectMeta appMeta2 = new ObjectMetaBuilder().withName(appName2).withNamespace("ns").build();
     when(mockApp1.getMetadata()).thenReturn(appMeta1);
@@ -172,8 +174,14 @@ class SparkAppSubmissionWorkerTest {
     Assertions.assertTrue(appId1.length() <= DEFAULT_ID_LENGTH_LIMIT);
     Assertions.assertTrue(appId2.length() <= DEFAULT_ID_LENGTH_LIMIT);
     // multiple invoke shall give same result
-    Assertions.assertEquals(appId1, SparkAppSubmissionWorker.generateSparkAppId(mockApp1));
-    Assertions.assertEquals(appId2, SparkAppSubmissionWorker.generateSparkAppId(mockApp2));
+    Assertions.assertEquals(
+        appId1,
+        SparkAppSubmissionWorker.generateSparkAppId(mockApp1),
+        "Multiple invoke of generateSparkAppId shall give same result.");
+    Assertions.assertEquals(
+        appId2,
+        SparkAppSubmissionWorker.generateSparkAppId(mockApp2),
+        "Multiple invoke of generateSparkAppId shall give same result.");
 
     ApplicationAttemptSummary mockAttempt = mock(ApplicationAttemptSummary.class);
     AttemptInfo mockAttemptInfo = mock(AttemptInfo.class);
@@ -193,5 +201,18 @@ class SparkAppSubmissionWorkerTest {
     Assertions.assertTrue(appId2Attempt2.length() <= DEFAULT_ID_LENGTH_LIMIT);
 
     Assertions.assertEquals(appId1Attempt2, SparkAppSubmissionWorker.generateSparkAppId(mockApp1));
+  }
+
+  @Test
+  void generatedSparkAppIdShouldComplyLengthLimit() {
+    String namespaceName = RandomStringUtils.randomAlphabetic(253);
+    String appName = RandomStringUtils.randomAlphabetic(253);
+
+    SparkApplication mockApp = mock(SparkApplication.class);
+    ObjectMeta appMeta =
+        new ObjectMetaBuilder().withName(appName).withNamespace(namespaceName).build();
+    when(mockApp.getMetadata()).thenReturn(appMeta);
+    String appId = SparkAppSubmissionWorker.generateSparkAppId(mockApp);
+    Assertions.assertTrue(appId.length() <= DEFAULT_ID_LENGTH_LIMIT);
   }
 }
