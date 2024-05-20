@@ -1,2 +1,3 @@
 rootProject.name = 'apache-spark-kubernetes-operator'
 include 'spark-operator-api'
+include 'spark-submission-worker'
