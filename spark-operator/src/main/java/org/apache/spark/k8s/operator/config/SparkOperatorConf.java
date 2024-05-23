@@ -273,7 +273,7 @@ public class SparkOperatorConf {
 
   public static final ConfigOption<Boolean> KubernetesClientMetricsEnabled =
       ConfigOption.<Boolean>builder()
-          .key("spark.kubernetes.operator.kubernetes.metrics.clientMetricsEnabled")
+          .key("spark.kubernetes.operator.metrics.clientMetricsEnabled")
           .defaultValue(true)
           .description(
               "Enable KubernetesClient metrics for measuring the HTTP traffic to "
