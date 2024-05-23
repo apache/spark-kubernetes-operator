@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -14,37 +16,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+#
 
-group=org.apache.spark.k8s.operator
-version=0.1.0
+args=("$@")
 
-# Caution: fabric8 version should be aligned with Spark dependency
-fabric8Version=6.12.1
-commonsLang3Version=3.14.0
-commonsIOVersion=2.16.1
-lombokVersion=1.18.32
-operatorSDKVersion=4.9.0
-okHttpVersion=4.12.0
-dropwizardMetricsVersion=4.2.25
+if [ "$1" = "help" ]; then
+    printf "Usage: $(basename "$0") (operator)\n"
+    printf "    Or $(basename "$0") help\n\n"
+    exit 0
+elif [ "$1" = "operator" ]; then
+    echo "Starting Spark Operator"
 
-# Spark
-scalaVersion=2.13
-sparkVersion=4.0.0-preview1
+    exec java -cp "./$OPERATOR_JAR" $LOG_CONFIG $OPERATOR_JAVA_OPTS org.apache.spark.k8s.operator.SparkOperator
+fi
 
-# Logging
-log4jVersion=2.22.1
+args=("${args[@]}")
 
-# Test
-junitVersion=5.10.2
-jacocoVersion=0.8.12
-mockitoVersion=5.11.0
-
-# Build Analysis
-checkstyleVersion=10.15.0
-pmdVersion=6.55.0
-spotBugsGradlePluginVersion=6.0.12
-spotBugsVersion=4.8.4
-spotlessPluginVersion=6.25.0
-
-# Packaging
-shadowJarPluginVersion=8.1.1
+# Running command in pass-through mode
+exec "${args[@]}"
