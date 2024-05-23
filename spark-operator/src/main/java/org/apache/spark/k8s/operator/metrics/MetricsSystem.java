@@ -43,7 +43,7 @@ public class MetricsSystem {
   @Getter private final Set<Source> sources;
   @Getter private final MetricRegistry registry;
   @Getter private final Properties properties;
-  // PrometheusPullModelSink is registered by default, metrics exposed via http port
+  // PrometheusPullModelHandler is registered by default, metrics exposed via http port
   @Getter private final PrometheusPullModelHandler prometheusPullModelHandler;
   private final Map<String, SinkProps> sinkPropertiesMap;
 
