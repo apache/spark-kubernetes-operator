@@ -36,10 +36,10 @@ import org.apache.spark.metrics.sink.PrometheusServlet;
 
 /** A simple Prometheus sink (pull model) implementation that presents metrics snapshot on demand */
 @Slf4j
-public class PrometheusPullModelSink extends PrometheusServlet implements HttpHandler {
+public class PrometheusPullModelHandler extends PrometheusServlet implements HttpHandler {
   private static final String EMPTY_RECORD_VALUE = "[]";
 
-  public PrometheusPullModelSink(Properties properties, MetricRegistry registry) {
+  public PrometheusPullModelHandler(Properties properties, MetricRegistry registry) {
     super(properties, registry);
   }
 
@@ -51,11 +51,6 @@ public class PrometheusPullModelSink extends PrometheusServlet implements HttpHa
   @Override
   public void stop() {
     log.info("PrometheusPullModelSink stopped");
-  }
-
-  @Override
-  public void report() {
-    // no-op for pull model
   }
 
   @Override

@@ -19,7 +19,6 @@
 
 package org.apache.spark.k8s.operator.utils;
 
-import static org.apache.spark.k8s.operator.config.SparkOperatorConf.StatusPatchFailureBackoffSeconds;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.StatusPatchMaxRetry;
 
 import java.util.List;
@@ -35,6 +34,7 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import org.apache.spark.k8s.operator.BaseResource;
+import org.apache.spark.k8s.operator.config.SparkOperatorConf;
 import org.apache.spark.k8s.operator.controller.BaseContext;
 import org.apache.spark.k8s.operator.listeners.BaseStatusListener;
 import org.apache.spark.k8s.operator.status.BaseStatus;
@@ -100,7 +100,8 @@ public class StatusRecorder<
         err = null;
       } catch (KubernetesClientException e) {
         log.error("Error while patching status, retrying {}/{}...", (i + 1), maxRetry, e);
-        Thread.sleep(TimeUnit.SECONDS.toMillis(StatusPatchFailureBackoffSeconds.getValue()));
+        Thread.sleep(
+            TimeUnit.SECONDS.toMillis(SparkOperatorConf.RetryAttemptAfterSeconds.getValue()));
         err = e;
       }
     }

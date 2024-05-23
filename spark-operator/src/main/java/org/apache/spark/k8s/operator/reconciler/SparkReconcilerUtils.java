@@ -23,9 +23,9 @@ import static org.apache.spark.k8s.operator.Constants.LABEL_RESOURCE_NAME;
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_OPERATOR_NAME;
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_ROLE_DRIVER_VALUE;
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_ROLE_EXECUTOR_VALUE;
-import static org.apache.spark.k8s.operator.config.SparkOperatorConf.ForegroundRequestTimeoutSeconds;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.OperatorAppName;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.OperatorWatchedNamespaces;
+import static org.apache.spark.k8s.operator.config.SparkOperatorConf.ReconcilerForegroundRequestTimeoutSeconds;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.SecondaryResourceCreateMaxAttempts;
 import static org.apache.spark.k8s.operator.utils.ModelUtils.buildOwnerReferenceTo;
 import static org.apache.spark.k8s.operator.utils.SparkExceptionUtils.isConflictForExistingResource;
@@ -222,7 +222,7 @@ public class SparkReconcilerUtils {
         client
             .resource(resource)
             .withPropagationPolicy(DeletionPropagation.FOREGROUND)
-            .withTimeout(ForegroundRequestTimeoutSeconds.getValue(), TimeUnit.SECONDS)
+            .withTimeout(ReconcilerForegroundRequestTimeoutSeconds.getValue(), TimeUnit.SECONDS)
             .delete();
       }
     } catch (KubernetesClientException e) {

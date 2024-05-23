@@ -45,7 +45,7 @@ public class MetricsService {
 
   public void start() {
     log.info("Starting Metrics Service for Prometheus ...");
-    server.createContext("/prometheus", metricsSystem.getPrometheusPullModelSink());
+    server.createContext("/prometheus", metricsSystem.getPrometheusPullModelHandler());
     server.start();
   }
 

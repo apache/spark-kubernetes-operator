@@ -40,7 +40,7 @@ import org.apache.spark.k8s.operator.reconciler.SparkReconcilerUtils;
 public class SparkOperatorConf {
   public static final ConfigOption<String> OperatorAppName =
       ConfigOption.<String>builder()
-          .key("spark.operator.name")
+          .key("spark.kubernetes.operator.name")
           .typeParameterClass(String.class)
           .description("Name of the operator.")
           .defaultValue("spark-kubernetes-operator")
@@ -48,43 +48,25 @@ public class SparkOperatorConf {
           .build();
   public static final ConfigOption<String> OperatorNamespace =
       ConfigOption.<String>builder()
-          .key("spark.operator.namespace")
+          .key("spark.kubernetes.operator.namespace")
           .typeParameterClass(String.class)
           .description("Namespace that operator is deployed within.")
           .defaultValue("default")
           .enableDynamicOverride(false)
           .build();
-  public static final ConfigOption<Boolean> DynamicConfigEnabled =
-      ConfigOption.<Boolean>builder()
-          .key("spark.operator.dynamic.config.enabled")
-          .typeParameterClass(Boolean.class)
-          .description(
-              "When enabled, operator would use config map as source of truth for config "
-                  + "property override. The config map need to be created in "
-                  + "spark.operator.namespace, and labeled with operator name.")
-          .defaultValue(false)
-          .enableDynamicOverride(false)
-          .build();
-  public static final ConfigOption<String> DynamicConfigSelectorStr =
+  public static final ConfigOption<String> OperatorWatchedNamespaces =
       ConfigOption.<String>builder()
-          .key("spark.operator.dynamic.config.selector.str")
+          .key("spark.kubernetes.operator.watchedNamespaces")
+          .description(
+              "Comma-separated list of namespaces that the operator would be "
+                  + "watching for Spark resources. If unset, operator would "
+                  + "watch all namespaces by default.")
+          .defaultValue(null)
           .typeParameterClass(String.class)
-          .description("The selector str applied to dynamic config map.")
-          .defaultValue(
-              SparkReconcilerUtils.labelsAsStr(SparkReconcilerUtils.defaultOperatorConfigLabels()))
-          .enableDynamicOverride(false)
-          .build();
-  public static final ConfigOption<Integer> DynamicConfigReconcilerParallelism =
-      ConfigOption.<Integer>builder()
-          .key("spark.operator.dynamic.config.reconciler.parallelism")
-          .description("Parallelism for dynamic config reconciler. Use -1 for unbounded pool.")
-          .enableDynamicOverride(false)
-          .typeParameterClass(Integer.class)
-          .defaultValue(1)
           .build();
   public static final ConfigOption<Boolean> TerminateOnInformerFailure =
       ConfigOption.<Boolean>builder()
-          .key("spark.operator.terminate.on.informer.failure")
+          .key("spark.kubernetes.operator.terminateOnInformerFailure")
           .typeParameterClass(Boolean.class)
           .description(
               "Enable to indicate informer errors should stop operator startup. If "
@@ -94,9 +76,9 @@ public class SparkOperatorConf {
           .defaultValue(false)
           .enableDynamicOverride(false)
           .build();
-  public static final ConfigOption<Integer> TerminationTimeoutSeconds =
+  public static final ConfigOption<Integer> ReconcilerTerminationTimeoutSeconds =
       ConfigOption.<Integer>builder()
-          .key("spark.operator.termination.timeout.seconds")
+          .key("spark.kubernetes.operator.reconciler.terminationTimeoutSeconds")
           .description(
               "Grace period for operator shutdown before reconciliation threads are killed.")
           .enableDynamicOverride(false)
@@ -105,16 +87,82 @@ public class SparkOperatorConf {
           .build();
   public static final ConfigOption<Integer> ReconcilerParallelism =
       ConfigOption.<Integer>builder()
-          .key("spark.operator.reconciler.parallelism")
+          .key("spark.kubernetes.operator.reconciler.parallelism")
           .description(
               "Thread pool size for Spark Operator reconcilers. Use -1 for unbounded pool.")
           .enableDynamicOverride(false)
           .typeParameterClass(Integer.class)
           .defaultValue(30)
           .build();
+  public static final ConfigOption<Long> ReconcilerForegroundRequestTimeoutSeconds =
+      ConfigOption.<Long>builder()
+          .key("spark.kubernetes.operator.reconciler.foregroundRequestTimeoutSeconds")
+          .description(
+              "Timeout (in seconds) to for requests made to API server. this "
+                  + "applies only to foreground requests.")
+          .defaultValue(120L)
+          .typeParameterClass(Long.class)
+          .build();
+  public static final ConfigOption<Long> SparkAppReconcileIntervalSeconds =
+      ConfigOption.<Long>builder()
+          .key("spark.kubernetes.operator.reconciler.intervalSeconds")
+          .description(
+              "Interval (in seconds) to reconcile when application is is starting "
+                  + "up. Note that reconcile is always expected to be triggered "
+                  + "per update - this interval controls the reconcile behavior "
+                  + "when operator still need to reconcile even when there's no "
+                  + "update ,e.g. for timeout checks.")
+          .defaultValue(120L)
+          .typeParameterClass(Long.class)
+          .build();
+  public static final ConfigOption<Boolean> TrimAttemptStateTransitionHistory =
+      ConfigOption.<Boolean>builder()
+          .key("spark.kubernetes.operator.reconciler.trimStateTransitionHistoryEnabled")
+          .description(
+              "When enabled, operator would trim state transition history when a "
+                  + "new attempt starts, keeping previous attempt summary only.")
+          .defaultValue(true)
+          .typeParameterClass(Boolean.class)
+          .build();
+  public static final ConfigOption<String> SparkAppStatusListenerClassNames =
+      ConfigOption.<String>builder()
+          .key("spark.kubernetes.operator.reconciler.appStatusListenerClassNames")
+          .defaultValue("")
+          .description("Comma-separated names of SparkAppStatusListener class implementations")
+          .enableDynamicOverride(false)
+          .typeParameterClass(String.class)
+          .build();
+  public static final ConfigOption<Boolean> DynamicConfigEnabled =
+      ConfigOption.<Boolean>builder()
+          .key("spark.kubernetes.operator.dynamicConfig.enabled")
+          .typeParameterClass(Boolean.class)
+          .description(
+              "When enabled, operator would use config map as source of truth for config "
+                  + "property override. The config map need to be created in "
+                  + "spark.kubernetes.operator.namespace, and labeled with operator name.")
+          .defaultValue(false)
+          .enableDynamicOverride(false)
+          .build();
+  public static final ConfigOption<String> DynamicConfigSelectorStr =
+      ConfigOption.<String>builder()
+          .key("spark.kubernetes.operator.dynamicConfig.selectorStr")
+          .typeParameterClass(String.class)
+          .description("The selector str applied to dynamic config map.")
+          .defaultValue(
+              SparkReconcilerUtils.labelsAsStr(SparkReconcilerUtils.defaultOperatorConfigLabels()))
+          .enableDynamicOverride(false)
+          .build();
+  public static final ConfigOption<Integer> DynamicConfigReconcilerParallelism =
+      ConfigOption.<Integer>builder()
+          .key("spark.kubernetes.operator.dynamicConfig.reconcilerParallelism")
+          .description("Parallelism for dynamic config reconciler. Use -1 for unbounded pool.")
+          .enableDynamicOverride(false)
+          .typeParameterClass(Integer.class)
+          .defaultValue(1)
+          .build();
   public static final ConfigOption<Integer> RateLimiterRefreshPeriodSeconds =
       ConfigOption.<Integer>builder()
-          .key("spark.operator.rate.limiter.refresh.period.seconds")
+          .key("spark.kubernetes.operator.rateLimiter.refreshPeriodSeconds")
           .description("Operator rate limiter refresh period(in seconds) for each resource.")
           .enableDynamicOverride(false)
           .typeParameterClass(Integer.class)
@@ -122,7 +170,7 @@ public class SparkOperatorConf {
           .build();
   public static final ConfigOption<Integer> RateLimiterLimit =
       ConfigOption.<Integer>builder()
-          .key("spark.operator.rate.limiter.limit")
+          .key("spark.kubernetes.operator.rateLimiter.limit")
           .description(
               "Max number of reconcile loops triggered within the rate limiter refresh "
                   + "period for each resource. Setting the limit <= 0 disables the "
@@ -133,7 +181,7 @@ public class SparkOperatorConf {
           .build();
   public static final ConfigOption<Integer> RetryInitialInternalSeconds =
       ConfigOption.<Integer>builder()
-          .key("spark.operator.retry.initial.internal.seconds")
+          .key("spark.kubernetes.operator.retry.initialInternalSeconds")
           .description("Initial interval(in seconds) of retries on unhandled controller errors.")
           .enableDynamicOverride(false)
           .typeParameterClass(Integer.class)
@@ -141,7 +189,7 @@ public class SparkOperatorConf {
           .build();
   public static final ConfigOption<Double> RetryInternalMultiplier =
       ConfigOption.<Double>builder()
-          .key("spark.operator.retry.internal.multiplier")
+          .key("spark.kubernetes.operator.retry.internalMultiplier")
           .description("Interval multiplier of retries on unhandled controller errors.")
           .enableDynamicOverride(false)
           .typeParameterClass(Double.class)
@@ -149,7 +197,7 @@ public class SparkOperatorConf {
           .build();
   public static final ConfigOption<Integer> RetryMaxIntervalSeconds =
       ConfigOption.<Integer>builder()
-          .key("spark.operator.retry.max.interval.seconds")
+          .key("spark.kubernetes.operator.retry.maxIntervalSeconds")
           .description(
               "Max interval(in seconds) of retries on unhandled controller errors. "
                   + "Set to -1 for unlimited.")
@@ -159,33 +207,25 @@ public class SparkOperatorConf {
           .build();
   public static final ConfigOption<Integer> RetryMaxAttempts =
       ConfigOption.<Integer>builder()
-          .key("spark.operator.retry.max.attempts")
+          .key("spark.kubernetes.operator.retry.maxAttempts")
           .description("Max attempts of retries on unhandled controller errors.")
           .enableDynamicOverride(false)
           .typeParameterClass(Integer.class)
           .defaultValue(15)
           .build();
-  public static final ConfigOption<Long> SecondaryResourceCreateMaxAttempts =
-      ConfigOption.<Long>builder()
-          .key("spark.operator.secondary.resource.create.max.attempts")
-          .description(
-              "Maximal number of retry attempts of requesting secondary resource for Spark "
-                  + "application.")
-          .defaultValue(3L)
-          .typeParameterClass(Long.class)
-          .build();
   public static final ConfigOption<Long> MaxRetryAttemptOnKubeServerFailure =
       ConfigOption.<Long>builder()
-          .key("spark.operator.max.retry.attempts.on.k8s.failure")
+          .key("spark.kubernetes.operator.retry.maxRetryAttemptOnKubeServerFailure")
           .description(
               "Maximal number of retry attempts of requests to k8s server upon "
-                  + "response 429 and 5xx.")
+                  + "response 429 and 5xx. This would be performed on top of k8s client "
+                  + "spark.kubernetes.operator.retry.maxAttempts. ")
           .defaultValue(3L)
           .typeParameterClass(Long.class)
           .build();
   public static final ConfigOption<Long> RetryAttemptAfterSeconds =
       ConfigOption.<Long>builder()
-          .key("spark.operator.retry.attempt.after.seconds")
+          .key("spark.kubernetes.operator.retry.attemptAfterSeconds")
           .description(
               "Default time (in seconds) to wait till next request. This would be used if "
                   + "server does not set Retry-After in response.")
@@ -194,73 +234,37 @@ public class SparkOperatorConf {
           .build();
   public static final ConfigOption<Long> MaxRetryAttemptAfterSeconds =
       ConfigOption.<Long>builder()
-          .key("spark.operator.max.retry.attempt.after.seconds")
+          .key("spark.kubernetes.operator.retry.maxAttemptAfterSeconds")
           .description("Maximal time (in seconds) to wait till next request.")
           .defaultValue(15L)
           .typeParameterClass(Long.class)
           .build();
   public static final ConfigOption<Long> StatusPatchMaxRetry =
       ConfigOption.<Long>builder()
-          .key("spark.operator.status.patch.max.retry")
+          .key("spark.kubernetes.operator.retry.maxStatusPatchAttempts")
           .description(
               "Maximal number of retry attempts of requests to k8s server for resource "
-                  + "status update.")
+                  + "status update. This would be performed on top of k8s client "
+                  + "spark.kubernetes.operator.retry.maxAttempts to overcome potential "
+                  + "conflicting update on the same SparkApplication. ")
           .defaultValue(3L)
           .typeParameterClass(Long.class)
           .build();
-  public static final ConfigOption<Long> StatusPatchFailureBackoffSeconds =
+  public static final ConfigOption<Long> SecondaryResourceCreateMaxAttempts =
       ConfigOption.<Long>builder()
-          .key("spark.operator.status.patch.failure.backoff.seconds")
+          .key("spark.kubernetes.operator.retry.secondaryResourceCreateMaxAttempts")
           .description(
-              "Default time (in seconds) to wait till next request to patch "
-                  + "resource status update.")
+              "Maximal number of retry attempts of requesting secondary resource for Spark "
+                  + "application. This would be performed on top of k8s client "
+                  + "spark.kubernetes.operator.retry.maxAttempts to overcome potential "
+                  + "conflicting reconcile on the same SparkApplication. ")
           .defaultValue(3L)
           .typeParameterClass(Long.class)
-          .build();
-  public static final ConfigOption<Long> SparkAppReconcileIntervalSeconds =
-      ConfigOption.<Long>builder()
-          .key("spark.operator.application.reconcile.interval.seconds")
-          .description(
-              "Interval (in seconds) to reconcile when application is is starting "
-                  + "up. Note that reconcile is always expected to be triggered "
-                  + "per update - this interval controls the reconcile behavior "
-                  + "when operator still need to reconcile even when there's no "
-                  + "update ,e.g. for timeout checks.")
-          .defaultValue(120L)
-          .typeParameterClass(Long.class)
-          .build();
-  public static final ConfigOption<Long> ForegroundRequestTimeoutSeconds =
-      ConfigOption.<Long>builder()
-          .key("spark.operator.foreground.request.timeout.seconds")
-          .description(
-              "Timeout (in seconds) to for requests made to API server. this "
-                  + "applies only to foreground requests.")
-          .defaultValue(120L)
-          .typeParameterClass(Long.class)
-          .build();
-  public static final ConfigOption<String> OperatorWatchedNamespaces =
-      ConfigOption.<String>builder()
-          .key("spark.operator.watched.namespaces")
-          .description(
-              "Comma-separated list of namespaces that the operator would be "
-                  + "watching for Spark resources. If unset, operator would "
-                  + "watch all namespaces by default.")
-          .defaultValue(null)
-          .typeParameterClass(String.class)
-          .build();
-  public static final ConfigOption<Boolean> TrimAttemptStateTransitionHistory =
-      ConfigOption.<Boolean>builder()
-          .key("spark.operator.trim.attempt.state.transition.history")
-          .description(
-              "When enabled, operator would trim state transition history when a "
-                  + "new attempt starts, keeping previous attempt summary only.")
-          .defaultValue(true)
-          .typeParameterClass(Boolean.class)
           .build();
 
   public static final ConfigOption<Boolean> JOSDKMetricsEnabled =
       ConfigOption.<Boolean>builder()
-          .key("spark.operator.josdk.metrics.enabled")
+          .key("spark.kubernetes.operator.metrics.josdkMetricsEnabled")
           .description(
               "When enabled, the josdk metrics will be added in metrics source and "
                   + "configured for operator.")
@@ -269,7 +273,7 @@ public class SparkOperatorConf {
 
   public static final ConfigOption<Boolean> KubernetesClientMetricsEnabled =
       ConfigOption.<Boolean>builder()
-          .key("spark.operator.kubernetes.client.metrics.enabled")
+          .key("spark.kubernetes.operator.kubernetes.metrics.clientMetricsEnabled")
           .defaultValue(true)
           .description(
               "Enable KubernetesClient metrics for measuring the HTTP traffic to "
@@ -280,7 +284,7 @@ public class SparkOperatorConf {
 
   public static final ConfigOption<Boolean> KubernetesClientMetricsGroupByResponseCodeGroupEnabled =
       ConfigOption.<Boolean>builder()
-          .key("spark.operator.kubernetes.client.metrics.group.by.response.code.group.enable")
+          .key("spark.kubernetes.operator.metrics.clientMetricsGroupByResponseCodeEnabled")
           .description(
               "When enabled, additional metrics group by http response code group(1xx, "
                   + "2xx, 3xx, 4xx, 5xx) received from API server will be added. Users "
@@ -288,27 +292,25 @@ public class SparkOperatorConf {
                   + "kubernetes.client.http.response.<3-digit-response-code> metrics.")
           .defaultValue(true)
           .build();
-  public static final ConfigOption<Integer> OperatorProbePort =
-      ConfigOption.<Integer>builder()
-          .key("spark.operator.probe.port")
-          .defaultValue(18080)
-          .description("The port used for health/readiness check probe status.")
-          .typeParameterClass(Integer.class)
-          .enableDynamicOverride(false)
-          .build();
-
   public static final ConfigOption<Integer> OperatorMetricsPort =
       ConfigOption.<Integer>builder()
-          .key("spark.operator.metrics.port")
+          .key("spark.kubernetes.operator.metrics.port")
           .defaultValue(19090)
           .description("The port used for checking metrics")
           .typeParameterClass(Integer.class)
           .enableDynamicOverride(false)
           .build();
-
+  public static final ConfigOption<Integer> OperatorProbePort =
+      ConfigOption.<Integer>builder()
+          .key("spark.kubernetes.operator.health.probePort")
+          .defaultValue(18080)
+          .description("The port used for health/readiness check probe status.")
+          .typeParameterClass(Integer.class)
+          .enableDynamicOverride(false)
+          .build();
   public static final ConfigOption<Integer> SentinelExecutorServicePoolSize =
       ConfigOption.<Integer>builder()
-          .key("spark.operator.sentinel.executor.pool.size")
+          .key("spark.kubernetes.operator.health.sentinelExecutorPoolSize")
           .description(
               "Size of executor service in Sentinel Managers to check the health "
                   + "of sentinel resources.")
@@ -319,7 +321,7 @@ public class SparkOperatorConf {
 
   public static final ConfigOption<Long> SENTINEL_RESOURCE_RECONCILIATION_DELAY =
       ConfigOption.<Long>builder()
-          .key("spark.operator.health.sentinel.resource.reconciliation.delay.seconds")
+          .key("spark.kubernetes.operator.health.sentinelResourceReconciliationDelaySeconds")
           .defaultValue(60L)
           .description(
               "Allowed max time(seconds) between spec update and reconciliation "
@@ -327,17 +329,9 @@ public class SparkOperatorConf {
           .enableDynamicOverride(true)
           .typeParameterClass(Long.class)
           .build();
-  public static final ConfigOption<String> SPARK_APP_STATUS_LISTENER_CLASS_NAMES =
-      ConfigOption.<String>builder()
-          .key("spark.operator.application.status.listener.class.names")
-          .defaultValue("")
-          .description("Comma-separated names of SparkAppStatusListener class implementations")
-          .enableDynamicOverride(false)
-          .typeParameterClass(String.class)
-          .build();
   public static final ConfigOption<Boolean> LEADER_ELECTION_ENABLED =
       ConfigOption.<Boolean>builder()
-          .key("spark.operator.leader.election.enabled")
+          .key("spark.kubernetes.operator.leaderElection.enabled")
           .defaultValue(false)
           .description(
               "Enable leader election for the operator to allow running standby instances.")
@@ -346,7 +340,7 @@ public class SparkOperatorConf {
           .build();
   public static final ConfigOption<String> LEADER_ELECTION_LEASE_NAME =
       ConfigOption.<String>builder()
-          .key("spark.operator.leader.election.lease.name")
+          .key("spark.kubernetes.operator.leaderElection.leaseName")
           .defaultValue("spark-operator-lease")
           .description(
               "Leader election lease name, must be unique for leases in the same namespace.")
@@ -355,7 +349,7 @@ public class SparkOperatorConf {
           .build();
   public static final ConfigOption<Long> LEADER_ELECTION_LEASE_DURATION_SECONDS =
       ConfigOption.<Long>builder()
-          .key("spark.operator.leader.election.lease.duration.seconds")
+          .key("spark.kubernetes.operator.leaderElection.leaseDurationSeconds")
           .defaultValue(1200L)
           .description("Leader election lease duration.")
           .enableDynamicOverride(false)
@@ -363,7 +357,7 @@ public class SparkOperatorConf {
           .build();
   public static final ConfigOption<Long> LEADER_ELECTION_RENEW_DEADLINE_SECONDS =
       ConfigOption.<Long>builder()
-          .key("spark.operator.leader.election.renew.deadline.seconds")
+          .key("spark.kubernetes.operator.leaderElection.renewDeadlineSeconds")
           .defaultValue(600L)
           .description("Leader election renew deadline.")
           .enableDynamicOverride(false)
@@ -371,7 +365,7 @@ public class SparkOperatorConf {
           .build();
   public static final ConfigOption<Long> LEADER_ELECTION_RETRY_PERIOD_SECONDS =
       ConfigOption.<Long>builder()
-          .key("spark.operator.leader.election.retry.period.seconds")
+          .key("spark.kubernetes.operator.leaderElection.retryPeriodSeconds")
           .defaultValue(180L)
           .description("Leader election retry period.")
           .enableDynamicOverride(false)
@@ -380,7 +374,7 @@ public class SparkOperatorConf {
 
   public static List<SparkAppStatusListener> getAppStatusListener() {
     List<SparkAppStatusListener> listeners = new ArrayList<>();
-    String listenerNamesStr = SparkOperatorConf.SPARK_APP_STATUS_LISTENER_CLASS_NAMES.getValue();
+    String listenerNamesStr = SparkOperatorConf.SparkAppStatusListenerClassNames.getValue();
     if (StringUtils.isNotBlank(listenerNamesStr)) {
       try {
         List<String> listenerNames =

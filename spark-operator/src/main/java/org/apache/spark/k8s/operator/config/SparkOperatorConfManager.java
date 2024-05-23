@@ -40,10 +40,10 @@ public class SparkOperatorConfManager {
       "/opt/spark-operator/conf/metrics.properties";
 
   public static final String INITIAL_CONFIG_FILE_PATH_PROPS_KEY =
-      "spark.operator.base.property.file.name";
+      "spark.kubernetes.operator.basePropertyFileName";
 
   public static final String METRICS_CONFIG_FILE_PATH_PROPS_KEY =
-      "spark.operator.metrics.property.file.name";
+      "spark.kubernetes.operator.metrics.propertyFileName";
 
   public static final SparkOperatorConfManager INSTANCE = new SparkOperatorConfManager();
   protected final Properties initialConfig;

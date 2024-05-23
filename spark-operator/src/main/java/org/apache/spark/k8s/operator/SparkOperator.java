@@ -144,7 +144,8 @@ public class SparkOperator {
     overrider.withKubernetesClient(client);
     overrider.withStopOnInformerErrorDuringStartup(
         SparkOperatorConf.TerminateOnInformerFailure.getValue());
-    overrider.withTerminationTimeoutSeconds(SparkOperatorConf.TerminationTimeoutSeconds.getValue());
+    overrider.withTerminationTimeoutSeconds(
+        SparkOperatorConf.ReconcilerTerminationTimeoutSeconds.getValue());
     int parallelism = SparkOperatorConf.ReconcilerParallelism.getValue();
     if (parallelism > 0) {
       log.info("Configuring operator with {} reconciliation threads.", parallelism);

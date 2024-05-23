@@ -31,7 +31,7 @@ import lombok.Data;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
-import org.apache.spark.k8s.operator.metrics.sink.PrometheusPullModelSink;
+import org.apache.spark.k8s.operator.metrics.sink.PrometheusPullModelHandler;
 import org.apache.spark.k8s.operator.metrics.source.OperatorJvmSource;
 import org.apache.spark.metrics.sink.Sink;
 import org.apache.spark.metrics.source.Source;
@@ -44,7 +44,7 @@ public class MetricsSystem {
   @Getter private final MetricRegistry registry;
   @Getter private final Properties properties;
   // PrometheusPullModelSink is registered by default, metrics exposed via http port
-  @Getter private final PrometheusPullModelSink prometheusPullModelSink;
+  @Getter private final PrometheusPullModelHandler prometheusPullModelHandler;
   private final Map<String, SinkProps> sinkPropertiesMap;
 
   public MetricsSystem() {
@@ -58,8 +58,8 @@ public class MetricsSystem {
     this.properties = properties;
     this.sinkPropertiesMap = MetricsSystemFactory.parseSinkProperties(this.properties);
     // Add default sinks
-    this.prometheusPullModelSink = new PrometheusPullModelSink(new Properties(), registry);
-    this.sinks.add(prometheusPullModelSink);
+    this.prometheusPullModelHandler = new PrometheusPullModelHandler(new Properties(), registry);
+    this.sinks.add(prometheusPullModelHandler);
   }
 
   public void start() {
