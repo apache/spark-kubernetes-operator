@@ -17,5 +17,6 @@ header:
     - '**/*.gradle'
     - gradlew
     - 'build/**'
+    - '**/*.json'
 
   comment: on-failure

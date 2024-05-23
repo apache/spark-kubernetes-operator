@@ -26,6 +26,7 @@ public class Constants {
   public static final String LABEL_SPARK_OPERATOR_NAME = "spark.operator/name";
   public static final String LABEL_SENTINEL_RESOURCE = "spark.operator/sentinel";
   public static final String LABEL_RESOURCE_NAME = "app.kubernetes.io/name";
+  public static final String LABEL_COMPONENT_NAME = "app.kubernetes.io/component";
   public static final String LABEL_SPARK_ROLE_NAME = "spark-role";
   public static final String LABEL_SPARK_ROLE_DRIVER_VALUE = "driver";
   public static final String LABEL_SPARK_ROLE_EXECUTOR_VALUE = "executor";
