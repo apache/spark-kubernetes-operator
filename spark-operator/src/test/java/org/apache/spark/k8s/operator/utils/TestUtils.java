@@ -19,6 +19,9 @@
 
 package org.apache.spark.k8s.operator.utils;
 
+import static org.apache.spark.k8s.operator.Constants.API_GROUP;
+import static org.apache.spark.k8s.operator.Constants.API_VERSION;
+
 import java.io.File;
 import java.util.Map;
 
@@ -30,8 +33,8 @@ import org.apache.spark.k8s.operator.SparkApplication;
 public class TestUtils {
   public static SparkApplication createMockApp(String namespace) {
     SparkApplication cr = new SparkApplication();
-    cr.setKind("org.apache.spark/v1alpha1");
-    cr.setApiVersion("SparkApplication");
+    cr.setKind("SparkApplication");
+    cr.setApiVersion(String.join("/", API_GROUP, API_VERSION));
     cr.setSpec(cr.initSpec());
     ObjectMeta meta = new ObjectMeta();
     meta.setGeneration(0L);
