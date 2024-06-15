@@ -40,6 +40,8 @@ import org.apache.commons.lang3.StringUtils;
 @Builder
 public class RetryInterceptor implements Interceptor {
   private static final String RETRY_AFTER_HEADER_NAME = "Retry-After";
+  public static final int HTTP_TOO_MANY_REQUESTS = 429;
+  public static final int INTERNAL_SERVER_ERROR = 500;
 
   private final Long maxAttemptCount;
   private final Long maxRetryAfterInSecs;
@@ -51,7 +53,7 @@ public class RetryInterceptor implements Interceptor {
     Response response = chain.proceed(request);
     int tryCount = 0;
     while (!response.isSuccessful()
-        && (response.code() == 429 || response.code() >= 500)
+        && (response.code() == HTTP_TOO_MANY_REQUESTS || response.code() >= INTERNAL_SERVER_ERROR)
         && tryCount < maxAttemptCount) {
       // only retry on consecutive 429 and 5xx failure responses
       if (log.isWarnEnabled()) {
@@ -88,7 +90,7 @@ public class RetryInterceptor implements Interceptor {
     if (StringUtils.isNotEmpty(retryAfter)) {
       try {
         return Optional.of(Math.min(Long.parseLong(retryAfter), maxRetryAfterInSecs));
-      } catch (Exception e) {
+      } catch (NumberFormatException e) {
         if (log.isErrorEnabled()) {
           log.error(
               String.format(

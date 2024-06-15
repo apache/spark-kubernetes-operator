@@ -19,6 +19,7 @@
 
 package org.apache.spark.k8s.operator.config;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -67,7 +68,7 @@ public class ConfigOption<T> {
       } else {
         return defaultValue;
       }
-    } catch (Throwable t) {
+    } catch (NumberFormatException | JsonProcessingException t) {
       log.error(
           "Failed to resolve value for config key {}, using default value {}",
           key,
