@@ -33,11 +33,11 @@ import org.apache.commons.lang3.StringUtils;
  */
 @Slf4j
 public class SparkOperatorConfManager {
+  public static final String BASE_CONFIG_DIR = "/opt/spark-operator/conf/";
   public static final String INITIAL_CONFIG_FILE_PATH =
-      "/opt/spark-operator/conf/spark-operator.properties";
+      BASE_CONFIG_DIR + "spark-operator.properties";
 
-  public static final String METRICS_CONFIG_FILE_PATH =
-      "/opt/spark-operator/conf/metrics.properties";
+  public static final String METRICS_CONFIG_FILE_PATH = BASE_CONFIG_DIR + "metrics.properties";
 
   public static final String INITIAL_CONFIG_FILE_PATH_PROPS_KEY =
       "spark.kubernetes.operator.basePropertyFileName";
