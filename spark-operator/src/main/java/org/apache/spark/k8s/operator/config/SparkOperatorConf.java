@@ -46,6 +46,7 @@ public class SparkOperatorConf {
           .defaultValue("spark-kubernetes-operator")
           .enableDynamicOverride(false)
           .build();
+
   public static final ConfigOption<String> OperatorNamespace =
       ConfigOption.<String>builder()
           .key("spark.kubernetes.operator.namespace")
@@ -54,6 +55,7 @@ public class SparkOperatorConf {
           .defaultValue("default")
           .enableDynamicOverride(false)
           .build();
+
   public static final ConfigOption<String> OperatorWatchedNamespaces =
       ConfigOption.<String>builder()
           .key("spark.kubernetes.operator.watchedNamespaces")
@@ -64,6 +66,7 @@ public class SparkOperatorConf {
           .defaultValue(null)
           .typeParameterClass(String.class)
           .build();
+
   public static final ConfigOption<Boolean> TerminateOnInformerFailure =
       ConfigOption.<Boolean>builder()
           .key("spark.kubernetes.operator.terminateOnInformerFailure")
@@ -76,6 +79,7 @@ public class SparkOperatorConf {
           .defaultValue(false)
           .enableDynamicOverride(false)
           .build();
+
   public static final ConfigOption<Integer> ReconcilerTerminationTimeoutSeconds =
       ConfigOption.<Integer>builder()
           .key("spark.kubernetes.operator.reconciler.terminationTimeoutSeconds")
@@ -85,6 +89,7 @@ public class SparkOperatorConf {
           .typeParameterClass(Integer.class)
           .defaultValue(30)
           .build();
+
   public static final ConfigOption<Integer> ReconcilerParallelism =
       ConfigOption.<Integer>builder()
           .key("spark.kubernetes.operator.reconciler.parallelism")
@@ -94,6 +99,7 @@ public class SparkOperatorConf {
           .typeParameterClass(Integer.class)
           .defaultValue(30)
           .build();
+
   public static final ConfigOption<Long> ReconcilerForegroundRequestTimeoutSeconds =
       ConfigOption.<Long>builder()
           .key("spark.kubernetes.operator.reconciler.foregroundRequestTimeoutSeconds")
@@ -103,6 +109,7 @@ public class SparkOperatorConf {
           .defaultValue(120L)
           .typeParameterClass(Long.class)
           .build();
+
   public static final ConfigOption<Long> SparkAppReconcileIntervalSeconds =
       ConfigOption.<Long>builder()
           .key("spark.kubernetes.operator.reconciler.intervalSeconds")
@@ -115,6 +122,7 @@ public class SparkOperatorConf {
           .defaultValue(120L)
           .typeParameterClass(Long.class)
           .build();
+
   public static final ConfigOption<Boolean> TrimAttemptStateTransitionHistory =
       ConfigOption.<Boolean>builder()
           .key("spark.kubernetes.operator.reconciler.trimStateTransitionHistoryEnabled")
@@ -124,6 +132,7 @@ public class SparkOperatorConf {
           .defaultValue(true)
           .typeParameterClass(Boolean.class)
           .build();
+
   public static final ConfigOption<String> SparkAppStatusListenerClassNames =
       ConfigOption.<String>builder()
           .key("spark.kubernetes.operator.reconciler.appStatusListenerClassNames")
@@ -132,6 +141,7 @@ public class SparkOperatorConf {
           .enableDynamicOverride(false)
           .typeParameterClass(String.class)
           .build();
+
   public static final ConfigOption<Boolean> DynamicConfigEnabled =
       ConfigOption.<Boolean>builder()
           .key("spark.kubernetes.operator.dynamicConfig.enabled")
@@ -143,6 +153,7 @@ public class SparkOperatorConf {
           .defaultValue(false)
           .enableDynamicOverride(false)
           .build();
+
   public static final ConfigOption<String> DynamicConfigSelectorStr =
       ConfigOption.<String>builder()
           .key("spark.kubernetes.operator.dynamicConfig.selectorStr")
@@ -152,6 +163,7 @@ public class SparkOperatorConf {
               SparkReconcilerUtils.labelsAsStr(SparkReconcilerUtils.defaultOperatorConfigLabels()))
           .enableDynamicOverride(false)
           .build();
+
   public static final ConfigOption<Integer> DynamicConfigReconcilerParallelism =
       ConfigOption.<Integer>builder()
           .key("spark.kubernetes.operator.dynamicConfig.reconcilerParallelism")
@@ -160,6 +172,7 @@ public class SparkOperatorConf {
           .typeParameterClass(Integer.class)
           .defaultValue(1)
           .build();
+
   public static final ConfigOption<Integer> RateLimiterRefreshPeriodSeconds =
       ConfigOption.<Integer>builder()
           .key("spark.kubernetes.operator.rateLimiter.refreshPeriodSeconds")
@@ -168,6 +181,7 @@ public class SparkOperatorConf {
           .typeParameterClass(Integer.class)
           .defaultValue(15)
           .build();
+
   public static final ConfigOption<Integer> RateLimiterLimit =
       ConfigOption.<Integer>builder()
           .key("spark.kubernetes.operator.rateLimiter.limit")
@@ -179,6 +193,7 @@ public class SparkOperatorConf {
           .typeParameterClass(Integer.class)
           .defaultValue(5)
           .build();
+
   public static final ConfigOption<Integer> RetryInitialInternalSeconds =
       ConfigOption.<Integer>builder()
           .key("spark.kubernetes.operator.retry.initialInternalSeconds")
@@ -187,6 +202,7 @@ public class SparkOperatorConf {
           .typeParameterClass(Integer.class)
           .defaultValue(5)
           .build();
+
   public static final ConfigOption<Double> RetryInternalMultiplier =
       ConfigOption.<Double>builder()
           .key("spark.kubernetes.operator.retry.internalMultiplier")
@@ -195,6 +211,7 @@ public class SparkOperatorConf {
           .typeParameterClass(Double.class)
           .defaultValue(1.5)
           .build();
+
   public static final ConfigOption<Integer> RetryMaxIntervalSeconds =
       ConfigOption.<Integer>builder()
           .key("spark.kubernetes.operator.retry.maxIntervalSeconds")
@@ -205,6 +222,7 @@ public class SparkOperatorConf {
           .typeParameterClass(Integer.class)
           .defaultValue(-1)
           .build();
+
   public static final ConfigOption<Integer> RetryMaxAttempts =
       ConfigOption.<Integer>builder()
           .key("spark.kubernetes.operator.retry.maxAttempts")
@@ -213,6 +231,7 @@ public class SparkOperatorConf {
           .typeParameterClass(Integer.class)
           .defaultValue(15)
           .build();
+
   public static final ConfigOption<Long> MaxRetryAttemptOnKubeServerFailure =
       ConfigOption.<Long>builder()
           .key("spark.kubernetes.operator.retry.maxRetryAttemptOnKubeServerFailure")
@@ -223,6 +242,7 @@ public class SparkOperatorConf {
           .defaultValue(3L)
           .typeParameterClass(Long.class)
           .build();
+
   public static final ConfigOption<Long> RetryAttemptAfterSeconds =
       ConfigOption.<Long>builder()
           .key("spark.kubernetes.operator.retry.attemptAfterSeconds")
@@ -232,6 +252,7 @@ public class SparkOperatorConf {
           .defaultValue(1L)
           .typeParameterClass(Long.class)
           .build();
+
   public static final ConfigOption<Long> MaxRetryAttemptAfterSeconds =
       ConfigOption.<Long>builder()
           .key("spark.kubernetes.operator.retry.maxAttemptAfterSeconds")
@@ -239,6 +260,7 @@ public class SparkOperatorConf {
           .defaultValue(15L)
           .typeParameterClass(Long.class)
           .build();
+
   public static final ConfigOption<Long> StatusPatchMaxRetry =
       ConfigOption.<Long>builder()
           .key("spark.kubernetes.operator.retry.maxStatusPatchAttempts")
@@ -250,6 +272,7 @@ public class SparkOperatorConf {
           .defaultValue(3L)
           .typeParameterClass(Long.class)
           .build();
+
   public static final ConfigOption<Long> SecondaryResourceCreateMaxAttempts =
       ConfigOption.<Long>builder()
           .key("spark.kubernetes.operator.retry.secondaryResourceCreateMaxAttempts")
@@ -292,6 +315,7 @@ public class SparkOperatorConf {
                   + "kubernetes.client.http.response.<3-digit-response-code> metrics.")
           .defaultValue(true)
           .build();
+
   public static final ConfigOption<Integer> OperatorMetricsPort =
       ConfigOption.<Integer>builder()
           .key("spark.kubernetes.operator.metrics.port")
@@ -300,6 +324,7 @@ public class SparkOperatorConf {
           .typeParameterClass(Integer.class)
           .enableDynamicOverride(false)
           .build();
+
   public static final ConfigOption<Integer> OperatorProbePort =
       ConfigOption.<Integer>builder()
           .key("spark.kubernetes.operator.health.probePort")
@@ -308,6 +333,7 @@ public class SparkOperatorConf {
           .typeParameterClass(Integer.class)
           .enableDynamicOverride(false)
           .build();
+
   public static final ConfigOption<Integer> SentinelExecutorServicePoolSize =
       ConfigOption.<Integer>builder()
           .key("spark.kubernetes.operator.health.sentinelExecutorPoolSize")
@@ -329,6 +355,7 @@ public class SparkOperatorConf {
           .enableDynamicOverride(true)
           .typeParameterClass(Long.class)
           .build();
+
   public static final ConfigOption<Boolean> LEADER_ELECTION_ENABLED =
       ConfigOption.<Boolean>builder()
           .key("spark.kubernetes.operator.leaderElection.enabled")
@@ -338,6 +365,7 @@ public class SparkOperatorConf {
           .enableDynamicOverride(false)
           .typeParameterClass(Boolean.class)
           .build();
+
   public static final ConfigOption<String> LEADER_ELECTION_LEASE_NAME =
       ConfigOption.<String>builder()
           .key("spark.kubernetes.operator.leaderElection.leaseName")
@@ -347,6 +375,7 @@ public class SparkOperatorConf {
           .enableDynamicOverride(false)
           .typeParameterClass(String.class)
           .build();
+
   public static final ConfigOption<Long> LEADER_ELECTION_LEASE_DURATION_SECONDS =
       ConfigOption.<Long>builder()
           .key("spark.kubernetes.operator.leaderElection.leaseDurationSeconds")
@@ -355,6 +384,7 @@ public class SparkOperatorConf {
           .enableDynamicOverride(false)
           .typeParameterClass(Long.class)
           .build();
+
   public static final ConfigOption<Long> LEADER_ELECTION_RENEW_DEADLINE_SECONDS =
       ConfigOption.<Long>builder()
           .key("spark.kubernetes.operator.leaderElection.renewDeadlineSeconds")
@@ -363,6 +393,7 @@ public class SparkOperatorConf {
           .enableDynamicOverride(false)
           .typeParameterClass(Long.class)
           .build();
+
   public static final ConfigOption<Long> LEADER_ELECTION_RETRY_PERIOD_SECONDS =
       ConfigOption.<Long>builder()
           .key("spark.kubernetes.operator.leaderElection.retryPeriodSeconds")
