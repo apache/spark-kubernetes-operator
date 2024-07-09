@@ -19,15 +19,9 @@
 
 package org.apache.spark.k8s.operator.config;
 
-import static org.apache.spark.k8s.operator.config.SparkOperatorConf.OperatorNamespace;
-import static org.apache.spark.k8s.operator.config.SparkOperatorConf.OperatorWatchedNamespaces;
-
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.javaoperatorsdk.operator.api.config.informer.InformerConfiguration;
@@ -43,7 +37,6 @@ import io.javaoperatorsdk.operator.processing.event.source.EventSource;
 import io.javaoperatorsdk.operator.processing.event.source.informer.InformerEventSource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 
 /**
  * This serves dynamic configuration for Spark Operator. When enabled, Operator assumes config file
@@ -58,6 +51,8 @@ public class SparkOperatorConfigMapReconciler
         ErrorStatusHandler<ConfigMap>,
         EventSourceInitializer<ConfigMap> {
   private final Function<Set<String>, Boolean> namespaceUpdater;
+  private final String operatorNamespace;
+  private final Function<Void, Set<String>> watchedNamespacesGetter;
 
   @Override
   public ErrorStatusUpdateControl<ConfigMap> updateErrorStatus(
@@ -71,7 +66,7 @@ public class SparkOperatorConfigMapReconciler
     EventSource configMapEventSource =
         new InformerEventSource<>(
             InformerConfiguration.from(ConfigMap.class, context)
-                .withNamespaces(OperatorNamespace.getValue())
+                .withNamespaces(operatorNamespace)
                 .build(),
             context);
     return EventSourceInitializer.nameEventSources(configMapEventSource);
@@ -81,15 +76,7 @@ public class SparkOperatorConfigMapReconciler
   public UpdateControl<ConfigMap> reconcile(ConfigMap resource, Context<ConfigMap> context)
       throws Exception {
     SparkOperatorConfManager.INSTANCE.refresh(resource.getData());
-    namespaceUpdater.apply(getWatchedNamespaces());
+    namespaceUpdater.apply(watchedNamespacesGetter.apply(null));
     return UpdateControl.noUpdate();
-  }
-
-  public static Set<String> getWatchedNamespaces() {
-    String namespaces = OperatorWatchedNamespaces.getValue();
-    if (StringUtils.isNotEmpty(namespaces)) {
-      return Arrays.stream(namespaces.split(",")).map(String::trim).collect(Collectors.toSet());
-    }
-    return Collections.emptySet();
   }
 }
