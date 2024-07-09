@@ -14,3 +14,4 @@ TAGS
 RELEASE
 build
 .*gradle
+.*json

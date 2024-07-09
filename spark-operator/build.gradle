@@ -1,0 +1,58 @@
+apply plugin: 'com.github.johnrengelman.shadow'
+
+dependencies {
+  implementation project(":spark-operator-api")
+  implementation project(":spark-submission-worker")
+
+  implementation("io.javaoperatorsdk:operator-framework:$operatorSDKVersion") {
+    exclude group: 'com.squareup.okio'
+    exclude group: 'io.fabric8'
+  }
+  implementation("io.fabric8:kubernetes-httpclient-okhttp:$fabric8Version") {
+    exclude group: 'com.squareup.okhttp3'
+  }
+  implementation("com.squareup.okhttp3:okhttp:$okHttpVersion")
+  implementation("com.squareup.okhttp3:logging-interceptor:$okHttpVersion")
+  implementation("com.github.spotbugs:spotbugs-annotations:$spotBugsVersion")
+  // logging
+  implementation("org.apache.logging.log4j:log4j-api:$log4jVersion")
+  implementation("org.apache.logging.log4j:log4j-core:$log4jVersion")
+  implementation("org.apache.logging.log4j:log4j-slf4j-impl:$log4jVersion")
+  implementation("org.apache.logging.log4j:log4j-1.2-api:$log4jVersion")
+  implementation("org.apache.logging.log4j:log4j-layout-template-json:$log4jVersion")
+
+  compileOnly("org.projectlombok:lombok:$lombokVersion")
+
+  annotationProcessor("org.projectlombok:lombok:$lombokVersion")
+  annotationProcessor("com.github.spotbugs:spotbugs-annotations:$spotBugsVersion")
+
+  testImplementation("io.javaoperatorsdk:operator-framework-junit-5:$operatorSDKVersion") {
+    exclude group: 'com.squareup.okio'
+    exclude group: 'io.fabric8'
+  }
+  testImplementation platform("org.junit:junit-bom:$junitVersion")
+  testImplementation("org.junit.jupiter:junit-jupiter:$junitVersion")
+  testImplementation("org.mockito:mockito-core:$mockitoVersion")
+}
+
+test {
+  useJUnitPlatform()
+}
+
+jar.dependsOn shadowJar
+
+jar {
+  zip64 = true
+  archiveVersion.set('')
+}
+
+
+shadowJar {
+  zip64 = true
+  mergeServiceFiles()
+  transform(com.github.jengelman.gradle.plugins.shadow.transformers.Log4j2PluginsCacheFileTransformer)
+}
+
+description = "Spark Kubernetes Operator"
+def artifact = "spark-kubernetes-operator"
+archivesBaseName = artifact

@@ -7,6 +7,7 @@ buildscript {
   dependencies {
     classpath "com.github.spotbugs.snom:spotbugs-gradle-plugin:${spotBugsGradlePluginVersion}"
     classpath "com.diffplug.spotless:spotless-plugin-gradle:${spotlessPluginVersion}"
+    classpath "com.github.johnrengelman:shadow:${shadowJarPluginVersion}"
   }
 }
 
