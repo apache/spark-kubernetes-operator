@@ -27,7 +27,8 @@ test {
 
 // Adds additional printer columns to generated yaml
 // This requires yq
-task finalizeGeneratedCRD(type: Exec, dependsOn: jar) {
+tasks.register('finalizeGeneratedCRD', Exec) {
+  dependsOn jar
   println "Updating PrinterColumns for generated CRD"
   commandLine 'sh', './src/main/resources/printer-columns.sh'
 }
