@@ -26,7 +26,7 @@ import scala.Option;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.collections.MapUtils;
+import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import org.apache.spark.SparkConf;

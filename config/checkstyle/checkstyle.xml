@@ -203,6 +203,7 @@
     <module name="IllegalImport">
       <property name="illegalPkgs" value="org.apache.log4j"/>
       <property name="illegalPkgs" value="org.apache.commons.lang"/>
+      <property name="illegalPkgs" value="org.apache.commons.collections"/>
     </module>
   </module>
 </module>
