@@ -1,7 +1,9 @@
 dependencies {
   implementation project(":spark-operator-api")
 
-  implementation("org.apache.spark:spark-kubernetes_$scalaVersion:$sparkVersion")
+  implementation("org.apache.spark:spark-kubernetes_$scalaVersion:$sparkVersion") {
+    exclude group: 'commons-collections', module: 'commons-collections'
+  }
 
   compileOnly("org.projectlombok:lombok:$lombokVersion")
   annotationProcessor("org.projectlombok:lombok:$lombokVersion")
