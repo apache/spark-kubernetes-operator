@@ -21,6 +21,15 @@ dependencies {
   implementation("org.apache.logging.log4j:log4j-1.2-api:$log4jVersion")
   implementation("org.apache.logging.log4j:log4j-layout-template-json:$log4jVersion")
 
+  // metrics
+  implementation("io.dropwizard.metrics:metrics-core:$dropwizardMetricsVersion")
+  implementation("io.dropwizard.metrics:metrics-jvm:$dropwizardMetricsVersion")
+  compileOnly("org.apache.spark:spark-core_$scalaVersion:$sparkVersion") {
+    exclude group: 'com.squareup.okio'
+    exclude group: 'com.squareup.okhttp3'
+    exclude group: "org.apache.logging.log4j"
+    exclude group: "org.slf4j"
+  }
   compileOnly("org.projectlombok:lombok:$lombokVersion")
 
   annotationProcessor("org.projectlombok:lombok:$lombokVersion")
@@ -30,6 +39,17 @@ dependencies {
     exclude group: 'com.squareup.okio'
     exclude group: 'io.fabric8'
   }
+  testImplementation("io.fabric8:kubernetes-server-mock:$fabric8Version") {
+    exclude group: 'junit'
+    exclude group: 'com.squareup.okhttp3'
+  }
+  testImplementation("org.apache.spark:spark-core_$scalaVersion:$sparkVersion") {
+    exclude group: 'com.squareup.okio'
+    exclude group: 'com.squareup.okhttp3'
+    exclude group: "org.apache.logging.log4j"
+    exclude group: "org.slf4j"
+  }
+  testImplementation("com.squareup.okhttp3:mockwebserver:$okHttpVersion")
   testImplementation platform("org.junit:junit-bom:$junitVersion")
   testImplementation("org.junit.jupiter:junit-jupiter:$junitVersion")
   testRuntimeOnly("org.junit.platform:junit-platform-launcher")
