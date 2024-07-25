@@ -56,14 +56,14 @@ public class SparkOperatorConf {
           .enableDynamicOverride(true)
           .description(
               "Comma-separated list of namespaces that the operator would be watching for "
-                  + "Spark resources. If set to '*' or unset, operator would watch all namespaces.")
+                  + "Spark resources. If set to '*', operator would watch all namespaces.")
           .typeParameterClass(String.class)
           .defaultValue("default")
           .build();
 
-  public static final ConfigOption<Boolean> TERMINATE_ON_INFORMER_FAILURE =
+  public static final ConfigOption<Boolean> TERMINATE_ON_INFORMER_FAILURE_ENABLED =
       ConfigOption.<Boolean>builder()
-          .key("spark.kubernetes.operator.terminateOnInformerFailure")
+          .key("spark.kubernetes.operator.terminateOnInformerFailureEnabled")
           .enableDynamicOverride(false)
           .description(
               "Enable to indicate informer errors should stop operator startup. If "
@@ -100,13 +100,13 @@ public class SparkOperatorConf {
           .key("spark.kubernetes.operator.reconciler.foregroundRequestTimeoutSeconds")
           .enableDynamicOverride(true)
           .description(
-              "Timeout (in seconds) to for requests made to API server. this "
+              "Timeout (in seconds) to for requests made to API server. This "
                   + "applies only to foreground requests.")
           .typeParameterClass(Long.class)
           .defaultValue(30L)
           .build();
 
-  public static final ConfigOption<Long> SPARK_APP_RECONCILE_INTERVAL_SECONDS =
+  public static final ConfigOption<Long> RECONCILER_INTERVAL_SECONDS =
       ConfigOption.<Long>builder()
           .key("spark.kubernetes.operator.reconciler.intervalSeconds")
           .enableDynamicOverride(true)
@@ -116,7 +116,7 @@ public class SparkOperatorConf {
                   + "updated. This interval controls the reconcile behavior of operator "
                   + "reconciliation even when there's no update on SparkApplication, e.g. to "
                   + "determine whether a hanging app needs to be proactively terminated. Thus "
-                  + "this is recommended to set to above 2 min to avoid unnecessary no-op "
+                  + "this is recommended to set to above 2 minutes to avoid unnecessary no-op "
                   + "reconciliation.")
           .typeParameterClass(Long.class)
           .defaultValue(120L)
@@ -174,18 +174,18 @@ public class SparkOperatorConf {
           .defaultValue(1)
           .build();
 
-  public static final ConfigOption<Integer> RATE_LIMITER_REFRESH_PERIOD_SECONDS =
+  public static final ConfigOption<Integer> RECONCILER_RATE_LIMITER_REFRESH_PERIOD_SECONDS =
       ConfigOption.<Integer>builder()
-          .key("spark.kubernetes.operator.rateLimiter.refreshPeriodSeconds")
+          .key("spark.kubernetes.operator.reconciler.rateLimiter.refreshPeriodSeconds")
           .enableDynamicOverride(false)
           .description("Operator rate limiter refresh period(in seconds) for each resource.")
           .typeParameterClass(Integer.class)
           .defaultValue(15)
           .build();
 
-  public static final ConfigOption<Integer> RATE_LIMITER_LIMIT_FOR_PERIOD =
+  public static final ConfigOption<Integer> RECONCILER_RATE_LIMITER_MAX_LOOP_FOR_PERIOD =
       ConfigOption.<Integer>builder()
-          .key("spark.kubernetes.operator.rateLimiter.limitForPeriod")
+          .key("spark.kubernetes.operator.reconciler.rateLimiter.maxLoopForPeriod")
           .enableDynamicOverride(false)
           .description(
               "Max number of reconcile loops triggered within the rate limiter refresh "
@@ -195,18 +195,18 @@ public class SparkOperatorConf {
           .defaultValue(5)
           .build();
 
-  public static final ConfigOption<Integer> RETRY_INITIAL_INTERVAL_SECONDS =
+  public static final ConfigOption<Integer> RECONCILER_RETRY_INITIAL_INTERVAL_SECONDS =
       ConfigOption.<Integer>builder()
-          .key("spark.kubernetes.operator.retry.initialIntervalSeconds")
+          .key("spark.kubernetes.operator.reconciler.retry.initialIntervalSeconds")
           .enableDynamicOverride(false)
           .description("Initial interval(in seconds) of retries on unhandled controller errors.")
           .typeParameterClass(Integer.class)
           .defaultValue(5)
           .build();
 
-  public static final ConfigOption<Double> RETRY_INTERVAL_MULTIPLIER =
+  public static final ConfigOption<Double> RECONCILER_RETRY_INTERVAL_MULTIPLIER =
       ConfigOption.<Double>builder()
-          .key("spark.kubernetes.operator.retry.intervalMultiplier")
+          .key("spark.kubernetes.operator.reconciler.retry.intervalMultiplier")
           .enableDynamicOverride(false)
           .description(
               "Interval multiplier of retries on unhandled controller errors. Setting "
@@ -215,9 +215,9 @@ public class SparkOperatorConf {
           .defaultValue(1.5)
           .build();
 
-  public static final ConfigOption<Integer> RETRY_MAX_INTERVAL_SECONDS =
+  public static final ConfigOption<Integer> RECONCILER_RETRY_MAX_INTERVAL_SECONDS =
       ConfigOption.<Integer>builder()
-          .key("spark.kubernetes.operator.retry.maxIntervalSeconds")
+          .key("spark.kubernetes.operator.reconciler.retry.maxIntervalSeconds")
           .enableDynamicOverride(false)
           .description(
               "Max interval(in seconds) of retries on unhandled controller errors. "
@@ -226,9 +226,9 @@ public class SparkOperatorConf {
           .defaultValue(-1)
           .build();
 
-  public static final ConfigOption<Integer> RETRY_MAX_ATTEMPTS =
+  public static final ConfigOption<Integer> API_RETRY_MAX_ATTEMPTS =
       ConfigOption.<Integer>builder()
-          .key("spark.kubernetes.operator.retry.maxAttempts")
+          .key("spark.kubernetes.operator.api.retryMaxAttempts")
           .enableDynamicOverride(false)
           .description(
               "Max attempts of retries on unhandled controller errors. Setting this to "
@@ -237,9 +237,9 @@ public class SparkOperatorConf {
           .defaultValue(15)
           .build();
 
-  public static final ConfigOption<Long> RETRY_ATTEMPT_AFTER_SECONDS =
+  public static final ConfigOption<Long> API_RETRY_ATTEMPT_AFTER_SECONDS =
       ConfigOption.<Long>builder()
-          .key("spark.kubernetes.operator.retry.attemptAfterSeconds")
+          .key("spark.kubernetes.operator.api.retryAttemptAfterSeconds")
           .enableDynamicOverride(false)
           .description(
               "Default time (in seconds) to wait till next request. This would be used if "
@@ -249,9 +249,9 @@ public class SparkOperatorConf {
           .defaultValue(1L)
           .build();
 
-  public static final ConfigOption<Long> STATUS_PATCH_MAX_RETRY =
+  public static final ConfigOption<Long> API_STATUS_PATCH_MAX_ATTEMPTS =
       ConfigOption.<Long>builder()
-          .key("spark.kubernetes.operator.retry.maxStatusPatchAttempts")
+          .key("spark.kubernetes.operator.api.statusPatchMaxAttempts")
           .enableDynamicOverride(false)
           .description(
               "Maximal number of retry attempts of requests to k8s server for resource "
@@ -263,9 +263,9 @@ public class SparkOperatorConf {
           .defaultValue(3L)
           .build();
 
-  public static final ConfigOption<Long> SECONDARY_RESOURCE_CREATE_MAX_ATTEMPTS =
+  public static final ConfigOption<Long> API_SECONDARY_RESOURCE_CREATE_MAX_ATTEMPTS =
       ConfigOption.<Long>builder()
-          .key("spark.kubernetes.operator.retry.secondaryResourceCreateMaxAttempts")
+          .key("spark.kubernetes.operator.api.secondaryResourceCreateMaxAttempts")
           .enableDynamicOverride(false)
           .description(
               "Maximal number of retry attempts of requesting secondary resource for Spark "
@@ -383,16 +383,19 @@ public class SparkOperatorConf {
           .enableDynamicOverride(false)
           .description("Leader election lease duration in seconds, non-negative.")
           .typeParameterClass(Integer.class)
-          .defaultValue(1200)
+          .defaultValue(180)
           .build();
 
   public static final ConfigOption<Integer> LEADER_ELECTION_RENEW_DEADLINE_SECONDS =
       ConfigOption.<Integer>builder()
           .key("spark.kubernetes.operator.leaderElection.renewDeadlineSeconds")
           .enableDynamicOverride(false)
-          .description("Leader election renew deadline in seconds, non-negative.")
+          .description(
+              "Leader election renew deadline in seconds, non-negative. This needs to be "
+                  + "smaller than the lease duration to allow current leader renew the lease "
+                  + "before lease expires.")
           .typeParameterClass(Integer.class)
-          .defaultValue(600)
+          .defaultValue(120)
           .build();
 
   public static final ConfigOption<Integer> LEADER_ELECTION_RETRY_PERIOD_SECONDS =
@@ -401,7 +404,7 @@ public class SparkOperatorConf {
           .enableDynamicOverride(false)
           .description("Leader election retry period in seconds, non-negative.")
           .typeParameterClass(Integer.class)
-          .defaultValue(180)
+          .defaultValue(5)
           .build();
 
   public static LeaderElectionConfiguration getLeaderElectionConfig() {
@@ -416,14 +419,15 @@ public class SparkOperatorConf {
   public static GenericRetry getOperatorRetry() {
     GenericRetry genericRetry =
         new GenericRetry()
-            .setMaxAttempts(ensureNonNegativeIntFor(RETRY_MAX_ATTEMPTS))
+            .setMaxAttempts(ensureNonNegativeIntFor(API_RETRY_MAX_ATTEMPTS))
             .setInitialInterval(
-                Duration.ofSeconds(ensureNonNegativeIntFor(RETRY_INITIAL_INTERVAL_SECONDS))
+                Duration.ofSeconds(
+                        ensureNonNegativeIntFor(RECONCILER_RETRY_INITIAL_INTERVAL_SECONDS))
                     .toMillis())
-            .setIntervalMultiplier(RETRY_INTERVAL_MULTIPLIER.getValue());
-    if (RETRY_MAX_INTERVAL_SECONDS.getValue() > 0) {
+            .setIntervalMultiplier(RECONCILER_RETRY_INTERVAL_MULTIPLIER.getValue());
+    if (RECONCILER_RETRY_MAX_INTERVAL_SECONDS.getValue() > 0) {
       genericRetry.setMaxInterval(
-          Duration.ofSeconds(RETRY_MAX_INTERVAL_SECONDS.getValue()).toMillis());
+          Duration.ofSeconds(RECONCILER_RETRY_MAX_INTERVAL_SECONDS.getValue()).toMillis());
     } else {
       log.info("Reconciler retry policy is configured with unlimited max attempts");
     }
@@ -432,8 +436,8 @@ public class SparkOperatorConf {
 
   public static RateLimiter<?> getOperatorRateLimiter() {
     return new LinearRateLimiter(
-        Duration.ofSeconds(ensureNonNegativeIntFor(RATE_LIMITER_REFRESH_PERIOD_SECONDS)),
-        ensureNonNegativeIntFor(RATE_LIMITER_LIMIT_FOR_PERIOD));
+        Duration.ofSeconds(ensureNonNegativeIntFor(RECONCILER_RATE_LIMITER_REFRESH_PERIOD_SECONDS)),
+        ensureNonNegativeIntFor(RECONCILER_RATE_LIMITER_MAX_LOOP_FOR_PERIOD));
   }
 
   private static int ensureNonNegativeIntFor(ConfigOption<Integer> configOption) {
@@ -451,7 +455,7 @@ public class SparkOperatorConf {
             "Default value for " + description + " must be greater than " + minValue);
       }
       log.warn(
-          "Requested {} should be greater than {}. Requested: {}, using {} (default) " + "instead",
+          "Requested {} should be greater than {}. Requested: {}, using {} (default) instead",
           description,
           minValue,
           value,

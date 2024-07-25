@@ -56,9 +56,9 @@ public class MetricsSystemFactory {
     return properties;
   }
 
-  public static Map<String, MetricsSystem.SinkProps> parseSinkProperties(
+  public static Map<String, MetricsSystem.SinkProperties> parseSinkProperties(
       Properties metricsProperties) {
-    Map<String, MetricsSystem.SinkProps> propertiesMap = new HashMap<>();
+    Map<String, MetricsSystem.SinkProperties> propertiesMap = new HashMap<>();
     // e.g: "sink.graphite.class"="org.apache.spark.metrics.sink.ConsoleSink"
     Enumeration<?> valueEnumeration = metricsProperties.propertyNames();
     while (valueEnumeration.hasMoreElements()) {
@@ -67,24 +67,25 @@ public class MetricsSystemFactory {
       int secondDotIndex = StringUtils.ordinalIndexOf(key, ".", 2);
       if (key.startsWith(SINK)) {
         String shortName = key.substring(firstDotIndex + 1, secondDotIndex);
-        MetricsSystem.SinkProps sinkProps =
-            propertiesMap.getOrDefault(shortName, new MetricsSystem.SinkProps());
+        MetricsSystem.SinkProperties sinkProperties =
+            propertiesMap.getOrDefault(shortName, new MetricsSystem.SinkProperties());
         if (key.endsWith(CLASS)) {
-          sinkProps.setClassName(metricsProperties.getProperty(key));
+          sinkProperties.setClassName(metricsProperties.getProperty(key));
         } else {
-          sinkProps
+          sinkProperties
               .getProperties()
               .put(key.substring(secondDotIndex + 1), metricsProperties.getProperty(key));
         }
-        propertiesMap.put(shortName, sinkProps);
+        propertiesMap.put(shortName, sinkProperties);
       }
     }
     sinkPropertiesSanityCheck(propertiesMap);
     return propertiesMap;
   }
 
-  private static void sinkPropertiesSanityCheck(Map<String, MetricsSystem.SinkProps> sinkPropsMap) {
-    for (Map.Entry<String, MetricsSystem.SinkProps> pair : sinkPropsMap.entrySet()) {
+  private static void sinkPropertiesSanityCheck(
+      Map<String, MetricsSystem.SinkProperties> sinkPropsMap) {
+    for (Map.Entry<String, MetricsSystem.SinkProperties> pair : sinkPropsMap.entrySet()) {
       // Each Sink should have mapping class full name
       if (StringUtils.isBlank(pair.getValue().className)) {
         String errorMessage =

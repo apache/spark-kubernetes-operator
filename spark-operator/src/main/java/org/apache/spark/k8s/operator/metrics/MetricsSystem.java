@@ -45,7 +45,7 @@ public class MetricsSystem {
   @Getter private final Properties properties;
   // PrometheusPullModelHandler is registered by default, metrics exposed via http port
   @Getter private final PrometheusPullModelHandler prometheusPullModelHandler;
-  private final Map<String, SinkProps> sinkPropertiesMap;
+  private final Map<String, SinkProperties> sinkPropertiesMap;
 
   public MetricsSystem() {
     this(new Properties());
@@ -134,11 +134,11 @@ public class MetricsSystem {
   }
 
   @Data
-  public static class SinkProps {
+  public static class SinkProperties {
     String className;
     Properties properties;
 
-    public SinkProps() {
+    public SinkProperties() {
       this.className = "";
       this.properties = new Properties();
     }

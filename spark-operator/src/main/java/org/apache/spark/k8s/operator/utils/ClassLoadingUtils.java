@@ -19,6 +19,7 @@
 
 package org.apache.spark.k8s.operator.utils;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -51,7 +52,11 @@ public class ClassLoadingUtils {
             listeners.add((T) listenerClass.getConstructor().newInstance());
           }
         }
-      } catch (Exception e) {
+      } catch (ClassNotFoundException
+          | NoSuchMethodException
+          | InstantiationException
+          | IllegalAccessException
+          | InvocationTargetException e) {
         if (log.isErrorEnabled()) {
           log.error(
               "Failed to initialize listeners for operator with {}", implementationClassNames, e);
