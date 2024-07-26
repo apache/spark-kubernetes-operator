@@ -32,7 +32,6 @@ import io.javaoperatorsdk.operator.Operator;
 import io.javaoperatorsdk.operator.RuntimeInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
 import org.apache.spark.k8s.operator.utils.ProbeUtil;
@@ -62,7 +61,7 @@ class ReadinessProbeTest {
     when(sparkConfMonitorRuntimeInfo.isStarted()).thenReturn(true);
     when(sparkConfMonitor.getKubernetesClient()).thenReturn(client);
     ReadinessProbe readinessProbe = new ReadinessProbe(Arrays.asList(operator));
-    try (MockedStatic mockedStatic = Mockito.mockStatic(ProbeUtil.class)) {
+    try (var mockedStatic = Mockito.mockStatic(ProbeUtil.class)) {
       readinessProbe.handle(httpExchange);
       mockedStatic.verify(() -> ProbeUtil.sendMessage(httpExchange, 200, "started"));
     }

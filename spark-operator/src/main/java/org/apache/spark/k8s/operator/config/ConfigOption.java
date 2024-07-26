@@ -78,7 +78,7 @@ public class ConfigOption<T> {
     }
   }
 
-  public static Object resolveValueToPrimitiveType(Class clazz, String value) {
+  public static Object resolveValueToPrimitiveType(Class<?> clazz, String value) {
     if (Boolean.class == clazz || Boolean.TYPE == clazz) {
       return Boolean.parseBoolean(value);
     }

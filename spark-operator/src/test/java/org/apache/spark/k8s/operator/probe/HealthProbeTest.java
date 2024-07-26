@@ -143,7 +143,7 @@ class HealthProbeTest {
 
   @Test
   void testHealthProbeWithSentinelHealthWithMultiOperators() {
-    SentinelManager sentinelManager = mock(SentinelManager.class);
+    var sentinelManager = mock(SentinelManager.class);
     HealthProbe healthyProbe =
         new HealthProbe(operators, Collections.singletonList(sentinelManager));
     isRunning.set(true);

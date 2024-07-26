@@ -109,7 +109,7 @@ class SentinelManagerTest {
     Assertions.assertEquals(generation, 1L);
 
     // Spark Reconciler Handle Sentinel Resources at the first time
-    SentinelManager sentinelManager = new SentinelManager<SparkApplication>();
+    var sentinelManager = new SentinelManager<SparkApplication>();
     sentinelManager.handleSentinelResourceReconciliation(sparkApplication, kubernetesClient);
     KubernetesResourceList<SparkApplication> crList2 =
         kubernetesClient.resources(SparkApplication.class).inNamespace(DEFAULT).list();
@@ -119,8 +119,8 @@ class SentinelManagerTest {
 
     Assertions.assertEquals(sparkConf2.get(Constants.SENTINEL_RESOURCE_DUMMY_FIELD), "1");
     Assertions.assertEquals(generation2, 2L);
-    SentinelManager.SentinelResourceState state2 =
-        (SentinelManager.SentinelResourceState)
+    var state2 =
+        (SentinelManager<SparkApplication>.SentinelResourceState)
             sentinelManager.getSentinelResources().get(ResourceID.fromResource(mockApp));
     long previousGeneration2 = state2.previousGeneration;
     Assertions.assertTrue(sentinelManager.allSentinelsAreHealthy());
@@ -137,8 +137,8 @@ class SentinelManagerTest {
     Assertions.assertNotEquals(
         sparkConf2.get(Constants.SENTINEL_RESOURCE_DUMMY_FIELD),
         sparkConf3.get(Constants.SENTINEL_RESOURCE_DUMMY_FIELD));
-    SentinelManager.SentinelResourceState state3 =
-        (SentinelManager.SentinelResourceState)
+    var state3 =
+        (SentinelManager<SparkApplication>.SentinelResourceState)
             sentinelManager.getSentinelResources().get(ResourceID.fromResource(mockApp));
     Assertions.assertEquals(state3.previousGeneration, previousGeneration2);
     // Given the 2 * SENTINEL_RESOURCE_RECONCILIATION_DELAY_SECONDS, the reconcile method is
@@ -168,9 +168,9 @@ class SentinelManagerTest {
     namespaces.add(DEFAULT);
     namespaces.add(SPARK_DEMO);
 
-    try (MockedStatic<Utils> mockUtils = mockStatic(Utils.class)) {
+    try (var mockUtils = mockStatic(Utils.class)) {
       mockUtils.when(Utils::getWatchedNamespaces).thenReturn(namespaces);
-      SentinelManager sentinelManager = new SentinelManager<SparkApplication>();
+      var sentinelManager = new SentinelManager<SparkApplication>();
       NonNamespaceOperation<
               SparkApplication,
               KubernetesResourceList<SparkApplication>,
@@ -187,9 +187,8 @@ class SentinelManagerTest {
       cr1.create(mockApp1);
       cr2.create(mockApp2);
 
-      KubernetesResourceList<SparkApplication> crList1 =
-          kubernetesClient.resources(SparkApplication.class).inNamespace(DEFAULT).list();
-      KubernetesResourceList<SparkApplication> crList2 =
+      var crList1 = kubernetesClient.resources(SparkApplication.class).inNamespace(DEFAULT).list();
+      var crList2 =
           kubernetesClient.resources(SparkApplication.class).inNamespace(SPARK_DEMO).list();
       SparkApplication sparkApplication1 = crList1.getItems().get(0);
       SparkApplication sparkApplication2 = crList2.getItems().get(0);
