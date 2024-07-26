@@ -68,36 +68,38 @@ class KubernetesMetricsInterceptorTest {
   void testMetricsEnabled() {
     KubernetesMetricsInterceptor metricsInterceptor = new KubernetesMetricsInterceptor();
     List<Interceptor> interceptors = Collections.singletonList(metricsInterceptor);
-    KubernetesClient client =
+    try (KubernetesClient client =
         KubernetesClientFactory.buildKubernetesClient(
-            interceptors, kubernetesClient.getConfiguration());
-    SparkApplication sparkApplication = createSparkApplication();
-    ConfigMap configMap = createConfigMap();
+            interceptors, kubernetesClient.getConfiguration())) {
+      SparkApplication sparkApplication = createSparkApplication();
+      ConfigMap configMap = createConfigMap();
 
-    Map<String, Metric> metrics = new HashMap<>(metricsInterceptor.metricRegistry().getMetrics());
-    Assertions.assertEquals(9, metrics.size());
-    client.resource(sparkApplication).create();
-    client.resource(configMap).get();
-    Map<String, Metric> metrics2 = new HashMap<>(metricsInterceptor.metricRegistry().getMetrics());
-    Assertions.assertEquals(17, metrics2.size());
-    List<String> expectedMetricsName =
-        Arrays.asList(
-            "http.response.201",
-            "http.request.post",
-            "sparkapplications.post",
-            "spark-test.sparkapplications.post",
-            "spark-test.sparkapplications.post",
-            "configmaps.get",
-            "spark-system.configmaps.get",
-            "2xx",
-            "4xx");
-    expectedMetricsName.stream()
-        .forEach(
-            name -> {
-              Meter metric = (Meter) metrics2.get(name);
-              Assertions.assertEquals(metric.getCount(), 1);
-            });
-    client.resource(sparkApplication).delete();
+      Map<String, Metric> metrics = new HashMap<>(metricsInterceptor.metricRegistry().getMetrics());
+      Assertions.assertEquals(9, metrics.size());
+      client.resource(sparkApplication).create();
+      client.resource(configMap).get();
+      Map<String, Metric> metrics2 =
+          new HashMap<>(metricsInterceptor.metricRegistry().getMetrics());
+      Assertions.assertEquals(17, metrics2.size());
+      List<String> expectedMetricsName =
+          Arrays.asList(
+              "http.response.201",
+              "http.request.post",
+              "sparkapplications.post",
+              "spark-test.sparkapplications.post",
+              "spark-test.sparkapplications.post",
+              "configmaps.get",
+              "spark-system.configmaps.get",
+              "2xx",
+              "4xx");
+      expectedMetricsName.stream()
+          .forEach(
+              name -> {
+                Meter metric = (Meter) metrics2.get(name);
+                Assertions.assertEquals(metric.getCount(), 1);
+              });
+      client.resource(sparkApplication).delete();
+    }
   }
 
   @Test
@@ -105,22 +107,23 @@ class KubernetesMetricsInterceptorTest {
   void testWhenKubernetesServerNotWorking() {
     KubernetesMetricsInterceptor metricsInterceptor = new KubernetesMetricsInterceptor();
     List<Interceptor> interceptors = Collections.singletonList(metricsInterceptor);
-    KubernetesClient client =
+    try (KubernetesClient client =
         KubernetesClientFactory.buildKubernetesClient(
-            interceptors, kubernetesClient.getConfiguration());
-    int retry = client.getConfiguration().getRequestRetryBackoffLimit();
-    mockServer.shutdown();
-    SparkApplication sparkApplication = createSparkApplication();
-    assertThrows(
-        Exception.class,
-        () -> {
-          client.resource(sparkApplication).create();
-        });
+            interceptors, kubernetesClient.getConfiguration())) {
+      int retry = client.getConfiguration().getRequestRetryBackoffLimit();
+      mockServer.shutdown();
+      SparkApplication sparkApplication = createSparkApplication();
+      assertThrows(
+          Exception.class,
+          () -> {
+            client.resource(sparkApplication).create();
+          });
 
-    Map<String, Metric> map = metricsInterceptor.metricRegistry().getMetrics();
-    Assertions.assertEquals(12, map.size());
-    Meter metric = (Meter) map.get("failed");
-    Assertions.assertEquals(metric.getCount(), retry + 1);
+      Map<String, Metric> map = metricsInterceptor.metricRegistry().getMetrics();
+      Assertions.assertEquals(12, map.size());
+      Meter metric = (Meter) map.get("failed");
+      Assertions.assertEquals(metric.getCount(), retry + 1);
+    }
   }
 
   private static SparkApplication createSparkApplication() {
