@@ -31,8 +31,8 @@ import org.apache.spark.metrics.sink.Sink;
 @SuppressWarnings("PMD")
 public class MockSink implements Sink {
   private static final Logger logger = LoggerFactory.getLogger(MockSink.class);
-  private Properties properties;
-  private MetricRegistry metricRegistry;
+  private final Properties properties;
+  private final MetricRegistry metricRegistry;
   public static final String DEFAULT_UNIT = "SECONDS";
   public static final int DEFAULT_PERIOD = 20;
   public static final String KEY_PERIOD = "period";

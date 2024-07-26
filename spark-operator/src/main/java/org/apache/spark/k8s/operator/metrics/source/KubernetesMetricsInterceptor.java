@@ -42,7 +42,7 @@ import org.apache.spark.metrics.source.Source;
 
 @Slf4j
 public class KubernetesMetricsInterceptor implements Interceptor, Source {
-  MetricRegistry metricRegistry;
+  final MetricRegistry metricRegistry;
   public static final String NAMESPACES = "namespaces";
   public static final String HTTP_REQUEST_GROUP = "http.request";
   public static final String HTTP_REQUEST_FAILED_GROUP = "failed";

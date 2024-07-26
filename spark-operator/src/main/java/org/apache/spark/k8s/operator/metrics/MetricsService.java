@@ -32,7 +32,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class MetricsService {
   HttpServer server;
-  MetricsSystem metricsSystem;
+  final MetricsSystem metricsSystem;
 
   public MetricsService(MetricsSystem metricsSystem, Executor executor) {
     this.metricsSystem = metricsSystem;
