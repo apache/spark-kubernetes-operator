@@ -39,7 +39,7 @@ import org.apache.spark.k8s.operator.utils.ModelUtils;
 @Builder
 @Slf4j
 public class ConfigOption<T> {
-  @Getter @Builder.Default private boolean enableDynamicOverride = true;
+  @Getter @Builder.Default private final boolean enableDynamicOverride = true;
   @Getter private String key;
   @Getter private String description;
   private T defaultValue;

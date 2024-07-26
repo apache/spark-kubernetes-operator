@@ -34,10 +34,10 @@ import lombok.ToString;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class BaseStatus<S, STATE extends BaseState<S>, AS extends BaseAttemptSummary> {
-  @Getter STATE currentState;
-  @Getter SortedMap<Long, STATE> stateTransitionHistory;
-  @Getter AS previousAttemptSummary;
-  @Getter AS currentAttemptSummary;
+  @Getter final STATE currentState;
+  @Getter final SortedMap<Long, STATE> stateTransitionHistory;
+  @Getter final AS previousAttemptSummary;
+  @Getter final AS currentAttemptSummary;
 
   public BaseStatus(STATE initState, AS currentAttemptSummary) {
     this.currentState = initState;

@@ -32,7 +32,7 @@ public class LoggingUtils {
   public static final class TrackedMDC {
     public static final String AppAttemptIdKey = "resource.app.attemptId";
     private final ReentrantLock lock = new ReentrantLock();
-    private Set<String> keys = new HashSet<>();
+    private final Set<String> keys = new HashSet<>();
 
     public void set(final SparkApplication application) {
       if (application != null && application.getStatus() != null) {
