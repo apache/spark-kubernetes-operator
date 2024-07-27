@@ -49,7 +49,7 @@ class ProbeServiceTest {
     RuntimeInfo runtimeInfo = mock(RuntimeInfo.class);
     when(operator.getRuntimeInfo()).thenReturn(runtimeInfo);
     when(runtimeInfo.isStarted()).thenReturn(true).thenReturn(true);
-    SentinelManager sentinelManager = mock(SentinelManager.class);
+    var sentinelManager = mock(SentinelManager.class);
     when(runtimeInfo.unhealthyInformerWrappingEventSourceHealthIndicator())
         .thenReturn(new HashMap<>());
     when(sentinelManager.allSentinelsAreHealthy()).thenReturn(true);
@@ -73,7 +73,7 @@ class ProbeServiceTest {
     when(runtimeInfo.isStarted()).thenReturn(true).thenReturn(true);
     when(runtimeInfo1.isStarted()).thenReturn(true).thenReturn(true);
 
-    SentinelManager sentinelManager = mock(SentinelManager.class);
+    var sentinelManager = mock(SentinelManager.class);
     when(runtimeInfo.unhealthyInformerWrappingEventSourceHealthIndicator())
         .thenReturn(new HashMap<>());
     when(runtimeInfo1.unhealthyInformerWrappingEventSourceHealthIndicator())
@@ -99,7 +99,7 @@ class ProbeServiceTest {
     when(runtimeInfo.isStarted()).thenReturn(true).thenReturn(true);
     when(runtimeInfo1.isStarted()).thenReturn(true).thenReturn(true);
 
-    SentinelManager sentinelManager = mock(SentinelManager.class);
+    var sentinelManager = mock(SentinelManager.class);
     KubernetesClient client = mock(KubernetesClient.class);
     when(runtimeInfo.unhealthyInformerWrappingEventSourceHealthIndicator())
         .thenReturn(new HashMap<>());

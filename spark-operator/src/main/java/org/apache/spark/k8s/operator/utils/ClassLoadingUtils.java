@@ -47,7 +47,7 @@ public class ClassLoadingUtils {
       try {
         Set<String> listenerNames = Utils.sanitizeCommaSeparatedStrAsSet(implementationClassNames);
         for (String name : listenerNames) {
-          Class listenerClass = Class.forName(name);
+          Class<?> listenerClass = Class.forName(name);
           if (clazz.isAssignableFrom(listenerClass)) {
             listeners.add((T) listenerClass.getConstructor().newInstance());
           }
