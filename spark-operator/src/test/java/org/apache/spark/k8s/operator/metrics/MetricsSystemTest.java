@@ -19,12 +19,15 @@
 
 package org.apache.spark.k8s.operator.metrics;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import org.apache.spark.k8s.operator.metrics.sink.MockSink;
@@ -38,12 +41,12 @@ class MetricsSystemTest {
     Set<Source> sourcesList = metricsSystem.getSources();
     Set<Sink> sinks = metricsSystem.getSinks();
     metricsSystem.start();
-    Assertions.assertEquals(1, sourcesList.size());
+    assertEquals(1, sourcesList.size());
     // By default, only prometheus sink is enabled
-    Assertions.assertEquals(1, sinks.size());
-    Assertions.assertFalse(metricsSystem.getRegistry().getMetrics().isEmpty());
+    assertEquals(1, sinks.size());
+    assertFalse(metricsSystem.getRegistry().getMetrics().isEmpty());
     metricsSystem.stop();
-    Assertions.assertTrue(metricsSystem.getRegistry().getMetrics().isEmpty());
+    assertTrue(metricsSystem.getRegistry().getMetrics().isEmpty());
   }
 
   @Test
@@ -53,15 +56,15 @@ class MetricsSystemTest {
     properties.put("sink.mocksink.period", "10");
     MetricsSystem metricsSystem = new MetricsSystem(properties);
     metricsSystem.start();
-    Assertions.assertEquals(2, metricsSystem.getSinks().size());
+    assertEquals(2, metricsSystem.getSinks().size());
     Optional<Sink> mockSinkOptional =
         metricsSystem.getSinks().stream().filter(sink -> sink instanceof MockSink).findFirst();
-    Assertions.assertTrue(mockSinkOptional.isPresent());
+    assertTrue(mockSinkOptional.isPresent());
     Sink mockSink = mockSinkOptional.get();
     metricsSystem.stop();
     MockSink sink = (MockSink) mockSink;
-    Assertions.assertEquals(sink.getPollPeriod(), 10);
-    Assertions.assertEquals(sink.getTimeUnit(), TimeUnit.SECONDS);
+    assertEquals(sink.getPollPeriod(), 10);
+    assertEquals(sink.getTimeUnit(), TimeUnit.SECONDS);
   }
 
   @Test
@@ -72,6 +75,6 @@ class MetricsSystemTest {
     properties.put("sink.console.class", "org.apache.spark.metrics.sink.ConsoleSink");
     MetricsSystem metricsSystem = new MetricsSystem(properties);
     metricsSystem.start();
-    Assertions.assertEquals(3, metricsSystem.getSinks().size());
+    assertEquals(3, metricsSystem.getSinks().size());
   }
 }

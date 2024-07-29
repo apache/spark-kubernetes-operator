@@ -21,6 +21,10 @@ package org.apache.spark.k8s.operator.metrics.healthcheck;
 
 import static org.apache.spark.k8s.operator.utils.TestUtils.createMockApp;
 import static org.apache.spark.k8s.operator.utils.TestUtils.notTimedOut;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mockStatic;
 
 import java.time.Duration;
@@ -40,7 +44,6 @@ import io.fabric8.kubernetes.client.dsl.Resource;
 import io.fabric8.kubernetes.client.server.mock.EnableKubernetesMockClient;
 import io.fabric8.kubernetes.client.server.mock.KubernetesMockServer;
 import io.javaoperatorsdk.operator.processing.event.ResourceID;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
@@ -87,7 +90,7 @@ class SentinelManagerTest {
     namespaces.add("spark-test");
     try (MockedStatic<Utils> mockUtils = mockStatic(Utils.class)) {
       mockUtils.when(Utils::getWatchedNamespaces).thenReturn(namespaces);
-      Assertions.assertTrue(SentinelManager.isSentinelResource(sparkApplication));
+      assertTrue(SentinelManager.isSentinelResource(sparkApplication));
     }
   }
 
@@ -106,7 +109,7 @@ class SentinelManagerTest {
         kubernetesClient.resources(SparkApplication.class).inNamespace(DEFAULT).list();
     SparkApplication sparkApplication = crList.getItems().get(0);
     Long generation = sparkApplication.getMetadata().getGeneration();
-    Assertions.assertEquals(generation, 1L);
+    assertEquals(generation, 1L);
 
     // Spark Reconciler Handle Sentinel Resources at the first time
     var sentinelManager = new SentinelManager<SparkApplication>();
@@ -117,14 +120,14 @@ class SentinelManagerTest {
     Map<String, String> sparkConf2 = new HashMap<>(sparkApplication2.getSpec().getSparkConf());
     long generation2 = sparkApplication2.getMetadata().getGeneration();
 
-    Assertions.assertEquals(sparkConf2.get(Constants.SENTINEL_RESOURCE_DUMMY_FIELD), "1");
-    Assertions.assertEquals(generation2, 2L);
+    assertEquals(sparkConf2.get(Constants.SENTINEL_RESOURCE_DUMMY_FIELD), "1");
+    assertEquals(generation2, 2L);
     var state2 =
         (SentinelManager<SparkApplication>.SentinelResourceState)
             sentinelManager.getSentinelResources().get(ResourceID.fromResource(mockApp));
     long previousGeneration2 = state2.previousGeneration;
-    Assertions.assertTrue(sentinelManager.allSentinelsAreHealthy());
-    Assertions.assertEquals(previousGeneration2, 1L);
+    assertTrue(sentinelManager.allSentinelsAreHealthy());
+    assertEquals(previousGeneration2, 1L);
 
     Thread.sleep(Duration.ofSeconds(SENTINEL_RESOURCE_RECONCILIATION_DELAY_SECONDS * 2).toMillis());
     List<SparkApplication> crList3 =
@@ -132,18 +135,18 @@ class SentinelManagerTest {
     SparkApplication sparkApplication3 = crList3.get(0);
     Map<String, String> sparkConf3 = new HashMap<>(sparkApplication3.getSpec().getSparkConf());
     // Spark Sentinel Applications' s k8s generation should change
-    Assertions.assertNotEquals(sparkApplication3.getMetadata().getGeneration(), generation2);
+    assertNotEquals(sparkApplication3.getMetadata().getGeneration(), generation2);
     // Spark conf SPARK_CONF_SENTINEL_DUMMY_FIELD values should increase
-    Assertions.assertNotEquals(
+    assertNotEquals(
         sparkConf2.get(Constants.SENTINEL_RESOURCE_DUMMY_FIELD),
         sparkConf3.get(Constants.SENTINEL_RESOURCE_DUMMY_FIELD));
     var state3 =
         (SentinelManager<SparkApplication>.SentinelResourceState)
             sentinelManager.getSentinelResources().get(ResourceID.fromResource(mockApp));
-    Assertions.assertEquals(state3.previousGeneration, previousGeneration2);
+    assertEquals(state3.previousGeneration, previousGeneration2);
     // Given the 2 * SENTINEL_RESOURCE_RECONCILIATION_DELAY_SECONDS, the reconcile method is
     // not called to handleSentinelResourceReconciliation to update
-    Assertions.assertFalse(sentinelManager.allSentinelsAreHealthy());
+    assertFalse(sentinelManager.allSentinelsAreHealthy());
 
     sentinelManager.handleSentinelResourceReconciliation(sparkApplication2, kubernetesClient);
     sentinelManager.handleSentinelResourceReconciliation(sparkApplication2, kubernetesClient);
@@ -156,7 +159,7 @@ class SentinelManagerTest {
             currentTimeInMills,
             TimeUnit.MILLISECONDS.convert(
                 Duration.ofSeconds(SENTINEL_RESOURCE_RECONCILIATION_DELAY_SECONDS))));
-    Assertions.assertTrue(isHealthy);
+    assertTrue(isHealthy);
     kubernetesClient.resources(SparkApplication.class).inNamespace(DEFAULT).delete();
   }
 
@@ -194,19 +197,19 @@ class SentinelManagerTest {
       SparkApplication sparkApplication2 = crList2.getItems().get(0);
       sentinelManager.handleSentinelResourceReconciliation(sparkApplication1, kubernetesClient);
       sentinelManager.handleSentinelResourceReconciliation(sparkApplication2, kubernetesClient);
-      Assertions.assertEquals(
+      assertEquals(
           sentinelManager.getSentinelResources().size(),
           2,
           "Sentinel Manager should watch on resources in two namespaces");
-      Assertions.assertTrue(
+      assertTrue(
           sentinelManager.allSentinelsAreHealthy(), "Sentinel Manager should report healthy");
       namespaces.remove(SPARK_DEMO);
       Thread.sleep(Duration.ofSeconds(SENTINEL_RESOURCE_RECONCILIATION_DELAY_SECONDS).toMillis());
-      Assertions.assertTrue(
+      assertTrue(
           sentinelManager.allSentinelsAreHealthy(),
           "Sentinel Manager should report healthy after one namespace is "
               + "removed from the watch");
-      Assertions.assertEquals(
+      assertEquals(
           sentinelManager.getSentinelResources().size(),
           1,
           "Sentinel Manager should only watch on one namespace");
