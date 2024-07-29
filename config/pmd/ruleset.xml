@@ -21,13 +21,12 @@
   <description>
     Spark Operator Ruleset
   </description>
-  <rule ref="category/java/bestpractices.xml"/>
+  <rule ref="category/java/bestpractices.xml">
+    <exclude name="JUnitAssertionsShouldIncludeMessage" />
+    <exclude name="JUnitTestContainsTooManyAsserts" />
+  </rule>
   <rule ref="category/java/security.xml"/>
   <rule ref="rulesets/java/basic.xml"/>
-  <rule ref="category/java/bestpractices.xml/JUnitTestContainsTooManyAsserts">
-    <properties>
-      <property name="maximumAsserts" value="10"/>
-    </properties>
-  </rule><!-- exclude on generated files -->
+  <!-- exclude on generated files -->
   <exclude-pattern>.*/src/generated/.*</exclude-pattern>
 </ruleset>

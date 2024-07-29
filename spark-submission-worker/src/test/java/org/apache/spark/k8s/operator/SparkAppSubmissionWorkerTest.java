@@ -20,6 +20,10 @@
 package org.apache.spark.k8s.operator;
 
 import static org.apache.spark.k8s.operator.SparkAppSubmissionWorker.DEFAULT_ID_LENGTH_LIMIT;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.when;
@@ -33,7 +37,6 @@ import java.util.Map;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import org.apache.commons.lang3.RandomStringUtils;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedConstruction;
 
@@ -73,31 +76,31 @@ class SparkAppSubmissionWorkerTest {
 
       SparkAppSubmissionWorker submissionWorker = new SparkAppSubmissionWorker();
       SparkAppDriverConf conf = submissionWorker.buildDriverConf(mockApp, overrides);
-      Assertions.assertEquals(6, constructorArgs.get(conf).size());
+      assertEquals(6, constructorArgs.get(conf).size());
 
       // validate SparkConf with override
-      Assertions.assertTrue(constructorArgs.get(conf).get(0) instanceof SparkConf);
+      assertTrue(constructorArgs.get(conf).get(0) instanceof SparkConf);
       SparkConf createdConf = (SparkConf) constructorArgs.get(conf).get(0);
-      Assertions.assertEquals("bar", createdConf.get("foo"));
-      Assertions.assertEquals("5", createdConf.get("spark.executor.instances"));
+      assertEquals("bar", createdConf.get("foo"));
+      assertEquals("5", createdConf.get("spark.executor.instances"));
 
-      Assertions.assertEquals(
+      assertEquals(
           "ns1",
           createdConf.get("spark.kubernetes.namespace"),
           "namespace from CR takes highest precedence");
 
       // validate main resources
-      Assertions.assertTrue(constructorArgs.get(conf).get(2) instanceof JavaMainAppResource);
+      assertTrue(constructorArgs.get(conf).get(2) instanceof JavaMainAppResource);
       JavaMainAppResource mainResource = (JavaMainAppResource) constructorArgs.get(conf).get(2);
-      Assertions.assertTrue(mainResource.primaryResource().isEmpty());
+      assertTrue(mainResource.primaryResource().isEmpty());
 
-      Assertions.assertEquals("foo-class", constructorArgs.get(conf).get(3));
+      assertEquals("foo-class", constructorArgs.get(conf).get(3));
 
-      Assertions.assertTrue(constructorArgs.get(conf).get(4) instanceof String[]);
+      assertTrue(constructorArgs.get(conf).get(4) instanceof String[]);
       String[] capturedArgs = (String[]) constructorArgs.get(conf).get(4);
-      Assertions.assertEquals(2, capturedArgs.length);
-      Assertions.assertEquals("a", capturedArgs[0]);
-      Assertions.assertEquals("b", capturedArgs[1]);
+      assertEquals(2, capturedArgs.length);
+      assertEquals("a", capturedArgs[0]);
+      assertEquals("b", capturedArgs[1]);
     }
   }
 
@@ -117,12 +120,12 @@ class SparkAppSubmissionWorkerTest {
 
       SparkAppSubmissionWorker submissionWorker = new SparkAppSubmissionWorker();
       SparkAppDriverConf conf = submissionWorker.buildDriverConf(mockApp, Collections.emptyMap());
-      Assertions.assertEquals(6, constructorArgs.get(conf).size());
+      assertEquals(6, constructorArgs.get(conf).size());
 
       // validate main resources
-      Assertions.assertTrue(constructorArgs.get(conf).get(2) instanceof PythonMainAppResource);
+      assertInstanceOf(PythonMainAppResource.class, constructorArgs.get(conf).get(2));
       PythonMainAppResource mainResource = (PythonMainAppResource) constructorArgs.get(conf).get(2);
-      Assertions.assertEquals("foo", mainResource.primaryResource());
+      assertEquals("foo", mainResource.primaryResource());
     }
   }
 
@@ -142,12 +145,12 @@ class SparkAppSubmissionWorkerTest {
 
       SparkAppSubmissionWorker submissionWorker = new SparkAppSubmissionWorker();
       SparkAppDriverConf conf = submissionWorker.buildDriverConf(mockApp, Collections.emptyMap());
-      Assertions.assertEquals(6, constructorArgs.get(conf).size());
+      assertEquals(6, constructorArgs.get(conf).size());
 
       // validate main resources
-      Assertions.assertTrue(constructorArgs.get(conf).get(2) instanceof RMainAppResource);
+      assertInstanceOf(RMainAppResource.class, constructorArgs.get(conf).get(2));
       RMainAppResource mainResource = (RMainAppResource) constructorArgs.get(conf).get(2);
-      Assertions.assertEquals("foo", mainResource.primaryResource());
+      assertEquals("foo", mainResource.primaryResource());
     }
   }
 
@@ -169,16 +172,16 @@ class SparkAppSubmissionWorkerTest {
     String appId1 = SparkAppSubmissionWorker.generateSparkAppId(mockApp1);
     String appId2 = SparkAppSubmissionWorker.generateSparkAppId(mockApp2);
 
-    Assertions.assertNotEquals(appId1, appId2);
-    Assertions.assertTrue(appId1.contains(appName1));
-    Assertions.assertTrue(appId1.length() <= DEFAULT_ID_LENGTH_LIMIT);
-    Assertions.assertTrue(appId2.length() <= DEFAULT_ID_LENGTH_LIMIT);
+    assertNotEquals(appId1, appId2);
+    assertTrue(appId1.contains(appName1));
+    assertTrue(appId1.length() <= DEFAULT_ID_LENGTH_LIMIT);
+    assertTrue(appId2.length() <= DEFAULT_ID_LENGTH_LIMIT);
     // multiple invoke shall give same result
-    Assertions.assertEquals(
+    assertEquals(
         appId1,
         SparkAppSubmissionWorker.generateSparkAppId(mockApp1),
         "Multiple invoke of generateSparkAppId shall give same result.");
-    Assertions.assertEquals(
+    assertEquals(
         appId2,
         SparkAppSubmissionWorker.generateSparkAppId(mockApp2),
         "Multiple invoke of generateSparkAppId shall give same result.");
@@ -191,16 +194,16 @@ class SparkAppSubmissionWorkerTest {
     when(mockStatus2.getCurrentAttemptSummary()).thenReturn(mockAttempt);
 
     String appId1Attempt2 = SparkAppSubmissionWorker.generateSparkAppId(mockApp1);
-    Assertions.assertTrue(appId1Attempt2.contains(appName1));
-    Assertions.assertNotEquals(appId1, appId1Attempt2);
-    Assertions.assertTrue(appId1Attempt2.length() <= DEFAULT_ID_LENGTH_LIMIT);
+    assertTrue(appId1Attempt2.contains(appName1));
+    assertNotEquals(appId1, appId1Attempt2);
+    assertTrue(appId1Attempt2.length() <= DEFAULT_ID_LENGTH_LIMIT);
 
     String appId2Attempt2 = SparkAppSubmissionWorker.generateSparkAppId(mockApp2);
-    Assertions.assertNotEquals(appId2, appId2Attempt2);
-    Assertions.assertEquals(appId2Attempt2, SparkAppSubmissionWorker.generateSparkAppId(mockApp2));
-    Assertions.assertTrue(appId2Attempt2.length() <= DEFAULT_ID_LENGTH_LIMIT);
+    assertNotEquals(appId2, appId2Attempt2);
+    assertEquals(appId2Attempt2, SparkAppSubmissionWorker.generateSparkAppId(mockApp2));
+    assertTrue(appId2Attempt2.length() <= DEFAULT_ID_LENGTH_LIMIT);
 
-    Assertions.assertEquals(appId1Attempt2, SparkAppSubmissionWorker.generateSparkAppId(mockApp1));
+    assertEquals(appId1Attempt2, SparkAppSubmissionWorker.generateSparkAppId(mockApp1));
   }
 
   @Test
@@ -213,6 +216,6 @@ class SparkAppSubmissionWorkerTest {
         new ObjectMetaBuilder().withName(appName).withNamespace(namespaceName).build();
     when(mockApp.getMetadata()).thenReturn(appMeta);
     String appId = SparkAppSubmissionWorker.generateSparkAppId(mockApp);
-    Assertions.assertTrue(appId.length() <= DEFAULT_ID_LENGTH_LIMIT);
+    assertTrue(appId.length() <= DEFAULT_ID_LENGTH_LIMIT);
   }
 }

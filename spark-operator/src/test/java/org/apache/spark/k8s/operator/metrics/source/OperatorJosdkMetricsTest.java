@@ -19,6 +19,9 @@
 
 package org.apache.spark.k8s.operator.metrics.source;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.util.Map;
 
 import com.codahale.metrics.Metric;
@@ -32,7 +35,6 @@ import io.javaoperatorsdk.operator.processing.event.Event;
 import io.javaoperatorsdk.operator.processing.event.ResourceID;
 import io.javaoperatorsdk.operator.processing.event.source.controller.ResourceAction;
 import io.javaoperatorsdk.operator.processing.event.source.controller.ResourceEvent;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -63,30 +65,26 @@ class OperatorJosdkMetricsTest {
     TestingExecutionBase<SparkApplication> successExecution = new TestingExecutionBase<>();
     operatorMetrics.timeControllerExecution(successExecution);
     Map<String, Metric> metrics = operatorMetrics.metricRegistry().getMetrics();
-    Assertions.assertEquals(4, metrics.size());
-    Assertions.assertTrue(metrics.containsKey("sparkapplication.test-controller.reconcile.both"));
-    Assertions.assertTrue(
-        metrics.containsKey("sparkapplication.testns.test-controller.reconcile.both"));
-    Assertions.assertTrue(
-        metrics.containsKey("sparkapplication.test-controller.reconcile.success.both"));
-    Assertions.assertTrue(
+    assertEquals(4, metrics.size());
+    assertTrue(metrics.containsKey("sparkapplication.test-controller.reconcile.both"));
+    assertTrue(metrics.containsKey("sparkapplication.testns.test-controller.reconcile.both"));
+    assertTrue(metrics.containsKey("sparkapplication.test-controller.reconcile.success.both"));
+    assertTrue(
         metrics.containsKey("sparkapplication.testns.test-controller.reconcile.success.both"));
 
     FooTestingExecutionBase<SparkApplication> failedExecution = new FooTestingExecutionBase<>();
     try {
       operatorMetrics.timeControllerExecution(failedExecution);
     } catch (Exception e) {
-      Assertions.assertEquals(e.getMessage(), "Foo exception");
-      Assertions.assertEquals(8, metrics.size());
-      Assertions.assertTrue(
-          metrics.containsKey("sparkapplication.test-controller.reconcile.failure"));
-      Assertions.assertTrue(
+      assertEquals(e.getMessage(), "Foo exception");
+      assertEquals(8, metrics.size());
+      assertTrue(metrics.containsKey("sparkapplication.test-controller.reconcile.failure"));
+      assertTrue(
           metrics.containsKey(
               "sparkapplication.test-controller.reconcile.failure.exception"
                   + ".nosuchfieldexception"));
-      Assertions.assertTrue(
-          metrics.containsKey("sparkapplication.testns.test-controller.reconcile.failure"));
-      Assertions.assertTrue(
+      assertTrue(metrics.containsKey("sparkapplication.testns.test-controller.reconcile.failure"));
+      assertTrue(
           metrics.containsKey(
               "sparkapplication.testns.test-controller.reconcile.failure."
                   + "exception.nosuchfieldexception"));
@@ -97,24 +95,22 @@ class OperatorJosdkMetricsTest {
   void testReconciliationFinished() {
     operatorMetrics.finishedReconciliation(buildNamespacedResource(), metadata);
     Map<String, Metric> metrics = operatorMetrics.metricRegistry().getMetrics();
-    Assertions.assertEquals(2, metrics.size());
-    Assertions.assertTrue(metrics.containsKey("configmap.default.reconciliation.finished"));
-    Assertions.assertTrue(metrics.containsKey("configmap.reconciliation.finished"));
+    assertEquals(2, metrics.size());
+    assertTrue(metrics.containsKey("configmap.default.reconciliation.finished"));
+    assertTrue(metrics.containsKey("configmap.reconciliation.finished"));
   }
 
   @Test
   void testReconciliationExecutionStartedAndFinished() {
     operatorMetrics.reconciliationExecutionStarted(buildNamespacedResource(), metadata);
     Map<String, Metric> metrics = operatorMetrics.metricRegistry().getMetrics();
-    Assertions.assertEquals(2, metrics.size());
-    Assertions.assertTrue(
-        metrics.containsKey("configmap.test-controller-name.reconciliations.executions"));
-    Assertions.assertTrue(
+    assertEquals(2, metrics.size());
+    assertTrue(metrics.containsKey("configmap.test-controller-name.reconciliations.executions"));
+    assertTrue(
         metrics.containsKey("configmap.default.test-controller-name.reconciliations.executions"));
     operatorMetrics.reconciliationExecutionFinished(buildNamespacedResource(), metadata);
-    Assertions.assertEquals(3, metrics.size());
-    Assertions.assertTrue(
-        metrics.containsKey("configmap.test-controller-name.reconciliations.queue.size"));
+    assertEquals(3, metrics.size());
+    assertTrue(metrics.containsKey("configmap.test-controller-name.reconciliations.queue.size"));
   }
 
   @Test
@@ -122,9 +118,9 @@ class OperatorJosdkMetricsTest {
     Event event = new ResourceEvent(ResourceAction.ADDED, resourceId, buildNamespacedResource());
     operatorMetrics.receivedEvent(event, metadata);
     Map<String, Metric> metrics = operatorMetrics.metricRegistry().getMetrics();
-    Assertions.assertEquals(2, metrics.size());
-    Assertions.assertTrue(metrics.containsKey("sparkapplication.added.resource.event"));
-    Assertions.assertTrue(metrics.containsKey("sparkapplication.testns.added.resource.event"));
+    assertEquals(2, metrics.size());
+    assertTrue(metrics.containsKey("sparkapplication.added.resource.event"));
+    assertTrue(metrics.containsKey("sparkapplication.testns.added.resource.event"));
   }
 
   private static class TestingExecutionBase<T> implements Metrics.ControllerExecution<T> {

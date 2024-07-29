@@ -19,11 +19,10 @@
 
 package org.apache.spark.k8s.operator.reconciler.reconcilesteps;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
 
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import org.apache.spark.k8s.operator.SparkApplication;
@@ -40,6 +39,6 @@ class AppCleanUpStepTest {
         .getApplicationTolerations()
         .getApplicationTimeoutConfig()
         .setForceTerminationGracePeriodMillis(3000L);
-    Assertions.assertTrue(appCleanUpStep.enableForceDelete(app));
+    assertTrue(appCleanUpStep.enableForceDelete(app));
   }
 }

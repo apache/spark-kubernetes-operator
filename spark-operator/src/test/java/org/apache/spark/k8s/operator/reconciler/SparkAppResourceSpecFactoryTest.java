@@ -19,6 +19,8 @@
 
 package org.apache.spark.k8s.operator.reconciler;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -31,7 +33,6 @@ import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -58,15 +59,15 @@ class SparkAppResourceSpecFactoryTest {
         SparkAppResourceSpecFactory.buildResourceSpec(app, mockClient, mockWorker);
     verify(mockWorker).getResourceSpec(eq(app), eq(mockClient), any());
     Map<String, String> props = captor.getValue();
-    Assertions.assertTrue(props.containsKey("spark.kubernetes.namespace"));
-    Assertions.assertEquals("foo", props.get("spark.kubernetes.namespace"));
+    assertTrue(props.containsKey("spark.kubernetes.namespace"));
+    assertEquals("foo", props.get("spark.kubernetes.namespace"));
     ArgumentCaptor<ObjectMeta> metaArgumentCaptor = ArgumentCaptor.forClass(ObjectMeta.class);
     verify(mockDriver).setMetadata(metaArgumentCaptor.capture());
-    Assertions.assertEquals(mockSpec, spec);
+    assertEquals(mockSpec, spec);
     ObjectMeta metaOverride = metaArgumentCaptor.getValue();
-    Assertions.assertEquals(1, metaOverride.getOwnerReferences().size());
-    Assertions.assertEquals("bar-app", metaOverride.getOwnerReferences().get(0).getName());
-    Assertions.assertEquals("uid", metaOverride.getOwnerReferences().get(0).getUid());
-    Assertions.assertEquals(app.getKind(), metaOverride.getOwnerReferences().get(0).getKind());
+    assertEquals(1, metaOverride.getOwnerReferences().size());
+    assertEquals("bar-app", metaOverride.getOwnerReferences().get(0).getName());
+    assertEquals("uid", metaOverride.getOwnerReferences().get(0).getUid());
+    assertEquals(app.getKind(), metaOverride.getOwnerReferences().get(0).getKind());
   }
 }

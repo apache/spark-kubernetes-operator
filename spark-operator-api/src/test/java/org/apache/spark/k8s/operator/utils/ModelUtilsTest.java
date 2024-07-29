@@ -19,6 +19,9 @@
 
 package org.apache.spark.k8s.operator.utils;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -97,28 +100,28 @@ class ModelUtilsTest {
   @Test
   void testOverrideDriverTemplateEnabled() {
     ApplicationSpec applicationSpec = new ApplicationSpec();
-    Assertions.assertFalse(ModelUtils.overrideDriverTemplateEnabled(applicationSpec));
+    assertFalse(ModelUtils.overrideDriverTemplateEnabled(applicationSpec));
 
     BaseApplicationTemplateSpec driverSpec = new BaseApplicationTemplateSpec();
     applicationSpec.setDriverSpec(driverSpec);
-    Assertions.assertFalse(ModelUtils.overrideDriverTemplateEnabled(applicationSpec));
+    assertFalse(ModelUtils.overrideDriverTemplateEnabled(applicationSpec));
 
     driverSpec.setPodTemplateSpec(buildSamplePodTemplateSpec());
     applicationSpec.setDriverSpec(driverSpec);
-    Assertions.assertTrue(ModelUtils.overrideDriverTemplateEnabled(applicationSpec));
+    assertTrue(ModelUtils.overrideDriverTemplateEnabled(applicationSpec));
   }
 
   @Test
   void testOverrideExecutorTemplateEnabled() {
     ApplicationSpec applicationSpec = new ApplicationSpec();
-    Assertions.assertFalse(ModelUtils.overrideDriverTemplateEnabled(applicationSpec));
+    assertFalse(ModelUtils.overrideDriverTemplateEnabled(applicationSpec));
 
     BaseApplicationTemplateSpec executorSpec = new BaseApplicationTemplateSpec();
     applicationSpec.setExecutorSpec(executorSpec);
-    Assertions.assertFalse(ModelUtils.overrideDriverTemplateEnabled(applicationSpec));
+    assertFalse(ModelUtils.overrideDriverTemplateEnabled(applicationSpec));
 
     executorSpec.setPodTemplateSpec(buildSamplePodTemplateSpec());
     applicationSpec.setDriverSpec(executorSpec);
-    Assertions.assertTrue(ModelUtils.overrideDriverTemplateEnabled(applicationSpec));
+    assertTrue(ModelUtils.overrideDriverTemplateEnabled(applicationSpec));
   }
 }

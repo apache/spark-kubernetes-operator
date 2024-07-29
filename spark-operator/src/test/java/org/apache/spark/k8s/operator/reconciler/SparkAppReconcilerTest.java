@@ -19,6 +19,9 @@
 
 package org.apache.spark.k8s.operator.reconciler;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
@@ -33,7 +36,6 @@ import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
 import io.javaoperatorsdk.operator.api.reconciler.DeleteControl;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedConstruction;
@@ -102,15 +104,15 @@ class SparkAppReconcilerTest {
           app.getStatus()
               .appendNewState(new ApplicationState(ApplicationStateSummary.RunningHealthy, "")));
       DeleteControl deleteControl = reconciler.cleanup(app, mockContext);
-      Assertions.assertFalse(deleteControl.isRemoveFinalizer());
+      assertFalse(deleteControl.isRemoveFinalizer());
       utils.verify(() -> ReconcilerUtils.deleteResourceIfExists(mockClient, mockDriver, false));
-      Assertions.assertEquals(
+      assertEquals(
           ApplicationStateSummary.ResourceReleased,
           app.getStatus().getCurrentState().getCurrentStateSummary());
 
       // proceed delete for terminated app
       deleteControl = reconciler.cleanup(app, mockContext);
-      Assertions.assertTrue(deleteControl.isRemoveFinalizer());
+      assertTrue(deleteControl.isRemoveFinalizer());
     }
   }
 }
