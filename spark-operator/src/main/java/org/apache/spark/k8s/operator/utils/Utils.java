@@ -25,10 +25,12 @@ import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_ROLE_DRIVER_VA
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_ROLE_EXECUTOR_VALUE;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.OPERATOR_APP_NAME;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.OPERATOR_WATCHED_NAMESPACES;
+import static org.apache.spark.k8s.operator.config.SparkOperatorConf.SPARK_APP_STATUS_LISTENER_CLASS_NAMES;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -37,6 +39,7 @@ import org.apache.commons.lang3.StringUtils;
 
 import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.SparkApplication;
+import org.apache.spark.k8s.operator.listeners.SparkAppStatusListener;
 
 public class Utils {
   public static Set<String> sanitizeCommaSeparatedStrAsSet(String str) {
@@ -100,6 +103,11 @@ public class Utils {
 
   public static Set<String> getWatchedNamespaces() {
     return Utils.sanitizeCommaSeparatedStrAsSet(OPERATOR_WATCHED_NAMESPACES.getValue());
+  }
+
+  public static List<SparkAppStatusListener> getAppStatusListener() {
+    return ClassLoadingUtils.getStatusListener(
+        SparkAppStatusListener.class, SPARK_APP_STATUS_LISTENER_CLASS_NAMES.getValue());
   }
 
   /**
