@@ -52,6 +52,7 @@ dependencies {
   testImplementation("com.squareup.okhttp3:mockwebserver:$okHttpVersion")
   testImplementation platform("org.junit:junit-bom:$junitVersion")
   testImplementation("org.junit.jupiter:junit-jupiter:$junitVersion")
+  testImplementation("org.powermock:powermock-core:$powerMockVersion")
   testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
   testImplementation("org.mockito:mockito-core:$mockitoVersion")
