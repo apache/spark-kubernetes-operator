@@ -127,6 +127,10 @@ public class SparkOperator {
       log.info("No watched namespace change detected");
       return false;
     }
+    if (watchedNamespaces.isEmpty()) {
+      log.info("Cannot update watch namespaces for operator started at cluster level.");
+      return false;
+    }
     if (namespaces == null || namespaces.isEmpty()) {
       log.error("Cannot updating namespaces to empty");
       return false;
@@ -201,6 +205,11 @@ public class SparkOperator {
     return clientInterceptors;
   }
 
+  /**
+   * Bootstrap Spark Operator
+   *
+   * @param args not used - operator behavior are configured from SparkOperatorConf
+   */
   public static void main(String[] args) {
     SparkOperator sparkOperator = new SparkOperator();
     for (Operator operator : sparkOperator.registeredOperators) {

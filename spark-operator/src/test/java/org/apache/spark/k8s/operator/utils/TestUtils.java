@@ -26,9 +26,11 @@ import java.io.File;
 import java.util.Map;
 
 import io.fabric8.kubernetes.api.model.ObjectMeta;
+import org.powermock.reflect.Whitebox;
 
 import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.SparkApplication;
+import org.apache.spark.k8s.operator.config.ConfigOption;
 
 public class TestUtils {
   public static SparkApplication createMockApp(String namespace) {
@@ -59,5 +61,11 @@ public class TestUtils {
 
   public static long calculateElapsedTimeInMills(long startTime) {
     return System.currentTimeMillis() - startTime;
+  }
+
+  public static <T> T setConfigKey(ConfigOption<T> configKey, T newValue) {
+    T originalPropertyValue = configKey.getValue();
+    Whitebox.setInternalState(configKey, "defaultValue", newValue);
+    return originalPropertyValue;
   }
 }
