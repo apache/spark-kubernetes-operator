@@ -42,5 +42,5 @@ RUN chown -R spark:spark $SPARK_OPERATOR_HOME && \
     chown spark:spark docker-entrypoint.sh
 
 USER spark
-ENTRYPOINT ["/docker-entrypoint.sh"]
+ENTRYPOINT ["/opt/spark-operator/operator/docker-entrypoint.sh"]
 CMD ["help"]
