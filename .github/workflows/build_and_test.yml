@@ -43,3 +43,12 @@ jobs:
       - name: Build with Gradle
         run: |
           set -o pipefail; ./gradlew build; set +o pipefail
+  build-image:
+    name: "Build Operator Image CI"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Build Operator Image
+        run: |
+          set -o pipefail; docker build --build-arg APP_VERSION=0.1.0 -t spark-kubernetes-operator:0.1.0 -f build-tools/docker/Dockerfile . ; set +o pipefail
