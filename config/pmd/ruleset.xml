@@ -19,14 +19,73 @@
 
 <ruleset name="pmd ruleset">
   <description>
-    Spark Operator Ruleset
+    Apache Spark Operator Ruleset
   </description>
   <rule ref="category/java/bestpractices.xml">
     <exclude name="JUnitAssertionsShouldIncludeMessage" />
     <exclude name="JUnitTestContainsTooManyAsserts" />
   </rule>
+  <rule ref="category/java/codestyle.xml">
+    <exclude name="AtLeastOneConstructor" />
+    <exclude name="CommentDefaultAccessModifier" />
+    <exclude name="ConfusingTernary" />
+    <exclude name="FieldDeclarationsShouldBeAtStartOfClass" />
+    <exclude name="FieldNamingConventions" />
+    <exclude name="GenericsNaming" />
+    <exclude name="LinguisticNaming" />
+    <exclude name="LocalVariableCouldBeFinal" />
+    <exclude name="LongVariable" />
+    <exclude name="MethodArgumentCouldBeFinal" />
+    <exclude name="OnlyOneReturn" />
+    <exclude name="PrematureDeclaration" />
+    <exclude name="ShortVariable" />
+    <exclude name="TooManyStaticImports" />
+    <exclude name="UseUnderscoresInNumericLiterals" />
+    <exclude name="UselessParentheses" />
+  </rule>
+  <rule ref="category/java/design.xml">
+    <exclude name="AbstractClassWithoutAnyMethod" />
+    <exclude name="AvoidCatchingGenericException" />
+    <exclude name="AvoidThrowingRawExceptionTypes" />
+    <exclude name="ClassWithOnlyPrivateConstructorsShouldBeFinal" />
+    <exclude name="CognitiveComplexity" />
+    <exclude name="CyclomaticComplexity" />
+    <exclude name="ExcessiveImports" />
+    <exclude name="ImmutableField" />
+    <exclude name="LawOfDemeter" />
+    <exclude name="NPathComplexity" />
+    <exclude name="SignatureDeclareThrowsException" />
+    <exclude name="TooManyMethods" />
+    <exclude name="UseUtilityClass" />
+  </rule>
+  <rule ref="category/java/documentation.xml">
+    <exclude name="CommentRequired" />
+    <exclude name="CommentSize" />
+  </rule>
+  <rule ref="category/java/errorprone.xml">
+    <exclude name="AssignmentInOperand" />
+    <exclude name="AvoidCatchingThrowable" />
+    <exclude name="AvoidDuplicateLiterals" />
+    <exclude name="AvoidFieldNameMatchingMethodName" />
+    <exclude name="AvoidLiteralsInIfCondition" />
+    <exclude name="CloseResource" />
+    <exclude name="ConstructorCallsOverridableMethod" />
+    <exclude name="MissingSerialVersionUID" />
+    <exclude name="NullAssignment" />
+    <exclude name="TestClassWithoutTestCases" />
+    <exclude name="UseLocaleWithCaseConversions" />
+    <exclude name="UseProperClassLoader" />
+  </rule>
+  <rule ref="category/java/multithreading.xml">
+    <exclude name="DoNotUseThreads" />
+    <exclude name="UseConcurrentHashMap" />
+  </rule>
+  <rule ref="category/java/performance.xml">
+    <exclude name="AvoidFileStream" />
+    <exclude name="AvoidInstantiatingObjectsInLoops" />
+    <exclude name="RedundantFieldInitializer" />
+  </rule>
   <rule ref="category/java/security.xml"/>
-  <rule ref="rulesets/java/basic.xml"/>
   <!-- exclude on generated files -->
   <exclude-pattern>.*/src/generated/.*</exclude-pattern>
 </ruleset>
