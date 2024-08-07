@@ -30,16 +30,13 @@ ENV APP_VERSION=$APP_VERSION
 ENV OPERATOR_JAR=spark-kubernetes-operator-$APP_VERSION-all.jar
 
 WORKDIR $SPARK_OPERATOR_WORK_DIR
-
 RUN groupadd --system --gid=$SPARK_UID spark && \
-    useradd --system --home-dir $SPARK_OPERATOR_HOME --uid=$SPARK_UID --gid=spark spark
+    useradd --system --home-dir $SPARK_OPERATOR_HOME --uid=$SPARK_UID --gid=spark spark && \
+    chown -R spark:spark $SPARK_OPERATOR_HOME
 
-COPY --from=builder /app/spark-operator/build/libs/$OPERATOR_JAR .
-COPY --from=builder /app/build-tools/docker/docker-entrypoint.sh .
+COPY --from=builder --chown=spark:spark /app/spark-operator/build/libs/$OPERATOR_JAR .
+COPY --from=builder --chown=spark:spark /app/build-tools/docker/docker-entrypoint.sh .
 
-RUN chown -R spark:spark $SPARK_OPERATOR_HOME && \
-    chown spark:spark $OPERATOR_JAR && \
-    chown spark:spark docker-entrypoint.sh
 
 USER spark
 ENTRYPOINT ["/opt/spark-operator/operator/docker-entrypoint.sh"]
