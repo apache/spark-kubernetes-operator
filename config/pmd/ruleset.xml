@@ -19,7 +19,7 @@
 
 <ruleset name="pmd ruleset">
   <description>
-    Apache Spark Operator Ruleset
+    Apache Spark Kubernetes Operator Ruleset
   </description>
   <rule ref="category/java/bestpractices.xml">
     <exclude name="JUnitAssertionsShouldIncludeMessage" />
