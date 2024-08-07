@@ -51,4 +51,5 @@ jobs:
         uses: actions/checkout@v4
       - name: Build Operator Image
         run: |
-          set -o pipefail; docker build --build-arg APP_VERSION=0.1.0 -t spark-kubernetes-operator:0.1.0 -f build-tools/docker/Dockerfile . ; set +o pipefail
+          docker build --build-arg APP_VERSION=0.1.0 -t spark-kubernetes-operator:0.1.0 -f build-tools/docker/Dockerfile .
+          docker run spark-kubernetes-operator:0.1.0
