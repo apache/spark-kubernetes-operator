@@ -91,13 +91,13 @@ public class MetricsSystemFactory {
         String errorMessage =
             String.format(
                 "%s provides properties, but does not provide full class name", pair.getKey());
-        throw new RuntimeException(errorMessage);
+        throw new IllegalStateException(errorMessage);
       }
       // Check the existence of each class full name
       try {
         Class.forName(pair.getValue().getClassName());
       } catch (ClassNotFoundException e) {
-        throw new RuntimeException(
+        throw new IllegalStateException(
             String.format("Fail to find class %s", pair.getValue().getClassName()), e);
       }
     }

@@ -39,7 +39,7 @@ public class MetricsService {
     try {
       server = HttpServer.create(new InetSocketAddress(OPERATOR_METRICS_PORT.getValue()), 0);
     } catch (IOException e) {
-      throw new RuntimeException("Failed to create Metrics Server", e);
+      throw new IllegalStateException("Failed to create Metrics Server", e);
     }
     server.setExecutor(executor);
   }

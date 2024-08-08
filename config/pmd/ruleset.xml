@@ -45,14 +45,12 @@
   <rule ref="category/java/design.xml">
     <exclude name="AbstractClassWithoutAnyMethod" />
     <exclude name="AvoidCatchingGenericException" />
-    <exclude name="AvoidThrowingRawExceptionTypes" />
     <exclude name="ClassWithOnlyPrivateConstructorsShouldBeFinal" />
     <exclude name="CognitiveComplexity" />
     <exclude name="CyclomaticComplexity" />
     <exclude name="ExcessiveImports" />
     <exclude name="LawOfDemeter" />
     <exclude name="NPathComplexity" />
-    <exclude name="SignatureDeclareThrowsException" />
     <exclude name="TooManyMethods" />
     <exclude name="UseUtilityClass" />
   </rule>

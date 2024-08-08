@@ -45,7 +45,7 @@ public class ProbeService {
     try {
       this.server = HttpServer.create(new InetSocketAddress(OPERATOR_PROBE_PORT.getValue()), 0);
     } catch (IOException e) {
-      throw new RuntimeException("Failed to create Probe Service Server", e);
+      throw new IllegalStateException("Failed to create Probe Service Server", e);
     }
     server.createContext(READYZ, new ReadinessProbe(operators));
     server.createContext(HEALTHZ, healthProbe);

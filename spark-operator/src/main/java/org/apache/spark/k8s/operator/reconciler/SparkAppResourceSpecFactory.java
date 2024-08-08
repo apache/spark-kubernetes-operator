@@ -169,7 +169,7 @@ public class SparkAppResourceSpecFactory {
       }
       return path;
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      throw new IllegalStateException(e);
     }
   }
 }

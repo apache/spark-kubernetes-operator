@@ -118,7 +118,7 @@ public class MetricsSystem {
                       sinkProp.getClassName(),
                       sinkProp.getProperties());
                 }
-                throw new RuntimeException("Fail to create metrics sink", e);
+                throw new IllegalStateException("Fail to create metrics sink", e);
               }
             });
   }

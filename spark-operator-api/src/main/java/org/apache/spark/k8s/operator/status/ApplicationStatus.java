@@ -83,7 +83,7 @@ public class ApplicationStatus
       boolean trimStateTransitionHistory) {
     if (!currentState.currentStateSummary.isStopping()) {
       // application is not stopping, skip
-      throw new RuntimeException(
+      throw new IllegalStateException(
           "Spark application cannot be directly terminated unless in stopping "
               + "state, current state is: "
               + currentState);
