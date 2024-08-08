@@ -57,9 +57,9 @@ class HealthProbeTest {
   private KubernetesClient kubernetesClient;
   private AtomicBoolean isRunning;
   private AtomicBoolean isRunning2;
-  private Map<String, Map<String, InformerWrappingEventSourceHealthIndicator>>
+  private final Map<String, Map<String, InformerWrappingEventSourceHealthIndicator>>
       unhealthyEventSources = new HashMap<>();
-  private Map<String, Map<String, InformerWrappingEventSourceHealthIndicator>>
+  private final Map<String, Map<String, InformerWrappingEventSourceHealthIndicator>>
       unhealthyEventSources2 = new HashMap<>();
 
   @BeforeAll
