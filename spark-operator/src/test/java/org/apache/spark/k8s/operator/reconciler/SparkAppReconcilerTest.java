@@ -53,12 +53,12 @@ import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 
 class SparkAppReconcilerTest {
-  private SparkAppStatusRecorder mockRecorder = mock(SparkAppStatusRecorder.class);
-  private SentinelManager<SparkApplication> mockSentinelManager = mock(SentinelManager.class);
-  private KubernetesClient mockClient = mock(KubernetesClient.class);
-  private Context<SparkApplication> mockContext = mock(Context.class);
-  private Pod mockDriver = mock(Pod.class);
-  private SparkAppSubmissionWorker mockWorker = mock(SparkAppSubmissionWorker.class);
+  private final SparkAppStatusRecorder mockRecorder = mock(SparkAppStatusRecorder.class);
+  private final SentinelManager<SparkApplication> mockSentinelManager = mock(SentinelManager.class);
+  private final KubernetesClient mockClient = mock(KubernetesClient.class);
+  private final Context<SparkApplication> mockContext = mock(Context.class);
+  private final Pod mockDriver = mock(Pod.class);
+  private final SparkAppSubmissionWorker mockWorker = mock(SparkAppSubmissionWorker.class);
   SparkApplication app = new SparkApplication();
   SparkAppReconciler reconciler =
       new SparkAppReconciler(mockWorker, mockRecorder, mockSentinelManager);
