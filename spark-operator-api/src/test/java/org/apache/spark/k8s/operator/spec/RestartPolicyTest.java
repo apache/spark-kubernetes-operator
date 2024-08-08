@@ -19,6 +19,8 @@
 
 package org.apache.spark.k8s.operator.spec;
 
+import static org.apache.spark.k8s.operator.spec.RestartPolicy.Always;
+import static org.apache.spark.k8s.operator.spec.RestartPolicy.Never;
 import static org.apache.spark.k8s.operator.spec.RestartPolicy.OnFailure;
 import static org.apache.spark.k8s.operator.spec.RestartPolicy.OnInfrastructureFailure;
 import static org.apache.spark.k8s.operator.spec.RestartPolicy.attemptRestartOnState;
@@ -27,6 +29,7 @@ import static org.apache.spark.k8s.operator.status.ApplicationStateSummary.Drive
 import static org.apache.spark.k8s.operator.status.ApplicationStateSummary.DriverStartTimedOut;
 import static org.apache.spark.k8s.operator.status.ApplicationStateSummary.ExecutorsStartTimedOut;
 import static org.apache.spark.k8s.operator.status.ApplicationStateSummary.Failed;
+import static org.apache.spark.k8s.operator.status.ApplicationStateSummary.SchedulingFailure;
 import static org.apache.spark.k8s.operator.status.ApplicationStateSummary.Succeeded;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -40,8 +43,8 @@ class RestartPolicyTest {
   @Test
   void testAttemptRestartOnState() {
     for (ApplicationStateSummary stateSummary : ApplicationStateSummary.values()) {
-      assertTrue(attemptRestartOnState(RestartPolicy.Always, stateSummary));
-      assertFalse(attemptRestartOnState(RestartPolicy.Never, stateSummary));
+      assertTrue(attemptRestartOnState(Always, stateSummary));
+      assertFalse(attemptRestartOnState(Never, stateSummary));
       if (!stateSummary.isStopping()) {
         assertFalse(attemptRestartOnState(OnFailure, stateSummary));
         assertFalse(attemptRestartOnState(OnInfrastructureFailure, stateSummary));
@@ -59,5 +62,6 @@ class RestartPolicyTest {
     assertFalse(attemptRestartOnState(OnInfrastructureFailure, DriverEvicted));
     assertTrue(attemptRestartOnState(OnFailure, ExecutorsStartTimedOut));
     assertTrue(attemptRestartOnState(OnInfrastructureFailure, ExecutorsStartTimedOut));
+    assertTrue(attemptRestartOnState(OnInfrastructureFailure, SchedulingFailure));
   }
 }
