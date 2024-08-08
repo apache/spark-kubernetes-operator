@@ -1,0 +1,68 @@
+name: Spark Operator E2E Test Suites
+run-name: ${{ github.actor }} is testing out Spark Operator E2E Suites
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  e2e-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        kubernetes_versions:
+          - "1.23.0"
+          - "1.31.0"
+        test_group:
+          - spark-versions
+          - python
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      - name: Set Up Minikube
+        uses: medyagh/setup-minikube@v0.0.18
+        with:
+          cache: true
+          kubernetes-version: ${{ matrix.kube-version }}
+      - name: Set Up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: 21
+          distribution: 'adopt'
+          cache: 'gradle'
+      - name: Set Up Helm
+        uses: azure/setup-helm@v4.2.0
+        with:
+          version: latest
+          cache: true
+      - name: Set Up Go
+        uses: actions/setup-go@v5
+      - name: Set Up Chainsaw
+        run: |
+          go install github.com/kyverno/chainsaw@latest
+      - name: Login To Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Install Spark Operator
+        run: |
+          # Use local docker build image
+          eval $(minikube docker-env)
+          docker build --build-arg APP_VERSION=0.1.0 -t spark-kubernetes-operator:0.1.0 -f build-tools/docker/Dockerfile .
+          ./gradlew spark-operator-api:relocateGeneratedCRD
+          helm install spark-kubernetes-operator --create-namespace -f build-tools/helm/spark-kubernetes-operator/values.yaml build-tools/helm/spark-kubernetes-operator/
+          sleep 60
+          # Use remote host' s docker image
+          minikube docker-env --unset
+      - name: Run E2E Test
+        run: |
+          chainsaw test --test-dir ./tests/e2e/${{ matrix.test_group }} --parallel 2
