@@ -41,7 +41,10 @@ import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.listeners.SparkAppStatusListener;
 
-public class Utils {
+public final class Utils {
+
+  private Utils() {}
+
   public static Set<String> sanitizeCommaSeparatedStrAsSet(String str) {
     if (StringUtils.isBlank(str)) {
       return Collections.emptySet();

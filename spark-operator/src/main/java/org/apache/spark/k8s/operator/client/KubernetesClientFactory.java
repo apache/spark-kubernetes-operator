@@ -28,7 +28,10 @@ import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 
 /** Build Kubernetes Client with metrics configured */
-public class KubernetesClientFactory {
+public final class KubernetesClientFactory {
+
+  private KubernetesClientFactory() {}
+
   public static KubernetesClient buildKubernetesClient(final List<Interceptor> interceptors) {
     return buildKubernetesClient(interceptors, null);
   }

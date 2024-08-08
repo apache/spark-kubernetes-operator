@@ -39,8 +39,11 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 
-public class ModelUtils {
+public final class ModelUtils {
+
   public static final ObjectMapper objectMapper = new ObjectMapper();
+
+  private ModelUtils() {}
 
   public static Pod getPodFromTemplateSpec(PodTemplateSpec podTemplateSpec) {
     if (podTemplateSpec == null) {

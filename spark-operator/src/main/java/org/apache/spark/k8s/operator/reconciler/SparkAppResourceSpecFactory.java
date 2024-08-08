@@ -45,7 +45,10 @@ import org.apache.spark.k8s.operator.decorators.DriverDecorator;
 import org.apache.spark.k8s.operator.utils.ModelUtils;
 
 @Slf4j
-public class SparkAppResourceSpecFactory {
+public final class SparkAppResourceSpecFactory {
+
+  private SparkAppResourceSpecFactory() {}
+
   public static SparkAppResourceSpec buildResourceSpec(
       final SparkApplication app,
       final KubernetesClient client,

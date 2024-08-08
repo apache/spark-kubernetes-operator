@@ -44,7 +44,10 @@ import org.apache.spark.k8s.operator.BaseResource;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 
 @Slf4j
-public class ReconcilerUtils {
+public final class ReconcilerUtils {
+
+  private ReconcilerUtils() {}
+
   public static <S, T, O extends BaseResource<?, ?, ?, ?, ?>> UpdateControl<O> toUpdateControl(
       O resource, ReconcileProgress reconcileProgress) {
     // reconciler already handled resource and status update, skip update at lower level
