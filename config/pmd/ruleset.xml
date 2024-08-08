@@ -41,7 +41,6 @@
     <exclude name="ShortVariable" />
     <exclude name="TooManyStaticImports" />
     <exclude name="UseUnderscoresInNumericLiterals" />
-    <exclude name="UselessParentheses" />
   </rule>
   <rule ref="category/java/design.xml">
     <exclude name="AbstractClassWithoutAnyMethod" />

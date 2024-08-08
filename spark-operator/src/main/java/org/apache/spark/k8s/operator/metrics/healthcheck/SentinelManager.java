@@ -72,7 +72,7 @@ public class SentinelManager<CR extends BaseResource<?, ?, ?, ?, ?>> {
   }
 
   private static boolean shouldSentinelWatchGivenNamespace(String namespace) {
-    if ((!Utils.getWatchedNamespaces().isEmpty())
+    if (!Utils.getWatchedNamespaces().isEmpty()
         && !Utils.getWatchedNamespaces().contains(namespace)) {
       if (log.isErrorEnabled()) {
         log.error("Skip watching sentinel resource in namespace {}", namespace);

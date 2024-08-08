@@ -95,8 +95,8 @@ public class ApplicationStatus
       ApplicationState state =
           new ApplicationState(ApplicationStateSummary.ResourceReleased, stateMessageOverride);
       if (ResourceRetainPolicy.Always.equals(resourceRetainPolicy)
-          || (ResourceRetainPolicy.OnFailure.equals(resourceRetainPolicy)
-              && currentState.currentStateSummary.isFailure())) {
+          || ResourceRetainPolicy.OnFailure.equals(resourceRetainPolicy)
+              && currentState.currentStateSummary.isFailure()) {
         state = terminateAppWithoutReleaseResource(stateMessageOverride);
       }
       return new ApplicationStatus(
@@ -116,8 +116,8 @@ public class ApplicationStatus
       ApplicationState state =
           new ApplicationState(ApplicationStateSummary.ResourceReleased, stateMessage);
       if (ResourceRetainPolicy.Always.equals(resourceRetainPolicy)
-          || (ResourceRetainPolicy.OnFailure.equals(resourceRetainPolicy)
-              && currentState.currentStateSummary.isFailure())) {
+          || ResourceRetainPolicy.OnFailure.equals(resourceRetainPolicy)
+              && currentState.currentStateSummary.isFailure()) {
         state = terminateAppWithoutReleaseResource(stateMessage);
       }
       // still use previous & current attempt summary - they are to be updated only upon

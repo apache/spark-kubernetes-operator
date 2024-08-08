@@ -49,7 +49,7 @@ public class AppRunningStep extends AppReconcileStep {
     String stateMessage = context.getResource().getStatus().getCurrentState().getMessage();
     if (instanceConfig == null
         || instanceConfig.getInitExecutors() == 0L
-        || (!prevStateSummary.isStarting() && instanceConfig.getMinExecutors() == 0L)) {
+        || !prevStateSummary.isStarting() && instanceConfig.getMinExecutors() == 0L) {
       proposedStateSummary = ApplicationStateSummary.RunningHealthy;
       stateMessage = Constants.RUNNING_HEALTHY_MESSAGE;
     } else {
