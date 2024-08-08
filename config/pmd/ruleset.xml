@@ -28,7 +28,6 @@
   <rule ref="category/java/codestyle.xml">
     <exclude name="AtLeastOneConstructor" />
     <exclude name="CommentDefaultAccessModifier" />
-    <exclude name="ConfusingTernary" />
     <exclude name="FieldDeclarationsShouldBeAtStartOfClass" />
     <exclude name="FieldNamingConventions" />
     <exclude name="GenericsNaming" />
@@ -37,7 +36,6 @@
     <exclude name="LongVariable" />
     <exclude name="MethodArgumentCouldBeFinal" />
     <exclude name="OnlyOneReturn" />
-    <exclude name="PrematureDeclaration" />
     <exclude name="ShortVariable" />
     <exclude name="TooManyStaticImports" />
     <exclude name="UseUnderscoresInNumericLiterals" />

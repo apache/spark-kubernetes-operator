@@ -76,7 +76,10 @@ public class AppRunningStep extends AppReconcileStep {
         }
       }
     }
-    if (!proposedStateSummary.equals(prevStateSummary)) {
+    if (proposedStateSummary.equals(prevStateSummary)) {
+      return observeDriver(
+          context, statusRecorder, Collections.singletonList(new AppDriverRunningObserver()));
+    } else {
       statusRecorder.persistStatus(
           context,
           context
@@ -84,9 +87,6 @@ public class AppRunningStep extends AppReconcileStep {
               .getStatus()
               .appendNewState(new ApplicationState(proposedStateSummary, stateMessage)));
       return completeAndDefaultRequeue();
-    } else {
-      return observeDriver(
-          context, statusRecorder, Collections.singletonList(new AppDriverRunningObserver()));
     }
   }
 }

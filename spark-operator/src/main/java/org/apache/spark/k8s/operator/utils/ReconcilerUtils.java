@@ -87,9 +87,7 @@ public class ReconcilerUtils {
                 maxAttempts);
           }
           // retry only on 409 Conflict
-          if (e.getCode() != 409) {
-            throw e;
-          } else {
+          if (e.getCode() == 409) {
             if (isConflictForExistingResource(e)) {
               current = getResource(client, resource);
               if (current.isPresent()) {
@@ -100,6 +98,8 @@ public class ReconcilerUtils {
               log.error("Max Retries exceeded while trying to create resource");
               throw e;
             }
+          } else {
+            throw e;
           }
         }
       }
@@ -147,10 +147,10 @@ public class ReconcilerUtils {
             .delete();
       }
     } catch (KubernetesClientException e) {
-      if (e.getCode() != 404) {
-        throw e;
-      } else {
+      if (e.getCode() == 404) {
         log.info("Pod to delete does not exist, proceeding...");
+      } else {
+        throw e;
       }
     }
   }

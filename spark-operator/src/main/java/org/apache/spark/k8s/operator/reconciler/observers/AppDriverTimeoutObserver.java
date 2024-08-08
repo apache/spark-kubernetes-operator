@@ -58,8 +58,6 @@ public class AppDriverTimeoutObserver extends BaseAppDriverObserver {
   @Override
   public Optional<ApplicationState> observe(
       Pod driver, ApplicationSpec spec, ApplicationStatus currentStatus) {
-    Instant lastTransitionTime =
-        Instant.parse(currentStatus.getCurrentState().getLastTransitionTime());
     long timeoutThreshold;
     Supplier<ApplicationState> supplier;
     ApplicationTimeoutConfig timeoutConfig =
@@ -82,6 +80,8 @@ public class AppDriverTimeoutObserver extends BaseAppDriverObserver {
         // No timeout check needed for other states
         return Optional.empty();
     }
+    Instant lastTransitionTime =
+        Instant.parse(currentStatus.getCurrentState().getLastTransitionTime());
     if (timeoutThreshold > 0L
         && lastTransitionTime.plusMillis(timeoutThreshold).isBefore(Instant.now())) {
       ApplicationState state = supplier.get();
