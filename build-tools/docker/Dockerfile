@@ -23,6 +23,10 @@ RUN ./gradlew clean build -x test
 FROM azul/zulu-openjdk:21
 ARG APP_VERSION
 ARG SPARK_UID=185
+LABEL org.opencontainers.image.authors="Apache Spark project <dev@spark.apache.org>"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
+LABEL org.opencontainers.image.ref.name="Apache Spark Kubernetes Operator"
+LABEL org.opencontainers.image.version="${APP_VERSION}"
 
 ENV SPARK_OPERATOR_HOME=/opt/spark-operator
 ENV SPARK_OPERATOR_WORK_DIR=/opt/spark-operator/operator
