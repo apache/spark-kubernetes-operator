@@ -271,11 +271,11 @@ public class OperatorJosdkMetrics implements Source, Metrics {
   private Histogram getHistogram(Class<?> kclass, String... names) {
     String name = MetricRegistry.name(kclass.getSimpleName(), names).toLowerCase();
     Histogram histogram;
-    if (!histograms.containsKey(name)) {
+    if (histograms.containsKey(name)) {
+      histogram = histograms.get(name);
+    } else {
       histogram = metricRegistry.histogram(name);
       histograms.put(name, histogram);
-    } else {
-      histogram = histograms.get(name);
     }
     return histogram;
   }
@@ -283,11 +283,11 @@ public class OperatorJosdkMetrics implements Source, Metrics {
   private Counter getCounter(Class<?> klass, String... names) {
     String name = MetricRegistry.name(klass.getSimpleName(), names).toLowerCase();
     Counter counter;
-    if (!counters.containsKey(name)) {
+    if (counters.containsKey(name)) {
+      counter = counters.get(name);
+    } else {
       counter = metricRegistry.counter(name);
       counters.put(name, counter);
-    } else {
-      counter = counters.get(name);
     }
     return counter;
   }

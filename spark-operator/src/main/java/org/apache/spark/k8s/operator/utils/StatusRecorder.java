@@ -88,8 +88,6 @@ public class StatusRecorder<
       return;
     }
 
-    STATUS prevStatus = objectMapper.convertValue(previousStatusNode, statusClass);
-
     Exception err = null;
     long maxRetry = API_STATUS_PATCH_MAX_ATTEMPTS.getValue();
     for (long i = 0; i < maxRetry; i++) {
@@ -110,6 +108,7 @@ public class StatusRecorder<
     }
 
     statusCache.put(resourceId, newStatusNode);
+    STATUS prevStatus = objectMapper.convertValue(previousStatusNode, statusClass);
     statusListeners.forEach(
         listener -> {
           listener.listenStatus(resource, prevStatus, resource.getStatus());

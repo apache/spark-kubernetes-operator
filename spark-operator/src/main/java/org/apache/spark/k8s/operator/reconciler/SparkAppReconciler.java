@@ -204,7 +204,6 @@ public class SparkAppReconciler
   public DeleteControl cleanup(
       SparkApplication sparkApplication, Context<SparkApplication> context) {
     LoggingUtils.TrackedMDC trackedMDC = new LoggingUtils.TrackedMDC();
-    DeleteControl deleteControl = DeleteControl.defaultDelete();
     try {
       trackedMDC.set(sparkApplication);
       log.info("Cleaning up resources for SparkApp.");
@@ -229,6 +228,6 @@ public class SparkAppReconciler
       trackedMDC.reset();
     }
     sparkAppStatusRecorder.removeCachedStatus(sparkApplication);
-    return deleteControl;
+    return DeleteControl.defaultDelete();
   }
 }
