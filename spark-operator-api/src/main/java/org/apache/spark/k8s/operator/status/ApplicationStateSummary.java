@@ -99,6 +99,18 @@ public enum ApplicationStateSummary implements BaseStateSummary {
    */
   TerminatedWithoutReleaseResources;
 
+  public static final Set<ApplicationStateSummary> infrastructureFailures =
+      Set.of(DriverStartTimedOut, ExecutorsStartTimedOut, SchedulingFailure);
+
+  public static final Set<ApplicationStateSummary> failures =
+      Set.of(
+          DriverStartTimedOut,
+          ExecutorsStartTimedOut,
+          SchedulingFailure,
+          DriverEvicted,
+          Failed,
+          DriverReadyTimedOut);
+
   public boolean isInitializing() {
     return Submitted.equals(this) || ScheduledToRestart.equals(this);
   }
@@ -126,18 +138,6 @@ public enum ApplicationStateSummary implements BaseStateSummary {
   public boolean isStopping() {
     return RunningWithBelowThresholdExecutors.ordinal() < this.ordinal() && !isTerminated();
   }
-
-  public static final Set<ApplicationStateSummary> infrastructureFailures =
-      Set.of(DriverStartTimedOut, ExecutorsStartTimedOut, SchedulingFailure);
-
-  public static final Set<ApplicationStateSummary> failures =
-      Set.of(
-          DriverStartTimedOut,
-          ExecutorsStartTimedOut,
-          SchedulingFailure,
-          DriverEvicted,
-          Failed,
-          DriverReadyTimedOut);
 
   @Override
   public boolean isFailure() {

@@ -28,10 +28,8 @@
   <rule ref="category/java/codestyle.xml">
     <exclude name="AtLeastOneConstructor" />
     <exclude name="CommentDefaultAccessModifier" />
-    <exclude name="FieldDeclarationsShouldBeAtStartOfClass" />
     <exclude name="FieldNamingConventions" />
     <exclude name="GenericsNaming" />
-    <exclude name="LinguisticNaming" />
     <exclude name="LocalVariableCouldBeFinal" />
     <exclude name="LongVariable" />
     <exclude name="MethodArgumentCouldBeFinal" />
@@ -43,7 +41,6 @@
   <rule ref="category/java/design.xml">
     <exclude name="AbstractClassWithoutAnyMethod" />
     <exclude name="AvoidCatchingGenericException" />
-    <exclude name="ClassWithOnlyPrivateConstructorsShouldBeFinal" />
     <exclude name="CognitiveComplexity" />
     <exclude name="CyclomaticComplexity" />
     <exclude name="ExcessiveImports" />
