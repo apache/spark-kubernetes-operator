@@ -50,7 +50,7 @@ public class TestUtils {
   public static void cleanPropertiesFile(String filePath) {
     File myObj = new File(filePath);
     if (!myObj.delete()) {
-      throw new RuntimeException("Failed to clean properties file: " + filePath);
+      throw new IllegalStateException("Failed to clean properties file: " + filePath);
     }
   }
 

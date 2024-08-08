@@ -93,7 +93,7 @@ public class ModelUtils {
     try {
       return objectMapper.writeValueAsString(resource);
     } catch (JsonProcessingException e) {
-      throw new RuntimeException(e);
+      throw new IllegalStateException(e);
     }
   }
 

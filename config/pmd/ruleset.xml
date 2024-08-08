@@ -46,7 +46,6 @@
   <rule ref="category/java/design.xml">
     <exclude name="AbstractClassWithoutAnyMethod" />
     <exclude name="AvoidCatchingGenericException" />
-    <exclude name="AvoidThrowingRawExceptionTypes" />
     <exclude name="ClassWithOnlyPrivateConstructorsShouldBeFinal" />
     <exclude name="CognitiveComplexity" />
     <exclude name="CyclomaticComplexity" />
