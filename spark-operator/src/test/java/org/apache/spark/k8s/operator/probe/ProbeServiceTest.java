@@ -26,7 +26,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Collections;
 import java.util.HashMap;
@@ -114,7 +116,7 @@ class ProbeServiceTest {
     probeService.stop();
   }
 
-  private void hitHealthyEndpoint() throws Exception {
+  private void hitHealthyEndpoint() throws IOException, MalformedURLException {
     URL u = new URL("http://localhost:" + OPERATOR_PROBE_PORT.getValue() + HEALTHZ);
     HttpURLConnection connection = (HttpURLConnection) u.openConnection();
     connection.setConnectTimeout(100000);
@@ -122,7 +124,7 @@ class ProbeServiceTest {
     assertEquals(connection.getResponseCode(), 200, "Health Probe should return 200");
   }
 
-  private void hitStartedUpEndpoint() throws Exception {
+  private void hitStartedUpEndpoint() throws IOException, MalformedURLException {
     URL u = new URL("http://localhost:" + OPERATOR_PROBE_PORT.getValue() + READYZ);
     HttpURLConnection connection = (HttpURLConnection) u.openConnection();
     connection.setConnectTimeout(100000);
