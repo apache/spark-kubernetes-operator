@@ -34,7 +34,7 @@ import lombok.Data;
  * the frequency
  */
 @Data
-public class ReconcileProgress {
+public final class ReconcileProgress {
   private boolean completed;
   boolean requeue;
   private Duration requeueAfterDuration;

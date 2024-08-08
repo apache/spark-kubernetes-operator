@@ -63,9 +63,7 @@ public class TestUtils {
     return System.currentTimeMillis() - startTime;
   }
 
-  public static <T> T setConfigKey(ConfigOption<T> configKey, T newValue) {
-    T originalPropertyValue = configKey.getValue();
+  public static <T> void setConfigKey(ConfigOption<T> configKey, T newValue) {
     Whitebox.setInternalState(configKey, "defaultValue", newValue);
-    return originalPropertyValue;
   }
 }
