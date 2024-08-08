@@ -31,7 +31,8 @@ import org.apache.spark.k8s.operator.utils.Utils;
 
 /** Spark Operator Configuration options. */
 @Slf4j
-public class SparkOperatorConf {
+public final class SparkOperatorConf {
+
   public static final ConfigOption<String> OPERATOR_APP_NAME =
       ConfigOption.<String>builder()
           .key("spark.kubernetes.operator.name")
@@ -406,6 +407,8 @@ public class SparkOperatorConf {
           .typeParameterClass(Integer.class)
           .defaultValue(5)
           .build();
+
+  private SparkOperatorConf() {}
 
   public static LeaderElectionConfiguration getLeaderElectionConfig() {
     return new LeaderElectionConfiguration(

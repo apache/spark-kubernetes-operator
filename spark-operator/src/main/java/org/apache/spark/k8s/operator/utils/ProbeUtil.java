@@ -31,7 +31,10 @@ import io.javaoperatorsdk.operator.RuntimeInfo;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class ProbeUtil {
+public final class ProbeUtil {
+
+  private ProbeUtil() {}
+
   public static void sendMessage(HttpExchange httpExchange, int code, String message)
       throws IOException {
     try (OutputStream outputStream = httpExchange.getResponseBody()) {

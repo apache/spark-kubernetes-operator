@@ -23,7 +23,10 @@ import io.fabric8.kubernetes.client.KubernetesClientException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 
-public class SparkExceptionUtils {
+public final class SparkExceptionUtils {
+
+  private SparkExceptionUtils() {}
+
   public static boolean isConflictForExistingResource(KubernetesClientException e) {
     return e != null
         && e.getCode() == 409

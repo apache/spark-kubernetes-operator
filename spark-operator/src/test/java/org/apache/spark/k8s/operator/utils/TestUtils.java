@@ -32,7 +32,10 @@ import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.config.ConfigOption;
 
-public class TestUtils {
+public final class TestUtils {
+
+  private TestUtils() {}
+
   public static SparkApplication createMockApp(String namespace) {
     SparkApplication cr = new SparkApplication();
     cr.setKind("SparkApplication");

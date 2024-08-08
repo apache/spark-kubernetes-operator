@@ -25,7 +25,9 @@ import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
 
 /** Handy utils for create & manage Application Status */
-public class SparkAppStatusUtils {
+public final class SparkAppStatusUtils {
+
+  private SparkAppStatusUtils() {}
 
   public static boolean isValidApplicationStatus(SparkApplication app) {
     // null check

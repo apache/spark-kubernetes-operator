@@ -28,9 +28,11 @@ import io.fabric8.kubernetes.api.model.Pod;
 
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 
-public class PodUtils {
+public final class PodUtils {
 
   public static final String POD_READY_CONDITION_TYPE = "ready";
+
+  private PodUtils() {}
 
   /** Determine whether given pod is up running and ready */
   public static boolean isPodReady(final Pod pod) {
