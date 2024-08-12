@@ -15,3 +15,5 @@ RELEASE
 build
 .*gradle
 .*json
+.helmignore
+.*yml

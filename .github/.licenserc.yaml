@@ -18,5 +18,7 @@ header:
     - gradlew
     - 'build/**'
     - '**/*.json'
+    - '**/.helmignore'
+    - '**/*.yml'
 
   comment: on-failure
