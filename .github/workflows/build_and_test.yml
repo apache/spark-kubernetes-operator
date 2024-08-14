@@ -54,3 +54,29 @@ jobs:
         run: |
           docker build --build-arg APP_VERSION=0.1.0 -t spark-kubernetes-operator:0.1.0 -f build-tools/docker/Dockerfile .
           docker run spark-kubernetes-operator:0.1.0
+  k8s-integration-tests:
+    name: "K8s Integration Tests"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: start minikube
+        run: |
+          # See more in "Installation" https://minikube.sigs.k8s.io/docs/start/
+          curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+          sudo install minikube-linux-amd64 /usr/local/bin/minikube
+          rm minikube-linux-amd64
+          # Github Action limit cpu:2, memory: 6947MB, limit to 2U6G for better resource statistic
+          minikube start --cpus 2 --memory 6144
+      - name: Print K8S pods and nodes info
+        run: |
+          kubectl get pods -A
+          kubectl describe node
+      - name: Run Spark K8s Operator on K8S
+        run: |
+          kubectl create clusterrolebinding serviceaccounts-cluster-admin --clusterrole=cluster-admin --group=system:serviceaccounts || true
+          eval $(minikube docker-env)
+          docker build --build-arg APP_VERSION=0.1.0 -t spark-kubernetes-operator:0.1.0 -f build-tools/docker/Dockerfile .
+          kubectl run spark-kubernetes-operator --image=spark-kubernetes-operator:0.1.0
+          kubectl get pods -A
+          kubectl logs spark-kubernetes-operator
