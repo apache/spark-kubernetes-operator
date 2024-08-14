@@ -18,7 +18,7 @@ FROM gradle:8.9.0-jdk17-jammy AS builder
 ARG APP_VERSION
 WORKDIR /app
 COPY . .
-RUN ./gradlew clean build -x test
+RUN ./gradlew clean build -x check
 
 FROM azul/zulu-openjdk:21
 ARG APP_VERSION
