@@ -16,4 +16,3 @@ build
 .*gradle
 .*json
 .helmignore
-.*yml
