@@ -19,6 +19,5 @@ header:
     - 'build/**'
     - '**/*.json'
     - '**/.helmignore'
-    - '**/*.yml'
 
   comment: on-failure
