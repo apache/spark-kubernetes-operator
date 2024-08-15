@@ -46,7 +46,7 @@ jobs:
           ./gradlew build
       - name: Validate helm chart linting
         run: |
-          helm lint build-tools/helm/spark-kubernetes-operator
+          helm lint --strict build-tools/helm/spark-kubernetes-operator
   build-image:
     name: "Build Operator Image CI"
     runs-on: ubuntu-latest
