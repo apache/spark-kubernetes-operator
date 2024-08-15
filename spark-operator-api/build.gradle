@@ -38,4 +38,5 @@ tasks.register('relocateGeneratedCRD', Copy) {
   dependsOn finalizeGeneratedCRD
   from "build/classes/java/main/META-INF/fabric8/sparkapplications.org.apache.spark-v1.yml"
   into "../build-tools/helm/spark-kubernetes-operator/crds"
+  rename '(.+).yml', '$1.yaml'
 }
