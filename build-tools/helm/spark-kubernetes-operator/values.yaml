@@ -1,4 +1,3 @@
-################################################################################
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -13,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-################################################################################
 
 image:
   repository: spark-kubernetes-operator
@@ -76,15 +74,7 @@ operatorDeployment:
         seccompProfile:
           type: RuntimeDefault
     additionalContainers: { }
-    # additionalContainers:
-    #  - name: ""
-    #    image: ""
     volumes: { }
-    # volumes:
-    #   - name: spark-artifacts
-    #     hostPath:
-    #       path: /tmp/spark/artifacts
-    #       type: DirectoryOrCreate
     securityContext: { }
     dnsPolicy:
     dnsConfig:
@@ -191,5 +181,5 @@ operatorConfiguration:
     annotations:
       "helm.sh/resource-policy": keep
     data:
-    # Spark Operator Config Runtime Properties Overrides. e.g.
+      # Spark Operator Config Runtime Properties Overrides. e.g.
       spark.kubernetes.operator.reconciler.intervalSeconds: 60
