@@ -1,0 +1,63 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "spark-operator.name" . }}-test-operator-rbac"
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "spark-operator.commonLabels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded,hook-failed
+spec:
+  containers:
+    - name: kubectl
+      image: bitnami/kubectl:latest
+      command: ['bash', '-c' ]
+      args: [
+        'kubectl auth can-i list sparkapplications --all-namespaces',
+        'kubectl auth can-i create pods --all-namespaces',
+        'kubectl auth can-i create services --all-namespaces',
+        'kubectl auth can-i create configmaps --all-namespaces',
+        'kubectl auth can-i create persistentvolumeclaims',
+        'kubectl auth can-i create events --all-namespaces'
+      ]
+  serviceAccountName: {{ .Values.operatorRbac.serviceAccount.name }}
+  restartPolicy: Never
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "spark-operator.name" . }}-test-app-rbac"
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "spark-operator.commonLabels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded,hook-failed
+spec:
+  containers:
+    - name: kubectl
+      image: bitnami/kubectl:latest
+      command: ['bash', '-c' ]
+      args: [
+        'kubectl auth can-i create pods -n {{ .Release.Namespace }}',
+        'kubectl auth can-i create configmaps -n {{ .Release.Namespace }}',
+        'kubectl auth can-i create services -n {{ .Release.Namespace }}',
+        'kubectl auth can-i create persistentvolumeclaims -n {{ .Release.Namespace }}'
+      ]
+  serviceAccountName: {{ .Values.appResources.serviceAccount.name }}
+  restartPolicy: Never

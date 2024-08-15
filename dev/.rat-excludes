@@ -15,3 +15,4 @@ RELEASE
 build
 .*gradle
 .*json
+.helmignore
