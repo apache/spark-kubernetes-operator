@@ -90,7 +90,7 @@ jobs:
           sleep 5
           kubectl get pods -A
           kubectl logs spark-kubernetes-operator
-          kubectl delete spark-kubernetes-operator
+          kubectl delete pod spark-kubernetes-operator
           # helm
           ./gradlew spark-operator-api:relocateGeneratedCRD
           helm install spark-kubernetes-operator --create-namespace -f build-tools/helm/spark-kubernetes-operator/values.yaml build-tools/helm/spark-kubernetes-operator/
