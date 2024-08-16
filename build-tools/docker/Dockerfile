@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM gradle:8.9.0-jdk17-jammy AS builder
+FROM alpine/java:17-jdk AS builder
 ARG APP_VERSION
 WORKDIR /app
 COPY . .
