@@ -12,13 +12,39 @@ Spark K8s Operator is built using Gradle.
 To build, run:
 
 ```bash
-./gradlew build -x test
+$ ./gradlew build -x test
 ```
 
 ## Running Tests
 
 ```bash
-./gradlew build
+$ ./gradlew build
+```
+
+## Build Docker Image
+
+```bash
+$ docker build --build-arg APP_VERSION=0.1.0 -t spark-kubernetes-operator:0.1.0 -f build-tools/docker/Dockerfile  .
+```
+
+## Install Helm Chart
+
+```bash
+$ ./gradlew spark-operator-api:relocateGeneratedCRD
+
+$ helm install spark-kubernetes-operator --create-namespace -f build-tools/helm/spark-kubernetes-operator/values.yaml build-tools/helm/spark-kubernetes-operator/
+```
+
+## Run Spark Pi App
+
+```bash
+$ kubectl apply -f examples/pi.yaml
+
+$ kubectl get sparkapp
+NAME   CURRENT STATE      AGE
+pi     ResourceReleased   4m10s
+
+$ kubectl delete sparkapp/pi
 ```
 
 ## Contributing
