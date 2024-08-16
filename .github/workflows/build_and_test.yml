@@ -63,6 +63,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: 21
+          distribution: 'adopt'
+          cache: 'gradle'
       - name: start minikube
         run: |
           # See more in "Installation" https://minikube.sigs.k8s.io/docs/start/
@@ -84,3 +90,8 @@ jobs:
           sleep 5
           kubectl get pods -A
           kubectl logs spark-kubernetes-operator
+          kubectl delete pod spark-kubernetes-operator
+          # helm
+          ./gradlew spark-operator-api:relocateGeneratedCRD
+          helm install spark-kubernetes-operator --create-namespace -f build-tools/helm/spark-kubernetes-operator/values.yaml build-tools/helm/spark-kubernetes-operator/
+          helm test spark-kubernetes-operator

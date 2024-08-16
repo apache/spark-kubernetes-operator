@@ -20,7 +20,7 @@
 # This is a workaround. See https://github.com/fabric8io/kubernetes-client/issues/3069
 # We do a yq to add printer columns
 
-script_path=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-crd_path="${script_path}/../../../build/classes/java/main/META-INF/fabric8/sparkapplications.org.apache.spark-v1.yml"
-yq -i '.spec.versions[0] += ({"additionalPrinterColumns": [{"jsonPath": ".status.currentState.currentStateSummary", "name": "Current State", "type": "string"}, {"jsonPath": ".metadata.creationTimestamp", "name": "Age", "type": "date"}]})' $crd_path
+SCRIPT_PATH=$(cd "$(dirname "$0")"; pwd)
+CRD_PATH="${SCRIPT_PATH}/../../../build/classes/java/main/META-INF/fabric8/sparkapplications.org.apache.spark-v1.yml"
+yq -i '.spec.versions[0] += ({"additionalPrinterColumns": [{"jsonPath": ".status.currentState.currentStateSummary", "name": "Current State", "type": "string"}, {"jsonPath": ".metadata.creationTimestamp", "name": "Age", "type": "date"}]})' ${CRD_PATH}
 
