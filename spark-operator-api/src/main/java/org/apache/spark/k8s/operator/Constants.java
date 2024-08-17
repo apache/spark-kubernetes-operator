@@ -20,7 +20,7 @@
 package org.apache.spark.k8s.operator;
 
 public class Constants {
-  public static final String API_GROUP = "org.apache.spark";
+  public static final String API_GROUP = "spark.apache.org";
   public static final String API_VERSION = "v1alpha1";
   public static final String LABEL_SPARK_APPLICATION_NAME = "spark.operator/spark-app-name";
   public static final String LABEL_SPARK_OPERATOR_NAME = "spark.operator/name";
