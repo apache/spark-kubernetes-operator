@@ -161,7 +161,7 @@ metadata:
 {{- end }}
 {{- if $appResources.sparkApplicationSentinel.create }}
 {{- range $sentinelNs := .Values.appResources.sparkApplicationSentinel.sentinelNamespaces.data }}
-apiVersion: org.apache.spark/v1alpha1
+apiVersion: spark.apache.org/v1alpha1
 kind: SparkApplication
 metadata:
   name: {{ $appResources.sparkApplicationSentinel.name }}
