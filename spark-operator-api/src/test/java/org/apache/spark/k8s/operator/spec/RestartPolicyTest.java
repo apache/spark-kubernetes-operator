@@ -41,27 +41,48 @@ import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
 class RestartPolicyTest {
 
   @Test
-  void testAttemptRestartOnState() {
+  void testAlways() {
     for (ApplicationStateSummary stateSummary : ApplicationStateSummary.values()) {
       assertTrue(attemptRestartOnState(Always, stateSummary));
+    }
+  }
+
+  @Test
+  void testNever() {
+    for (ApplicationStateSummary stateSummary : ApplicationStateSummary.values()) {
       assertFalse(attemptRestartOnState(Never, stateSummary));
+    }
+  }
+
+  @Test
+  void testOnFailure() {
+    for (ApplicationStateSummary stateSummary : ApplicationStateSummary.values()) {
       if (!stateSummary.isStopping()) {
         assertFalse(attemptRestartOnState(OnFailure, stateSummary));
-        assertFalse(attemptRestartOnState(OnInfrastructureFailure, stateSummary));
       }
     }
     assertFalse(attemptRestartOnState(OnFailure, Succeeded));
-    assertFalse(attemptRestartOnState(OnInfrastructureFailure, Succeeded));
     assertTrue(attemptRestartOnState(OnFailure, Failed));
-    assertFalse(attemptRestartOnState(OnInfrastructureFailure, Failed));
     assertTrue(attemptRestartOnState(OnFailure, DriverStartTimedOut));
-    assertTrue(attemptRestartOnState(OnInfrastructureFailure, DriverStartTimedOut));
     assertTrue(attemptRestartOnState(OnFailure, DriverReadyTimedOut));
-    assertFalse(attemptRestartOnState(OnInfrastructureFailure, DriverReadyTimedOut));
     assertTrue(attemptRestartOnState(OnFailure, DriverEvicted));
-    assertFalse(attemptRestartOnState(OnInfrastructureFailure, DriverEvicted));
     assertTrue(attemptRestartOnState(OnFailure, ExecutorsStartTimedOut));
+  }
+
+  @Test
+  void testOnInfrastructureFailure() {
+    assertTrue(attemptRestartOnState(OnInfrastructureFailure, DriverStartTimedOut));
     assertTrue(attemptRestartOnState(OnInfrastructureFailure, ExecutorsStartTimedOut));
     assertTrue(attemptRestartOnState(OnInfrastructureFailure, SchedulingFailure));
+
+    for (ApplicationStateSummary stateSummary : ApplicationStateSummary.values()) {
+      if (!stateSummary.isStopping()) {
+        assertFalse(attemptRestartOnState(OnInfrastructureFailure, stateSummary));
+      }
+    }
+    assertFalse(attemptRestartOnState(OnInfrastructureFailure, Succeeded));
+    assertFalse(attemptRestartOnState(OnInfrastructureFailure, Failed));
+    assertFalse(attemptRestartOnState(OnInfrastructureFailure, DriverReadyTimedOut));
+    assertFalse(attemptRestartOnState(OnInfrastructureFailure, DriverEvicted));
   }
 }
