@@ -19,14 +19,18 @@
 
 package org.apache.spark.k8s.operator.reconciler.observers;
 
+import static org.apache.spark.k8s.operator.Constants.*;
+import static org.apache.spark.k8s.operator.status.ApplicationStateSummary.Failed;
+import static org.apache.spark.k8s.operator.status.ApplicationStateSummary.Succeeded;
+
 import java.util.List;
 import java.util.Optional;
 
 import io.fabric8.kubernetes.api.model.ContainerStatus;
 import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.api.model.PodStatus;
 import lombok.extern.slf4j.Slf4j;
 
-import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 import org.apache.spark.k8s.operator.status.ApplicationAttemptSummary;
 import org.apache.spark.k8s.operator.status.ApplicationState;
@@ -68,83 +72,71 @@ public abstract class BaseAppDriverObserver
    *
    * @param driverPod the driverPod
    * @param driverReady whether SparkContext / SparkSession has ever been initialized for this pod
+   * @param spec the application spec
    * @return the ApplicationState to be updated if pod is terminated. Returning empty if pod is
    *     still running
    */
   protected Optional<ApplicationState> observeDriverTermination(
       final Pod driverPod, final boolean driverReady, final ApplicationSpec spec) {
-    if (driverPod.getStatus() == null
-        || driverPod.getStatus().getContainerStatuses() == null
-        || driverPod.getStatus().getContainerStatuses().isEmpty()) {
+    PodStatus status = driverPod.getStatus();
+    if (status == null
+        || status.getContainerStatuses() == null
+        || status.getContainerStatuses().isEmpty()) {
       log.warn("Cannot determine driver pod status, the pod may in pending state.");
       return Optional.empty();
     }
 
     if (PodPhase.FAILED.equals(PodPhase.getPhase(driverPod))) {
-      ApplicationState applicationState =
-          new ApplicationState(ApplicationStateSummary.Failed, Constants.DRIVER_FAILED_MESSAGE);
-      if ("Evicted".equalsIgnoreCase(driverPod.getStatus().getReason())) {
-        applicationState =
-            new ApplicationState(
-                ApplicationStateSummary.DriverEvicted, Constants.DRIVER_FAILED_MESSAGE);
+      ApplicationState state = new ApplicationState(Failed, DRIVER_FAILED_MESSAGE);
+      if ("Evicted".equalsIgnoreCase(status.getReason())) {
+        state = new ApplicationState(ApplicationStateSummary.DriverEvicted, DRIVER_FAILED_MESSAGE);
       }
-      applicationState.setLastObservedDriverStatus(driverPod.getStatus());
-      return Optional.of(applicationState);
+      state.setLastObservedDriverStatus(status);
+      return Optional.of(state);
     }
 
     if (PodPhase.SUCCEEDED.equals(PodPhase.getPhase(driverPod))) {
       ApplicationState state;
       if (driverReady) {
-        state =
-            new ApplicationState(
-                ApplicationStateSummary.Succeeded, Constants.DRIVER_COMPLETED_MESSAGE);
+        state = new ApplicationState(Succeeded, DRIVER_COMPLETED_MESSAGE);
       } else {
-        state =
-            new ApplicationState(
-                ApplicationStateSummary.Failed,
-                Constants.DRIVER_TERMINATED_BEFORE_INITIALIZATION_MESSAGE);
-        state.setLastObservedDriverStatus(driverPod.getStatus());
+        state = new ApplicationState(Failed, DRIVER_TERMINATED_BEFORE_INITIALIZATION_MESSAGE);
+        state.setLastObservedDriverStatus(status);
       }
       return Optional.of(state);
     }
 
-    List<ContainerStatus> initContainerStatusList =
-        driverPod.getStatus().getInitContainerStatuses();
+    List<ContainerStatus> initContainerStatusList = status.getInitContainerStatuses();
     if (initContainerStatusList != null
         && initContainerStatusList.parallelStream().anyMatch(PodUtils::isContainerFailed)) {
       ApplicationState applicationState =
-          new ApplicationState(
-              ApplicationStateSummary.Failed, Constants.DRIVER_FAILED_INIT_CONTAINERS_MESSAGE);
-      applicationState.setLastObservedDriverStatus(driverPod.getStatus());
+          new ApplicationState(Failed, DRIVER_FAILED_INIT_CONTAINERS_MESSAGE);
+      applicationState.setLastObservedDriverStatus(status);
       return Optional.of(applicationState);
     }
-    List<ContainerStatus> containerStatusList = driverPod.getStatus().getContainerStatuses();
+    List<ContainerStatus> containerStatusList = status.getContainerStatuses();
     List<ContainerStatus> terminatedCriticalContainers =
         ModelUtils.findDriverMainContainerStatus(spec, containerStatusList).stream()
             .filter(PodUtils::isContainerTerminated)
             .toList();
 
     if (!terminatedCriticalContainers.isEmpty()) {
-      ApplicationState applicationState;
+      ApplicationState state;
       if (terminatedCriticalContainers.parallelStream().anyMatch(PodUtils::isContainerFailed)) {
-        applicationState =
-            new ApplicationState(ApplicationStateSummary.Failed, Constants.DRIVER_FAILED_MESSAGE);
+        state = new ApplicationState(Failed, DRIVER_FAILED_MESSAGE);
       } else {
-        applicationState =
-            new ApplicationState(
-                ApplicationStateSummary.Succeeded, Constants.DRIVER_SUCCEEDED_MESSAGE);
+        state = new ApplicationState(Succeeded, DRIVER_SUCCEEDED_MESSAGE);
       }
-      applicationState.setLastObservedDriverStatus(driverPod.getStatus());
-      return Optional.of(applicationState);
+      state.setLastObservedDriverStatus(status);
+      return Optional.of(state);
     }
-    boolean driverRestarted =
+
+    boolean isDriverRestarted =
         ModelUtils.findDriverMainContainerStatus(spec, containerStatusList).stream()
             .anyMatch(PodUtils::isContainerRestarted);
-
-    if (driverRestarted) {
-      ApplicationState state =
-          new ApplicationState(ApplicationStateSummary.Failed, Constants.DRIVER_RESTARTED_MESSAGE);
-      state.setLastObservedDriverStatus(driverPod.getStatus());
+    if (isDriverRestarted) {
+      ApplicationState state = new ApplicationState(Failed, DRIVER_RESTARTED_MESSAGE);
+      state.setLastObservedDriverStatus(status);
       return Optional.of(state);
     }
     return Optional.empty();

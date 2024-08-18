@@ -39,15 +39,11 @@ public class AppDriverTimeoutObserver extends BaseAppDriverObserver {
    * This helps to avoid resource deadlock when app cannot proceed. Such states include:
    *
    * <ul>
-   *   <li>DRIVER_REQUESTED -> goes to DRIVER_LAUNCH_TIMED_OUT if driver pod cannot be scheduled or
-   *       cannot start running
-   *   <li>DRIVER_REQUESTED -> goes to DRIVER_LAUNCH_TIMED_OUT if driver pod cannot be scheduled or
-   *       cannot start running
-   *   <li>DRIVER_STARTED -> goes to SPARK_SESSION_INITIALIZATION_TIMED_OUT if Spark session cannot
-   *       be initialized
-   *   <li>DRIVER_READY / EXECUTOR_REQUESTED / EXECUTOR_SCHEDULED /
-   *       INITIALIZED_BELOW_THRESHOLD_EXECUTORS -> go to EXECUTORS_LAUNCH_TIMED_OUT if app cannot
-   *       acquire at least minimal executors in given time
+   *   <li>DriverRequested goes to DriverStartTimedOut if driver pod cannot be scheduled or cannot
+   *       start running
+   *   <li>DriverStarted goes to DriverReadyTimedOut if Spark session cannot be initialized
+   *   <li>DriverReady and InitializedBelowThresholdExecutors goes to ExecutorsStartTimedOut if app
+   *       cannot acquire at least minimal executors in the given time
    * </ul>
    *
    * <p>Operator will NOT proactively stop the app if it has acquired enough executors and later
@@ -57,36 +53,36 @@ public class AppDriverTimeoutObserver extends BaseAppDriverObserver {
    */
   @Override
   public Optional<ApplicationState> observe(
-      Pod driver, ApplicationSpec spec, ApplicationStatus currentStatus) {
+      Pod driver, ApplicationSpec spec, ApplicationStatus status) {
     long timeoutThreshold;
     Supplier<ApplicationState> supplier;
     ApplicationTimeoutConfig timeoutConfig =
         spec.getApplicationTolerations().getApplicationTimeoutConfig();
-    switch (currentStatus.getCurrentState().getCurrentStateSummary()) {
-      case DriverRequested:
+    ApplicationState state = status.getCurrentState();
+    switch (state.getCurrentStateSummary()) {
+      case DriverRequested -> {
         timeoutThreshold = timeoutConfig.getDriverStartTimeoutMillis();
         supplier = SparkAppStatusUtils::driverLaunchTimedOut;
-        break;
-      case DriverStarted:
+      }
+      case DriverStarted -> {
         timeoutThreshold = timeoutConfig.getDriverReadyTimeoutMillis();
         supplier = SparkAppStatusUtils::driverReadyTimedOut;
-        break;
-      case DriverReady:
-      case InitializedBelowThresholdExecutors:
+      }
+      case DriverReady, InitializedBelowThresholdExecutors -> {
         timeoutThreshold = timeoutConfig.getExecutorStartTimeoutMillis();
         supplier = SparkAppStatusUtils::executorLaunchTimedOut;
-        break;
-      default:
+      }
+      default -> {
         // No timeout check needed for other states
         return Optional.empty();
+      }
     }
-    Instant lastTransitionTime =
-        Instant.parse(currentStatus.getCurrentState().getLastTransitionTime());
+    Instant lastTransitionTime = Instant.parse(state.getLastTransitionTime());
     if (timeoutThreshold > 0L
         && lastTransitionTime.plusMillis(timeoutThreshold).isBefore(Instant.now())) {
-      ApplicationState state = supplier.get();
-      state.setLastObservedDriverStatus(driver.getStatus());
-      return Optional.of(state);
+      ApplicationState appState = supplier.get();
+      appState.setLastObservedDriverStatus(driver.getStatus());
+      return Optional.of(appState);
     }
     return Optional.empty();
   }
