@@ -26,7 +26,7 @@ if [ "$1" = "help" ]; then
 elif [ "$1" = "operator" ]; then
   echo "Starting Operator..."
 
-  exec java -cp "./$OPERATOR_JAR" $LOG_CONFIG $OPERATOR_JAVA_OPTS org.apache.spark.k8s.operator.SparkOperator
+  exec java -cp "./$OPERATOR_JAR" "$LOG_CONFIG" "$OPERATOR_JAVA_OPTS" org.apache.spark.k8s.operator.SparkOperator
 fi
 
 args=("${args[@]}")
