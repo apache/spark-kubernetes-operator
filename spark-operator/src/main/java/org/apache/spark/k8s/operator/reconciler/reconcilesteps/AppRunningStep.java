@@ -19,6 +19,7 @@
 
 package org.apache.spark.k8s.operator.reconciler.reconcilesteps;
 
+import static org.apache.spark.k8s.operator.Constants.*;
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.completeAndDefaultRequeue;
 
 import java.util.Collections;
@@ -26,7 +27,6 @@ import java.util.Set;
 
 import io.fabric8.kubernetes.api.model.Pod;
 
-import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.context.SparkAppContext;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.reconciler.observers.AppDriverRunningObserver;
@@ -51,17 +51,17 @@ public class AppRunningStep extends AppReconcileStep {
         || instanceConfig.getInitExecutors() == 0L
         || !prevStateSummary.isStarting() && instanceConfig.getMinExecutors() == 0L) {
       proposedStateSummary = ApplicationStateSummary.RunningHealthy;
-      stateMessage = Constants.RUNNING_HEALTHY_MESSAGE;
+      stateMessage = RUNNING_HEALTHY_MESSAGE;
     } else {
       Set<Pod> executors = context.getExecutorsForApplication();
       long runningExecutors = executors.stream().filter(PodUtils::isPodReady).count();
       if (prevStateSummary.isStarting()) {
         if (runningExecutors >= instanceConfig.getInitExecutors()) {
           proposedStateSummary = ApplicationStateSummary.RunningHealthy;
-          stateMessage = Constants.RUNNING_HEALTHY_MESSAGE;
+          stateMessage = RUNNING_HEALTHY_MESSAGE;
         } else if (runningExecutors > 0L) {
           proposedStateSummary = ApplicationStateSummary.InitializedBelowThresholdExecutors;
-          stateMessage = Constants.INITIALIZED_WITH_BELOW_THRESHOLD_EXECUTORS_MESSAGE;
+          stateMessage = INITIALIZED_WITH_BELOW_THRESHOLD_EXECUTORS_MESSAGE;
         } else {
           // keep previous state for 0 executor
           proposedStateSummary = prevStateSummary;
@@ -69,10 +69,10 @@ public class AppRunningStep extends AppReconcileStep {
       } else {
         if (runningExecutors >= instanceConfig.getMinExecutors()) {
           proposedStateSummary = ApplicationStateSummary.RunningHealthy;
-          stateMessage = Constants.RUNNING_HEALTHY_MESSAGE;
+          stateMessage = RUNNING_HEALTHY_MESSAGE;
         } else {
           proposedStateSummary = ApplicationStateSummary.RunningWithBelowThresholdExecutors;
-          stateMessage = Constants.RUNNING_WITH_BELOW_THRESHOLD_EXECUTORS_MESSAGE;
+          stateMessage = RUNNING_WITH_BELOW_THRESHOLD_EXECUTORS_MESSAGE;
         }
       }
     }

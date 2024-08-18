@@ -19,6 +19,7 @@
 
 package org.apache.spark.k8s.operator.reconciler;
 
+import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_APPLICATION_NAME;
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.completeAndDefaultRequeue;
 import static org.apache.spark.k8s.operator.utils.Utils.commonResourceLabelsStr;
 
@@ -45,7 +46,6 @@ import io.javaoperatorsdk.operator.processing.event.source.informer.Mappers;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.SparkAppSubmissionWorker;
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.context.SparkAppContext;
@@ -60,8 +60,8 @@ import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppReconcileStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppResourceObserveStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppRunningStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppTerminatedStep;
+import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppUnknownStateStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppValidateStep;
-import org.apache.spark.k8s.operator.reconciler.reconcilesteps.UnknownStateStep;
 import org.apache.spark.k8s.operator.utils.LoggingUtils;
 import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
@@ -140,8 +140,7 @@ public class SparkAppReconciler
     EventSource podEventSource =
         new InformerEventSource<>(
             InformerConfiguration.from(Pod.class, context)
-                .withSecondaryToPrimaryMapper(
-                    Mappers.fromLabel(Constants.LABEL_SPARK_APPLICATION_NAME))
+                .withSecondaryToPrimaryMapper(Mappers.fromLabel(LABEL_SPARK_APPLICATION_NAME))
                 .withLabelSelector(commonResourceLabelsStr())
                 .build(),
             context);
@@ -153,12 +152,8 @@ public class SparkAppReconciler
     steps.add(new AppValidateStep());
     steps.add(new AppTerminatedStep());
     switch (app.getStatus().getCurrentState().getCurrentStateSummary()) {
-      case Submitted:
-      case ScheduledToRestart:
-        steps.add(new AppInitStep());
-        break;
-      case DriverRequested:
-      case DriverStarted:
+      case Submitted, ScheduledToRestart -> steps.add(new AppInitStep());
+      case DriverRequested, DriverStarted -> {
         steps.add(
             new AppResourceObserveStep(
                 List.of(new AppDriverStartObserver(), new AppDriverReadyObserver())));
@@ -166,29 +161,26 @@ public class SparkAppReconciler
             new AppResourceObserveStep(Collections.singletonList(new AppDriverRunningObserver())));
         steps.add(
             new AppResourceObserveStep(Collections.singletonList(new AppDriverTimeoutObserver())));
-        break;
-      case DriverReady:
-      case InitializedBelowThresholdExecutors:
-      case RunningHealthy:
-      case RunningWithBelowThresholdExecutors:
+      }
+      case DriverReady,
+          InitializedBelowThresholdExecutors,
+          RunningHealthy,
+          RunningWithBelowThresholdExecutors -> {
         steps.add(new AppRunningStep());
         steps.add(
             new AppResourceObserveStep(Collections.singletonList(new AppDriverRunningObserver())));
         steps.add(
             new AppResourceObserveStep(Collections.singletonList(new AppDriverTimeoutObserver())));
-        break;
-      case DriverReadyTimedOut:
-      case DriverStartTimedOut:
-      case ExecutorsStartTimedOut:
-      case Succeeded:
-      case DriverEvicted:
-      case Failed:
-      case SchedulingFailure:
-        steps.add(new AppCleanUpStep());
-        break;
-      default:
-        steps.add(new UnknownStateStep());
-        break;
+      }
+      case DriverReadyTimedOut,
+              DriverStartTimedOut,
+              ExecutorsStartTimedOut,
+              Succeeded,
+              DriverEvicted,
+              Failed,
+              SchedulingFailure ->
+          steps.add(new AppCleanUpStep());
+      default -> steps.add(new AppUnknownStateStep());
     }
     return steps;
   }
