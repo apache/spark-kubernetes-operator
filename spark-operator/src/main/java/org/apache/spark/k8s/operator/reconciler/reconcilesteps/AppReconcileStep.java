@@ -26,7 +26,6 @@ import static org.apache.spark.k8s.operator.utils.SparkAppStatusUtils.driverUnex
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import io.fabric8.kubernetes.api.model.Pod;
 
@@ -56,7 +55,7 @@ public abstract class AppReconcileStep {
               .map(o -> o.observe(driverPodOptional.get(), app.getSpec(), app.getStatus()))
               .filter(Optional::isPresent)
               .map(Optional::get)
-              .collect(Collectors.toList());
+              .toList();
       if (stateUpdates.isEmpty()) {
         return proceed();
       } else {

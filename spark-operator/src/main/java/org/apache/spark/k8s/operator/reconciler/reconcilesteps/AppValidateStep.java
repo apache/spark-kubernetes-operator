@@ -21,19 +21,19 @@ package org.apache.spark.k8s.operator.reconciler.reconcilesteps;
 
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.completeAndImmediateRequeue;
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.proceed;
+import static org.apache.spark.k8s.operator.spec.DeploymentMode.ClientMode;
 import static org.apache.spark.k8s.operator.utils.SparkAppStatusUtils.isValidApplicationStatus;
 
 import lombok.extern.slf4j.Slf4j;
 
 import org.apache.spark.k8s.operator.context.SparkAppContext;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
-import org.apache.spark.k8s.operator.spec.DeploymentMode;
 import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 
-/** Validates the submitted app. This can be re-factored into webhook in future. */
+/** Validates the submitted app. This can be re-factored into webhook in the future. */
 @Slf4j
 public class AppValidateStep extends AppReconcileStep {
   @Override
@@ -43,7 +43,7 @@ public class AppValidateStep extends AppReconcileStep {
       log.warn("Spark application found with empty status. Resetting to initial state.");
       statusRecorder.persistStatus(context, new ApplicationStatus());
     }
-    if (DeploymentMode.ClientMode.equals(context.getResource().getSpec())) {
+    if (ClientMode.equals(context.getResource().getSpec())) {
       ApplicationState failure =
           new ApplicationState(ApplicationStateSummary.Failed, "Client mode is not supported yet.");
       statusRecorder.persistStatus(

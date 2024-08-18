@@ -63,22 +63,22 @@ public class AppDriverTimeoutObserver extends BaseAppDriverObserver {
     ApplicationTimeoutConfig timeoutConfig =
         spec.getApplicationTolerations().getApplicationTimeoutConfig();
     switch (currentStatus.getCurrentState().getCurrentStateSummary()) {
-      case DriverRequested:
+      case DriverRequested -> {
         timeoutThreshold = timeoutConfig.getDriverStartTimeoutMillis();
         supplier = SparkAppStatusUtils::driverLaunchTimedOut;
-        break;
-      case DriverStarted:
+      }
+      case DriverStarted -> {
         timeoutThreshold = timeoutConfig.getDriverReadyTimeoutMillis();
         supplier = SparkAppStatusUtils::driverReadyTimedOut;
-        break;
-      case DriverReady:
-      case InitializedBelowThresholdExecutors:
+      }
+      case DriverReady, InitializedBelowThresholdExecutors -> {
         timeoutThreshold = timeoutConfig.getExecutorStartTimeoutMillis();
         supplier = SparkAppStatusUtils::executorLaunchTimedOut;
-        break;
-      default:
+      }
+      default -> {
         // No timeout check needed for other states
         return Optional.empty();
+      }
     }
     Instant lastTransitionTime =
         Instant.parse(currentStatus.getCurrentState().getLastTransitionTime());
