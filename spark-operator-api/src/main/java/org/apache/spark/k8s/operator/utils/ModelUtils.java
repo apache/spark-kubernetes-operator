@@ -34,7 +34,6 @@ import io.fabric8.kubernetes.api.model.OwnerReferenceBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.api.model.PodTemplateSpec;
-import org.apache.commons.lang3.StringUtils;
 
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
@@ -67,7 +66,8 @@ public final class ModelUtils {
       return containerStatusList;
     }
     Map<String, String> sparkConf = appSpec.getSparkConf();
-    if (sparkConf == null || StringUtils.isEmpty(sparkConf.get(DRIVER_SPARK_CONTAINER_PROP_KEY))) {
+    String key = sparkConf.get(DRIVER_SPARK_CONTAINER_PROP_KEY);
+    if (key == null || key.isEmpty()) {
       return containerStatusList;
     }
     String mainContainerName = sparkConf.get(DRIVER_SPARK_CONTAINER_PROP_KEY);

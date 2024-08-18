@@ -7,7 +7,6 @@ dependencies {
   annotationProcessor("io.fabric8:crd-generator-apt:$fabric8Version")
 
   // utils
-  implementation("org.apache.commons:commons-lang3:$commonsLang3Version")
   implementation("commons-io:commons-io:$commonsIOVersion")
   implementation("org.projectlombok:lombok:$lombokVersion")
   annotationProcessor("org.projectlombok:lombok:$lombokVersion")
