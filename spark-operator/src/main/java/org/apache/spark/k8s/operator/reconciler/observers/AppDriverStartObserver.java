@@ -19,14 +19,15 @@
 
 package org.apache.spark.k8s.operator.reconciler.observers;
 
+import static org.apache.spark.k8s.operator.Constants.DRIVER_RUNNING;
+import static org.apache.spark.k8s.operator.status.ApplicationStateSummary.DriverStarted;
+
 import java.util.Optional;
 
 import io.fabric8.kubernetes.api.model.Pod;
 
-import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 import org.apache.spark.k8s.operator.status.ApplicationState;
-import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
 import org.apache.spark.k8s.operator.utils.PodUtils;
 
@@ -34,13 +35,12 @@ public class AppDriverStartObserver extends BaseAppDriverObserver {
   @Override
   public Optional<ApplicationState> observe(
       Pod driver, ApplicationSpec spec, ApplicationStatus currentStatus) {
-    if (ApplicationStateSummary.DriverStarted.ordinal()
+    if (DriverStarted.ordinal()
         <= currentStatus.getCurrentState().getCurrentStateSummary().ordinal()) {
       return Optional.empty();
     }
     if (PodUtils.isDriverPodStarted(driver, spec)) {
-      return Optional.of(
-          new ApplicationState(ApplicationStateSummary.DriverStarted, Constants.DRIVER_RUNNING));
+      return Optional.of(new ApplicationState(DriverStarted, DRIVER_RUNNING));
     }
     return observeDriverTermination(driver, false, spec);
   }

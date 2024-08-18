@@ -28,7 +28,9 @@ import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
 
 /**
- * Observes whether driver reaches running state (in other words, whether its at least scheduled)
+ * Observes whether driver pod reaches running state (in other words, whether its at least
+ * scheduled). Note that this means `DriverStarted` and we need to wait `DriverReady` as a next
+ * step.
  */
 public class AppDriverRunningObserver extends BaseAppDriverObserver {
   @Override
