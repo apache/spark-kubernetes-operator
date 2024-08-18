@@ -29,7 +29,6 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
-import org.apache.commons.lang3.StringUtils;
 
 import org.apache.spark.k8s.operator.spec.ResourceRetainPolicy;
 import org.apache.spark.k8s.operator.spec.RestartConfig;
@@ -109,7 +108,7 @@ public class ApplicationStatus
     if (currentAttemptSummary.getAttemptInfo().getId() >= restartConfig.getMaxRestartAttempts()) {
       String stateMessage =
           String.format(EXCEED_MAX_RETRY_ATTEMPT_MESSAGE, restartConfig.getMaxRestartAttempts());
-      if (StringUtils.isNotEmpty(stateMessageOverride)) {
+      if (stateMessageOverride != null && !stateMessageOverride.isEmpty()) {
         stateMessage += stateMessageOverride;
       }
       // max number of restart attempt reached
