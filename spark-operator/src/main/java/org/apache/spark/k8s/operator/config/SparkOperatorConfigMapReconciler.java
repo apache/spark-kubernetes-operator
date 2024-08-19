@@ -40,8 +40,8 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * This serves dynamic configuration for Spark Operator. When enabled, Operator assumes config file
- * is located in given config map. It would keep watch the config map & apply changes when update is
- * detected.
+ * is located in given config map. It would keep watch the config map and apply changes when update
+ * is detected.
  */
 @ControllerConfiguration
 @RequiredArgsConstructor

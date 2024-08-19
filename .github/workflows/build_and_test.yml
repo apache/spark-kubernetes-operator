@@ -44,9 +44,6 @@ jobs:
       - name: Build with Gradle
         run: |
           ./gradlew build
-      - name: Validate helm chart linting
-        run: |
-          helm lint --strict build-tools/helm/spark-kubernetes-operator
   build-image:
     name: "Build Operator Image CI"
     runs-on: ubuntu-latest
@@ -95,3 +92,24 @@ jobs:
           ./gradlew spark-operator-api:relocateGeneratedCRD
           helm install spark-kubernetes-operator --create-namespace -f build-tools/helm/spark-kubernetes-operator/values.yaml build-tools/helm/spark-kubernetes-operator/
           helm test spark-kubernetes-operator
+  lint:
+    name: "Linter and documentation"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: 'adopt'
+          cache: 'gradle'
+      - name: Linters
+        run: |
+          ./gradlew build -x test
+      - name: Javadoc Generation
+        run: |
+          ./gradlew javadoc
+      - name: Validate helm chart linting
+        run: |
+          helm lint --strict build-tools/helm/spark-kubernetes-operator
