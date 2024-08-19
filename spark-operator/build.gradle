@@ -43,10 +43,17 @@ dependencies {
   implementation("io.dropwizard.metrics:metrics-core:$dropwizardMetricsVersion")
   implementation("io.dropwizard.metrics:metrics-jvm:$dropwizardMetricsVersion")
   compileOnly("org.apache.spark:spark-core_$scalaVersion:$sparkVersion") {
-    exclude group: 'com.squareup.okio'
-    exclude group: 'com.squareup.okhttp3'
+    exclude group: "com.github.luben"
+    exclude group: "io.netty", module: "netty-tcnative-boringssl-static"
+    exclude group: "io.netty", module: "netty-tcnative-classes"
     exclude group: "org.apache.logging.log4j"
+    exclude group: "org.fusesource.leveldbjni"
+    exclude group: "org.lz4"
+    exclude group: "org.rocksdb"
     exclude group: "org.slf4j"
+    exclude group: "org.xerial.snappy"
+    exclude group: 'com.squareup.okhttp3'
+    exclude group: 'com.squareup.okio'
   }
   compileOnly("org.projectlombok:lombok:$lombokVersion")
 
