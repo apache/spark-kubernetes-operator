@@ -20,6 +20,7 @@
 package org.apache.spark.k8s.operator.config;
 
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
 import java.util.Properties;
@@ -93,7 +94,7 @@ public class SparkOperatorConfManager {
     Properties properties = new Properties();
     try (InputStream inputStream = new FileInputStream(filePath)) {
       properties.load(inputStream);
-    } catch (Exception e) {
+    } catch (IOException e) {
       log.error("Failed to load properties from {}.", filePath, e);
     }
     return properties;
