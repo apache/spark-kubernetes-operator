@@ -52,7 +52,7 @@ import org.apache.spark.k8s.operator.reconciler.SparkAppReconciler;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 
 /**
- * Entry point for Spark Operator. Bootstrap the operator app by starting watch & reconciler for
+ * Entry point for Spark Operator. Bootstrap the operator app by starting watch and reconciler for
  * SparkApps, starting watch for hot property loading, if enabled, and starting metrics server with
  * sentinel monitor if enabled
  */
