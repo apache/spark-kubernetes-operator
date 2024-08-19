@@ -19,6 +19,7 @@
 
 package org.apache.spark.k8s.operator.metrics;
 
+import static java.net.HttpURLConnection.HTTP_OK;
 import static org.apache.spark.k8s.operator.utils.ProbeUtil.sendMessage;
 
 import java.io.IOException;
@@ -57,7 +58,7 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
   public void handle(HttpExchange exchange) throws IOException {
     HttpServletRequest httpServletRequest = null;
     String value = getMetricsSnapshot(httpServletRequest);
-    sendMessage(exchange, 200, String.join("\n", filterNonEmptyRecords(value)));
+    sendMessage(exchange, HTTP_OK, String.join("\n", filterNonEmptyRecords(value)));
   }
 
   protected List<String> filterNonEmptyRecords(String metricsSnapshot) {

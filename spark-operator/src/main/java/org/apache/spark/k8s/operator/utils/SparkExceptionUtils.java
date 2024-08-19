@@ -19,6 +19,8 @@
 
 package org.apache.spark.k8s.operator.utils;
 
+import static java.net.HttpURLConnection.HTTP_CONFLICT;
+
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -29,7 +31,7 @@ public final class SparkExceptionUtils {
 
   public static boolean isConflictForExistingResource(KubernetesClientException e) {
     return e != null
-        && e.getCode() == 409
+        && e.getCode() == HTTP_CONFLICT
         && e.getStatus() != null
         && StringUtils.isNotEmpty(e.getStatus().toString())
         && e.getStatus().toString().toLowerCase().contains("alreadyexists");
