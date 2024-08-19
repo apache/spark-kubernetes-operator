@@ -12,9 +12,10 @@ header:
     - '.github/**'
     - 'dev/**'
     - 'LICENSE'
+    - 'LICENSE-binary'
     - 'NOTICE'
+    - 'NOTICE-binary'
     - '.asf.yaml'
-    - '**/*.gradle'
     - gradlew
     - 'build/**'
     - '**/*.json'
