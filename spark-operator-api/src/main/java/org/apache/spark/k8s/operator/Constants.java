@@ -64,8 +64,8 @@ public class Constants {
       "The driver has not responded to the initial health check request within the "
           + "allotted start-up time. This can be configured by setting "
           + ".spec.applicationTolerations.applicationTimeoutConfig.";
-  public static final String DRIVER_RUNNING = "Driver has started running.";
-  public static final String DRIVER_READY = "Driver has reached ready state.";
+  public static final String DRIVER_RUNNING_MESSAGE = "Driver has started running.";
+  public static final String DRIVER_READY_MESSAGE = "Driver has reached ready state.";
   public static final String SUBMITTED_STATE_MESSAGE =
       "Spark application has been created on Kubernetes Cluster.";
   public static final String UNKNOWN_STATE_MESSAGE = "Cannot process application status.";
