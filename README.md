@@ -24,7 +24,7 @@ $ ./gradlew build
 ## Build Docker Image
 
 ```bash
-$ docker build --build-arg APP_VERSION=0.1.0 -t spark-kubernetes-operator:0.1.0 -f build-tools/docker/Dockerfile  .
+$ ./gradlew buildDockerImage
 ```
 
 ## Install Helm Chart

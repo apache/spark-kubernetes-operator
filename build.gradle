@@ -37,6 +37,12 @@ allprojects {
   version = "0.1.0"
 }
 
+tasks.register('buildDockerImage', Exec) {
+  String cmd = "docker build --build-arg APP_VERSION=${version} -t spark-kubernetes-operator:${version} -f build-tools/docker/Dockerfile ."
+  println "Build Docker Image: $cmd"
+  commandLine "sh", "-c", "$cmd"
+}
+
 subprojects {
   apply plugin: 'idea'
   apply plugin: 'eclipse'

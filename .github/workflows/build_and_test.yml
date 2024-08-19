@@ -52,7 +52,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Build Operator Image
         run: |
-          docker build --build-arg APP_VERSION=0.1.0 -t spark-kubernetes-operator:0.1.0 -f build-tools/docker/Dockerfile .
+          ./gradlew buildDockerImage
           docker run spark-kubernetes-operator:0.1.0
   k8s-integration-tests:
     name: "K8s Integration Tests"
@@ -82,7 +82,7 @@ jobs:
         run: |
           kubectl create clusterrolebinding serviceaccounts-cluster-admin --clusterrole=cluster-admin --group=system:serviceaccounts || true
           eval $(minikube docker-env)
-          docker build --build-arg APP_VERSION=0.1.0 -t spark-kubernetes-operator:0.1.0 -f build-tools/docker/Dockerfile .
+          ./gradlew buildDockerImage
           kubectl run spark-kubernetes-operator --image=spark-kubernetes-operator:0.1.0 --restart=Never
           sleep 5
           kubectl get pods -A
