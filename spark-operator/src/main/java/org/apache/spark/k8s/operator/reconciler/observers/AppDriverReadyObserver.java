@@ -19,7 +19,7 @@
 
 package org.apache.spark.k8s.operator.reconciler.observers;
 
-import static org.apache.spark.k8s.operator.Constants.DRIVER_READY;
+import static org.apache.spark.k8s.operator.Constants.DRIVER_READY_MESSAGE;
 import static org.apache.spark.k8s.operator.status.ApplicationStateSummary.DriverReady;
 
 import java.util.Optional;
@@ -40,7 +40,7 @@ public class AppDriverReadyObserver extends BaseAppDriverObserver {
       return Optional.empty();
     }
     if (PodUtils.isPodReady(driver)) {
-      return Optional.of(new ApplicationState(DriverReady, DRIVER_READY));
+      return Optional.of(new ApplicationState(DriverReady, DRIVER_READY_MESSAGE));
     }
     return observeDriverTermination(driver, true, spec);
   }

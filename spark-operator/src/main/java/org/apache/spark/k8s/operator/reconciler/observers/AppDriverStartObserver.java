@@ -19,7 +19,7 @@
 
 package org.apache.spark.k8s.operator.reconciler.observers;
 
-import static org.apache.spark.k8s.operator.Constants.DRIVER_RUNNING;
+import static org.apache.spark.k8s.operator.Constants.DRIVER_RUNNING_MESSAGE;
 import static org.apache.spark.k8s.operator.status.ApplicationStateSummary.DriverStarted;
 
 import java.util.Optional;
@@ -40,7 +40,7 @@ public class AppDriverStartObserver extends BaseAppDriverObserver {
       return Optional.empty();
     }
     if (PodUtils.isDriverPodStarted(driver, spec)) {
-      return Optional.of(new ApplicationState(DriverStarted, DRIVER_RUNNING));
+      return Optional.of(new ApplicationState(DriverStarted, DRIVER_RUNNING_MESSAGE));
     }
     return observeDriverTermination(driver, false, spec);
   }
