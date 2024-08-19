@@ -19,6 +19,8 @@
 
 package org.apache.spark.k8s.operator.utils;
 
+import static java.net.HttpURLConnection.HTTP_CONFLICT;
+import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.API_SECONDARY_RESOURCE_CREATE_MAX_ATTEMPTS;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.RECONCILER_FOREGROUND_REQUEST_TIMEOUT_SECONDS;
 import static org.apache.spark.k8s.operator.utils.ModelUtils.buildOwnerReferenceTo;
@@ -89,8 +91,7 @@ public final class ReconcilerUtils {
                 attemptCount,
                 maxAttempts);
           }
-          // retry only on 409 Conflict
-          if (e.getCode() == 409) {
+          if (e.getCode() == HTTP_CONFLICT) {
             if (isConflictForExistingResource(e)) {
               current = getResource(client, resource);
               if (current.isPresent()) {
@@ -130,7 +131,7 @@ public final class ReconcilerUtils {
     try {
       resource = client.resource(desired).get();
     } catch (KubernetesClientException e) {
-      if (e.getCode() == 404) {
+      if (e.getCode() == HTTP_NOT_FOUND) {
         return Optional.empty();
       }
     }
@@ -150,7 +151,7 @@ public final class ReconcilerUtils {
             .delete();
       }
     } catch (KubernetesClientException e) {
-      if (e.getCode() == 404) {
+      if (e.getCode() == HTTP_NOT_FOUND) {
         log.info("Pod to delete does not exist, proceeding...");
       } else {
         throw e;

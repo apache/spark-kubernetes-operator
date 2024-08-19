@@ -19,6 +19,8 @@
 
 package org.apache.spark.k8s.operator.probe;
 
+import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
+import static java.net.HttpURLConnection.HTTP_OK;
 import static org.apache.spark.k8s.operator.utils.ProbeUtil.areOperatorsStarted;
 import static org.apache.spark.k8s.operator.utils.ProbeUtil.sendMessage;
 
@@ -76,9 +78,9 @@ public class HealthProbe implements HttpHandler {
   @Override
   public void handle(HttpExchange exchange) throws IOException {
     if (isHealthy()) {
-      sendMessage(exchange, 200, "healthy");
+      sendMessage(exchange, HTTP_OK, "healthy");
     } else {
-      sendMessage(exchange, 500, "unhealthy");
+      sendMessage(exchange, HTTP_INTERNAL_ERROR, "unhealthy");
     }
   }
 

@@ -19,6 +19,7 @@
 
 package org.apache.spark.k8s.operator.probe;
 
+import static java.net.HttpURLConnection.HTTP_OK;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.OPERATOR_PROBE_PORT;
 import static org.apache.spark.k8s.operator.probe.ProbeService.HEALTHZ;
 import static org.apache.spark.k8s.operator.probe.ProbeService.READYZ;
@@ -121,7 +122,7 @@ class ProbeServiceTest {
     HttpURLConnection connection = (HttpURLConnection) u.openConnection();
     connection.setConnectTimeout(100000);
     connection.connect();
-    assertEquals(connection.getResponseCode(), 200, "Health Probe should return 200");
+    assertEquals(connection.getResponseCode(), HTTP_OK, "Health Probe should return HTTP_OK");
   }
 
   private void hitStartedUpEndpoint() throws IOException, MalformedURLException {
@@ -129,6 +130,6 @@ class ProbeServiceTest {
     HttpURLConnection connection = (HttpURLConnection) u.openConnection();
     connection.setConnectTimeout(100000);
     connection.connect();
-    assertEquals(connection.getResponseCode(), 200, "operators are not ready");
+    assertEquals(connection.getResponseCode(), HTTP_OK, "operators are not ready");
   }
 }

@@ -19,6 +19,7 @@
 
 package org.apache.spark.k8s.operator.probe;
 
+import static java.net.HttpURLConnection.HTTP_OK;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -63,7 +64,7 @@ class ReadinessProbeTest {
     ReadinessProbe readinessProbe = new ReadinessProbe(Arrays.asList(operator));
     try (var mockedStatic = Mockito.mockStatic(ProbeUtil.class)) {
       readinessProbe.handle(httpExchange);
-      mockedStatic.verify(() -> ProbeUtil.sendMessage(httpExchange, 200, "started"));
+      mockedStatic.verify(() -> ProbeUtil.sendMessage(httpExchange, HTTP_OK, "started"));
     }
   }
 }

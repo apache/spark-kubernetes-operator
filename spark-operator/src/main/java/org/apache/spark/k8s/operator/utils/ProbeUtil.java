@@ -30,11 +30,20 @@ import io.javaoperatorsdk.operator.Operator;
 import io.javaoperatorsdk.operator.RuntimeInfo;
 import lombok.extern.slf4j.Slf4j;
 
+/** A utility class to provide common functionalities for probe services. */
 @Slf4j
 public final class ProbeUtil {
 
   private ProbeUtil() {}
 
+  /**
+   * Send an HTTP response message with the given response header HTTP status code and message.
+   *
+   * @param httpExchange The handler for this HTTP response.
+   * @param code A response header HTTP status code defined in java.net.HttpURLConnection.HTTP_*
+   * @param message A message to send as a body
+   * @throws IOException Failed to send a response.
+   */
   public static void sendMessage(HttpExchange httpExchange, int code, String message)
       throws IOException {
     try (OutputStream outputStream = httpExchange.getResponseBody()) {

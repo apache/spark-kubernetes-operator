@@ -19,6 +19,7 @@
 
 package org.apache.spark.k8s.operator.probe;
 
+import static java.net.HttpURLConnection.*;
 import static org.apache.spark.k8s.operator.utils.ProbeUtil.areOperatorsStarted;
 import static org.apache.spark.k8s.operator.utils.ProbeUtil.sendMessage;
 
@@ -43,14 +44,15 @@ public class ReadinessProbe implements HttpHandler {
   public void handle(HttpExchange httpExchange) throws IOException {
     Optional<Boolean> operatorsAreReady = areOperatorsStarted(operators);
     if (operatorsAreReady.isEmpty() || !operatorsAreReady.get()) {
-      sendMessage(httpExchange, 400, "spark operators are not ready yet");
+      sendMessage(httpExchange, HTTP_BAD_REQUEST, "spark operators are not ready yet");
     }
 
     if (!passRbacCheck()) {
-      sendMessage(httpExchange, 403, "required rbac test failed, operators are not ready");
+      sendMessage(
+          httpExchange, HTTP_FORBIDDEN, "required rbac test failed, operators are not ready");
     }
 
-    sendMessage(httpExchange, 200, "started");
+    sendMessage(httpExchange, HTTP_OK, "started");
   }
 
   public boolean passRbacCheck() {
