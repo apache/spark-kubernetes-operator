@@ -20,6 +20,13 @@ dependencies {
   implementation project(":spark-operator-api")
 
   implementation("org.apache.spark:spark-kubernetes_$scalaVersion:$sparkVersion") {
+    exclude group: "com.github.luben"
+    exclude group: "io.netty", module: "netty-tcnative-boringssl-static"
+    exclude group: "io.netty", module: "netty-tcnative-classes"
+    exclude group: "org.fusesource.leveldbjni"
+    exclude group: "org.lz4"
+    exclude group: "org.rocksdb"
+    exclude group: "org.xerial.snappy"
     exclude group: 'commons-collections', module: 'commons-collections'
   }
 
@@ -29,7 +36,6 @@ dependencies {
   testImplementation platform("org.junit:junit-bom:$junitVersion")
   testImplementation "org.mockito:mockito-core:$mockitoVersion"
   testImplementation "org.junit.jupiter:junit-jupiter:$junitVersion"
-  testImplementation "io.fabric8:kubernetes-server-mock:$fabric8Version"
   testRuntimeOnly "org.junit.platform:junit-platform-launcher"
 }
 
