@@ -50,6 +50,7 @@ import org.apache.spark.k8s.operator.metrics.MetricsSystemFactory;
 import org.apache.spark.k8s.operator.metrics.source.KubernetesMetricsInterceptor;
 import org.apache.spark.k8s.operator.probe.ProbeService;
 import org.apache.spark.k8s.operator.reconciler.SparkAppReconciler;
+import org.apache.spark.k8s.operator.reconciler.SparkClusterReconciler;
 import org.apache.spark.k8s.operator.utils.Utils;
 
 class SparkOperatorTest {
@@ -159,6 +160,8 @@ class SparkOperatorTest {
                 Operator.class,
                 (mock, context) -> {
                   when(mock.register(any(SparkAppReconciler.class), any(Consumer.class)))
+                      .thenReturn(registeredController);
+                  when(mock.register(any(SparkClusterReconciler.class), any(Consumer.class)))
                       .thenReturn(registeredController);
                 });
         MockedConstruction<SparkAppReconciler> sparkAppReconcilerConstruction =

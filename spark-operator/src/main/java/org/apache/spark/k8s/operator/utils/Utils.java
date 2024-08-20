@@ -21,11 +21,13 @@ package org.apache.spark.k8s.operator.utils;
 
 import static org.apache.spark.k8s.operator.Constants.LABEL_RESOURCE_NAME;
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_OPERATOR_NAME;
+import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_ROLE_CLUSTER_VALUE;
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_ROLE_DRIVER_VALUE;
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_ROLE_EXECUTOR_VALUE;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.OPERATOR_APP_NAME;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.OPERATOR_WATCHED_NAMESPACES;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.SPARK_APP_STATUS_LISTENER_CLASS_NAMES;
+import static org.apache.spark.k8s.operator.config.SparkOperatorConf.SPARK_CLUSTER_STATUS_LISTENER_CLASS_NAMES;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -39,7 +41,9 @@ import org.apache.commons.lang3.StringUtils;
 
 import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.SparkApplication;
+import org.apache.spark.k8s.operator.SparkCluster;
 import org.apache.spark.k8s.operator.listeners.SparkAppStatusListener;
+import org.apache.spark.k8s.operator.listeners.SparkClusterStatusListener;
 
 public final class Utils {
 
@@ -104,6 +108,18 @@ public final class Utils {
     return labels;
   }
 
+  public static Map<String, String> sparkClusterResourceLabels(final SparkCluster master) {
+    Map<String, String> labels = commonManagedResourceLabels();
+    labels.put(Constants.LABEL_SPARK_CLUSTER_NAME, master.getMetadata().getName());
+    return labels;
+  }
+
+  public static Map<String, String> clusterLabels(final SparkCluster sparkCluster) {
+    Map<String, String> labels = sparkClusterResourceLabels(sparkCluster);
+    labels.put(Constants.LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_CLUSTER_VALUE);
+    return labels;
+  }
+
   public static Set<String> getWatchedNamespaces() {
     return Utils.sanitizeCommaSeparatedStrAsSet(OPERATOR_WATCHED_NAMESPACES.getValue());
   }
@@ -111,6 +127,11 @@ public final class Utils {
   public static List<SparkAppStatusListener> getAppStatusListener() {
     return ClassLoadingUtils.getStatusListener(
         SparkAppStatusListener.class, SPARK_APP_STATUS_LISTENER_CLASS_NAMES.getValue());
+  }
+
+  public static List<SparkClusterStatusListener> getClusterStatusListener() {
+    return ClassLoadingUtils.getStatusListener(
+        SparkClusterStatusListener.class, SPARK_CLUSTER_STATUS_LISTENER_CLASS_NAMES.getValue());
   }
 
   /**
