@@ -35,7 +35,7 @@ public class ClusterDecorator implements ResourceDecorator {
 
   private final SparkCluster cluster;
 
-  /** Add labels and owner references to the app for all secondary resources */
+  /** Add labels and owner references to the cluster for all secondary resources */
   @Override
   public <T extends HasMetadata> T decorate(T resource) {
     ObjectMeta metaData =
