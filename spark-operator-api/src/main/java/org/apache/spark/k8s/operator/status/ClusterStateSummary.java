@@ -23,6 +23,7 @@ public enum ClusterStateSummary implements BaseStateSummary {
   /** Spark cluster is submitted but yet scheduled */
   Submitted,
 
+  /** Spark cluster fails to schedule. */
   SchedulingFailure,
 
   /** Cluster is running healthy */

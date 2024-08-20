@@ -89,7 +89,7 @@ public class Constants {
   public static final String CLUSTER_SCHEDULE_FAILURE_MESSAGE =
       "Failed to request Spark cluster from scheduler backend.";
   public static final String CLUSTER_SUBMITTED_STATE_MESSAGE =
-      "Spark cluster has been created on Kubernetes Cluster.";
+      "Spark cluster has been submitted to Kubernetes Cluster.";
   public static final String CLUSTER_READY_MESSAGE = "Cluster has reached ready state.";
   public static final String UNKNOWN_CLUSTER_STATE_MESSAGE = "Cannot process cluster status.";
 }
