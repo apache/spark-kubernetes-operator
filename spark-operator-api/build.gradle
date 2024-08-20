@@ -52,7 +52,8 @@ tasks.register('finalizeGeneratedCRD', Exec) {
 // Copy generated yaml to Helm charts
 tasks.register('relocateGeneratedCRD', Copy) {
   dependsOn finalizeGeneratedCRD
-  from "build/classes/java/main/META-INF/fabric8/sparkapplications.spark.apache.org-v1.yml"
+  from "build/classes/java/main/META-INF/fabric8/"
+  include "*.spark.apache.org-v1.yml"
   into "../build-tools/helm/spark-kubernetes-operator/crds"
   rename '(.+).yml', '$1.yaml'
 }
