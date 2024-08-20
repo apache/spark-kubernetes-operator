@@ -32,13 +32,7 @@ public enum ClusterStateSummary implements BaseStateSummary {
   Failed,
 
   /** all resources (pods, services .etc have been cleaned up) */
-  ResourceReleased,
-
-  /**
-   * If configured, operator may mark app as terminated without releasing resources. While this can
-   * be helpful in dev phase, it shall not be enabled for prod use cases
-   */
-  TerminatedWithoutReleaseResources;
+  ResourceReleased;
 
   public boolean isInitializing() {
     return Submitted.equals(this);
