@@ -20,10 +20,11 @@
 package org.apache.spark.k8s.operator;
 
 import static org.apache.spark.k8s.operator.utils.Utils.getAppStatusListener;
+import static org.apache.spark.k8s.operator.utils.Utils.getClusterStatusListener;
 import static org.apache.spark.k8s.operator.utils.Utils.getWatchedNamespaces;
 
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -49,7 +50,9 @@ import org.apache.spark.k8s.operator.metrics.source.KubernetesMetricsInterceptor
 import org.apache.spark.k8s.operator.metrics.source.OperatorJosdkMetrics;
 import org.apache.spark.k8s.operator.probe.ProbeService;
 import org.apache.spark.k8s.operator.reconciler.SparkAppReconciler;
+import org.apache.spark.k8s.operator.reconciler.SparkClusterReconciler;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
+import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
 
 /**
  * Entry point for Spark Operator. Bootstrap the operator app by starting watch and reconciler for
@@ -61,11 +64,14 @@ public class SparkOperator {
   private final List<Operator> registeredOperators;
   private final KubernetesClient client;
   private final SparkAppSubmissionWorker appSubmissionWorker;
+  private final SparkClusterSubmissionWorker clusterSubmissionWorker;
   private final SparkAppStatusRecorder sparkAppStatusRecorder;
+  private final SparkClusterStatusRecorder sparkClusterStatusRecorder;
   protected Set<RegisteredController<?>> registeredSparkControllers;
   protected Set<String> watchedNamespaces;
   private final MetricsSystem metricsSystem;
   private final SentinelManager<SparkApplication> sparkApplicationSentinelManager;
+  private final SentinelManager<SparkCluster> sparkClusterSentinelManager;
   private final ProbeService probeService;
   private final MetricsService metricsService;
   private final ExecutorService metricsResourcesSingleThreadPool;
@@ -75,10 +81,13 @@ public class SparkOperator {
     this.client =
         KubernetesClientFactory.buildKubernetesClient(getClientInterceptors(metricsSystem));
     this.appSubmissionWorker = new SparkAppSubmissionWorker();
+    this.clusterSubmissionWorker = new SparkClusterSubmissionWorker();
     this.sparkAppStatusRecorder = new SparkAppStatusRecorder(getAppStatusListener());
+    this.sparkClusterStatusRecorder = new SparkClusterStatusRecorder(getClusterStatusListener());
     this.registeredSparkControllers = new HashSet<>();
     this.watchedNamespaces = getWatchedNamespaces();
     this.sparkApplicationSentinelManager = new SentinelManager<>();
+    this.sparkClusterSentinelManager = new SentinelManager<>();
     this.registeredOperators = new ArrayList<>();
     this.registeredOperators.add(registerSparkOperator());
     if (SparkOperatorConf.DYNAMIC_CONFIG_ENABLED.getValue()) {
@@ -87,7 +96,9 @@ public class SparkOperator {
     this.metricsResourcesSingleThreadPool = Executors.newSingleThreadExecutor();
     this.probeService =
         new ProbeService(
-            registeredOperators, Collections.singletonList(sparkApplicationSentinelManager), null);
+            registeredOperators,
+            Arrays.asList(sparkApplicationSentinelManager, sparkClusterSentinelManager),
+            null);
     this.metricsService = new MetricsService(metricsSystem, metricsResourcesSingleThreadPool);
   }
 
@@ -97,6 +108,11 @@ public class SparkOperator {
         op.register(
             new SparkAppReconciler(
                 appSubmissionWorker, sparkAppStatusRecorder, sparkApplicationSentinelManager),
+            this::overrideControllerConfigs));
+    registeredSparkControllers.add(
+        op.register(
+            new SparkClusterReconciler(
+                clusterSubmissionWorker, sparkClusterStatusRecorder, sparkClusterSentinelManager),
             this::overrideControllerConfigs));
     return op;
   }

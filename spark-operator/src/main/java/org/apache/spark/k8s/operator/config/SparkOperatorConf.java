@@ -143,6 +143,15 @@ public final class SparkOperatorConf {
           .defaultValue("")
           .build();
 
+  public static final ConfigOption<String> SPARK_CLUSTER_STATUS_LISTENER_CLASS_NAMES =
+      ConfigOption.<String>builder()
+          .key("spark.kubernetes.operator.reconciler.clusterStatusListenerClassNames")
+          .enableDynamicOverride(false)
+          .description("Comma-separated names of SparkClusterStatusListener class implementations")
+          .typeParameterClass(String.class)
+          .defaultValue("")
+          .build();
+
   public static final ConfigOption<Boolean> DYNAMIC_CONFIG_ENABLED =
       ConfigOption.<Boolean>builder()
           .key("spark.kubernetes.operator.dynamicConfig.enabled")
