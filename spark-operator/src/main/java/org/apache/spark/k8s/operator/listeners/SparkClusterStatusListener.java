@@ -21,6 +21,6 @@ package org.apache.spark.k8s.operator.listeners;
 import org.apache.spark.k8s.operator.SparkCluster;
 import org.apache.spark.k8s.operator.status.ClusterStatus;
 
-/** Custom listeners, if added, would be listening to Spark App status change */
+/** Custom listeners, if added, would be listening to Spark Cluster status change */
 public abstract class SparkClusterStatusListener
     extends BaseStatusListener<ClusterStatus, SparkCluster> {}
