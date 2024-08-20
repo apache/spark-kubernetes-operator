@@ -23,6 +23,7 @@ public class Constants {
   public static final String API_GROUP = "spark.apache.org";
   public static final String API_VERSION = "v1alpha1";
   public static final String LABEL_SPARK_APPLICATION_NAME = "spark.operator/spark-app-name";
+  public static final String LABEL_SPARK_CLUSTER_NAME = "spark.operator/spark-cluster-name";
   public static final String LABEL_SPARK_OPERATOR_NAME = "spark.operator/name";
   public static final String LABEL_SENTINEL_RESOURCE = "spark.operator/sentinel";
   public static final String LABEL_RESOURCE_NAME = "app.kubernetes.io/name";
@@ -30,6 +31,9 @@ public class Constants {
   public static final String LABEL_SPARK_ROLE_NAME = "spark-role";
   public static final String LABEL_SPARK_ROLE_DRIVER_VALUE = "driver";
   public static final String LABEL_SPARK_ROLE_EXECUTOR_VALUE = "executor";
+  public static final String LABEL_SPARK_ROLE_CLUSTER_VALUE = "cluster";
+  public static final String LABEL_SPARK_ROLE_MASTER_VALUE = "master";
+  public static final String LABEL_SPARK_ROLE_WORKER_VALUE = "worker";
   public static final String SENTINEL_RESOURCE_DUMMY_FIELD = "sentinel.dummy.number";
 
   public static final String DRIVER_SPARK_CONTAINER_PROP_KEY =
@@ -80,4 +84,12 @@ public class Constants {
       "The Spark application is running with less than minimal number of requested executors.";
   public static final String EXECUTOR_LAUNCH_TIMEOUT_MESSAGE =
       "The Spark application failed to get enough executors in the given time threshold.";
+
+  // Spark Cluster Messages
+  public static final String CLUSTER_SCHEDULE_FAILURE_MESSAGE =
+      "Failed to request Spark cluster from scheduler backend.";
+  public static final String CLUSTER_SUBMITTED_STATE_MESSAGE =
+      "Spark cluster has been submitted to Kubernetes Cluster.";
+  public static final String CLUSTER_READY_MESSAGE = "Cluster has reached ready state.";
+  public static final String UNKNOWN_CLUSTER_STATE_MESSAGE = "Cannot process cluster status.";
 }
