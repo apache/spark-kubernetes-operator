@@ -62,6 +62,10 @@ public class SparkClusterContext extends BaseContext<SparkCluster> {
     return getSecondaryResourceSpec().getMasterService();
   }
 
+  public Service getWorkerServiceSpec() {
+    return getSecondaryResourceSpec().getWorkerService();
+  }
+
   public StatefulSet getMasterStatefulSetSpec() {
     return getSecondaryResourceSpec().getMasterStatefulSet();
   }

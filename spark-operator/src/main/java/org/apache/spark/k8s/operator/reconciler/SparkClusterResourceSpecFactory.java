@@ -40,6 +40,7 @@ public final class SparkClusterResourceSpecFactory {
     SparkClusterResourceSpec spec = worker.getResourceSpec(cluster, confOverrides);
     ClusterDecorator decorator = new ClusterDecorator(cluster);
     decorator.decorate(spec.getMasterService());
+    decorator.decorate(spec.getWorkerService());
     decorator.decorate(spec.getMasterStatefulSet());
     decorator.decorate(spec.getWorkerStatefulSet());
     return spec;

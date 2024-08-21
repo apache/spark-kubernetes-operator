@@ -38,6 +38,7 @@ import org.apache.spark.k8s.operator.spec.ClusterSpec;
 /** Spark Cluster Resource Spec: Master Service, Master StatefulSet, Worker StatefulSet */
 public class SparkClusterResourceSpec {
   @Getter private final Service masterService;
+  @Getter private final Service workerService;
   @Getter private final StatefulSet masterStatefulSet;
   @Getter private final StatefulSet workerStatefulSet;
 
@@ -52,6 +53,7 @@ public class SparkClusterResourceSpec {
       options.append(String.format("-D%s=\"%s\" ", t._1, t._2));
     }
     masterService = buildMasterService(clusterName, namespace);
+    workerService = buildWorkerService(clusterName, namespace);
     masterStatefulSet = buildMasterStatefulSet(clusterName, namespace, image, options.toString());
     workerStatefulSet =
         buildWorkerStatefulSet(
@@ -61,13 +63,14 @@ public class SparkClusterResourceSpec {
   private static Service buildMasterService(String name, String namespace) {
     return new ServiceBuilder()
         .withNewMetadata()
-        .withName(name + "-svc")
+        .withName(name + "-master-svc")
         .addToLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_MASTER_VALUE)
         .withNamespace(namespace)
         .endMetadata()
         .withNewSpec()
         .withClusterIP("None")
-        .withSelector(Collections.singletonMap("spark-role", "master"))
+        .withSelector(
+            Collections.singletonMap(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_MASTER_VALUE))
         .addNewPort()
         .withName("web")
         .withPort(8080)
@@ -82,6 +85,26 @@ public class SparkClusterResourceSpec {
         .withName("rest")
         .withPort(6066)
         .withNewTargetPort("rest")
+        .endPort()
+        .endSpec()
+        .build();
+  }
+
+  private static Service buildWorkerService(String name, String namespace) {
+    return new ServiceBuilder()
+        .withNewMetadata()
+        .withName(name + "-worker-svc")
+        .addToLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_WORKER_VALUE)
+        .withNamespace(namespace)
+        .endMetadata()
+        .withNewSpec()
+        .withClusterIP("None")
+        .withSelector(
+            Collections.singletonMap(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_WORKER_VALUE))
+        .addNewPort()
+        .withName("web")
+        .withPort(8081)
+        .withNewTargetPort("web")
         .endPort()
         .endSpec()
         .build();
@@ -150,6 +173,7 @@ public class SparkClusterResourceSpec {
         .withNewSpec()
         .withPodManagementPolicy("Parallel")
         .withReplicas(initWorkers)
+        .withServiceName(name + "-worker-svc")
         .withNewSelector()
         .addToMatchLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_WORKER_VALUE)
         .endSelector()
@@ -159,6 +183,9 @@ public class SparkClusterResourceSpec {
         .endMetadata()
         .withNewSpec()
         .withTerminationGracePeriodSeconds(0L)
+        .withNewDnsConfig()
+        .withSearches(String.format("%s-worker-svc.%s.svc.cluster.local", name, namespace))
+        .endDnsConfig()
         .addNewContainer()
         .withName("worker")
         .withImage(image)
