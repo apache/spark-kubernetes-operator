@@ -62,6 +62,8 @@ public class ClusterInitStep extends ClusterReconcileStep {
     try {
       Service masterService = context.getMasterServiceSpec();
       context.getClient().services().resource(masterService).create();
+      Service workerService = context.getWorkerServiceSpec();
+      context.getClient().services().resource(workerService).create();
       StatefulSet masterStatefulSet = context.getMasterStatefulSetSpec();
       context.getClient().apps().statefulSets().resource(masterStatefulSet).create();
       StatefulSet workerStatefulSet = context.getWorkerStatefulSetSpec();

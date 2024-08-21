@@ -48,6 +48,7 @@ class SparkClusterResourceSpecFactoryTest {
         SparkClusterResourceSpecFactory.buildResourceSpec(cluster, mockWorker);
     verify(mockWorker).getResourceSpec(eq(cluster), any());
     assertEquals(namespace, spec.getMasterService().getMetadata().getNamespace());
+    assertEquals(namespace, spec.getWorkerService().getMetadata().getNamespace());
     assertEquals(namespace, spec.getMasterStatefulSet().getMetadata().getNamespace());
     assertEquals(namespace, spec.getWorkerStatefulSet().getMetadata().getNamespace());
   }
@@ -69,6 +70,7 @@ class SparkClusterResourceSpecFactoryTest {
     assertEquals("my-cluster", owner.getName());
 
     // All resources share the same owner
+    assertEquals(owner, spec.getWorkerService().getMetadata().getOwnerReferences().get(0));
     assertEquals(owner, spec.getMasterStatefulSet().getMetadata().getOwnerReferences().get(0));
     assertEquals(owner, spec.getWorkerStatefulSet().getMetadata().getOwnerReferences().get(0));
   }

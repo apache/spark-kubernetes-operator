@@ -53,7 +53,17 @@ class SparkClusterResourceSpecTest {
   void testMasterService() {
     Service service1 = new SparkClusterResourceSpec(cluster, new SparkConf()).getMasterService();
     assertEquals("my-namespace", service1.getMetadata().getNamespace());
-    assertEquals("cluster-name-svc", service1.getMetadata().getName());
+    assertEquals("cluster-name-master-svc", service1.getMetadata().getName());
+
+    Service service2 = new SparkClusterResourceSpec(cluster, sparkConf).getMasterService();
+    assertEquals("other-namespace", service2.getMetadata().getNamespace());
+  }
+
+  @Test
+  void testWorkerService() {
+    Service service1 = new SparkClusterResourceSpec(cluster, new SparkConf()).getWorkerService();
+    assertEquals("my-namespace", service1.getMetadata().getNamespace());
+    assertEquals("cluster-name-worker-svc", service1.getMetadata().getName());
 
     Service service2 = new SparkClusterResourceSpec(cluster, sparkConf).getMasterService();
     assertEquals("other-namespace", service2.getMetadata().getNamespace());
