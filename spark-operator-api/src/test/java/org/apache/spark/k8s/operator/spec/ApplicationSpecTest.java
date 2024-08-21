@@ -19,24 +19,31 @@
 
 package org.apache.spark.k8s.operator.spec;
 
-import org.junit.jupiter.api.Assertions;
+import static org.apache.spark.k8s.operator.spec.DeploymentMode.ClusterMode;
+import static org.junit.jupiter.api.Assertions.*;
+
 import org.junit.jupiter.api.Test;
 
 class ApplicationSpecTest {
   @Test
+  void testBuilder() {
+    ApplicationSpec spec1 = new ApplicationSpec();
+    ApplicationSpec spec2 = new ApplicationSpec.ApplicationSpecBuilder().build();
+    assertEquals(spec1, spec2);
+  }
+
+  @Test
   void testInitSpecWithDefaults() {
-    ApplicationSpec applicationSpec1 = new ApplicationSpec();
-    ApplicationSpec applicationSpec2 = new ApplicationSpec.ApplicationSpecBuilder().build();
-    Assertions.assertEquals(applicationSpec1, applicationSpec2);
-    Assertions.assertEquals(DeploymentMode.ClusterMode, applicationSpec1.getDeploymentMode());
-    Assertions.assertNull(applicationSpec1.getDriverSpec());
-    Assertions.assertNull(applicationSpec1.getExecutorSpec());
-    Assertions.assertNotNull(applicationSpec1.getApplicationTolerations());
-    Assertions.assertEquals(
-        RestartPolicy.Never,
-        applicationSpec1.getApplicationTolerations().getRestartConfig().getRestartPolicy());
-    Assertions.assertEquals(
-        ResourceRetainPolicy.Never,
-        applicationSpec1.getApplicationTolerations().getResourceRetainPolicy());
+    ApplicationSpec spec = new ApplicationSpec();
+    assertEquals(ClusterMode, spec.getDeploymentMode());
+    assertNull(spec.getDriverSpec());
+    assertNull(spec.getExecutorSpec());
+    ApplicationTolerations tolerations = spec.getApplicationTolerations();
+    assertNotNull(tolerations);
+    assertEquals(RestartPolicy.Never, tolerations.getRestartConfig().getRestartPolicy());
+    assertEquals(ResourceRetainPolicy.Never, tolerations.getResourceRetainPolicy());
+    assertEquals(0, tolerations.instanceConfig.initExecutors);
+    assertEquals(0, tolerations.instanceConfig.minExecutors);
+    assertEquals(0, tolerations.instanceConfig.maxExecutors);
   }
 }

@@ -39,7 +39,7 @@ public class ApplicationTolerations {
   protected ApplicationTimeoutConfig applicationTimeoutConfig = new ApplicationTimeoutConfig();
 
   /** Determine the toleration behavior for executor / worker instances. */
-  @Builder.Default protected InstanceConfig instanceConfig = new InstanceConfig();
+  @Builder.Default protected ExecutorInstanceConfig instanceConfig = new ExecutorInstanceConfig();
 
   @Builder.Default protected ResourceRetainPolicy resourceRetainPolicy = ResourceRetainPolicy.Never;
 }

@@ -30,7 +30,7 @@ import io.fabric8.kubernetes.api.model.Pod;
 import org.apache.spark.k8s.operator.context.SparkAppContext;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.reconciler.observers.AppDriverRunningObserver;
-import org.apache.spark.k8s.operator.spec.InstanceConfig;
+import org.apache.spark.k8s.operator.spec.ExecutorInstanceConfig;
 import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
 import org.apache.spark.k8s.operator.utils.PodUtils;
@@ -41,22 +41,22 @@ public class AppRunningStep extends AppReconcileStep {
   @Override
   public ReconcileProgress reconcile(
       SparkAppContext context, SparkAppStatusRecorder statusRecorder) {
-    InstanceConfig instanceConfig =
+    ExecutorInstanceConfig executorInstanceConfig =
         context.getResource().getSpec().getApplicationTolerations().getInstanceConfig();
     ApplicationStateSummary prevStateSummary =
         context.getResource().getStatus().getCurrentState().getCurrentStateSummary();
     ApplicationStateSummary proposedStateSummary;
     String stateMessage = context.getResource().getStatus().getCurrentState().getMessage();
-    if (instanceConfig == null
-        || instanceConfig.getInitExecutors() == 0L
-        || !prevStateSummary.isStarting() && instanceConfig.getMinExecutors() == 0L) {
+    if (executorInstanceConfig == null
+        || executorInstanceConfig.getInitExecutors() == 0L
+        || !prevStateSummary.isStarting() && executorInstanceConfig.getMinExecutors() == 0L) {
       proposedStateSummary = ApplicationStateSummary.RunningHealthy;
       stateMessage = RUNNING_HEALTHY_MESSAGE;
     } else {
       Set<Pod> executors = context.getExecutorsForApplication();
       long runningExecutors = executors.stream().filter(PodUtils::isPodReady).count();
       if (prevStateSummary.isStarting()) {
-        if (runningExecutors >= instanceConfig.getInitExecutors()) {
+        if (runningExecutors >= executorInstanceConfig.getInitExecutors()) {
           proposedStateSummary = ApplicationStateSummary.RunningHealthy;
           stateMessage = RUNNING_HEALTHY_MESSAGE;
         } else if (runningExecutors > 0L) {
@@ -67,7 +67,7 @@ public class AppRunningStep extends AppReconcileStep {
           proposedStateSummary = prevStateSummary;
         }
       } else {
-        if (runningExecutors >= instanceConfig.getMinExecutors()) {
+        if (runningExecutors >= executorInstanceConfig.getMinExecutors()) {
           proposedStateSummary = ApplicationStateSummary.RunningHealthy;
           stateMessage = RUNNING_HEALTHY_MESSAGE;
         } else {

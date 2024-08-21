@@ -35,9 +35,10 @@ import lombok.NoArgsConstructor;
  * <pre>{@code
  * spec:
  *   applicationTolerations:
- *     instanceConfig: minExecutors: 3
- *     initExecutors: 5
- *     maxExecutors: 10
+ *     instanceConfig:
+ *       minExecutors: 3
+ *       initExecutors: 5
+ *       maxExecutors: 10
  *   sparkConf:
  *     spark.executor.instances: "10"
  * }</pre>
@@ -61,8 +62,8 @@ import lombok.NoArgsConstructor;
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class InstanceConfig {
-  @Builder.Default protected long initExecutors = 0L;
-  @Builder.Default protected long minExecutors = 0L;
-  @Builder.Default protected long maxExecutors = 0L;
+public class ExecutorInstanceConfig {
+  @Builder.Default protected int initExecutors = 0;
+  @Builder.Default protected int minExecutors = 0;
+  @Builder.Default protected int maxExecutors = 0;
 }
