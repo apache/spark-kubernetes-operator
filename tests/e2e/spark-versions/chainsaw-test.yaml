@@ -23,6 +23,15 @@ spec:
   scenarios:
   - bindings:
       - name: "SPARK_VERSION"
+        value: "4.0.0-preview1"
+      - name: "SCALA_VERSION"
+        value: "2.13"
+      - name: "JAVA_VERSION"
+        value: "17"
+      - name: "IMAGE"
+        value: 'spark:4.0.0-preview1-scala2.13-java17-python3-r-ubuntu'
+  - bindings:
+      - name: "SPARK_VERSION"
         value: "3.5.2"
       - name: "SCALA_VERSION"
         value: "2.12"
@@ -39,16 +48,7 @@ spec:
         value: "11"
       - name: "IMAGE"
         value: 'spark:3.4.3-scala2.12-java11-python3-r-ubuntu'
-  - bindings:
-      - name: "SPARK_VERSION"
-        value: "4.0.0-preview1"
-      - name: "SCALA_VERSION"
-        value: "2.13"
-      - name: "JAVA_VERSION"
-        value: "17"
-      - name: "IMAGE"
-        value: 'spark:4.0.0-preview1-scala2.13-java17-python3-r-ubuntu'
-  steps:
+    steps:
     - name: install-spark-application
       try:
         - apply:
