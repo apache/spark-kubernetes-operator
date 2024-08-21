@@ -30,23 +30,31 @@ import org.junit.jupiter.api.Test;
 
 import org.apache.spark.k8s.operator.spec.ClusterSpec;
 import org.apache.spark.k8s.operator.spec.ClusterTolerations;
+import org.apache.spark.k8s.operator.spec.MasterSpec;
+import org.apache.spark.k8s.operator.spec.WorkerSpec;
 
 class SparkClusterSubmissionWorkerTest {
   SparkCluster cluster;
   ObjectMeta objectMeta;
   ClusterSpec clusterSpec;
   ClusterTolerations clusterTolerations = new ClusterTolerations();
+  MasterSpec masterSpec;
+  WorkerSpec workerSpec;
 
   @BeforeEach
   void setUp() {
     cluster = mock(SparkCluster.class);
     objectMeta = mock(ObjectMeta.class);
     clusterSpec = mock(ClusterSpec.class);
+    masterSpec = mock(MasterSpec.class);
+    workerSpec = mock(WorkerSpec.class);
     when(cluster.getMetadata()).thenReturn(objectMeta);
     when(cluster.getSpec()).thenReturn(clusterSpec);
     when(objectMeta.getNamespace()).thenReturn("my-namespace");
     when(objectMeta.getName()).thenReturn("cluster-name");
     when(clusterSpec.getClusterTolerations()).thenReturn(clusterTolerations);
+    when(clusterSpec.getMasterSpec()).thenReturn(masterSpec);
+    when(clusterSpec.getWorkerSpec()).thenReturn(workerSpec);
   }
 
   @Test
