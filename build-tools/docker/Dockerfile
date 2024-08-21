@@ -14,8 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM gradle:8.9.0-jdk17-jammy AS builder
-ARG APP_VERSION
+FROM gradle:8.10.0-jdk17-jammy AS builder
+ARG APP_VERSION=0.1.0-SNAPSHOT
 WORKDIR /app
 COPY . .
 RUN ./gradlew clean build -x check
