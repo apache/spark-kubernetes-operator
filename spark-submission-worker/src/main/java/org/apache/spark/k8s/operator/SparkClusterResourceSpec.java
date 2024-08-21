@@ -198,7 +198,7 @@ public class SparkClusterResourceSpec {
         .withValue(options)
         .endEnv()
         .addToCommand("bash")
-        .addToArgs("/opt/spark/sbin/start-worker.sh", "spark://" + name + "-svc:7077")
+        .addToArgs("/opt/spark/sbin/start-worker.sh", "spark://" + name + "-master-svc:7077")
         .endContainer()
         .endSpec()
         .endTemplate()
