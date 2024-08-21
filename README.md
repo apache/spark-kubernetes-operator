@@ -1,10 +1,12 @@
 # Apache Spark K8s Operator
 
-Apache Spark K8s Operator is a subproject of [Apache Spark](https://spark.apache.org/) and
+[![GitHub Actions Build](https://github.com/apache/spark-kubernetes-operator/actions/workflows/build_and_test.yml/badge.svg)](https://github.com/apache/spark-kubernetes-operator/actions/workflows/build_and_test.yml)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Repo Size](https://img.shields.io/github/repo-size/apache/spark-kubernetes-operator)](https://img.shields.io/github/repo-size/apache/spark-kubernetes-operator)
+
+Apache Spark™ K8s Operator is a subproject of [Apache Spark](https://spark.apache.org/) and
 aims to extend K8s resource manager to manage Apache Spark applications via
 [Operator Pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/).
-
-[![GitHub Actions Build](https://github.com/apache/spark-kubernetes-operator/actions/workflows/build_and_test.yml/badge.svg)](https://github.com/apache/spark-kubernetes-operator/actions/workflows/build_and_test.yml)
 
 ## Building Spark K8s Operator
 
