@@ -93,11 +93,6 @@ jobs:
       - name: Set Up Chainsaw
         run: |
           go install github.com/kyverno/chainsaw@latest
-      - name: Login To Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Print K8S pods and nodes info
         run: |
           kubectl get pods -A
