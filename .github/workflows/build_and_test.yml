@@ -60,8 +60,8 @@ jobs:
         run: |
           ./gradlew buildDockerImage
           docker run spark-kubernetes-operator:$(./gradlew properties | grep '^version:' | awk '{print $2}')
-  k8s-integration-and-e2e-tests:
-    name: "K8s Integration & E2E Tests"
+  k8s-integration-tests:
+    name: "K8s Integration Tests"
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
