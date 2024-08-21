@@ -23,6 +23,8 @@ import static org.apache.spark.k8s.operator.Constants.*;
 
 import java.util.Collections;
 
+import scala.Tuple2;
+
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServiceBuilder;
 import io.fabric8.kubernetes.api.model.apps.StatefulSet;
@@ -45,10 +47,15 @@ public class SparkClusterResourceSpec {
     String namespace = conf.get(Config.KUBERNETES_NAMESPACE().key(), clusterNamespace);
     String image = conf.get(Config.CONTAINER_IMAGE().key(), "spark:4.0.0-preview1");
     ClusterSpec spec = cluster.getSpec();
+    StringBuilder options = new StringBuilder();
+    for (Tuple2<String, String> t : conf.getAll()) {
+      options.append(String.format("-D%s=\"%s\" ", t._1, t._2));
+    }
     masterService = buildMasterService(clusterName, namespace);
-    masterStatefulSet = buildMasterStatefulSet(clusterName, namespace, image);
+    masterStatefulSet = buildMasterStatefulSet(clusterName, namespace, image, options.toString());
     workerStatefulSet =
-        buildWorkerStatefulSet(clusterName, namespace, image, spec.getInitWorkers());
+        buildWorkerStatefulSet(
+            clusterName, namespace, image, spec.getInitWorkers(), options.toString());
   }
 
   private static Service buildMasterService(String name, String namespace) {
@@ -80,7 +87,8 @@ public class SparkClusterResourceSpec {
         .build();
   }
 
-  private static StatefulSet buildMasterStatefulSet(String name, String namespace, String image) {
+  private static StatefulSet buildMasterStatefulSet(
+      String name, String namespace, String image, String options) {
     return new StatefulSetBuilder()
         .withNewMetadata()
         .withName(name + "-master")
@@ -98,12 +106,17 @@ public class SparkClusterResourceSpec {
         .addToLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_MASTER_VALUE)
         .endMetadata()
         .withNewSpec()
+        .withTerminationGracePeriodSeconds(0L)
         .addNewContainer()
         .withName("master")
         .withImage(image)
         .addNewEnv()
         .withName("SPARK_NO_DAEMONIZE")
         .withValue("1")
+        .endEnv()
+        .addNewEnv()
+        .withName("SPARK_MASTER_OPTS")
+        .withValue(options)
         .endEnv()
         .addToCommand("bash")
         .addToArgs("/opt/spark/sbin/start-master.sh")
@@ -127,7 +140,7 @@ public class SparkClusterResourceSpec {
   }
 
   private static StatefulSet buildWorkerStatefulSet(
-      String name, String namespace, String image, int initWorkers) {
+      String name, String namespace, String image, int initWorkers, String options) {
     return new StatefulSetBuilder()
         .withNewMetadata()
         .withName(name + "-worker")
@@ -145,12 +158,17 @@ public class SparkClusterResourceSpec {
         .addToLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_WORKER_VALUE)
         .endMetadata()
         .withNewSpec()
+        .withTerminationGracePeriodSeconds(0L)
         .addNewContainer()
         .withName("worker")
         .withImage(image)
         .addNewEnv()
         .withName("SPARK_NO_DAEMONIZE")
         .withValue("1")
+        .endEnv()
+        .addNewEnv()
+        .withName("SPARK_WORKER_OPTS")
+        .withValue(options)
         .endEnv()
         .addToCommand("bash")
         .addToArgs("/opt/spark/sbin/start-worker.sh", "spark://" + name + "-svc:7077")
