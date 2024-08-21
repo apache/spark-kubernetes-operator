@@ -63,6 +63,15 @@ jobs:
   k8s-integration-tests:
     name: "K8s Integration Tests"
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        kubernetes_versions:
+          - "1.27.0"
+          - "1.31.0"
+        test_group:
+          - spark-versions
+          - python
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -75,8 +84,15 @@ jobs:
       - name: Set up Minikube
         uses: medyagh/setup-minikube@v0.0.18
         with:
+          cache: true
+          kubernetes-version: ${{ matrix.kube-version }}
           cpu: 2
           memory: 6144m
+      - name: Set Up Go
+        uses: actions/setup-go@v5
+      - name: Set Up Chainsaw
+        run: |
+          go install github.com/kyverno/chainsaw@latest
       - name: Print K8S pods and nodes info
         run: |
           kubectl get pods -A
@@ -89,6 +105,11 @@ jobs:
           ./gradlew spark-operator-api:relocateGeneratedCRD
           helm install spark-kubernetes-operator --create-namespace -f build-tools/helm/spark-kubernetes-operator/values.yaml build-tools/helm/spark-kubernetes-operator/
           helm test spark-kubernetes-operator
+          # Use remote host' s docker image
+          minikube docker-env --unset
+      - name: Run E2E Test
+        run: |
+          chainsaw test --test-dir ./tests/e2e/${{ matrix.test_group }} --parallel 2
   lint:
     name: "Linter and documentation"
     runs-on: ubuntu-latest

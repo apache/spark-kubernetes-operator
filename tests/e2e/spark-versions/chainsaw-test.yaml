@@ -1,0 +1,98 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: spark-operator-spark-version-validation
+spec:
+  scenarios:
+  - bindings:
+      - name: "SPARK_VERSION"
+        value: "4.0.0-preview1"
+      - name: "SCALA_VERSION"
+        value: "2.13"
+      - name: "JAVA_VERSION"
+        value: "17"
+      - name: "IMAGE"
+        value: 'spark:4.0.0-preview1-scala2.13-java17-ubuntu'
+  - bindings:
+      - name: "SPARK_VERSION"
+        value: "3.5.2"
+      - name: "SCALA_VERSION"
+        value: "2.12"
+      - name: "JAVA_VERSION"
+        value: "17"
+      - name: "IMAGE"
+        value: 'spark:3.5.2-scala2.12-java17-ubuntu'
+  - bindings:
+      - name: "SPARK_VERSION"
+        value: "3.4.3"
+      - name: "SCALA_VERSION"
+        value: "2.12"
+      - name: "JAVA_VERSION"
+        value: "11"
+      - name: "IMAGE"
+        value: 'spark:3.4.3-scala2.12-java11-ubuntu'
+  steps:
+    - name: install-spark-application
+      try:
+        - apply:
+            bindings:
+            - name: V_SPARK_VERSION
+              value: (concat('v', replace_all(($SPARK_VERSION), '.', '_')))
+            - name: V_SCALA_VERSION
+              value: (concat('v', replace_all(($SCALA_VERSION), '.', '_')))
+            - name: SPARK_APPLICATION_NAME
+              value: (join('-', ['spark-streaming', replace_all(($SPARK_VERSION), '.', '-'), replace_all(($SCALA_VERSION), '.', '-')]))
+            - name: V_JAVA_VERSION
+              value: (concat('Java', ($JAVA_VERSION)))
+            - name: JARS
+              value: (join('', ['local:///opt/spark/examples/jars/spark-examples_', join('-', [($SCALA_VERSION), ($SPARK_VERSION)]), '.jar']))
+            file: spark-example.yaml
+    - name: verify-common-created-resources
+      bindings:
+        - name: SPARK_DRIVER_POD_NAME
+          value: (join('-', ['spark-streaming', replace_all(($SPARK_VERSION), '.', '-'),
+            replace_all(($SCALA_VERSION), '.', '-'), '0-driver']))
+        - name: SPARK_EXECUTOR_POD_NAME
+          value: (join('-', ['spark-streaming', replace_all(($SPARK_VERSION), '.', '-'),
+            replace_all(($SCALA_VERSION), '.', '-'), '0-executor']))
+        - name: SPARK_DRIVER_CONFIG_MAP_NAME
+          value: (join('-', ['spark-streaming', replace_all(($SPARK_VERSION), '.', '-'),
+            replace_all(($SCALA_VERSION), '.', '-'), '0-spark-drv-conf-map']))
+      try:
+        - assert:
+            timeout: 2m
+            file: "../assertions/*.yaml"
+      catch:
+        - events:
+            namespace: default
+        - describe:
+            apiVersion: v1
+            kind: SparkApplication
+            namespace: default
+        - describe:
+            apiVersion: v1
+            kind: Pod
+            namespace: default
+        - podLogs:
+            selector: app.kubernetes.io/name=spark-kubernetes-operator
+            namespace: default
+        - podLogs:
+            selector: spark-app-name=spark
+            namespace: default
