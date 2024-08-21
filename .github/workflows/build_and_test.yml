@@ -81,7 +81,7 @@ jobs:
           java-version: 21
           distribution: 'adopt'
           cache: 'gradle'
-      - name: Set Up Minikube
+      - name: Set up Minikube
         uses: medyagh/setup-minikube@v0.0.18
         with:
           cache: true

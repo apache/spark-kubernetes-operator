@@ -29,7 +29,7 @@ spec:
       - name: "JAVA_VERSION"
         value: "17"
       - name: "IMAGE"
-        value: 'spark:4.0.0-preview1-scala2.13-java17-python3-r-ubuntu'
+        value: 'spark:4.0.0-preview1-scala2.13-java17-ubuntu'
   - bindings:
       - name: "SPARK_VERSION"
         value: "3.5.2"
@@ -38,7 +38,7 @@ spec:
       - name: "JAVA_VERSION"
         value: "17"
       - name: "IMAGE"
-        value: 'spark:3.5.2-scala2.12-java17-python3-r-ubuntu'
+        value: 'spark:3.5.2-scala2.12-java17-ubuntu'
   - bindings:
       - name: "SPARK_VERSION"
         value: "3.4.3"
@@ -47,8 +47,8 @@ spec:
       - name: "JAVA_VERSION"
         value: "11"
       - name: "IMAGE"
-        value: 'spark:3.4.3-scala2.12-java11-python3-r-ubuntu'
-    steps:
+        value: 'spark:3.4.3-scala2.12-java11-ubuntu'
+  steps:
     - name: install-spark-application
       try:
         - apply:
