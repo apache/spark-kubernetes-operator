@@ -114,8 +114,7 @@ As of now, you can try `spark-kubernetes-operator` nightly version in the follow
 
 ```
 $ helm install spark-kubernetes-operator \
-https://nightlies.apache.org/spark/charts/spark-kubernetes-operator-0.1.0-SNAPSHOT.tgz \
---set image.repository=dongjoon/spark-kubernetes-operator
+https://nightlies.apache.org/spark/charts/spark-kubernetes-operator-0.1.0-SNAPSHOT.tgz
 ```
 
 ## Contributing
