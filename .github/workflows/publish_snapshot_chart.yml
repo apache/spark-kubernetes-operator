@@ -42,6 +42,12 @@ jobs:
         tar cvfz charts/spark-kubernetes-operator-0.1.0-SNAPSHOT.tgz spark-kubernetes-operator
         helm repo index charts --url https://nightlies.apache.org/spark/charts
     - name: Upload
-      run: |
-        curl -u ${{ secrets.NIGHTLIES_USER }}:${{ secrets.NIGHTLIES_TOKEN }} -T charts/index.yaml 'https://nightlies.apache.org/spark/charts/'
-        curl -u ${{ secrets.NIGHTLIES_USER }}:${{ secrets.NIGHTLIES_TOKEN }} -T charts/spark-kubernetes-operator-0.1.0-SNAPSHOT.tgz 'https://nightlies.apache.org/spark/charts/'
+      uses: burnett01/rsync-deployments@5.2
+      with:
+        switches: -avzr
+        path: build-tools/helm/charts
+        remote_path: ${{ secrets.NIGHTLIES_RSYNC_PATH }}/spark/charts
+        remote_host: ${{ secrets.NIGHTLIES_RSYNC_HOST }}
+        remote_port: ${{ secrets.NIGHTLIES_RSYNC_PORT }}
+        remote_user: ${{ secrets.NIGHTLIES_RSYNC_USER }}
+        remote_key: ${{ secrets.NIGHTLIES_RSYNC_KEY }}
