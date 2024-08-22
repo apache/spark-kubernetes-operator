@@ -86,7 +86,7 @@ jobs:
         with:
           cache: true
           kubernetes-version: ${{ matrix.kube-version }}
-          cpu: 2
+          cpus: 2
           memory: 6144m
       - name: Set Up Go
         uses: actions/setup-go@v5
