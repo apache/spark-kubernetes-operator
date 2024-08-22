@@ -108,6 +108,16 @@ $ kubectl delete sparkapp pi-on-yunikorn
 sparkapplication.spark.apache.org "pi-on-yunikorn" deleted
 ```
 
+## Try nightly build for testing
+
+As of now, you can try `spark-kubernetes-operator` nightly version in the following way.
+
+```
+$ helm install spark-kubernetes-operator \
+https://nightlies.apache.org/spark/charts/spark-kubernetes-operator-0.1.0-SNAPSHOT.tgz \
+--set image.repository=dongjoon/spark-kubernetes-operator
+```
+
 ## Contributing
 
 Please review the [Contribution to Spark guide](https://spark.apache.org/contributing.html)

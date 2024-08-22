@@ -17,5 +17,5 @@ name: spark-kubernetes-operator
 description: A Helm chart for the Apache Spark Kubernetes Operator
 type: application
 version: 0.1.0-SNAPSHOT
-appVersion: 0.1.0
+appVersion: 0.1.0-SNAPSHOT
 icon: https://spark.apache.org/favicon.ico
