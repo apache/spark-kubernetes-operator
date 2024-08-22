@@ -38,14 +38,17 @@ jobs:
     - name: Build Chart
       run: |
         cd build-tools/helm
-        mkdir charts
-        tar cvfz charts/spark-kubernetes-operator-0.1.0-SNAPSHOT.tgz spark-kubernetes-operator
-        helm repo index charts --url https://nightlies.apache.org/spark/charts
+        sed -i 's/repository: /repository: apache\//' build-tools/helm/spark-kubernetes-operator/values.yaml
+        sed -i 's/tag: .*$/tag: main-snapshot/' spark-kubernetes-operator/values.yaml
+        mkdir -p tmp/charts
+        helm package spark-kubernetes-operator -d tmp/charts --app-version main-snapshot
+        helm repo index tmp/charts --url https://nightlies.apache.org/spark/charts
+        helm show chart tmp/charts/spark-kubernetes-operator-*.tgz
     - name: Upload
       uses: burnett01/rsync-deployments@5.2
       with:
         switches: -avzr
-        path: build-tools/helm/*
+        path: build-tools/helm/tmp/*
         remote_path: ${{ secrets.NIGHTLIES_RSYNC_PATH }}/spark
         remote_host: ${{ secrets.NIGHTLIES_RSYNC_HOST }}
         remote_port: ${{ secrets.NIGHTLIES_RSYNC_PORT }}
