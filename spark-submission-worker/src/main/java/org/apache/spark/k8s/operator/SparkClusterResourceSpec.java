@@ -45,6 +45,7 @@ public class SparkClusterResourceSpec {
   public SparkClusterResourceSpec(SparkCluster cluster, SparkConf conf) {
     String clusterNamespace = cluster.getMetadata().getNamespace();
     String clusterName = cluster.getMetadata().getName();
+    String scheduler = conf.get(Config.KUBERNETES_SCHEDULER_NAME().key(), "default-scheduler");
     String namespace = conf.get(Config.KUBERNETES_NAMESPACE().key(), clusterNamespace);
     String image = conf.get(Config.CONTAINER_IMAGE().key(), "spark:4.0.0-preview1");
     ClusterSpec spec = cluster.getSpec();
@@ -54,10 +55,11 @@ public class SparkClusterResourceSpec {
     }
     masterService = buildMasterService(clusterName, namespace);
     workerService = buildWorkerService(clusterName, namespace);
-    masterStatefulSet = buildMasterStatefulSet(clusterName, namespace, image, options.toString());
+    masterStatefulSet =
+        buildMasterStatefulSet(scheduler, clusterName, namespace, image, options.toString());
     workerStatefulSet =
         buildWorkerStatefulSet(
-            clusterName, namespace, image, spec.getInitWorkers(), options.toString());
+            scheduler, clusterName, namespace, image, spec.getInitWorkers(), options.toString());
   }
 
   private static Service buildMasterService(String name, String namespace) {
@@ -111,7 +113,7 @@ public class SparkClusterResourceSpec {
   }
 
   private static StatefulSet buildMasterStatefulSet(
-      String name, String namespace, String image, String options) {
+      String scheduler, String name, String namespace, String image, String options) {
     return new StatefulSetBuilder()
         .withNewMetadata()
         .withName(name + "-master")
@@ -129,6 +131,7 @@ public class SparkClusterResourceSpec {
         .addToLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_MASTER_VALUE)
         .endMetadata()
         .withNewSpec()
+        .withSchedulerName(scheduler)
         .withTerminationGracePeriodSeconds(0L)
         .addNewContainer()
         .withName("master")
@@ -163,7 +166,12 @@ public class SparkClusterResourceSpec {
   }
 
   private static StatefulSet buildWorkerStatefulSet(
-      String name, String namespace, String image, int initWorkers, String options) {
+      String scheduler,
+      String name,
+      String namespace,
+      String image,
+      int initWorkers,
+      String options) {
     return new StatefulSetBuilder()
         .withNewMetadata()
         .withName(name + "-worker")
@@ -182,6 +190,7 @@ public class SparkClusterResourceSpec {
         .addToLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_WORKER_VALUE)
         .endMetadata()
         .withNewSpec()
+        .withSchedulerName(scheduler)
         .withTerminationGracePeriodSeconds(0L)
         .withNewDnsConfig()
         .withSearches(String.format("%s-worker-svc.%s.svc.cluster.local", name, namespace))
