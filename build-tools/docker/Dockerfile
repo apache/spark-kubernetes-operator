@@ -15,13 +15,12 @@
 # limitations under the License.
 #
 FROM gradle:8.10.0-jdk17-jammy AS builder
-ARG APP_VERSION=0.1.0-SNAPSHOT
 WORKDIR /app
 COPY . .
 RUN ./gradlew clean build -x check
 
 FROM azul/zulu-openjdk:21
-ARG APP_VERSION
+ARG APP_VERSION=0.1.0-SNAPSHOT
 ARG SPARK_UID=185
 LABEL org.opencontainers.image.authors="Apache Spark project <dev@spark.apache.org>"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
