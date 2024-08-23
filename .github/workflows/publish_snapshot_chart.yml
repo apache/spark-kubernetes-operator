@@ -38,7 +38,7 @@ jobs:
     - name: Build Chart
       run: |
         cd build-tools/helm
-        sed -i 's/repository: /repository: apache\//' build-tools/helm/spark-kubernetes-operator/values.yaml
+        sed -i 's/repository: /repository: apache\//' spark-kubernetes-operator/values.yaml
         sed -i 's/tag: .*$/tag: main-snapshot/' spark-kubernetes-operator/values.yaml
         mkdir -p tmp/charts
         helm package spark-kubernetes-operator -d tmp/charts --app-version main-snapshot
