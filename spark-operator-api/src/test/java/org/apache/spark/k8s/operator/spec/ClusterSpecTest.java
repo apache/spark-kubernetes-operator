@@ -36,8 +36,8 @@ class ClusterSpecTest {
   void testInitSpecWithDefaults() {
     ClusterSpec spec1 = new ClusterSpec();
     assertNull(spec1.runtimeVersions);
-    assertEquals(0, spec1.initWorkers);
-    assertEquals(0, spec1.minWorkers);
-    assertEquals(0, spec1.maxWorkers);
+    assertEquals(0, spec1.clusterTolerations.instanceConfig.initWorkers);
+    assertEquals(0, spec1.clusterTolerations.instanceConfig.minWorkers);
+    assertEquals(0, spec1.clusterTolerations.instanceConfig.maxWorkers);
   }
 }

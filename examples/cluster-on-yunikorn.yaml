@@ -19,9 +19,11 @@ metadata:
 spec:
   runtimeVersions:
     sparkVersion: "4.0.0-preview1"
-  initWorkers: 1
-  minWorkers: 1
-  maxWorkers: 1
+  clusterTolerations:
+    instanceConfig:
+      initWorkers: 1
+      minWorkers: 1
+      maxWorkers: 1
   sparkConf:
     spark.kubernetes.container.image: "spark:4.0.0-preview1"
     spark.kubernetes.scheduler.name: "yunikorn"
