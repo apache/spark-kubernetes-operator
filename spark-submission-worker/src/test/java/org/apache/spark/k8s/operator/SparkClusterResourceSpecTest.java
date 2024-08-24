@@ -31,12 +31,14 @@ import org.junit.jupiter.api.Test;
 
 import org.apache.spark.SparkConf;
 import org.apache.spark.k8s.operator.spec.ClusterSpec;
+import org.apache.spark.k8s.operator.spec.ClusterTolerations;
 
 class SparkClusterResourceSpecTest {
   SparkCluster cluster;
   ObjectMeta objectMeta;
   ClusterSpec clusterSpec;
   SparkConf sparkConf = new SparkConf().set("spark.kubernetes.namespace", "other-namespace");
+  ClusterTolerations clusterTolerations = new ClusterTolerations();
 
   @BeforeEach
   void setUp() {
@@ -47,6 +49,7 @@ class SparkClusterResourceSpecTest {
     when(cluster.getSpec()).thenReturn(clusterSpec);
     when(objectMeta.getNamespace()).thenReturn("my-namespace");
     when(objectMeta.getName()).thenReturn("cluster-name");
+    when(clusterSpec.getClusterTolerations()).thenReturn(clusterTolerations);
   }
 
   @Test

@@ -16,28 +16,22 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 package org.apache.spark.k8s.operator.spec;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import io.fabric8.generator.annotation.Required;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-import org.junit.jupiter.api.Test;
-
-class ClusterSpecTest {
-  @Test
-  void testBuilder() {
-    ClusterSpec spec1 = new ClusterSpec();
-    ClusterSpec spec2 = new ClusterSpec.ClusterSpecBuilder().build();
-    assertEquals(spec1, spec2);
-  }
-
-  @Test
-  void testInitSpecWithDefaults() {
-    ClusterSpec spec1 = new ClusterSpec();
-    assertNull(spec1.runtimeVersions);
-    assertEquals(0, spec1.clusterTolerations.instanceConfig.initWorkers);
-    assertEquals(0, spec1.clusterTolerations.instanceConfig.minWorkers);
-    assertEquals(0, spec1.clusterTolerations.instanceConfig.maxWorkers);
-  }
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class ClusterTolerations {
+  /** Determine the toleration behavior for worker instances. */
+  @Required @Builder.Default
+  protected WorkerInstanceConfig instanceConfig = new WorkerInstanceConfig();
 }

@@ -59,7 +59,12 @@ public class SparkClusterResourceSpec {
         buildMasterStatefulSet(scheduler, clusterName, namespace, image, options.toString());
     workerStatefulSet =
         buildWorkerStatefulSet(
-            scheduler, clusterName, namespace, image, spec.getInitWorkers(), options.toString());
+            scheduler,
+            clusterName,
+            namespace,
+            image,
+            spec.getClusterTolerations().getInstanceConfig().getInitWorkers(),
+            options.toString());
   }
 
   private static Service buildMasterService(String name, String namespace) {

@@ -37,7 +37,7 @@ import lombok.NoArgsConstructor;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ClusterSpec extends BaseSpec {
   @Required protected RuntimeVersions runtimeVersions;
-  @Required protected int initWorkers;
-  @Required protected int minWorkers;
-  @Required protected int maxWorkers;
+
+  @Required @Builder.Default
+  protected ClusterTolerations clusterTolerations = new ClusterTolerations();
 }

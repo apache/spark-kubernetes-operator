@@ -29,11 +29,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import org.apache.spark.k8s.operator.spec.ClusterSpec;
+import org.apache.spark.k8s.operator.spec.ClusterTolerations;
 
 class SparkClusterSubmissionWorkerTest {
   SparkCluster cluster;
   ObjectMeta objectMeta;
   ClusterSpec clusterSpec;
+  ClusterTolerations clusterTolerations = new ClusterTolerations();
 
   @BeforeEach
   void setUp() {
@@ -44,6 +46,7 @@ class SparkClusterSubmissionWorkerTest {
     when(cluster.getSpec()).thenReturn(clusterSpec);
     when(objectMeta.getNamespace()).thenReturn("my-namespace");
     when(objectMeta.getName()).thenReturn("cluster-name");
+    when(clusterSpec.getClusterTolerations()).thenReturn(clusterTolerations);
   }
 
   @Test

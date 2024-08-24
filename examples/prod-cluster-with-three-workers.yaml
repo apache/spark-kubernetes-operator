@@ -19,9 +19,11 @@ metadata:
 spec:
   runtimeVersions:
     sparkVersion: "4.0.0-preview1"
-  initWorkers: 3
-  minWorkers: 3
-  maxWorkers: 3
+  clusterTolerations:
+    instanceConfig:
+      initWorkers: 3
+      minWorkers: 3
+      maxWorkers: 3
   sparkConf:
     spark.kubernetes.container.image: "spark:4.0.0-preview1"
     spark.master.ui.title: "Prod Spark Cluster"
