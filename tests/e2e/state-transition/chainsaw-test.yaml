@@ -48,5 +48,6 @@ spec:
         env:
           - name: SPARK_APPLICATION_NAME
             value: ($SPARK_APPLICATION_NAME)
+        timeout: 30s
         content: |
           kubectl delete sparkapplication $SPARK_APPLICATION_NAME
