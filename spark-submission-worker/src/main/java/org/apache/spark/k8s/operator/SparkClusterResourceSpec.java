@@ -25,15 +25,20 @@ import java.util.Collections;
 
 import scala.Tuple2;
 
+import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServiceBuilder;
+import io.fabric8.kubernetes.api.model.ServiceSpec;
 import io.fabric8.kubernetes.api.model.apps.StatefulSet;
 import io.fabric8.kubernetes.api.model.apps.StatefulSetBuilder;
+import io.fabric8.kubernetes.api.model.apps.StatefulSetSpec;
 import lombok.Getter;
 
 import org.apache.spark.SparkConf;
 import org.apache.spark.deploy.k8s.Config;
 import org.apache.spark.k8s.operator.spec.ClusterSpec;
+import org.apache.spark.k8s.operator.spec.MasterSpec;
+import org.apache.spark.k8s.operator.spec.WorkerSpec;
 
 /** Spark Cluster Resource Spec: Master Service, Master StatefulSet, Worker StatefulSet */
 public class SparkClusterResourceSpec {
@@ -53,10 +58,29 @@ public class SparkClusterResourceSpec {
     for (Tuple2<String, String> t : conf.getAll()) {
       options.append(String.format("-D%s=\"%s\" ", t._1, t._2));
     }
-    masterService = buildMasterService(clusterName, namespace);
-    workerService = buildWorkerService(clusterName, namespace);
+    MasterSpec masterSpec = spec.getMasterSpec();
+    WorkerSpec workerSpec = spec.getWorkerSpec();
+    masterService =
+        buildMasterService(
+            clusterName,
+            namespace,
+            masterSpec.getMasterServiceMetadata(),
+            masterSpec.getMasterServiceSpec());
+    workerService =
+        buildWorkerService(
+            clusterName,
+            namespace,
+            workerSpec.getWorkerServiceMetadata(),
+            workerSpec.getWorkerServiceSpec());
     masterStatefulSet =
-        buildMasterStatefulSet(scheduler, clusterName, namespace, image, options.toString());
+        buildMasterStatefulSet(
+            scheduler,
+            clusterName,
+            namespace,
+            image,
+            options.toString(),
+            masterSpec.getMasterStatefulSetMetadata(),
+            masterSpec.getMasterStatefulSetSpec());
     workerStatefulSet =
         buildWorkerStatefulSet(
             scheduler,
@@ -64,17 +88,20 @@ public class SparkClusterResourceSpec {
             namespace,
             image,
             spec.getClusterTolerations().getInstanceConfig().getInitWorkers(),
-            options.toString());
+            options.toString(),
+            workerSpec.getWorkerStatefulSetMetadata(),
+            workerSpec.getWorkerStatefulSetSpec());
   }
 
-  private static Service buildMasterService(String name, String namespace) {
+  private static Service buildMasterService(
+      String name, String namespace, ObjectMeta metadata, ServiceSpec serviceSpec) {
     return new ServiceBuilder()
-        .withNewMetadata()
+        .withNewMetadataLike(metadata)
         .withName(name + "-master-svc")
         .addToLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_MASTER_VALUE)
         .withNamespace(namespace)
         .endMetadata()
-        .withNewSpec()
+        .withNewSpecLike(serviceSpec)
         .withClusterIP("None")
         .withSelector(
             Collections.singletonMap(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_MASTER_VALUE))
@@ -97,14 +124,15 @@ public class SparkClusterResourceSpec {
         .build();
   }
 
-  private static Service buildWorkerService(String name, String namespace) {
+  private static Service buildWorkerService(
+      String name, String namespace, ObjectMeta metadata, ServiceSpec serviceSpec) {
     return new ServiceBuilder()
-        .withNewMetadata()
+        .withNewMetadataLike(metadata)
         .withName(name + "-worker-svc")
         .addToLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_WORKER_VALUE)
         .withNamespace(namespace)
         .endMetadata()
-        .withNewSpec()
+        .withNewSpecLike(serviceSpec)
         .withClusterIP("None")
         .withSelector(
             Collections.singletonMap(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_WORKER_VALUE))
@@ -118,24 +146,30 @@ public class SparkClusterResourceSpec {
   }
 
   private static StatefulSet buildMasterStatefulSet(
-      String scheduler, String name, String namespace, String image, String options) {
+      String scheduler,
+      String name,
+      String namespace,
+      String image,
+      String options,
+      ObjectMeta objectMeta,
+      StatefulSetSpec statefulSetSpec) {
     return new StatefulSetBuilder()
-        .withNewMetadata()
+        .withNewMetadataLike(objectMeta)
         .withName(name + "-master")
         .addToLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_MASTER_VALUE)
         .withNamespace(namespace)
         .endMetadata()
-        .withNewSpec()
+        .withNewSpecLike(statefulSetSpec)
         .withPodManagementPolicy("Parallel")
         .withReplicas(1)
-        .withNewSelector()
+        .editOrNewSelector()
         .addToMatchLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_MASTER_VALUE)
         .endSelector()
-        .withNewTemplate()
-        .withNewMetadata()
+        .editOrNewTemplate()
+        .editOrNewMetadata()
         .addToLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_MASTER_VALUE)
         .endMetadata()
-        .withNewSpec()
+        .editOrNewSpec()
         .withSchedulerName(scheduler)
         .withTerminationGracePeriodSeconds(0L)
         .addNewContainer()
@@ -176,25 +210,27 @@ public class SparkClusterResourceSpec {
       String namespace,
       String image,
       int initWorkers,
-      String options) {
+      String options,
+      ObjectMeta metadata,
+      StatefulSetSpec statefulSetSpec) {
     return new StatefulSetBuilder()
-        .withNewMetadata()
+        .withNewMetadataLike(metadata)
         .withName(name + "-worker")
         .addToLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_WORKER_VALUE)
         .withNamespace(namespace)
         .endMetadata()
-        .withNewSpec()
+        .withNewSpecLike(statefulSetSpec)
         .withPodManagementPolicy("Parallel")
         .withReplicas(initWorkers)
         .withServiceName(name + "-worker-svc")
-        .withNewSelector()
+        .editOrNewSelector()
         .addToMatchLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_WORKER_VALUE)
         .endSelector()
-        .withNewTemplate()
-        .withNewMetadata()
+        .editOrNewTemplate()
+        .editOrNewMetadata()
         .addToLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_WORKER_VALUE)
         .endMetadata()
-        .withNewSpec()
+        .editOrNewSpec()
         .withSchedulerName(scheduler)
         .withTerminationGracePeriodSeconds(0L)
         .withNewDnsConfig()

@@ -19,28 +19,23 @@
 
 package org.apache.spark.k8s.operator.spec;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import io.fabric8.generator.annotation.Required;
+import io.fabric8.kubernetes.api.model.ObjectMeta;
+import io.fabric8.kubernetes.api.model.ServiceSpec;
+import io.fabric8.kubernetes.api.model.apps.StatefulSetSpec;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@EqualsAndHashCode(callSuper = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
-@JsonIgnoreProperties(ignoreUnknown = true)
-public class ClusterSpec extends BaseSpec {
-  @Required protected RuntimeVersions runtimeVersions;
-
-  @Required @Builder.Default
-  protected ClusterTolerations clusterTolerations = new ClusterTolerations();
-
-  @Builder.Default protected MasterSpec masterSpec = new MasterSpec.MasterSpecBuilder().build();
-  @Builder.Default protected WorkerSpec workerSpec = new WorkerSpec.WorkerSpecBuilder().build();
+public class WorkerSpec {
+  protected StatefulSetSpec workerStatefulSetSpec;
+  protected ObjectMeta workerStatefulSetMetadata;
+  protected ServiceSpec workerServiceSpec;
+  protected ObjectMeta workerServiceMetadata;
 }
