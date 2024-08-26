@@ -35,6 +35,14 @@ spec:
           securityContext:
             runAsUser: 0
           containers:
+          - name: master
+            resources:
+              requests:
+                cpu: "2"
+                memory: "2Gi"
+              limits:
+                cpu: "2"
+                memory: "2Gi"
           - name: sidecar
             image: registry.k8s.io/pause
             resources:
@@ -58,6 +66,14 @@ spec:
           securityContext:
             runAsUser: 0
           containers:
+          - name: worker
+            resources:
+              requests:
+                cpu: "2"
+                memory: "2Gi"
+              limits:
+                cpu: "2"
+                memory: "2Gi"
           - name: sidecar
             image: registry.k8s.io/pause
             resources:
