@@ -176,15 +176,14 @@ public class SparkClusterResourceSpec {
         .withName("master")
         .withImage(image)
         .addNewEnv()
-        .withName("SPARK_NO_DAEMONIZE")
-        .withValue("1")
-        .endEnv()
-        .addNewEnv()
         .withName("SPARK_MASTER_OPTS")
         .withValue(options)
         .endEnv()
         .addToCommand("bash")
-        .addToArgs("/opt/spark/sbin/start-master.sh")
+        .addToArgs(
+            "-c",
+            "/opt/spark/sbin/start-master.sh && while /opt/spark/sbin/spark-daemon.sh status "
+                + "org.apache.spark.deploy.master.Master 1; do sleep 1; done")
         .addNewPort()
         .withName("web")
         .withContainerPort(8080)
@@ -240,15 +239,20 @@ public class SparkClusterResourceSpec {
         .withName("worker")
         .withImage(image)
         .addNewEnv()
-        .withName("SPARK_NO_DAEMONIZE")
-        .withValue("1")
+        .withName("SPARK_LOG_DIR")
+        .withValue("/opt/spark/work/logs")
         .endEnv()
         .addNewEnv()
         .withName("SPARK_WORKER_OPTS")
         .withValue(options)
         .endEnv()
         .addToCommand("bash")
-        .addToArgs("/opt/spark/sbin/start-worker.sh", "spark://" + name + "-master-svc:7077")
+        .addToArgs(
+            "-c",
+            "/opt/spark/sbin/start-worker.sh spark://"
+                + name
+                + "-master-svc:7077 && while /opt/spark/sbin/spark-daemon.sh status "
+                + "org.apache.spark.deploy.worker.Worker 1; do sleep 1; done")
         .endContainer()
         .endSpec()
         .endTemplate()
