@@ -117,6 +117,33 @@ $ helm install spark-kubernetes-operator \
 https://nightlies.apache.org/spark/charts/spark-kubernetes-operator-0.1.0-SNAPSHOT.tgz
 ```
 
+## Clean Up
+
+Check the existing Spark applications and clusters. If exists, delete them.
+
+```
+$ kubectl get sparkapp
+No resources found in default namespace.
+
+$ kubectl get sparkcluster
+No resources found in default namespace.
+```
+
+Remove HelmChart and CRDs.
+
+```
+$ helm uninstall spark-kubernetes-operator
+
+$ kubectl delete crd sparkapplications.spark.apache.org
+
+$ kubectl delete crd sparkclusters.spark.apache.org
+```
+
+In case of nightly builds, remove the snapshot image.
+```
+$ docker rmi apache/spark-kubernetes-operator:main-snapshot
+```
+
 ## Contributing
 
 Please review the [Contribution to Spark guide](https://spark.apache.org/contributing.html)
