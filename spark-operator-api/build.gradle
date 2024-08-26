@@ -18,23 +18,23 @@
  */
 dependencies {
   // fabric8
-  implementation("io.fabric8:kubernetes-client:$fabric8Version") {
+  implementation(libs.kubernetes.client) {
     exclude group: 'com.squareup.okhttp3'
   }
-  compileOnly("io.fabric8:crd-generator-apt:$fabric8Version")
-  annotationProcessor("io.fabric8:crd-generator-apt:$fabric8Version")
+  compileOnly(libs.crd.generator.apt)
+  annotationProcessor(libs.crd.generator.apt)
 
   // utils
-  implementation("org.projectlombok:lombok:$lombokVersion")
-  annotationProcessor("org.projectlombok:lombok:$lombokVersion")
+  implementation(libs.lombok)
+  annotationProcessor(libs.lombok)
 
   // logging
-  implementation("org.apache.logging.log4j:log4j-slf4j-impl:$log4jVersion")
-  implementation("org.apache.logging.log4j:log4j-core:$log4jVersion")
+  implementation(libs.log4j.slf4j.impl)
+  implementation(libs.log4j.core)
 
-  testImplementation platform("org.junit:junit-bom:$junitVersion")
-  testImplementation 'org.junit.jupiter:junit-jupiter'
-  testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+  testImplementation(platform(libs.junit.bom))
+  testImplementation(libs.junit.jupiter)
+  testRuntimeOnly(libs.junit.platform.launcher)
 }
 
 test {

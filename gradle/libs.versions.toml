@@ -1,0 +1,70 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+[versions]
+fabric8 = "6.13.3"
+lombok = "1.18.32"
+operator-sdk = "4.9.0"
+okhttp = "4.12.0"
+dropwizard-metrics = "4.2.25"
+spark = "4.0.0-preview1"
+log4j = "2.22.1"
+
+# Test
+junit = "5.10.2"
+jacoco = "0.8.12"
+mockito = "5.11.0"
+powermock = "2.0.9"
+
+# Build Analysis
+checkstyle = "10.17.0"
+pmd = "6.55.0"
+spotbugs-tool = "4.8.6"
+spotbugs-plugin = "6.0.17"
+spotless-plugin = "6.25.0"
+
+# Packaging
+shadow-jar-plugin = "8.1.1"
+
+[libraries]
+kubernetes-client = { group = "io.fabric8", name = "kubernetes-client", version.ref = "fabric8" }
+kubernetes-httpclient-okhttp = { group = "io.fabric8", name = "kubernetes-httpclient-okhttp", version.ref = "fabric8" }
+kubernetes-server-mock = { group = "io.fabric8", name = "kubernetes-server-mock", version.ref = "fabric8" }
+crd-generator-apt = { group = "io.fabric8", name = "crd-generator-apt", version.ref = "fabric8" }
+okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttp" }
+logging-interceptor = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp" }
+lombok = { group = "org.projectlombok", name = "lombok", version.ref = "lombok" }
+log4j-api = { group = "org.apache.logging.log4j", name = "log4j-api", version.ref = "log4j" }
+log4j-core = { group = "org.apache.logging.log4j", name = "log4j-core", version.ref = "log4j" }
+log4j-slf4j-impl = { group = "org.apache.logging.log4j", name = "log4j-slf4j-impl", version.ref = "log4j" }
+log4j-api12 = { group = "org.apache.logging.log4j", name = "log4j-1.2-api", version.ref = "log4j" }
+log4j-layout-template-json = { group = "org.apache.logging.log4j", name = "log4j-layout-template-json", version.ref = "log4j" }
+operator-framework = { group = "io.javaoperatorsdk", name = "operator-framework", version.ref = "operator-sdk"}
+operator-framework-junit5 = { group = "io.javaoperatorsdk", name = "operator-framework-junit-5", version.ref = "operator-sdk"}
+spotbugs-annotations = { group = "com.github.spotbugs", name = "spotbugs-annotations", version.ref = "spotbugs-tool"}
+metrics-core = { group = "io.dropwizard.metrics", name = "metrics-core", version.ref = "dropwizard-metrics"}
+metrics-jvm = { group = "io.dropwizard.metrics", name = "metrics-jvm", version.ref = "dropwizard-metrics"}
+spark-core = { group = "org.apache.spark", name = "spark-core_2.13", version.ref = "spark"}
+spark-kubernetes = { group = "org.apache.spark", name = "spark-kubernetes_2.13", version.ref = "spark"}
+mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockito"}
+junit-bom = { group = "org.junit", name = "junit-bom", version.ref = "junit"}
+junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter", version.ref = "junit"}
+junit-platform-launcher = { group = "org.junit.platform", name = "junit-platform-launcher"}
+powermock-core = { group = "org.powermock", name = "powermock-core", version.ref = "powermock"}
+spotbugs-gradle-plugin = { group = "com.github.spotbugs.snom", name = "spotbugs-gradle-plugin", version.ref = "spotbugs-plugin" }
+spotless-plugin-gradle = { group = "com.diffplug.spotless", name = "spotless-plugin-gradle", version.ref = "spotless-plugin" }
+shadow = { group = "com.github.johnrengelman", name = "shadow", version.ref = "shadow-jar-plugin"}

@@ -22,27 +22,27 @@ dependencies {
   implementation project(":spark-operator-api")
   implementation project(":spark-submission-worker")
 
-  implementation("io.javaoperatorsdk:operator-framework:$operatorSDKVersion") {
+  implementation(libs.operator.framework) {
     exclude group: 'com.squareup.okio'
     exclude group: 'io.fabric8'
   }
-  implementation("io.fabric8:kubernetes-httpclient-okhttp:$fabric8Version") {
+  implementation(libs.kubernetes.httpclient.okhttp) {
     exclude group: 'com.squareup.okhttp3'
   }
-  implementation("com.squareup.okhttp3:okhttp:$okHttpVersion")
-  implementation("com.squareup.okhttp3:logging-interceptor:$okHttpVersion")
-  implementation("com.github.spotbugs:spotbugs-annotations:$spotBugsVersion")
+  implementation(libs.okhttp)
+  implementation(libs.logging.interceptor)
+  implementation(libs.spotbugs.annotations)
   // logging
-  implementation("org.apache.logging.log4j:log4j-api:$log4jVersion")
-  implementation("org.apache.logging.log4j:log4j-core:$log4jVersion")
-  implementation("org.apache.logging.log4j:log4j-slf4j-impl:$log4jVersion")
-  implementation("org.apache.logging.log4j:log4j-1.2-api:$log4jVersion")
-  implementation("org.apache.logging.log4j:log4j-layout-template-json:$log4jVersion")
+  implementation(libs.log4j.api)
+  implementation(libs.log4j.core)
+  implementation(libs.log4j.slf4j.impl)
+  implementation(libs.log4j.api12)
+  implementation(libs.log4j.layout.template.json)
 
   // metrics
-  implementation("io.dropwizard.metrics:metrics-core:$dropwizardMetricsVersion")
-  implementation("io.dropwizard.metrics:metrics-jvm:$dropwizardMetricsVersion")
-  compileOnly("org.apache.spark:spark-core_$scalaVersion:$sparkVersion") {
+  implementation(libs.metrics.core)
+  implementation(libs.metrics.jvm)
+  compileOnly(libs.spark.core) {
     exclude group: "com.github.luben"
     exclude group: "io.netty", module: "netty-tcnative-boringssl-static"
     exclude group: "io.netty", module: "netty-tcnative-classes"
@@ -55,32 +55,32 @@ dependencies {
     exclude group: 'com.squareup.okhttp3'
     exclude group: 'com.squareup.okio'
   }
-  compileOnly("org.projectlombok:lombok:$lombokVersion")
+  compileOnly(libs.lombok)
 
-  annotationProcessor("org.projectlombok:lombok:$lombokVersion")
-  annotationProcessor("com.github.spotbugs:spotbugs-annotations:$spotBugsVersion")
+  annotationProcessor(libs.lombok)
+  annotationProcessor(libs.spotbugs.annotations)
 
-  testImplementation("io.javaoperatorsdk:operator-framework-junit-5:$operatorSDKVersion") {
+  testImplementation(libs.operator.framework.junit5) {
     exclude group: 'com.squareup.okio'
     exclude group: 'io.fabric8'
   }
-  testImplementation("io.fabric8:kubernetes-server-mock:$fabric8Version") {
+  testImplementation(libs.kubernetes.server.mock) {
     exclude group: 'junit'
     exclude group: 'com.squareup.okhttp3'
   }
-  testImplementation("org.apache.spark:spark-core_$scalaVersion:$sparkVersion") {
+  testImplementation(libs.spark.core) {
     exclude group: 'com.squareup.okio'
     exclude group: 'com.squareup.okhttp3'
     exclude group: "org.apache.logging.log4j"
     exclude group: "org.slf4j"
   }
-  testImplementation("com.squareup.okhttp3:mockwebserver:$okHttpVersion")
-  testImplementation platform("org.junit:junit-bom:$junitVersion")
-  testImplementation("org.junit.jupiter:junit-jupiter:$junitVersion")
-  testImplementation("org.powermock:powermock-core:$powerMockVersion")
-  testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+  testImplementation(libs.mockwebserver)
+  testImplementation platform(libs.junit.bom)
+  testImplementation(libs.junit.jupiter)
+  testImplementation(libs.powermock.core)
+  testRuntimeOnly(libs.junit.platform.launcher)
 
-  testImplementation("org.mockito:mockito-core:$mockitoVersion")
+  testImplementation(libs.mockito.core)
 }
 
 test {

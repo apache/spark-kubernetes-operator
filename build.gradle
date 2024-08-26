@@ -23,9 +23,9 @@ buildscript {
     }
   }
   dependencies {
-    classpath "com.github.spotbugs.snom:spotbugs-gradle-plugin:${spotBugsGradlePluginVersion}"
-    classpath "com.diffplug.spotless:spotless-plugin-gradle:${spotlessPluginVersion}"
-    classpath "com.github.johnrengelman:shadow:${shadowJarPluginVersion}"
+    classpath "${libs.spotbugs.gradle.plugin.get()}"
+    classpath "${libs.spotless.plugin.gradle.get()}"
+    classpath "${libs.shadow.get()}"
   }
 }
 
@@ -59,7 +59,7 @@ subprojects {
 
   apply plugin: 'checkstyle'
   checkstyle {
-    toolVersion = checkstyleVersion
+    toolVersion = libs.versions.checkstyle.get()
     configFile = file("$rootDir/config/checkstyle/checkstyle.xml")
     ignoreFailures = false
     showViolations = true
@@ -68,14 +68,14 @@ subprojects {
   apply plugin: 'pmd'
   pmd {
     ruleSetFiles = files("$rootDir/config/pmd/ruleset.xml")
-    toolVersion = pmdVersion
+    toolVersion = libs.versions.pmd.get()
     consoleOutput = true
     ignoreFailures = false
   }
 
   apply plugin: 'com.github.spotbugs'
   spotbugs {
-    toolVersion = spotBugsVersion
+    toolVersion = libs.versions.spotbugs.tool.get()
     afterEvaluate {
       reportsDir = file("${project.reporting.baseDir}/findbugs")
     }
@@ -85,7 +85,7 @@ subprojects {
 
   apply plugin: 'jacoco'
   jacoco {
-    toolVersion = jacocoVersion
+    toolVersion = libs.versions.jacoco.get()
   }
   jacocoTestReport {
     dependsOn test
