@@ -261,6 +261,10 @@ public class SparkClusterResourceSpec {
                 + name
                 + "-master-svc:7077 && while /opt/spark/sbin/spark-daemon.sh status "
                 + "org.apache.spark.deploy.worker.Worker 1; do sleep 1; done")
+        .addNewPort()
+        .withName("web")
+        .withContainerPort(8081)
+        .endPort()
         .endContainer()
         .endSpec()
         .endTemplate()
