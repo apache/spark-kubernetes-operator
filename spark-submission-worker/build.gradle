@@ -19,7 +19,7 @@
 dependencies {
   implementation project(":spark-operator-api")
 
-  implementation("org.apache.spark:spark-kubernetes_$scalaVersion:$sparkVersion") {
+  implementation(libs.spark.kubernetes) {
     exclude group: "com.github.luben"
     exclude group: "io.netty", module: "netty-tcnative-boringssl-static"
     exclude group: "io.netty", module: "netty-tcnative-classes"
@@ -30,13 +30,13 @@ dependencies {
     exclude group: 'commons-collections', module: 'commons-collections'
   }
 
-  compileOnly("org.projectlombok:lombok:$lombokVersion")
-  annotationProcessor("org.projectlombok:lombok:$lombokVersion")
+  compileOnly(libs.lombok)
+  annotationProcessor(libs.lombok)
 
-  testImplementation platform("org.junit:junit-bom:$junitVersion")
-  testImplementation "org.mockito:mockito-core:$mockitoVersion"
-  testImplementation "org.junit.jupiter:junit-jupiter:$junitVersion"
-  testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+  testImplementation(platform(libs.junit.bom))
+  testImplementation(libs.mockito.core)
+  testImplementation(libs.junit.jupiter)
+  testRuntimeOnly(libs.junit.platform.launcher)
 }
 
 test {
