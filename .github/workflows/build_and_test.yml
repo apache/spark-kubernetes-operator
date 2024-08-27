@@ -73,6 +73,8 @@ jobs:
           - spark-versions
           - python
           - state-transition
+        dynamic_config_test_group:
+          - watched-namespaces
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -98,7 +100,7 @@ jobs:
         run: |
           kubectl get pods -A
           kubectl describe node
-      - name: Run Spark K8s Operator on K8S
+      - name: Run Spark K8s Operator on K8S with Dynamic Configuration Disabled
         run: |
           kubectl create clusterrolebinding serviceaccounts-cluster-admin --clusterrole=cluster-admin --group=system:serviceaccounts || true
           eval $(minikube docker-env)
@@ -108,9 +110,22 @@ jobs:
           helm test spark-kubernetes-operator
           # Use remote host' s docker image
           minikube docker-env --unset
-      - name: Run E2E Test
+      - name: Run E2E Test with Dynamic Configuration Disabled
         run: |
           chainsaw test --test-dir ./tests/e2e/${{ matrix.test_group }} --parallel 2
+      - name: Run Spark K8s Operator on K8S with Dynamic Configuration Enabled
+        run: |
+          helm uninstall spark-kubernetes-operator
+          eval $(minikube docker-env)
+          helm install spark-kubernetes-operator --create-namespace -f \
+          build-tools/helm/spark-kubernetes-operator/values.yaml -f \
+          tests/e2e/helm/dynamic-config-values.yaml \
+          build-tools/helm/spark-kubernetes-operator/
+          minikube docker-env --unset
+      - name: Run E2E Test with Dynamic Configuration Enabled
+        run: |
+          chainsaw test --test-dir ./tests/e2e/${{ matrix.dynamic_config_test_group }} --parallel 2
+
   lint:
     name: "Linter and documentation"
     runs-on: ubuntu-latest

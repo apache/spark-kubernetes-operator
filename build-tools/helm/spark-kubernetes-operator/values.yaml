@@ -188,4 +188,4 @@ operatorConfiguration:
       "helm.sh/resource-policy": keep
     data:
       # Spark Operator Config Runtime Properties Overrides. e.g.
-      spark.kubernetes.operator.reconciler.intervalSeconds: 60
+      spark.kubernetes.operator.reconciler.intervalSeconds: "60"

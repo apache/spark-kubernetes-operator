@@ -20,13 +20,13 @@ kind: SparkApplication
 metadata:
   name: spark-job-succeeded-test
   namespace: ($SPARK_APP_NAMESPACE)
-status:
-  stateTransitionHistory:
-    (*.currentStateSummary):
-      - "Submitted"
-      - "DriverRequested"
-      - "DriverStarted"
-      - "DriverReady"
-      - "RunningHealthy"
-      - "Succeeded"
-      - "ResourceReleased"
+spec:
+  mainClass: "org.apache.spark.examples.SparkPi"
+  jars: "local:///opt/spark/examples/jars/spark-examples_2.13-4.0.0-preview1.jar"
+  sparkConf:
+    spark.executor.instances: "1"
+    spark.kubernetes.container.image: "spark:4.0.0-preview1-scala2.13-java17-ubuntu"
+    spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
+  runtimeVersions:
+    sparkVersion: 4.0.0-preview1
+    scalaVersion: "2.13"
