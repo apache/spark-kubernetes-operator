@@ -167,7 +167,13 @@ operatorConfiguration:
   append: true
   log4j2.properties: |+
     # Logging Overrides
-    # rootLogger.level=DEBUG
+    rootLogger.level=INFO
+    rootLogger.appenderRef.stdout.ref = console
+    appender.console.type = Console
+    appender.console.name = console
+    appender.console.target = SYSTEM_ERR
+    appender.console.layout.type = PatternLayout
+    appender.console.layout.pattern = %d{yy/MM/dd HH:mm:ss} %p %c{1}: %m%n%ex
   spark-operator.properties: |+
     # Property Overrides. e.g.
     # spark.kubernetes.operator.reconciler.intervalSeconds=60
