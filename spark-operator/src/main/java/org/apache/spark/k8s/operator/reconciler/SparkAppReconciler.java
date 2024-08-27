@@ -93,7 +93,7 @@ public class SparkAppReconciler
           sparkApplication, context.getClient())) {
         return UpdateControl.noUpdate();
       }
-      log.debug("Start reconciliation.");
+      log.debug("Start application reconciliation.");
       sparkAppStatusRecorder.updateStatusFromCache(sparkApplication);
       SparkAppContext ctx = new SparkAppContext(sparkApplication, context, submissionWorker);
       List<AppReconcileStep> reconcileSteps = getReconcileSteps(sparkApplication);

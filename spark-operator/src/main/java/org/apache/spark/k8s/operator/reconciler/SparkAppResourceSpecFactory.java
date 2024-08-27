@@ -113,7 +113,7 @@ public final class SparkAppResourceSpecFactory {
         log.warn("Local temp file not found at {}", pathKey);
       }
     } catch (Throwable t) {
-      log.error("Failed to delete temp file. Attempting delete upon exit.", t);
+      log.warn("Failed to delete temp file. Attempting delete upon exit.", t);
     } finally {
       if (!deleted && localFile.isPresent() && localFile.get().exists()) {
         localFile.get().deleteOnExit();

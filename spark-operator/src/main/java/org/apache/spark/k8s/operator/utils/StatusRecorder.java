@@ -97,13 +97,14 @@ public class StatusRecorder<
         resource.getMetadata().setResourceVersion(updated.getMetadata().getResourceVersion());
         err = null;
       } catch (KubernetesClientException e) {
-        log.error("Error while patching status, retrying {}/{}...", i + 1, maxRetry, e);
+        log.warn("Error while patching status, retrying {}/{}...", i + 1, maxRetry, e);
         Thread.sleep(TimeUnit.SECONDS.toMillis(API_RETRY_ATTEMPT_AFTER_SECONDS.getValue()));
         err = e;
       }
     }
 
     if (err != null) {
+      log.error("Fail to patch status.", err);
       throw err;
     }
 

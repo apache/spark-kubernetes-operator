@@ -100,9 +100,10 @@ public class HealthProbe implements HttpHandler {
           } else {
             if (log.isErrorEnabled()) {
               log.error(
-                  "Controller: {}, Event Source: {}, Informer: {} is not in a healthy state",
+                  "Controller: {}, Event Source: {}, Informer: {} is in {}, not a healthy state",
                   controllerEntry.getKey(),
                   eventSourceEntry.getKey(),
+                  informerEntry.getValue().getStatus(),
                   informerEntry.getKey());
             }
             informersHealthList.add(false);

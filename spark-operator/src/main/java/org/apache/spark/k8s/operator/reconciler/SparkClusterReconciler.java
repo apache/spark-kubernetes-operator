@@ -78,7 +78,7 @@ public class SparkClusterReconciler
       if (sentinelManager.handleSentinelResourceReconciliation(sparkCluster, context.getClient())) {
         return UpdateControl.noUpdate();
       }
-      log.error("Start SparkClusterReconciler.");
+      log.debug("Start cluster reconciliation.");
       sparkClusterStatusRecorder.updateStatusFromCache(sparkCluster);
       SparkClusterContext ctx = new SparkClusterContext(sparkCluster, context, submissionWorker);
       List<ClusterReconcileStep> reconcileSteps = getReconcileSteps(sparkCluster);
@@ -90,7 +90,7 @@ public class SparkClusterReconciler
       }
       return ReconcilerUtils.toUpdateControl(sparkCluster, completeAndDefaultRequeue());
     } finally {
-      log.error("Reconciliation completed.");
+      log.debug("Reconciliation completed.");
       trackedMDC.reset();
     }
   }
