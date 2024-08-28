@@ -24,7 +24,7 @@ spec:
     spark.dynamicAllocation.maxExecutors: "3"
     spark.log.structuredLogging.enabled: "false"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
-    spark.kubernetes.container.image: "spark:4.0.0-preview1-scala2.13-java17-python3-ubuntu"
+    spark.kubernetes.container.image: "spark:4.0.0-preview1"
   applicationTolerations:
     resourceRetainPolicy: OnFailure
   runtimeVersions:
