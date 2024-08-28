@@ -15,28 +15,17 @@
 apiVersion: spark.apache.org/v1alpha1
 kind: SparkApplication
 metadata:
-  name: sparkr-dataframe
+  name: pi-python
 spec:
-  driverSpec:
-    podTemplateSpec:
-      metadata:
-      spec:
-        containers:
-          - name: driver
-            workingDir: /opt/spark
-  executorSpec:
-    podTemplateSpec:
-      metadata:
-      spec:
-        containers:
-          - name: executor
-            workingDir: /opt/spark
-  sparkRFiles: "local:///opt/spark/examples/src/main/r/dataframe.R"
+  pyFiles: "local:///opt/spark/examples/src/main/python/pi.py"
   sparkConf:
-    spark.executor.instances: "1"
-    # see also https://hub.docker.com/_/spark
-    spark.kubernetes.container.image: "spark:4.0.0-preview1-r"
+    spark.dynamicAllocation.enabled: "true"
+    spark.dynamicAllocation.shuffleTracking.enabled: "true"
+    spark.dynamicAllocation.maxExecutors: "3"
+    spark.log.structuredLogging.enabled: "false"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
-    spark.home: "/opt/spark"
+    spark.kubernetes.container.image: "spark:4.0.0-preview1-scala2.13-java17-python3-ubuntu"
+  applicationTolerations:
+    resourceRetainPolicy: OnFailure
   runtimeVersions:
     sparkVersion: "4.0.0-preview1"
