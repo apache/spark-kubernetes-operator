@@ -15,18 +15,20 @@
 # limitations under the License.
 #
 
-apiVersion: spark.apache.org/v1alpha1
-kind: SparkApplication
+apiVersion: v1
+data:
+  spark.kubernetes.operator.watchedNamespaces: default
+kind: ConfigMap
 metadata:
-  name: spark-job-succeeded-test
-  namespace: ($SPARK_APP_NAMESPACE)
-status:
-  stateTransitionHistory:
-    (*.currentStateSummary):
-      - "Submitted"
-      - "DriverRequested"
-      - "DriverStarted"
-      - "DriverReady"
-      - "RunningHealthy"
-      - "Succeeded"
-      - "ResourceReleased"
+  annotations:
+    helm.sh/resource-policy: keep
+    meta.helm.sh/release-name: spark-kubernetes-operator
+    meta.helm.sh/release-namespace: default
+  labels:
+    app.kubernetes.io/component: operator-dynamic-config-overrides
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: spark-kubernetes-operator
+    app.kubernetes.io/version: 0.1.0-SNAPSHOT
+    helm.sh/chart: spark-kubernetes-operator-0.1.0-SNAPSHOT
+  name: spark-kubernetes-operator-dynamic-configuration
+  namespace: default

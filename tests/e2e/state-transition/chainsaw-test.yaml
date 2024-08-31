@@ -36,6 +36,9 @@ spec:
             value: ($FILE_NAME)
         content: kubectl apply -f $FILE_NAME
     - assert:
+        bindings:
+          - name: SPARK_APP_NAMESPACE
+            value: default
         timeout: 60s
         file: "../assertions/spark-application/spark-state-transition.yaml"
     catch:
