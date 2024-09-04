@@ -66,14 +66,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        kubernetes_version:
-          - "1.27.0"
+        kubernetes-version:
+          - "1.28.0"
           - "1.31.0"
-        test_group:
+        test-group:
           - spark-versions
           - python
           - state-transition
-        dynamic_config_test_group:
+        dynamic-config-test-group:
           - watched-namespaces
     steps:
       - name: Checkout repository
@@ -88,7 +88,7 @@ jobs:
         uses: medyagh/setup-minikube@v0.0.18
         with:
           cache: true
-          kubernetes-version: ${{ matrix.kubernetes_version }}
+          kubernetes-version: ${{ matrix.kubernetes-version }}
           cpus: 2
           memory: 6144m
       - name: Set Up Go
@@ -112,7 +112,7 @@ jobs:
           minikube docker-env --unset
       - name: Run E2E Test with Dynamic Configuration Disabled
         run: |
-          chainsaw test --test-dir ./tests/e2e/${{ matrix.test_group }} --parallel 2
+          chainsaw test --test-dir ./tests/e2e/${{ matrix.test-group }} --parallel 2
       - name: Run Spark K8s Operator on K8S with Dynamic Configuration Enabled
         run: |
           helm uninstall spark-kubernetes-operator
@@ -124,7 +124,7 @@ jobs:
           minikube docker-env --unset
       - name: Run E2E Test with Dynamic Configuration Enabled
         run: |
-          chainsaw test --test-dir ./tests/e2e/${{ matrix.dynamic_config_test_group }} --parallel 2
+          chainsaw test --test-dir ./tests/e2e/${{ matrix.dynamic-config-test-group }} --parallel 2
 
   lint:
     name: "Linter and documentation"
