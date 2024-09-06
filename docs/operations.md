@@ -19,30 +19,11 @@ under the License.
 
 ### Compatibility
 
-- JDK17
-- Operator used fabric8 which assumes to be compatible with available k8s versions. However for using status subresource, please use k8s version 1.14 or above.
-- Spark versions 3.4 or above
-
-## Manage Your Spark Operator
-
-The operator installation is managed by a helm chart. To install run:
-
-```
-helm install spark-kubernetes-operator \
-  -f build-tools/helm/spark-kubernetes-operator/values.yaml \
-  build-tools/helm/spark-kubernetes-operator/
-```
-
-Alternatively to install the operator (and also the helm chart) to a specific namespace:
-
-```
-helm install spark-kubernetes-operator \
-  -f build-tools/helm/spark-kubernetes-operator/values.yaml \
-   build-tools/helm/spark-kubernetes-operator/ \
-   --namespace spark-system --create-namespace
-```
-
-Note that in this case you will need to update the namespace in the examples accordingly.
+- Java 17 and 21
+- Kubernetes version compatibility:
+    + k8s version >= 1.28 is recommended. Operator attempts to be API compatible as possible, but 
+      patch support will not be performed on k8s versions that reached EOL.
+- Spark versions 3.5 or above.
 
 ### Spark Application Namespaces
 

@@ -38,7 +38,9 @@ Spark Operator supports different ways to configure the behavior:
       maintained by user or additional microservice to tune the operator behavior without
       rebooting it.
     - Please be advised that not all properties can be hot-loaded and honored at runtime.
-      Refer the list of [supported properties](config_properties.md) for more details.
+      Refer the list of [supported properties
+      ](../spark-operator/src/main/java/org/apache/spark/k8s/operator/config/SparkOperatorConf.java)
+      for more details.
 
 To enable hot properties loading, update the **helm chart values file** with
 
@@ -52,10 +54,6 @@ operatorConfiguration:
     create: true
 
 ```
-
-## Supported Config Properties
-
-A full list of Operator config properties can be found [here](config_properties.md)
 
 ## Config Metrics Publishing Behavior
 

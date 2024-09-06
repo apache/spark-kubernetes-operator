@@ -1,12 +1,12 @@
-## Spark Application API
+## Spark Operator API
 
-The core user facing API of the Spark Kubernetes Operator is the SparkApplication Custom
-Resources Definition (CRD). Spark Application CustomResource extends standard k8s API,
-defines Spark Application spec and tracks status.
+The core user facing API of the Spark Kubernetes Operator is the `SparkApplication` and 
+`SparkCluster` Custom Resources Definition (CRD). Spark custom resource extends 
+standard k8s API, defines Spark Application spec and tracks status.
 
 Once the Spark Operator is installed and running in your Kubernetes environment, it will
-continuously watch SparkApplication(s) submitted, via k8s API client or kubectl by the user,
-orchestrate secondary resources (pods, configmaps .etc).
+continuously watch SparkApplication(s) and SparkCluster(s) submitted, via k8s API client or 
+kubectl by the user, orchestrate secondary resources (pods, configmaps .etc).
 
 Please check out the [quickstart](../README.md) as well for installing operator.
 
@@ -54,8 +54,7 @@ setting custom Spark home and work dir.
 ### Pod Template Support
 
 It is possible to configure pod template for driver & executor pods for configure spec that are
-not configurable from
-SparkConf.
+not configurable from SparkConf.
 
 Spark Operator supports defining pod template for driver and executor pods in two ways:
 
@@ -189,3 +188,16 @@ configmap .etc). You may also want to tune `spark.kubernetes.driver.service.dele
 and `spark.kubernetes.executor.deleteOnTermination` to control the behavior of driver-created
 resources.
 
+## Spark Cluster
+
+Spark Operator also supports launching Spark clusters in k8s via `SparkCluster` custom resource,
+which takes minimal effort to specify desired master and worker instances spec.
+
+To deploy a Spark cluster, you may start with specifying the desired Spark version, worker count as
+well as the SparkConf as in the [example](../examples/qa-cluster-with-one-worker.yaml). Master &
+worker instances would be deployed as [StatefulSets](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/)
+and exposed via k8s [service(s)](https://kubernetes.io/docs/concepts/services-networking/service/).
+
+Like Pod Template Support for Applications, it's also possible to submit template(s) for the Spark
+instances for `SparkCluster` to configure spec that's not supported via SparkConf. It's worth notice 
+that Spark may overwrite certain fields.
