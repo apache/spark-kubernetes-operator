@@ -16,9 +16,27 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-rootProject.name = 'apache-spark-kubernetes-operator'
-include 'spark-operator-api'
-include 'spark-submission-worker'
-include 'spark-operator'
-include 'docs-utils'
 
+ext {
+    javaMainClass = "org.apache.spark.k8s.operator.utils.ConfOptionDocGenerator"
+    docsPath = System.getProperty("user.dir") + "/docs"
+}
+
+dependencies {
+    implementation project(":spark-operator")
+    implementation(libs.log4j.core)
+    implementation(libs.log4j.slf4j.impl)
+    compileOnly(libs.lombok)
+    annotationProcessor(libs.lombok)
+}
+
+test {
+    useJUnitPlatform()
+}
+
+tasks.register('generateConfPropsDoc', Exec) {
+    description = "Generate config properties doc for operator"
+    commandLine "java", "-classpath", sourceSets.main.runtimeClasspath.getAsPath(), javaMainClass, docsPath
+}
+
+build.finalizedBy(generateConfPropsDoc)
