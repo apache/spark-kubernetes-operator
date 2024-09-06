@@ -20,5 +20,5 @@ rootProject.name = 'apache-spark-kubernetes-operator'
 include 'spark-operator-api'
 include 'spark-submission-worker'
 include 'spark-operator'
-include 'docs-utils'
-
+include "build-tools-docs-utils"
+project(':build-tools-docs-utils').projectDir = file('build-tools/docs-utils')

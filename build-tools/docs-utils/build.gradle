@@ -38,5 +38,3 @@ tasks.register('generateConfPropsDoc', Exec) {
     description = "Generate config properties doc for operator"
     commandLine "java", "-classpath", sourceSets.main.runtimeClasspath.getAsPath(), javaMainClass, docsPath
 }
-
-build.finalizedBy(generateConfPropsDoc)

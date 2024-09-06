@@ -39,6 +39,10 @@ public class ConfOptionDocGenerator {
 
   public void generate(String docsPath) throws IOException, IllegalAccessException {
     Field[] fields = SparkOperatorConf.class.getDeclaredFields();
+    File docsDir = new File(docsPath);
+    if (!docsDir.exists() && docsDir.mkdir()) {
+      log.info("Creating docs directory at {}", docsPath);
+    }
     File generated = new File(docsPath, CONF_FILE_NAME);
     if (generated.createNewFile()) {
       log.info("Creating props at {}/{}", docsPath, CONF_FILE_NAME);
