@@ -31,4 +31,4 @@ spec:
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
   runtimeVersions:
     sparkVersion: ($V_SPARK_VERSION)
-    javaVersion: ($V_JAVA_VERSION)
+    jdkVersion: ($V_JAVA_VERSION)
