@@ -42,8 +42,8 @@ public class ConfigOption<T> {
   @Getter @Builder.Default private final boolean enableDynamicOverride = true;
   @Getter private String key;
   @Getter private String description;
-  private T defaultValue;
-  private Class<T> typeParameterClass;
+  @Getter private T defaultValue;
+  @Getter private Class<T> typeParameterClass;
 
   public T getValue() {
     T resolvedValue = resolveValue();
