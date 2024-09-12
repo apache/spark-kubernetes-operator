@@ -124,17 +124,17 @@ subjects:
 ---
 {{- end }}
 
-{{- $appResources := .Values.appResources -}}
+{{- $workloadResources := .Values.workloadResources -}}
 {{- $systemNs := .Release.Namespace -}}
 {{- $operatorRbac := .Values.operatorRbac -}}
-{{- if index (.Values.appResources.namespaces) "data" }}
-{{- range $appNs := .Values.appResources.namespaces.data }}
+{{- if index (.Values.workloadResources.namespaces) "data" }}
+{{- range $workloadNs := .Values.workloadResources.namespaces.data }}
 {{- if $operatorRbac.role.create }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: {{ $operatorRbac.role.name }}
-  namespace: {{ $appNs }}
+  namespace: {{ $workloadNs }}
 {{- template "spark-operator.rbacLabelsAnnotations" $ }}
 {{- template "spark-operator.operatorRbacRules" $ }}
 ---
@@ -144,7 +144,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: {{ $operatorRbac.roleBinding.name }}
-  namespace: {{ $appNs }}
+  namespace: {{ $workloadNs }}
 {{- template "spark-operator.rbacLabelsAnnotations" $ }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io

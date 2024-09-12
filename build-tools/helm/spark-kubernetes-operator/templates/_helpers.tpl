@@ -94,11 +94,11 @@ Create the path of the operator image to use
 {{- end }}
 
 {{/*
-List of Spark app namespaces. If not provied in values, use the same namespace as operator
+List of Spark workload namespaces. If not provied in values, use the same namespace as operator
 */}}
-{{- define "spark-operator.appNamespacesStr" -}}
-{{- if index (.Values.appResources.namespaces) "data" }}
-{{- $ns_list := join "," .Values.appResources.namespaces.data }}
+{{- define "spark-operator.workloadNamespacesStr" -}}
+{{- if index (.Values.workloadResources.namespaces) "data" }}
+{{- $ns_list := join "," .Values.workloadResources.namespaces.data }}
 {{- printf "%s" $ns_list }}
 {{- else }}
 {{- printf "%s" .Release.Namespace }}
@@ -113,8 +113,8 @@ Default property overrides
 spark.kubernetes.operator.namespace={{ .Release.Namespace }}
 spark.kubernetes.operator.name={{- include "spark-operator.name" . }}
 spark.kubernetes.operator.dynamicConfig.enabled={{ .Values.operatorConfiguration.dynamicConfig.enable }}
-{{- if .Values.appResources.namespaces.overrideWatchedNamespaces }}
-spark.kubernetes.operator.watchedNamespaces={{ include "spark-operator.appNamespacesStr" . | trim }}
+{{- if .Values.workloadResources.namespaces.overrideWatchedNamespaces }}
+spark.kubernetes.operator.watchedNamespaces={{ include "spark-operator.workloadNamespacesStr" . | trim }}
 {{- end }}
 {{- end }}
 
