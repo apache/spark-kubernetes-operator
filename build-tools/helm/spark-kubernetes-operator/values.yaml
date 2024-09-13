@@ -90,15 +90,15 @@ operatorRbac:
     create: true
     name: "spark-operator-clusterrolebinding"
   role:
-    # If enabled, a Role would be created inside each app namespace, as configured
-    # in {appResources.namespaces.data} for operator. Please enable *at least one* of
+    # If enabled, a Role would be created inside each workload namespace, as configured
+    # in {workloadResources.namespaces.data} for operator. Please enable *at least one* of
     # {operatorRbac.clusterRole.create} or {operatorRbac.role.create} for operator
     # unless permission is provided separately from the chart
     create: false
     name: "spark-operator-role"
   roleBinding:
-    # If enabled, a RoleBinding would be created inside each app namespace, as configured
-    # in {appResources.namespaces.data} for operator. Please enable *at least one* of
+    # If enabled, a RoleBinding would be created inside each workload namespace, as configured
+    # in {workloadResources.namespaces.data} for operator. Please enable *at least one* of
     # {operatorRbac.clusterRoleBinding.create} or {operatorRbac.roleBinding.create} for
     # operator unless permission is provided separately from the chart
     create: false
@@ -115,12 +115,13 @@ operatorRbac:
   labels:
     "app.kubernetes.io/component": "operator-rbac"
 
-appResources:
-  # Create namespace(s), service account(s), clusterrole, role(s) and rolebinding(s) for SparkApps
+workloadResources:
+  # Create namespace(s), service account(s), clusterrole, role(s) and rolebinding(s) for Spark
+  # workloads, including SparkApps and SparkClusters
   namespaces:
     create: true
     # When enabled, value for conf property `spark.operator.watched.namespaces` would be set to
-    # the values provided in {appResources.namespaces.data} field as well
+    # the values provided in {workloadResources.namespaces.data} field as well
     overrideWatchedNamespaces: true
     data:
     # - "spark-1"
@@ -129,21 +130,21 @@ appResources:
     create: true
     name: "spark"
   role:
-    # When enabled, a role would be created in each app namespace, as configured in
-    # {appResources.namespaces.data} for Spark apps. Please enable *at least one* of
-    # {appResources.roles.create} or {appResources.clusterRole.create} for
-    # Spark app unless permission is provided separately from the chart
+    # When enabled, a role would be created in each workload namespace, as configured in
+    # {workloadResources.namespaces.data} for Spark apps. Please enable *at least one* of
+    # {workloadResources.roles.create} or {workloadResources.clusterRole.create} for
+    # Spark workload unless permission is provided separately from the chart
     create: false
-    name: "spark-app-role"
+    name: "spark-workload-role"
   clusterRole:
-    # When enabled, a clusterrole would be created for Spark apps. Please enable *at least one* of
-    # {appResources.roles.create} or {appResources.clusterRole.create} for Spark app unless
+    # When enabled, a clusterrole would be created for Spark workloads. Please enable *at least one* of
+    # {workloadResources.roles.create} or {workloadResources.clusterRole.create} for Spark workload unless
     # permission is provided separately from the chart
     create: true
-    name: "spark-app-clusterrole"
+    name: "spark-workload-clusterrole"
   roleBinding:
     create: true
-    name: "spark-app-rolebinding"
+    name: "spark-workload-rolebinding"
   sparkApplicationSentinel:
     create: false
     name: "spark-app-sentinel"
@@ -151,15 +152,15 @@ appResources:
       data:
       #  - "spark-1"
       #  - "spark-2"
-      # When enabled, a sentinel resources will be deployed to namespace(s) provided/
-      # Note that sentinelNamespaces list should be a subset of {appResources.namespaces.data}
+      # When enabled, a sentinel resource of type SparkApp will be deployed to namespace(s) provided
+      # Note that sentinelNamespaces list should be a subset of {workloadResources.namespaces.data}
       # - "default"
-  # App resources are by default annotated to avoid app abort due to operator upgrade
+  # workload resources are by default annotated to avoid workload abort due to operator upgrade
   annotations:
     "helm.sh/resource-policy": keep
-  # labels to be added on app resources
+  # labels to be added on workload resources
   labels:
-    "app.kubernetes.io/component": "spark-app"
+    "app.kubernetes.io/component": "spark-workload"
 
 operatorConfiguration:
   # If set to true, below properties would be appended to default conf files under conf/

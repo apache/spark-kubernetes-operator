@@ -1,0 +1,176 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+{{/*
+RBAC rules used to create the workload (cluster)role based on the scope
+*/}}
+{{- define "spark-operator.workloadRbacRules" }}
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+      - services
+      - configmaps
+      - persistentvolumeclaims
+    verbs:
+      - '*'
+{{- end }}
+
+{{/*
+RoleRef for workload service account rolebindings
+*/}}
+{{- define "spark-operator.workloadRoleRef" }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+{{- if .Values.workloadResources.clusterRole.create }}
+  kind: ClusterRole
+  name: {{ .Values.workloadResources.clusterRole.name }}
+{{- else }}
+  kind: Role
+  name: {{ .Values.workloadResources.role.name }}
+{{- end }}
+{{- end }}
+
+{{/*
+Labels and annotations to be applied
+*/}}
+{{- define "spark-operator.workloadLabels" -}}
+  {{- with .Values.workloadResources.labels }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- include "spark-operator.commonLabels" . | nindent 4 }}
+{{- end }}
+
+{{- define "spark-operator.workloadAnnotations" -}}
+  {{- with .Values.workloadResources.annotations }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}
+
+{{- define "spark-operator.workloadLabelsAnnotations" }}
+  labels:
+  {{ template "spark-operator.workloadLabels" $ }}
+  annotations:
+  {{ template "spark-operator.workloadAnnotations" $ }}
+{{- end }}
+---
+{{- $workloadResources := .Values.workloadResources -}}
+{{- $systemNs := .Release.Namespace -}}
+{{- $operatorRbac := .Values.operatorRbac -}}
+{{- if index (.Values.workloadResources.namespaces) "data" }}
+{{- range $workloadNs := .Values.workloadResources.namespaces.data }}
+{{- if $workloadResources.namespaces.create }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ $workloadNs }}
+{{- template "spark-operator.workloadLabelsAnnotations" $ }}
+---
+{{- end }}
+{{- if $workloadResources.serviceAccount.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $workloadResources.serviceAccount.name }}
+  namespace: {{ $workloadNs }}
+{{- template "spark-operator.workloadLabelsAnnotations" $ }}
+---
+{{- end }}
+{{- if $workloadResources.role.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $workloadResources.role.name }}
+  namespace: {{ $workloadNs }}
+{{- template "spark-operator.workloadLabelsAnnotations" $ }}
+{{- template "spark-operator.workloadRbacRules" $ }}
+---
+{{- end }}
+{{- if $workloadResources.roleBinding.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $workloadResources.roleBinding.name }}
+  namespace: {{ $workloadNs }}
+{{- template "spark-operator.workloadLabelsAnnotations" $ }}
+{{- template "spark-operator.workloadRoleRef" $ }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $workloadResources.serviceAccount.name }}
+    namespace: {{ $workloadNs }}
+---
+{{- end }}
+{{- end }}
+{{- else }}
+{{- if $workloadResources.serviceAccount.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $workloadResources.serviceAccount.name }}
+  namespace: {{ $systemNs }}
+{{- template "spark-operator.workloadLabelsAnnotations" $ }}
+---
+{{- end }}
+{{- if $workloadResources.role.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $workloadResources.role.name }}
+  namespace: {{ $systemNs }}
+{{- template "spark-operator.workloadLabelsAnnotations" $ }}
+{{- template "spark-operator.workloadRbacRules" $ }}
+---
+{{- end }}
+{{- if $workloadResources.roleBinding.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $workloadResources.serviceAccount.name }}
+  namespace: {{ $systemNs }}
+{{- template "spark-operator.workloadLabelsAnnotations" $ }}
+{{- template "spark-operator.workloadRoleRef" $ }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $workloadResources.serviceAccount.name }}
+    namespace: {{ $systemNs }}
+---
+{{- end }}
+{{- end }}
+
+{{- if $workloadResources.clusterRole.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $workloadResources.clusterRole.name }}
+{{- template "spark-operator.workloadLabelsAnnotations" $ }}
+{{- template "spark-operator.workloadRbacRules" $ }}
+---
+{{- end }}
+{{- if $workloadResources.sparkApplicationSentinel.create }}
+{{- range $sentinelNs := .Values.workloadResources.sparkApplicationSentinel.sentinelNamespaces.data }}
+apiVersion: spark.apache.org/v1alpha1
+kind: SparkApplication
+metadata:
+  name: {{ $workloadResources.sparkApplicationSentinel.name }}
+  namespace: {{ $sentinelNs }}
+  labels:
+    "spark.operator/sentinel": "true"
+    {{- template "spark-operator.workloadLabels" $ }}
+  annotations:
+    {{- template "spark-operator.workloadAnnotations" $ }}
+{{- end }}
+---
+{{- end }}
