@@ -18,22 +18,26 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: spark-operator-spark-application-state-transition-validation
+  name: spark-operator-state-transition-validation
 spec:
   scenarios:
   - bindings:
       - name: TEST_NAME
         value: succeeded
-      - name: FILE_NAME
+      - name: APPLICATION_FILE_NAME
         value: spark-example-succeeded.yaml
+      - name: CLUSTER_FILE_NAME
+        value: spark-cluster-example-succeeded.yaml
       - name: SPARK_APPLICATION_NAME
         value: spark-job-succeeded-test
+      - name: SPARK_CLUSTER_NAME
+        value: spark-cluster-succeeded-test
   steps:
   - try:
     - script:
         env:
           - name: FILE_NAME
-            value: ($FILE_NAME)
+            value: ($APPLICATION_FILE_NAME)
         content: kubectl apply -f $FILE_NAME
     - assert:
         bindings:
@@ -54,3 +58,28 @@ spec:
         timeout: 30s
         content: |
           kubectl delete sparkapplication $SPARK_APPLICATION_NAME
+  - try:
+    - script:
+        env:
+          - name: FILE_NAME
+            value: ($CLUSTER_FILE_NAME)
+        content: kubectl apply -f $FILE_NAME
+    - assert:
+        bindings:
+          - name: SPARK_APP_NAMESPACE
+            value: default
+        timeout: 60s
+        file: "../assertions/spark-cluster/spark-cluster-state-transition.yaml"
+    catch:
+    - describe:
+        apiVersion: spark.apache.org/v1alpha1
+        kind: SparkCluster
+        namespace: default
+    finally:
+      - script:
+          env:
+            - name: SPARK_CLUSTER_NAME
+              value: ($SPARK_CLUSTER_NAME)
+          timeout: 30s
+          content: |
+            kubectl delete sparkcluster $SPARK_CLUSTER_NAME
