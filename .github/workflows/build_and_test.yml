@@ -112,11 +112,8 @@ jobs:
           kubectl get pods -A
           kubectl describe node
       - name: Run Spark K8s Operator on K8S with Dynamic Configuration Disabled
+        if: matrix.mode == 'static'
         run: |
-          if [[ "${{ matrix.mode }}" != "static" ]]; then
-            echo "Skip installation of the operator when mode is not static"
-            exit 0
-          fi
           eval $(minikube docker-env)
           ./gradlew buildDockerImage
           ./gradlew spark-operator-api:relocateGeneratedCRD
@@ -125,18 +122,12 @@ jobs:
           # Use remote host' s docker image
           minikube docker-env --unset
       - name: Run E2E Test with Dynamic Configuration Disabled
-        run: |
-          if [[ "${{ matrix.mode }}" != "static" ]]; then
-            echo "Skip e2e tests when mode is not static"
-            exit 0
-          fi          
+        if: matrix.mode == 'static'
+        run: |        
           chainsaw test --test-dir ./tests/e2e/${{ matrix.test-group }} --parallel 2
       - name: Run Spark K8s Operator on K8S with Dynamic Configuration Enabled
+        if: matrix.mode == 'dynamic'
         run: |
-          if [[ "${{ matrix.mode }}" != "dynamic" ]]; then
-            echo "Skip installation of the operator when mode is not dynamic"
-            exit 0
-          fi
           eval $(minikube docker-env)
           ./gradlew buildDockerImage
           ./gradlew spark-operator-api:relocateGeneratedCRD
@@ -146,11 +137,8 @@ jobs:
           build-tools/helm/spark-kubernetes-operator/
           minikube docker-env --unset
       - name: Run E2E Test with Dynamic Configuration Enabled
+        if: matrix.mode == 'dynamic'
         run: |
-          if [[ "${{ matrix.mode }}" != "dynamic" ]]; then
-            echo "Skip e2e tests when mode is not dynamic"
-            exit 0
-          fi
           chainsaw test --test-dir ./tests/e2e/${{ matrix.test-group }} --parallel 2
 
   lint:
