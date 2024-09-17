@@ -69,12 +69,23 @@ jobs:
         kubernetes-version:
           - "1.28.0"
           - "1.31.0"
+        mode:
+          - dynamic
+          - static
         test-group:
           - spark-versions
           - python
           - state-transition
-        dynamic-config-test-group:
           - watched-namespaces
+        exclude:
+          - mode: dynamic
+            test-group: spark-versions
+          - mode: dynamic
+            test-group: python
+          - mode: dynamic
+            test-group: state-transition
+          - mode: static
+            test-group: watched-namespaces
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -101,8 +112,8 @@ jobs:
           kubectl get pods -A
           kubectl describe node
       - name: Run Spark K8s Operator on K8S with Dynamic Configuration Disabled
+        if: matrix.mode == 'static'
         run: |
-          kubectl create clusterrolebinding serviceaccounts-cluster-admin --clusterrole=cluster-admin --group=system:serviceaccounts || true
           eval $(minikube docker-env)
           ./gradlew buildDockerImage
           ./gradlew spark-operator-api:relocateGeneratedCRD
@@ -111,20 +122,24 @@ jobs:
           # Use remote host' s docker image
           minikube docker-env --unset
       - name: Run E2E Test with Dynamic Configuration Disabled
-        run: |
+        if: matrix.mode == 'static'
+        run: |        
           chainsaw test --test-dir ./tests/e2e/${{ matrix.test-group }} --parallel 2
       - name: Run Spark K8s Operator on K8S with Dynamic Configuration Enabled
+        if: matrix.mode == 'dynamic'
         run: |
-          helm uninstall spark-kubernetes-operator
           eval $(minikube docker-env)
+          ./gradlew buildDockerImage
+          ./gradlew spark-operator-api:relocateGeneratedCRD
           helm install spark-kubernetes-operator --create-namespace -f \
           build-tools/helm/spark-kubernetes-operator/values.yaml -f \
           tests/e2e/helm/dynamic-config-values.yaml \
           build-tools/helm/spark-kubernetes-operator/
           minikube docker-env --unset
       - name: Run E2E Test with Dynamic Configuration Enabled
+        if: matrix.mode == 'dynamic'
         run: |
-          chainsaw test --test-dir ./tests/e2e/${{ matrix.dynamic-config-test-group }} --parallel 2
+          chainsaw test --test-dir ./tests/e2e/${{ matrix.test-group }} --parallel 2
 
   lint:
     name: "Linter and documentation"
