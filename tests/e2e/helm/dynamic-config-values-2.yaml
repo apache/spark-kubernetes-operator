@@ -1,4 +1,3 @@
-#
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -6,29 +5,35 @@
 # (the "License"); you may not use this file except in compliance with
 # the License.  You may obtain a copy of the License at
 #
-#    http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 
-apiVersion: spark.apache.org/v1alpha1
-kind: SparkApplication
-metadata:
-  name: spark-job-succeeded-test
-  namespace: ($SPARK_APP_NAMESPACE)
-spec:
-  mainClass: "org.apache.spark.examples.SparkPi"
-  jars: "local:///opt/spark/examples/jars/spark-examples_2.13-4.0.0-preview1.jar"
-  sparkConf:
-    spark.executor.instances: "1"
-    spark.kubernetes.container.image: "spark:4.0.0-preview1-scala2.13-java17-ubuntu"
-    spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
-    spark.kubernetes.driver.request.cores: "0.5"
-    spark.kubernetes.executor.request.cores: "0.5"
-  runtimeVersions:
-    sparkVersion: 4.0.0-preview1
-    scalaVersion: "2.13"
+workloadResources:
+  namespaces:
+    overrideWatchedNamespaces: false
+    data:
+      - "spark-3"
+  role:
+    create: true
+  roleBinding:
+    create: true
+  clusterRole:
+    name: spark-workload-clusterrole-2
+
+operatorConfiguration:
+  dynamicConfig:
+    enable: true
+    create: true
+    data:
+      spark.kubernetes.operator.watchedNamespaces: "spark-3"
+
+operatorRbac:
+  clusterRole:
+    name: "spark-operator-clusterrole-2"
+  clusterRoleBinding:
+    name: "spark-operator-clusterrolebinding-2"

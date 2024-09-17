@@ -72,3 +72,51 @@ spec:
             kubectl delete sparkapplication spark-job-succeeded-test -n spark-1 --ignore-not-found=true
             kubectl delete sparkapplication spark-job-succeeded-test -n spark-2 --ignore-not-found=true
             kubectl replace -f spark-operator-dynamic-config-2.yaml
+  - try:
+      - script:
+          content: |
+            echo "Installing another spark operator in default-2 namespaces, watching on namespace: spark-3"
+            helm install spark-kubernetes-operator -n default-2 --create-namespace -f \
+            ../../../build-tools/helm/spark-kubernetes-operator/values.yaml -f \
+            ../helm/dynamic-config-values-2.yaml \
+            ../../../build-tools/helm/spark-kubernetes-operator/
+      - apply:
+          bindings:
+            - name: SPARK_APP_NAMESPACE
+              value: spark-3
+          file: spark-example.yaml
+      - sleep:
+          duration: 60s
+      - script:
+          content:
+            kubectl logs -n default-2 $(kubectl get pods -n default-2 -o=name -l app.kubernetes.io/component=operator-deployment,app.kubernetes.io/name=spark-kubernetes-operator)
+          check:
+            (contains($stdout, 'Updating operator namespaces to [spark-3]')): true
+      - assert:
+          bindings:
+            - name: SPARK_APP_NAMESPACE
+              value: spark-3
+          timeout: 180s
+          file: "../assertions/spark-application/spark-state-transition.yaml"
+    catch:
+      - podLogs:
+          namespace: default-2
+          selector: app.kubernetes.io/component=operator-deployment,app.kubernetes.io/name=spark-kubernetes-operator
+      - describe:
+          apiVersion: spark.apache.org/v1alpha1
+          kind: SparkApplication
+          namespace: spark-3
+      - get:
+          apiVersion: v1
+          kind: Pod
+          namespace: spark-3
+      - events:
+          namespace: spark-3
+    finally:
+      - script:
+          timeout: 60s
+          content: |
+            kubectl delete sparkapplication spark-job-succeeded-test -n spark-3 --ignore-not-found=true
+            helm uninstall spark-kubernetes-operator -n default-2
+            kubectl delete namespace default-2 --ignore-not-found=true
+            kubectl delete namespace spark-3 --ignore-not-found=true
