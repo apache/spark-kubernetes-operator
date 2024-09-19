@@ -27,7 +27,7 @@ spec:
         - name: "SCALA_VERSION"
           value: "2.12"
         - name: "IMAGE"
-          value: 'spark:3.5.2-scala2.12-java17-python3-ubuntu'
+          value: "apache/spark:3.5.2-scala2.12-java17-python3-ubuntu"
   steps:
     - name: install-spark-application
       try:

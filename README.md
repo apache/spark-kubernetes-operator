@@ -100,7 +100,7 @@ Events:
   Normal  Scheduled          14s   yunikorn  Successfully assigned default/pi-on-yunikorn-0-driver to node docker-desktop
   Normal  PodBindSuccessful  14s   yunikorn  Pod default/pi-on-yunikorn-0-driver is successfully bound to node docker-desktop
   Normal  TaskCompleted      6s    yunikorn  Task default/pi-on-yunikorn-0-driver is completed
-  Normal  Pulled             13s   kubelet   Container image "spark:4.0.0-preview1" already present on machine
+  Normal  Pulled             13s   kubelet   Container image "apache/spark:4.0.0-preview1" already present on machine
   Normal  Created            13s   kubelet   Created container spark-kubernetes-driver
   Normal  Started            13s   kubelet   Started container spark-kubernetes-driver
 
