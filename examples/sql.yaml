@@ -18,7 +18,7 @@ metadata:
   name: sql
 spec:
   mainClass: "org.apache.spark.examples.sql.JavaSparkSQLCli"
-  jars: "local:///opt/spark/examples/jars/spark-examples_2.13-4.0.0-preview1.jar"
+  jars: "local:///opt/spark/examples/jars/spark-examples.jar"
   driverArgs: [ "SHOW DATABASES", "SHOW TABLES", "SELECT VERSION()"  ]
   sparkConf:
     spark.dynamicAllocation.enabled: "true"

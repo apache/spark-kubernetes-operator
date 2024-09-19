@@ -30,7 +30,7 @@ curl -XPOST http://localhost:6066/v1/submissions/create \
     "spark.executor.memory": "1g",
     "spark.cores.max": "2",
     "spark.ui.reverseProxy": "true",
-    "spark.jars": "local:///opt/spark/examples/jars/spark-examples_2.13-4.0.0-preview1.jar"
+    "spark.jars": "local:///opt/spark/examples/jars/spark-examples.jar"
   },
   "clientSparkVersion": "",
   "mainClass": "org.apache.spark.examples.SparkPi",

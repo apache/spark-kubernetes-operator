@@ -18,7 +18,7 @@ metadata:
   name: pi-on-yunikorn
 spec:
   mainClass: "org.apache.spark.examples.SparkPi"
-  jars: "local:///opt/spark/examples/jars/spark-examples_2.13-4.0.0-preview1.jar"
+  jars: "local:///opt/spark/examples/jars/spark-examples.jar"
   driverArgs: [ "20000" ]
   sparkConf:
     spark.dynamicAllocation.enabled: "true"

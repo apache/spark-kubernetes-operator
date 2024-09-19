@@ -18,7 +18,7 @@ metadata:
   name: pi
 spec:
   mainClass: "org.apache.spark.examples.SparkPi"
-  jars: "local:///opt/spark/examples/jars/spark-examples_2.13-4.0.0-preview1.jar"
+  jars: "local:///opt/spark/examples/jars/spark-examples.jar"
   sparkConf:
     spark.dynamicAllocation.enabled: "true"
     spark.dynamicAllocation.shuffleTracking.enabled: "true"
