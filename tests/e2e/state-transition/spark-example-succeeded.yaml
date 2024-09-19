@@ -25,7 +25,7 @@ spec:
   jars: "local:///opt/spark/examples/jars/spark-examples_2.13-4.0.0-preview1.jar"
   sparkConf:
     spark.executor.instances: "1"
-    spark.kubernetes.container.image: "spark:4.0.0-preview1-scala2.13-java17-ubuntu"
+    spark.kubernetes.container.image: "apache/spark:4.0.0-preview1-scala2.13-java17-ubuntu"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
   runtimeVersions:
     sparkVersion: 4.0.0-preview1

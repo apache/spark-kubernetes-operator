@@ -26,7 +26,7 @@ spec:
     spark.dynamicAllocation.maxExecutors: "3"
     spark.log.structuredLogging.enabled: "false"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
-    spark.kubernetes.container.image: "spark:4.0.0-preview1"
+    spark.kubernetes.container.image: "apache/spark:4.0.0-preview1"
     spark.kubernetes.scheduler.name: "yunikorn"
     spark.kubernetes.driver.label.queue: "root.default"
     spark.kubernetes.executor.label.queue: "root.default"

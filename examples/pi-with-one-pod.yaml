@@ -25,6 +25,6 @@ spec:
     spark.kubernetes.driver.limit.cores: "5"
     spark.log.structuredLogging.enabled: "false"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
-    spark.kubernetes.container.image: "spark:4.0.0-preview1"
+    spark.kubernetes.container.image: "apache/spark:4.0.0-preview1"
   runtimeVersions:
     sparkVersion: "4.0.0-preview1"

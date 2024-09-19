@@ -25,7 +25,7 @@ spec:
       minWorkers: 1
       maxWorkers: 1
   sparkConf:
-    spark.kubernetes.container.image: "spark:4.0.0-preview1"
+    spark.kubernetes.container.image: "apache/spark:4.0.0-preview1"
     spark.kubernetes.scheduler.name: "yunikorn"
     spark.master.ui.title: "Spark Cluster on YuniKorn Scheduler"
     spark.master.rest.enabled: "true"
