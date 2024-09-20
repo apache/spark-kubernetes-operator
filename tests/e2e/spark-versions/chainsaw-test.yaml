@@ -38,7 +38,7 @@ spec:
       - name: "JAVA_VERSION"
         value: "17"
       - name: "IMAGE"
-        value: 'spark:3.5.2-scala2.12-java17-ubuntu'
+        value: 'apache/spark:3.5.2-scala2.12-java17-ubuntu'
   - bindings:
       - name: "SPARK_VERSION"
         value: "3.4.3"
@@ -47,7 +47,16 @@ spec:
       - name: "JAVA_VERSION"
         value: "11"
       - name: "IMAGE"
-        value: 'spark:3.4.3-scala2.12-java11-ubuntu'
+        value: 'apache/spark:3.4.3-scala2.12-java11-ubuntu'
+  - bindings:
+      - name: "SPARK_VERSION"
+        value: "4.0.0-preview1"
+      - name: "SCALA_VERSION"
+        value: "2.13"
+      - name: "JAVA_VERSION"
+        value: "21"
+      - name: "IMAGE"
+        value: 'apache/spark:4.0.0-preview1-java21-scala'
   steps:
     - name: install-spark-application
       try:
