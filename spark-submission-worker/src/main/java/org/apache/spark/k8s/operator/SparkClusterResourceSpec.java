@@ -52,7 +52,7 @@ public class SparkClusterResourceSpec {
     String clusterName = cluster.getMetadata().getName();
     String scheduler = conf.get(Config.KUBERNETES_SCHEDULER_NAME().key(), "default-scheduler");
     String namespace = conf.get(Config.KUBERNETES_NAMESPACE().key(), clusterNamespace);
-    String image = conf.get(Config.CONTAINER_IMAGE().key(), "spark:4.0.0-preview1");
+    String image = conf.get(Config.CONTAINER_IMAGE().key(), "apache/spark:4.0.0-preview2");
     ClusterSpec spec = cluster.getSpec();
     StringBuilder options = new StringBuilder();
     for (Tuple2<String, String> t : conf.getAll()) {

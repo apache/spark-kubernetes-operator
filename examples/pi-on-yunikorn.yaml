@@ -26,7 +26,7 @@ spec:
     spark.dynamicAllocation.maxExecutors: "3"
     spark.log.structuredLogging.enabled: "false"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
-    spark.kubernetes.container.image: "apache/spark:4.0.0-preview1"
+    spark.kubernetes.container.image: "apache/spark:4.0.0-preview2"
     spark.kubernetes.scheduler.name: "yunikorn"
     spark.kubernetes.driver.label.queue: "root.default"
     spark.kubernetes.executor.label.queue: "root.default"
@@ -36,4 +36,4 @@ spec:
     resourceRetainPolicy: OnFailure
   runtimeVersions:
     scalaVersion: "2.13"
-    sparkVersion: "4.0.0-preview1"
+    sparkVersion: "4.0.0-preview2"
