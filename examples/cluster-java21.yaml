@@ -18,14 +18,14 @@ metadata:
   name: cluster-java21
 spec:
   runtimeVersions:
-    sparkVersion: "4.0.0-preview1"
+    sparkVersion: "4.0.0-preview2"
   clusterTolerations:
     instanceConfig:
       initWorkers: 3
       minWorkers: 3
       maxWorkers: 3
   sparkConf:
-    spark.kubernetes.container.image: "apache/spark:4.0.0-preview1-java21"
+    spark.kubernetes.container.image: "apache/spark:4.0.0-preview2-java21"
     spark.master.ui.title: "Prod Spark Cluster (Java 21)"
     spark.master.rest.enabled: "true"
     spark.master.rest.host: "0.0.0.0"

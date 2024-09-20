@@ -18,14 +18,14 @@ metadata:
   name: qa
 spec:
   runtimeVersions:
-    sparkVersion: "4.0.0-preview1"
+    sparkVersion: "4.0.0-preview2"
   clusterTolerations:
     instanceConfig:
       initWorkers: 1
       minWorkers: 1
       maxWorkers: 1
   sparkConf:
-    spark.kubernetes.container.image: "apache/spark:4.0.0-preview1"
+    spark.kubernetes.container.image: "apache/spark:4.0.0-preview2"
     spark.master.ui.title: "QA Spark Cluster"
     spark.master.rest.enabled: "true"
     spark.master.rest.host: "0.0.0.0"
