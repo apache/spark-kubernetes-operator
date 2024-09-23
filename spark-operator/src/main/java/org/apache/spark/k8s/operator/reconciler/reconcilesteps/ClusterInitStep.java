@@ -68,6 +68,16 @@ public class ClusterInitStep extends ClusterReconcileStep {
       context.getClient().apps().statefulSets().resource(masterStatefulSet).create();
       StatefulSet workerStatefulSet = context.getWorkerStatefulSetSpec();
       context.getClient().apps().statefulSets().resource(workerStatefulSet).create();
+      var horizontalPodAutoscaler = context.getHorizontalPodAutoscalerSpec();
+      if (horizontalPodAutoscaler.isPresent()) {
+        context
+            .getClient()
+            .autoscaling()
+            .v2()
+            .horizontalPodAutoscalers()
+            .resource(horizontalPodAutoscaler.get())
+            .create();
+      }
 
       ClusterStatus updatedStatus =
           context

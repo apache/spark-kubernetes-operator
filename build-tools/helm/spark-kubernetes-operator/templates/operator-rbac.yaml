@@ -36,6 +36,12 @@ rules:
     verbs:
       - '*'
   - apiGroups:
+      - "autoscaling"
+    resources:
+      - horizontalpodautoscalers
+    verbs:
+      - '*'
+  - apiGroups:
       - "spark.apache.org"
     resources:
       - '*'

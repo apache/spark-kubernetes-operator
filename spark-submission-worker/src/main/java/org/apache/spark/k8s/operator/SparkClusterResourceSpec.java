@@ -22,6 +22,7 @@ package org.apache.spark.k8s.operator;
 import static org.apache.spark.k8s.operator.Constants.*;
 
 import java.util.Collections;
+import java.util.Optional;
 
 import scala.Tuple2;
 
@@ -32,6 +33,9 @@ import io.fabric8.kubernetes.api.model.ServiceSpec;
 import io.fabric8.kubernetes.api.model.apps.StatefulSet;
 import io.fabric8.kubernetes.api.model.apps.StatefulSetBuilder;
 import io.fabric8.kubernetes.api.model.apps.StatefulSetSpec;
+import io.fabric8.kubernetes.api.model.autoscaling.v2.HorizontalPodAutoscaler;
+import io.fabric8.kubernetes.api.model.autoscaling.v2.HorizontalPodAutoscalerBuilder;
+import io.fabric8.kubernetes.api.model.autoscaling.v2.MetricSpecBuilder;
 import lombok.Getter;
 
 import org.apache.spark.SparkConf;
@@ -46,6 +50,7 @@ public class SparkClusterResourceSpec {
   @Getter private final Service workerService;
   @Getter private final StatefulSet masterStatefulSet;
   @Getter private final StatefulSet workerStatefulSet;
+  @Getter private final Optional<HorizontalPodAutoscaler> horizontalPodAutoscaler;
 
   public SparkClusterResourceSpec(SparkCluster cluster, SparkConf conf) {
     String clusterNamespace = cluster.getMetadata().getNamespace();
@@ -91,6 +96,7 @@ public class SparkClusterResourceSpec {
             options.toString(),
             workerSpec.getWorkerStatefulSetMetadata(),
             workerSpec.getWorkerStatefulSetSpec());
+    horizontalPodAutoscaler = buildHorizontalPodAutoscaler(clusterName, namespace, spec);
   }
 
   private static Service buildMasterService(
@@ -270,5 +276,56 @@ public class SparkClusterResourceSpec {
         .endTemplate()
         .endSpec()
         .build();
+  }
+
+  private static Optional<HorizontalPodAutoscaler> buildHorizontalPodAutoscaler(
+      String clusterName, String namespace, ClusterSpec spec) {
+    var instanceConfig = spec.getClusterTolerations().getInstanceConfig();
+    if (instanceConfig.getMinWorkers() >= instanceConfig.getMaxWorkers()) {
+      return Optional.empty();
+    }
+    return Optional.of(
+        new HorizontalPodAutoscalerBuilder()
+            .withNewMetadata()
+            .withNamespace(namespace)
+            .withName(clusterName + "-worker-hpa")
+            .endMetadata()
+            .withNewSpec()
+            .withNewScaleTargetRef()
+            .withApiVersion("apps/v1")
+            .withKind("StatefulSet")
+            .withName(clusterName + "-worker")
+            .endScaleTargetRef()
+            .withMinReplicas(instanceConfig.getMinWorkers())
+            .withMaxReplicas(instanceConfig.getMaxWorkers())
+            .addToMetrics(
+                new MetricSpecBuilder()
+                    .withType("Resource")
+                    .withNewResource()
+                    .withName("cpu")
+                    .withNewTarget()
+                    .withType("Utilization")
+                    .withAverageUtilization(30)
+                    .endTarget()
+                    .endResource()
+                    .build())
+            .withNewBehavior()
+            .withNewScaleUp()
+            .addNewPolicy()
+            .withType("Pods")
+            .withValue(1)
+            .withPeriodSeconds(60)
+            .endPolicy()
+            .endScaleUp()
+            .withNewScaleDown()
+            .addNewPolicy()
+            .withType("Pods")
+            .withValue(1)
+            .withPeriodSeconds(600)
+            .endPolicy()
+            .endScaleDown()
+            .endBehavior()
+            .endSpec()
+            .build());
   }
 }

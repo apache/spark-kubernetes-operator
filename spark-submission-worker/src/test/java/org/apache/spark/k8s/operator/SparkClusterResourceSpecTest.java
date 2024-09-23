@@ -20,8 +20,11 @@
 package org.apache.spark.k8s.operator;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+
+import java.util.Optional;
 
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
@@ -38,6 +41,7 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.k8s.operator.spec.ClusterSpec;
 import org.apache.spark.k8s.operator.spec.ClusterTolerations;
 import org.apache.spark.k8s.operator.spec.MasterSpec;
+import org.apache.spark.k8s.operator.spec.WorkerInstanceConfig;
 import org.apache.spark.k8s.operator.spec.WorkerSpec;
 
 class SparkClusterResourceSpecTest {
@@ -226,5 +230,32 @@ class SparkClusterResourceSpecTest {
     StatefulSet statefulSet = spec.getWorkerStatefulSet();
     assertEquals("my-namespace", statefulSet.getMetadata().getNamespace());
     assertEquals("cluster-name-worker", statefulSet.getMetadata().getName());
+  }
+
+  @Test
+  void testEmptyHorizontalPodAutoscalerByDefault() {
+    SparkClusterResourceSpec spec = new SparkClusterResourceSpec(cluster, new SparkConf());
+    assertEquals(Optional.empty(), spec.getHorizontalPodAutoscaler());
+  }
+
+  @Test
+  void testHorizontalPodAutoscaler() {
+    var instanceConfig = new WorkerInstanceConfig();
+    instanceConfig.setInitWorkers(1);
+    instanceConfig.setMinWorkers(1);
+    instanceConfig.setMaxWorkers(3);
+    var clusterTolerations = new ClusterTolerations();
+    clusterTolerations.setInstanceConfig(instanceConfig);
+    when(clusterSpec.getClusterTolerations()).thenReturn(clusterTolerations);
+
+    SparkClusterResourceSpec spec = new SparkClusterResourceSpec(cluster, new SparkConf());
+    assertTrue(spec.getHorizontalPodAutoscaler().isPresent());
+    var hpa = spec.getHorizontalPodAutoscaler().get();
+    assertEquals("autoscaling/v2", hpa.getApiVersion());
+    assertEquals("HorizontalPodAutoscaler", hpa.getKind());
+    assertEquals("my-namespace", hpa.getMetadata().getNamespace());
+    assertEquals("cluster-name-worker-hpa", hpa.getMetadata().getName());
+    assertEquals(1, hpa.getSpec().getMinReplicas());
+    assertEquals(3, hpa.getSpec().getMaxReplicas());
   }
 }
