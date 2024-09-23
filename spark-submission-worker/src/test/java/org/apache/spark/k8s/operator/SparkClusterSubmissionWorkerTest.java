@@ -65,5 +65,6 @@ class SparkClusterSubmissionWorkerTest {
     assertNotNull(spec.getMasterService());
     assertNotNull(spec.getMasterStatefulSet());
     assertNotNull(spec.getWorkerStatefulSet());
+    assertNotNull(spec.getHorizontalPodAutoscaler());
   }
 }
