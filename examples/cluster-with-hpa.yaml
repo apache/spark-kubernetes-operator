@@ -25,7 +25,7 @@ spec:
       minWorkers: 1
       maxWorkers: 3
   workerSpec:
-    workerStatefulSetSpec:
+    statefulSetSpec:
       template:
         spec:
           containers:
