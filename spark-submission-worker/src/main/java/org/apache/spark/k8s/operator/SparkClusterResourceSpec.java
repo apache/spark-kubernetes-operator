@@ -35,6 +35,8 @@ import io.fabric8.kubernetes.api.model.apps.StatefulSetBuilder;
 import io.fabric8.kubernetes.api.model.apps.StatefulSetSpec;
 import io.fabric8.kubernetes.api.model.autoscaling.v2.HorizontalPodAutoscaler;
 import io.fabric8.kubernetes.api.model.autoscaling.v2.HorizontalPodAutoscalerBuilder;
+import io.fabric8.kubernetes.api.model.autoscaling.v2.HorizontalPodAutoscalerSpec;
+import io.fabric8.kubernetes.api.model.autoscaling.v2.HorizontalPodAutoscalerSpecBuilder;
 import io.fabric8.kubernetes.api.model.autoscaling.v2.MetricSpecBuilder;
 import lombok.Getter;
 
@@ -278,13 +280,48 @@ public class SparkClusterResourceSpec {
     if (instanceConfig.getMinWorkers() >= instanceConfig.getMaxWorkers()) {
       return Optional.empty();
     }
+    HorizontalPodAutoscalerSpec horizontalPodAutoscalerSpec;
+    if (spec.getWorkerSpec().getHorizontalPodAutoscalerSpec() != null) {
+      horizontalPodAutoscalerSpec = spec.getWorkerSpec().getHorizontalPodAutoscalerSpec();
+    } else {
+      horizontalPodAutoscalerSpec =
+          new HorizontalPodAutoscalerSpecBuilder()
+              .addToMetrics(
+                  new MetricSpecBuilder()
+                      .withType("Resource")
+                      .withNewResource()
+                      .withName("cpu")
+                      .withNewTarget()
+                      .withType("Utilization")
+                      .withAverageUtilization(30)
+                      .endTarget()
+                      .endResource()
+                      .build())
+              .withNewBehavior()
+              .withNewScaleUp()
+              .addNewPolicy()
+              .withType("Pods")
+              .withValue(1)
+              .withPeriodSeconds(60)
+              .endPolicy()
+              .endScaleUp()
+              .withNewScaleDown()
+              .addNewPolicy()
+              .withType("Pods")
+              .withValue(1)
+              .withPeriodSeconds(600)
+              .endPolicy()
+              .endScaleDown()
+              .endBehavior()
+              .build();
+    }
     return Optional.of(
         new HorizontalPodAutoscalerBuilder()
             .withNewMetadata()
             .withNamespace(namespace)
             .withName(clusterName + "-worker-hpa")
             .endMetadata()
-            .withNewSpec()
+            .withNewSpecLike(horizontalPodAutoscalerSpec)
             .withNewScaleTargetRef()
             .withApiVersion("apps/v1")
             .withKind("StatefulSet")
@@ -292,33 +329,6 @@ public class SparkClusterResourceSpec {
             .endScaleTargetRef()
             .withMinReplicas(instanceConfig.getMinWorkers())
             .withMaxReplicas(instanceConfig.getMaxWorkers())
-            .addToMetrics(
-                new MetricSpecBuilder()
-                    .withType("Resource")
-                    .withNewResource()
-                    .withName("cpu")
-                    .withNewTarget()
-                    .withType("Utilization")
-                    .withAverageUtilization(30)
-                    .endTarget()
-                    .endResource()
-                    .build())
-            .withNewBehavior()
-            .withNewScaleUp()
-            .addNewPolicy()
-            .withType("Pods")
-            .withValue(1)
-            .withPeriodSeconds(60)
-            .endPolicy()
-            .endScaleUp()
-            .withNewScaleDown()
-            .addNewPolicy()
-            .withType("Pods")
-            .withValue(1)
-            .withPeriodSeconds(600)
-            .endPolicy()
-            .endScaleDown()
-            .endBehavior()
             .endSpec()
             .build());
   }

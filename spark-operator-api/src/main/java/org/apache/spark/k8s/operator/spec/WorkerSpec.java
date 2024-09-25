@@ -23,6 +23,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ServiceSpec;
 import io.fabric8.kubernetes.api.model.apps.StatefulSetSpec;
+import io.fabric8.kubernetes.api.model.autoscaling.v2.HorizontalPodAutoscalerSpec;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -38,4 +39,5 @@ public class WorkerSpec {
   protected ObjectMeta statefulSetMetadata;
   protected ServiceSpec serviceSpec;
   protected ObjectMeta serviceMetadata;
+  protected HorizontalPodAutoscalerSpec horizontalPodAutoscalerSpec;
 }
