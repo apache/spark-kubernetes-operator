@@ -34,8 +34,8 @@ import lombok.NoArgsConstructor;
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class MasterSpec {
-  protected StatefulSetSpec masterStatefulSetSpec;
-  protected ObjectMeta masterStatefulSetMetadata;
-  protected ServiceSpec masterServiceSpec;
-  protected ObjectMeta masterServiceMetadata;
+  protected StatefulSetSpec statefulSetSpec;
+  protected ObjectMeta statefulSetMetadata;
+  protected ServiceSpec serviceSpec;
+  protected ObjectMeta serviceMetadata;
 }

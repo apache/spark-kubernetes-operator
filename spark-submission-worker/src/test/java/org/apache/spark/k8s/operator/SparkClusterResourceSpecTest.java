@@ -71,14 +71,14 @@ class SparkClusterResourceSpecTest {
     when(clusterSpec.getClusterTolerations()).thenReturn(clusterTolerations);
     when(clusterSpec.getMasterSpec()).thenReturn(masterSpec);
     when(clusterSpec.getWorkerSpec()).thenReturn(workerSpec);
-    when(masterSpec.getMasterStatefulSetSpec()).thenReturn(statefulSetSpec);
-    when(masterSpec.getMasterStatefulSetMetadata()).thenReturn(objectMeta);
-    when(masterSpec.getMasterServiceSpec()).thenReturn(serviceSpec);
-    when(masterSpec.getMasterServiceMetadata()).thenReturn(objectMeta);
-    when(workerSpec.getWorkerStatefulSetSpec()).thenReturn(statefulSetSpec);
-    when(workerSpec.getWorkerStatefulSetMetadata()).thenReturn(objectMeta);
-    when(workerSpec.getWorkerServiceSpec()).thenReturn(serviceSpec);
-    when(workerSpec.getWorkerServiceMetadata()).thenReturn(objectMeta);
+    when(masterSpec.getStatefulSetSpec()).thenReturn(statefulSetSpec);
+    when(masterSpec.getStatefulSetMetadata()).thenReturn(objectMeta);
+    when(masterSpec.getServiceSpec()).thenReturn(serviceSpec);
+    when(masterSpec.getServiceMetadata()).thenReturn(objectMeta);
+    when(workerSpec.getStatefulSetSpec()).thenReturn(statefulSetSpec);
+    when(workerSpec.getStatefulSetMetadata()).thenReturn(objectMeta);
+    when(workerSpec.getServiceSpec()).thenReturn(serviceSpec);
+    when(workerSpec.getServiceMetadata()).thenReturn(objectMeta);
   }
 
   @Test
@@ -111,8 +111,8 @@ class SparkClusterResourceSpecTest {
             .build();
     ServiceSpec serviceSpec1 = new ServiceSpecBuilder().withExternalName("foo").build();
     WorkerSpec workerSpec1 = mock(WorkerSpec.class);
-    when(workerSpec1.getWorkerServiceSpec()).thenReturn(serviceSpec1);
-    when(workerSpec1.getWorkerServiceMetadata()).thenReturn(objectMeta1);
+    when(workerSpec1.getServiceSpec()).thenReturn(serviceSpec1);
+    when(workerSpec1.getServiceMetadata()).thenReturn(objectMeta1);
     when(clusterSpec.getWorkerSpec()).thenReturn(workerSpec1);
 
     Service service1 = new SparkClusterResourceSpec(cluster, new SparkConf()).getWorkerService();
@@ -132,8 +132,8 @@ class SparkClusterResourceSpecTest {
             .build();
     ServiceSpec serviceSpec1 = new ServiceSpecBuilder().withExternalName("foo").build();
     MasterSpec masterSpec1 = mock(MasterSpec.class);
-    when(masterSpec1.getMasterServiceSpec()).thenReturn(serviceSpec1);
-    when(masterSpec1.getMasterServiceMetadata()).thenReturn(objectMeta1);
+    when(masterSpec1.getServiceSpec()).thenReturn(serviceSpec1);
+    when(masterSpec1.getServiceMetadata()).thenReturn(objectMeta1);
     when(clusterSpec.getMasterSpec()).thenReturn(masterSpec1);
 
     Service service1 = new SparkClusterResourceSpec(cluster, new SparkConf()).getMasterService();
@@ -177,8 +177,8 @@ class SparkClusterResourceSpecTest {
             .endTemplate()
             .build();
     MasterSpec masterSpec1 = mock(MasterSpec.class);
-    when(masterSpec1.getMasterStatefulSetMetadata()).thenReturn(objectMeta1);
-    when(masterSpec1.getMasterStatefulSetSpec()).thenReturn(statefulSetSpec1);
+    when(masterSpec1.getStatefulSetMetadata()).thenReturn(objectMeta1);
+    when(masterSpec1.getStatefulSetSpec()).thenReturn(statefulSetSpec1);
     when(clusterSpec.getMasterSpec()).thenReturn(masterSpec1);
     SparkClusterResourceSpec spec1 = new SparkClusterResourceSpec(cluster, new SparkConf());
     StatefulSet statefulSet1 = spec1.getMasterStatefulSet();
@@ -223,8 +223,8 @@ class SparkClusterResourceSpecTest {
             .endTemplate()
             .build();
     WorkerSpec workerSpec1 = mock(WorkerSpec.class);
-    when(workerSpec1.getWorkerStatefulSetMetadata()).thenReturn(objectMeta1);
-    when(workerSpec1.getWorkerStatefulSetSpec()).thenReturn(statefulSetSpec1);
+    when(workerSpec1.getStatefulSetMetadata()).thenReturn(objectMeta1);
+    when(workerSpec1.getStatefulSetSpec()).thenReturn(statefulSetSpec1);
     when(clusterSpec.getWorkerSpec()).thenReturn(workerSpec1);
     SparkClusterResourceSpec spec = new SparkClusterResourceSpec(cluster, new SparkConf());
     StatefulSet statefulSet = spec.getWorkerStatefulSet();

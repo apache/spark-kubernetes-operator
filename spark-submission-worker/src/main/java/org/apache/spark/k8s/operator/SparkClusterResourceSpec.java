@@ -67,16 +67,10 @@ public class SparkClusterResourceSpec {
     WorkerSpec workerSpec = spec.getWorkerSpec();
     masterService =
         buildMasterService(
-            clusterName,
-            namespace,
-            masterSpec.getMasterServiceMetadata(),
-            masterSpec.getMasterServiceSpec());
+            clusterName, namespace, masterSpec.getServiceMetadata(), masterSpec.getServiceSpec());
     workerService =
         buildWorkerService(
-            clusterName,
-            namespace,
-            workerSpec.getWorkerServiceMetadata(),
-            workerSpec.getWorkerServiceSpec());
+            clusterName, namespace, workerSpec.getServiceMetadata(), workerSpec.getServiceSpec());
     masterStatefulSet =
         buildMasterStatefulSet(
             scheduler,
@@ -84,8 +78,8 @@ public class SparkClusterResourceSpec {
             namespace,
             image,
             options.toString(),
-            masterSpec.getMasterStatefulSetMetadata(),
-            masterSpec.getMasterStatefulSetSpec());
+            masterSpec.getStatefulSetMetadata(),
+            masterSpec.getStatefulSetSpec());
     workerStatefulSet =
         buildWorkerStatefulSet(
             scheduler,
@@ -94,8 +88,8 @@ public class SparkClusterResourceSpec {
             image,
             spec.getClusterTolerations().getInstanceConfig().getInitWorkers(),
             options.toString(),
-            workerSpec.getWorkerStatefulSetMetadata(),
-            workerSpec.getWorkerStatefulSetSpec());
+            workerSpec.getStatefulSetMetadata(),
+            workerSpec.getStatefulSetSpec());
     horizontalPodAutoscaler = buildHorizontalPodAutoscaler(clusterName, namespace, spec);
   }
 

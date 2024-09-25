@@ -56,10 +56,10 @@ spec:
       annotations:
         customAnnotation: "svc1"
   workerSpec:
-    workerStatefulSetMetadata:
+    statefulSetMetadata:
       annotations:
         customAnnotation: "annotation"
-    workerStatefulSetSpec:
+    statefulSetSpec:
       template:
         spec:
           priorityClassName: system-cluster-critical
@@ -83,7 +83,7 @@ spec:
               limits:
                 cpu: "0.1"
                 memory: "10Mi"
-    workerServiceMetadata:
+    serviceMetadata:
       annotations:
         customAnnotation: "annotation"
   sparkConf:
