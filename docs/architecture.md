@@ -20,45 +20,62 @@ under the License.
 # Design & Architecture
 
 **Spark-Kubernetes-Operator** (Operator) acts as a control plane to manage the complete
-deployment lifecycle of Spark applications. The Operator can be installed on a Kubernetes
-cluster using Helm. In most production environments it is typically deployed in a designated
-namespace and controls Spark deployments in one or more managed namespaces. The custom resource
-definition (CRD) that describes the schema of a SparkApplication is a cluster wide resource.
-For a CRD, the declaration must be registered before any resources of that CRDs kind(s) can be
-used, and the registration process sometimes takes a few seconds.
+deployment lifecycle of Spark applications and clusters. The Operator can be installed on Kubernetes
+cluster(s) using Helm. In most production environments it is typically deployed in a designated
+namespace and controls Spark workload in one or more managed namespaces.
+Spark Operator enables user to describe Spark application(s) or cluster(s) as 
+[Custom Resources](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/). 
 
-Users can interact with the operator using the kubectl or k8s API. The Operator continuously
-tracks cluster events relating to the SparkApplication custom resources. When the operator
-receives a new resource update, it will take action to adjust the Kubernetes cluster to the
-desired state as part of its reconciliation loop. The initial loop consists of the following
-high-level steps:
+The Operator continuously tracks events related to the Spark custom resources in its reconciliation 
+loops:
+
+For SparkApplications:
 
 * User submits a SparkApplication custom resource(CR) using kubectl / API
 * Operator launches driver and observes its status
-* Operator observes driver-spawn resources (e.g. executors) till app terminates
+* Operator observes driver-spawn resources (e.g. executors) and record status till app terminates
 * Operator releases all Spark-app owned resources to cluster
-* The SparkApplication CR can be (re)applied on the cluster any time - e.g. to issue proactive
-  termination of an application. The Operator makes continuous adjustments to imitate the
-  desired state until the
-  current state becomes the desired state. All lifecycle management operations are realized
-  using this very simple
-  principle in the Operator.
 
-The Operator is built with the Java Operator SDK and uses the Native Kubernetes Integration for
-launching Spark deployments and submitting jobs under the hood. The Java Operator SDK is a
-higher level
-framework and related tooling to support writing Kubernetes Operators in Java. Both the Java
-Operator SDK and Spark’s native
-kubernetes integration itself is using the Fabric8 Kubernetes Client to interact with the
-Kubernetes API Server.
+For SparkClusters:
 
-## State Transition
+* User submits a SparkCluster custom resource(CR) using kubectl / API
+* Operator launches master and worker(s) based on CR spec and observes their status
+* Operator releases all Spark-cluster owned resources to cluster upon failure
 
-[<img src="resources/state.png">](resources/state.png)
+The Operator is built with the [Java Operator SDK](https://javaoperatorsdk.io/) for
+launching Spark deployments and submitting jobs under the hood. It also uses 
+[fabric8](https://fabric8.io/) client to interact with Kubernetes API Server.
 
-* Spark application are expected to run from submitted to succeeded before releasing resources
-* User may configure the app CR to time-out after given threshold of time
-* In addition, user may configure the app CR to skip releasing resources after terminated. This is
-  typically used at dev phase: pods / configmaps. etc would be kept for debugging. They have
-  ownerreference to the Application CR and therefore can still be cleaned up when the owner
-  SparkApplication CR is deleted.
+## Application State Transition
+
+[<img src="resources/application_state_machine.png">](resources/application_state_machine.png)
+
+* Spark applications are expected to run from submitted to succeeded before releasing resources
+* User may configure the app CR to time-out after given threshold of time if it cannot reach healthy
+  state after given threshold. The timeout can be configured for different lifecycle stages, 
+  when driver starting and when requesting executor pods. To update the default threshold,  
+  configure `.spec.applicationTolerations.applicationTimeoutConfig` for the application.        
+* K8s resources created for an application would be deleted as the final stage of the application 
+  lifecycle by default. This is to ensure resource quota release for completed applications.  
+* It is also possible to retain the created k8s resources for debug or audit purpose. To do so,   
+  user may set `.spec.applicationTolerations.resourceRetainPolicy` to `OnFailure` to retain 
+  resources upon application failure, or set to `Always` to retain resources regardless of 
+  application final state.
+    - This controls the behavior of k8s resources created by Operator for the application, including
+      driver pod, config map, service, and PVC(if enabled). This does not apply to resources created 
+      by driver (for example, executor pods). User may configure SparkConf to
+      include `spark.kubernetes.executor.deleteOnTermination` for executor retention. Please refer 
+      [Spark docs](https://spark.apache.org/docs/latest/running-on-kubernetes.html) for details.
+    - The created k8s resources have `ownerReference` to their related `SparkApplication` custom
+      resource, such that they could be garbage collected when the `SparkApplication` is deleted.
+    - Please be advised that k8s resources would not be retained if the application is configured to
+      restart. This is to avoid resource quota usage increase unexpectedly or resource conflicts 
+      among multiple attempts.
+
+## Cluster State Transition
+
+[<img src="resources/cluster_state_machine.png">](resources/application_state_machine.png)
+
+* Spark clusters are expected to be always running after submitted.
+* Similar to Spark applications, K8s resources created for a cluster would be deleted as the final 
+  stage of the cluster lifecycle by default.

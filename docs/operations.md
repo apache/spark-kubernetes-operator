@@ -125,3 +125,27 @@ For more information check the [Helm documentation](https://helm.sh/docs/helm/he
 __Notice__: The pod resources should be set as your workload in different environments to
 archive a matched K8s pod QoS. See
 also [Pod Quality of Service Classes](https://kubernetes.io/docs/concepts/workloads/pods/pod-qos/#quality-of-service-classes).
+
+## Operator Health(Liveness) Probe with Sentinel Resource
+
+Learning
+from [Apache Flink Operator](https://nightlies.apache.org/flink/flink-kubernetes-operator-docs-main/docs/operations/health/#canary-resources),
+a dummy spark application resource in any watched namespace can help Spark operator health
+probe monitor.
+
+Here is a Spark Sentinel resource example with the label `"spark.operator/sentinel": "true"`
+and it will not result in creation of any other kubernetes resources. Controlled by
+property `health.sentinel.resource.reconciliation.delay.seconds`, by default, the timeout to
+reconcile the sentinel resources is 60 seconds. If the operator cannot reconcile these
+resources within limited time, the operator health probe will return HTTP code 500 when kubelet
+send the HTTP Get to the liveness endpoint, and the
+kubelet will then kill the spark operator container and restart it.
+
+```yaml
+apiVersion: org.apache.spark/v1alpha1
+kind: SparkApplication
+metadata:
+  name: spark-sentinel-resources
+  labels:
+    "spark.operator/sentinel": "true"
+```
