@@ -61,6 +61,7 @@ public class SparkClusterResourceSpec {
     String namespace = conf.get(Config.KUBERNETES_NAMESPACE().key(), clusterNamespace);
     String image = conf.get(Config.CONTAINER_IMAGE().key(), "apache/spark:4.0.0-preview2");
     ClusterSpec spec = cluster.getSpec();
+    String version = spec.getRuntimeVersions().getSparkVersion();
     StringBuilder options = new StringBuilder();
     for (Tuple2<String, String> t : conf.getAll()) {
       options.append(String.format("-D%s=\"%s\" ", t._1, t._2));
@@ -69,15 +70,24 @@ public class SparkClusterResourceSpec {
     WorkerSpec workerSpec = spec.getWorkerSpec();
     masterService =
         buildMasterService(
-            clusterName, namespace, masterSpec.getServiceMetadata(), masterSpec.getServiceSpec());
+            clusterName,
+            namespace,
+            version,
+            masterSpec.getServiceMetadata(),
+            masterSpec.getServiceSpec());
     workerService =
         buildWorkerService(
-            clusterName, namespace, workerSpec.getServiceMetadata(), workerSpec.getServiceSpec());
+            clusterName,
+            namespace,
+            version,
+            workerSpec.getServiceMetadata(),
+            workerSpec.getServiceSpec());
     masterStatefulSet =
         buildMasterStatefulSet(
             scheduler,
             clusterName,
             namespace,
+            version,
             image,
             options.toString(),
             masterSpec.getStatefulSetMetadata(),
@@ -87,6 +97,7 @@ public class SparkClusterResourceSpec {
             scheduler,
             clusterName,
             namespace,
+            version,
             image,
             spec.getClusterTolerations().getInstanceConfig().getInitWorkers(),
             options.toString(),
@@ -96,11 +107,12 @@ public class SparkClusterResourceSpec {
   }
 
   private static Service buildMasterService(
-      String name, String namespace, ObjectMeta metadata, ServiceSpec serviceSpec) {
+      String name, String namespace, String version, ObjectMeta metadata, ServiceSpec serviceSpec) {
     return new ServiceBuilder()
         .withNewMetadataLike(metadata)
         .withName(name + "-master-svc")
         .addToLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_MASTER_VALUE)
+        .addToLabels(LABEL_SPARK_VERSION_NAME, version)
         .withNamespace(namespace)
         .endMetadata()
         .withNewSpecLike(serviceSpec)
@@ -127,11 +139,12 @@ public class SparkClusterResourceSpec {
   }
 
   private static Service buildWorkerService(
-      String name, String namespace, ObjectMeta metadata, ServiceSpec serviceSpec) {
+      String name, String namespace, String version, ObjectMeta metadata, ServiceSpec serviceSpec) {
     return new ServiceBuilder()
         .withNewMetadataLike(metadata)
         .withName(name + "-worker-svc")
         .addToLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_WORKER_VALUE)
+        .addToLabels(LABEL_SPARK_VERSION_NAME, version)
         .withNamespace(namespace)
         .endMetadata()
         .withNewSpecLike(serviceSpec)
@@ -151,6 +164,7 @@ public class SparkClusterResourceSpec {
       String scheduler,
       String name,
       String namespace,
+      String version,
       String image,
       String options,
       ObjectMeta objectMeta,
@@ -160,6 +174,7 @@ public class SparkClusterResourceSpec {
             .withNewMetadataLike(objectMeta)
             .withName(name + "-master")
             .addToLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_MASTER_VALUE)
+            .addToLabels(LABEL_SPARK_VERSION_NAME, version)
             .withNamespace(namespace)
             .endMetadata()
             .withNewSpecLike(statefulSetSpec)
@@ -171,6 +186,7 @@ public class SparkClusterResourceSpec {
             .editOrNewTemplate()
             .editOrNewMetadata()
             .addToLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_MASTER_VALUE)
+            .addToLabels(LABEL_SPARK_VERSION_NAME, version)
             .endMetadata()
             .editOrNewSpec()
             .withSchedulerName(scheduler)
@@ -213,6 +229,7 @@ public class SparkClusterResourceSpec {
       String scheduler,
       String name,
       String namespace,
+      String version,
       String image,
       int initWorkers,
       String options,
@@ -223,6 +240,7 @@ public class SparkClusterResourceSpec {
             .withNewMetadataLike(metadata)
             .withName(name + "-worker")
             .addToLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_WORKER_VALUE)
+            .addToLabels(LABEL_SPARK_VERSION_NAME, version)
             .withNamespace(namespace)
             .endMetadata()
             .withNewSpecLike(statefulSetSpec)
@@ -235,6 +253,7 @@ public class SparkClusterResourceSpec {
             .editOrNewTemplate()
             .editOrNewMetadata()
             .addToLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_WORKER_VALUE)
+            .addToLabels(LABEL_SPARK_VERSION_NAME, version)
             .endMetadata()
             .editOrNewSpec()
             .withSchedulerName(scheduler)
@@ -320,6 +339,7 @@ public class SparkClusterResourceSpec {
             .withNewMetadata()
             .withNamespace(namespace)
             .withName(clusterName + "-worker-hpa")
+            .addToLabels(LABEL_SPARK_VERSION_NAME, spec.getRuntimeVersions().getSparkVersion())
             .endMetadata()
             .withNewSpecLike(horizontalPodAutoscalerSpec)
             .withNewScaleTargetRef()

@@ -34,6 +34,7 @@ public class Constants {
   public static final String LABEL_SPARK_ROLE_CLUSTER_VALUE = "cluster";
   public static final String LABEL_SPARK_ROLE_MASTER_VALUE = "master";
   public static final String LABEL_SPARK_ROLE_WORKER_VALUE = "worker";
+  public static final String LABEL_SPARK_VERSION_NAME = "spark-version";
   public static final String SENTINEL_RESOURCE_DUMMY_FIELD = "sentinel.dummy.number";
 
   public static final String DRIVER_SPARK_CONTAINER_PROP_KEY =

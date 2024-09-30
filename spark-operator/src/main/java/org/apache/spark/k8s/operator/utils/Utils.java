@@ -24,6 +24,7 @@ import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_OPERATOR_NAME;
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_ROLE_CLUSTER_VALUE;
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_ROLE_DRIVER_VALUE;
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_ROLE_EXECUTOR_VALUE;
+import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_VERSION_NAME;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.OPERATOR_APP_NAME;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.OPERATOR_WATCHED_NAMESPACES;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.SPARK_APP_STATUS_LISTENER_CLASS_NAMES;
@@ -111,6 +112,7 @@ public final class Utils {
   public static Map<String, String> sparkClusterResourceLabels(final SparkCluster cluster) {
     Map<String, String> labels = commonManagedResourceLabels();
     labels.put(Constants.LABEL_SPARK_CLUSTER_NAME, cluster.getMetadata().getName());
+    labels.put(LABEL_SPARK_VERSION_NAME, cluster.getSpec().getRuntimeVersions().getSparkVersion());
     return labels;
   }
 

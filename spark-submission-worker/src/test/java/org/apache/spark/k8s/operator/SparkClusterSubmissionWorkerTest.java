@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test;
 import org.apache.spark.k8s.operator.spec.ClusterSpec;
 import org.apache.spark.k8s.operator.spec.ClusterTolerations;
 import org.apache.spark.k8s.operator.spec.MasterSpec;
+import org.apache.spark.k8s.operator.spec.RuntimeVersions;
 import org.apache.spark.k8s.operator.spec.WorkerSpec;
 
 class SparkClusterSubmissionWorkerTest {
@@ -40,6 +41,7 @@ class SparkClusterSubmissionWorkerTest {
   ClusterTolerations clusterTolerations = new ClusterTolerations();
   MasterSpec masterSpec;
   WorkerSpec workerSpec;
+  RuntimeVersions runtimeVersions = new RuntimeVersions();
 
   @BeforeEach
   void setUp() {
@@ -55,6 +57,7 @@ class SparkClusterSubmissionWorkerTest {
     when(clusterSpec.getClusterTolerations()).thenReturn(clusterTolerations);
     when(clusterSpec.getMasterSpec()).thenReturn(masterSpec);
     when(clusterSpec.getWorkerSpec()).thenReturn(workerSpec);
+    when(clusterSpec.getRuntimeVersions()).thenReturn(runtimeVersions);
   }
 
   @Test
