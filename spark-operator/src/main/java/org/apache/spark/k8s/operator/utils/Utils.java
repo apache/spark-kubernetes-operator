@@ -96,26 +96,26 @@ public final class Utils {
     return labels;
   }
 
-  public static Map<String, String> driverLabels(final SparkApplication sparkApplication) {
-    Map<String, String> labels = sparkAppResourceLabels(sparkApplication);
+  public static Map<String, String> driverLabels(final SparkApplication app) {
+    Map<String, String> labels = sparkAppResourceLabels(app);
     labels.put(Constants.LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_DRIVER_VALUE);
     return labels;
   }
 
-  public static Map<String, String> executorLabels(final SparkApplication sparkApplication) {
-    Map<String, String> labels = sparkAppResourceLabels(sparkApplication);
+  public static Map<String, String> executorLabels(final SparkApplication app) {
+    Map<String, String> labels = sparkAppResourceLabels(app);
     labels.put(Constants.LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_EXECUTOR_VALUE);
     return labels;
   }
 
-  public static Map<String, String> sparkClusterResourceLabels(final SparkCluster master) {
+  public static Map<String, String> sparkClusterResourceLabels(final SparkCluster cluster) {
     Map<String, String> labels = commonManagedResourceLabels();
-    labels.put(Constants.LABEL_SPARK_CLUSTER_NAME, master.getMetadata().getName());
+    labels.put(Constants.LABEL_SPARK_CLUSTER_NAME, cluster.getMetadata().getName());
     return labels;
   }
 
-  public static Map<String, String> clusterLabels(final SparkCluster sparkCluster) {
-    Map<String, String> labels = sparkClusterResourceLabels(sparkCluster);
+  public static Map<String, String> clusterLabels(final SparkCluster cluster) {
+    Map<String, String> labels = sparkClusterResourceLabels(cluster);
     labels.put(Constants.LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_CLUSTER_VALUE);
     return labels;
   }
