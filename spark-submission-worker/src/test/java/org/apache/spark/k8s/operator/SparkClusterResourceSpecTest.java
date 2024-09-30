@@ -19,6 +19,7 @@
 
 package org.apache.spark.k8s.operator;
 
+import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_VERSION_NAME;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -41,6 +42,7 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.k8s.operator.spec.ClusterSpec;
 import org.apache.spark.k8s.operator.spec.ClusterTolerations;
 import org.apache.spark.k8s.operator.spec.MasterSpec;
+import org.apache.spark.k8s.operator.spec.RuntimeVersions;
 import org.apache.spark.k8s.operator.spec.WorkerInstanceConfig;
 import org.apache.spark.k8s.operator.spec.WorkerSpec;
 
@@ -52,6 +54,7 @@ class SparkClusterResourceSpecTest {
   ServiceSpec serviceSpec;
   MasterSpec masterSpec;
   WorkerSpec workerSpec;
+  RuntimeVersions runtimeVersions = new RuntimeVersions();
   SparkConf sparkConf = new SparkConf().set("spark.kubernetes.namespace", "other-namespace");
   ClusterTolerations clusterTolerations = new ClusterTolerations();
 
@@ -71,6 +74,8 @@ class SparkClusterResourceSpecTest {
     when(clusterSpec.getClusterTolerations()).thenReturn(clusterTolerations);
     when(clusterSpec.getMasterSpec()).thenReturn(masterSpec);
     when(clusterSpec.getWorkerSpec()).thenReturn(workerSpec);
+    when(clusterSpec.getRuntimeVersions()).thenReturn(runtimeVersions);
+    runtimeVersions.setSparkVersion("4.0.0");
     when(masterSpec.getStatefulSetSpec()).thenReturn(statefulSetSpec);
     when(masterSpec.getStatefulSetMetadata()).thenReturn(objectMeta);
     when(masterSpec.getServiceSpec()).thenReturn(serviceSpec);
@@ -86,9 +91,11 @@ class SparkClusterResourceSpecTest {
     Service service1 = new SparkClusterResourceSpec(cluster, new SparkConf()).getMasterService();
     assertEquals("my-namespace", service1.getMetadata().getNamespace());
     assertEquals("cluster-name-master-svc", service1.getMetadata().getName());
+    assertEquals("4.0.0", service1.getMetadata().getLabels().get(LABEL_SPARK_VERSION_NAME));
 
     Service service2 = new SparkClusterResourceSpec(cluster, sparkConf).getMasterService();
     assertEquals("other-namespace", service2.getMetadata().getNamespace());
+    assertEquals("4.0.0", service1.getMetadata().getLabels().get(LABEL_SPARK_VERSION_NAME));
   }
 
   @Test
@@ -96,6 +103,7 @@ class SparkClusterResourceSpecTest {
     Service service1 = new SparkClusterResourceSpec(cluster, new SparkConf()).getWorkerService();
     assertEquals("my-namespace", service1.getMetadata().getNamespace());
     assertEquals("cluster-name-worker-svc", service1.getMetadata().getName());
+    assertEquals("4.0.0", service1.getMetadata().getLabels().get(LABEL_SPARK_VERSION_NAME));
 
     Service service2 = new SparkClusterResourceSpec(cluster, sparkConf).getMasterService();
     assertEquals("other-namespace", service2.getMetadata().getNamespace());
@@ -119,6 +127,7 @@ class SparkClusterResourceSpecTest {
     assertEquals("my-namespace", service1.getMetadata().getNamespace());
     assertEquals("cluster-name-worker-svc", service1.getMetadata().getName());
     assertEquals("bar", service1.getMetadata().getLabels().get("foo"));
+    assertEquals("4.0.0", service1.getMetadata().getLabels().get(LABEL_SPARK_VERSION_NAME));
     assertEquals("foo", service1.getSpec().getExternalName());
   }
 
@@ -140,6 +149,7 @@ class SparkClusterResourceSpecTest {
     assertEquals("my-namespace", service1.getMetadata().getNamespace());
     assertEquals("cluster-name-master-svc", service1.getMetadata().getName());
     assertEquals("bar", service1.getMetadata().getLabels().get("foo"));
+    assertEquals("4.0.0", service1.getMetadata().getLabels().get(LABEL_SPARK_VERSION_NAME));
     assertEquals("foo", service1.getSpec().getExternalName());
   }
 
@@ -149,6 +159,15 @@ class SparkClusterResourceSpecTest {
     StatefulSet statefulSet1 = spec1.getMasterStatefulSet();
     assertEquals("my-namespace", statefulSet1.getMetadata().getNamespace());
     assertEquals("cluster-name-master", statefulSet1.getMetadata().getName());
+    assertEquals("4.0.0", statefulSet1.getMetadata().getLabels().get(LABEL_SPARK_VERSION_NAME));
+    assertEquals(
+        "4.0.0",
+        statefulSet1
+            .getSpec()
+            .getTemplate()
+            .getMetadata()
+            .getLabels()
+            .get(LABEL_SPARK_VERSION_NAME));
 
     SparkClusterResourceSpec spec2 = new SparkClusterResourceSpec(cluster, sparkConf);
     StatefulSet statefulSet2 = spec2.getMasterStatefulSet();
@@ -185,8 +204,17 @@ class SparkClusterResourceSpecTest {
     assertEquals("my-namespace", statefulSet1.getMetadata().getNamespace());
     assertEquals("cluster-name-master", statefulSet1.getMetadata().getName());
     assertEquals("bar", statefulSet1.getMetadata().getLabels().get("foo"));
+    assertEquals("4.0.0", statefulSet1.getMetadata().getLabels().get(LABEL_SPARK_VERSION_NAME));
     assertEquals(1, statefulSet1.getSpec().getTemplate().getSpec().getInitContainers().size());
     assertEquals(2, statefulSet1.getSpec().getTemplate().getSpec().getContainers().size());
+    assertEquals(
+        "4.0.0",
+        statefulSet1
+            .getSpec()
+            .getTemplate()
+            .getMetadata()
+            .getLabels()
+            .get(LABEL_SPARK_VERSION_NAME));
   }
 
   @Test
@@ -195,6 +223,15 @@ class SparkClusterResourceSpecTest {
     StatefulSet statefulSet = spec.getWorkerStatefulSet();
     assertEquals("my-namespace", statefulSet.getMetadata().getNamespace());
     assertEquals("cluster-name-worker", statefulSet.getMetadata().getName());
+    assertEquals("4.0.0", statefulSet.getMetadata().getLabels().get(LABEL_SPARK_VERSION_NAME));
+    assertEquals(
+        "4.0.0",
+        statefulSet
+            .getSpec()
+            .getTemplate()
+            .getMetadata()
+            .getLabels()
+            .get(LABEL_SPARK_VERSION_NAME));
 
     SparkClusterResourceSpec spec2 = new SparkClusterResourceSpec(cluster, sparkConf);
     StatefulSet statefulSet2 = spec2.getWorkerStatefulSet();
@@ -230,6 +267,15 @@ class SparkClusterResourceSpecTest {
     StatefulSet statefulSet = spec.getWorkerStatefulSet();
     assertEquals("my-namespace", statefulSet.getMetadata().getNamespace());
     assertEquals("cluster-name-worker", statefulSet.getMetadata().getName());
+    assertEquals("4.0.0", statefulSet.getMetadata().getLabels().get(LABEL_SPARK_VERSION_NAME));
+    assertEquals(
+        "4.0.0",
+        statefulSet
+            .getSpec()
+            .getTemplate()
+            .getMetadata()
+            .getLabels()
+            .get(LABEL_SPARK_VERSION_NAME));
   }
 
   @Test
@@ -255,6 +301,7 @@ class SparkClusterResourceSpecTest {
     assertEquals("HorizontalPodAutoscaler", hpa.getKind());
     assertEquals("my-namespace", hpa.getMetadata().getNamespace());
     assertEquals("cluster-name-worker-hpa", hpa.getMetadata().getName());
+    assertEquals("4.0.0", hpa.getMetadata().getLabels().get(LABEL_SPARK_VERSION_NAME));
     assertEquals(1, hpa.getSpec().getMinReplicas());
     assertEquals(3, hpa.getSpec().getMaxReplicas());
   }
