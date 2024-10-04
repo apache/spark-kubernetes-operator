@@ -25,10 +25,10 @@ spec:
       minWorkers: 1
       maxWorkers: 1
   masterSpec:
-    masterStatefulSetMetadata:
+    statefulSetMetadata:
       annotations:
         customAnnotation: "annotation"
-    masterStatefulSetSpec:
+    statefulSetSpec:
       template:
         spec:
           priorityClassName: system-cluster-critical
@@ -52,7 +52,7 @@ spec:
               limits:
                 cpu: "0.1"
                 memory: "10Mi"
-    masterServiceMetadata:
+    serviceMetadata:
       annotations:
         customAnnotation: "svc1"
   workerSpec:
