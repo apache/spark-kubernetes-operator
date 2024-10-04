@@ -44,7 +44,7 @@ spec:
                 cpu: "2"
                 memory: "2Gi"
           - name: sidecar
-            image: registry.k8s.io/pause
+            image: registry.k8s.io/pause:3.9
             resources:
               requests:
                 cpu: "0.1"
@@ -75,7 +75,7 @@ spec:
                 cpu: "2"
                 memory: "2Gi"
           - name: sidecar
-            image: registry.k8s.io/pause
+            image: registry.k8s.io/pause:3.9
             resources:
               requests:
                 cpu: "0.1"
