@@ -30,6 +30,9 @@ spec:
         customAnnotation: "annotation"
     statefulSetSpec:
       template:
+        metadata:
+          annotations:
+            cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
         spec:
           priorityClassName: system-cluster-critical
           securityContext:
@@ -61,6 +64,9 @@ spec:
         customAnnotation: "annotation"
     statefulSetSpec:
       template:
+        metadata:
+          annotations:
+            cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
         spec:
           priorityClassName: system-cluster-critical
           securityContext:
