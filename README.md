@@ -86,7 +86,7 @@ sparkcluster.spark.apache.org "prod" deleted
 
 ## Run Spark Pi App on Apache YuniKorn scheduler
 
-If you have not yet done so, follow [YuniKorn docs](https://artifacthub.io/packages/helm/yunikorn/yunikorn#installing-the-chart) to install the latest version: 
+If you have not yet done so, follow [YuniKorn docs](https://yunikorn.apache.org/docs/#install) to install the latest version: 
 
 ```bash
 $ helm repo add yunikorn  https://apache.github.io/yunikorn-release
