@@ -89,7 +89,7 @@ sparkcluster.spark.apache.org "prod" deleted
 If you have not yet done so, follow [YuniKorn docs](https://yunikorn.apache.org/docs/#install) to install the latest version: 
 
 ```bash
-$ helm repo add yunikorn  https://apache.github.io/yunikorn-release
+$ helm repo add yunikorn https://apache.github.io/yunikorn-release
 
 $ helm repo update
 
