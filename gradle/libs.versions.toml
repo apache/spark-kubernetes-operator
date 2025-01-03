@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 [versions]
-fabric8 = "6.13.4"
+fabric8 = "7.0.1"
 lombok = "1.18.32"
 operator-sdk = "4.9.0"
 okhttp = "4.12.0"
