@@ -39,9 +39,10 @@ spec:
                 memory: "3Gi"
     horizontalPodAutoscalerSpec:
       metrics:
-      - type: Resource
-        resource:
+      - type: ContainerResource
+        containerResource:
           name: cpu
+          container: worker
           target:
             type: Utilization
             averageUtilization: 10
