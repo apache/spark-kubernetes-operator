@@ -304,5 +304,7 @@ class SparkClusterResourceSpecTest {
     assertEquals("4.0.0", hpa.getMetadata().getLabels().get(LABEL_SPARK_VERSION_NAME));
     assertEquals(1, hpa.getSpec().getMinReplicas());
     assertEquals(3, hpa.getSpec().getMaxReplicas());
+    assertEquals(1, hpa.getSpec().getMetrics().size());
+    assertEquals("worker", hpa.getSpec().getMetrics().get(0).getContainerResource().getContainer());
   }
 }
