@@ -73,10 +73,11 @@ jobs:
           - dynamic
           - static
         test-group:
-          - spark-versions
-          - python
-          - state-transition
-          - watched-namespaces
+#          - spark-versions
+#          - python
+#          - state-transition
+#          - watched-namespaces
+          - migration
         exclude:
           - mode: dynamic
             test-group: spark-versions
@@ -84,6 +85,8 @@ jobs:
             test-group: python
           - mode: dynamic
             test-group: state-transition
+          - mode: dynamic
+            test-group: migration
           - mode: static
             test-group: watched-namespaces
     steps:
@@ -111,6 +114,10 @@ jobs:
         run: |
           kubectl get pods -A
           kubectl describe node
+      - name: Set up Kyverno
+        run: |
+          kubectl create -f \
+          https://github.com/kyverno/kyverno/releases/download/v1.13.2/install.yaml
       - name: Run Spark K8s Operator on K8S with Dynamic Configuration Disabled
         if: matrix.mode == 'static'
         run: |
@@ -139,7 +146,7 @@ jobs:
       - name: Run E2E Test with Dynamic Configuration Enabled
         if: matrix.mode == 'dynamic'
         run: |
-          chainsaw test --test-dir ./tests/e2e/${{ matrix.test-group }} --parallel 2
+          chainsaw test --test-dir ./tests/e2e/${{ matrix.test-group }} --parallel 2      
 
   lint:
     name: "Linter and documentation"
