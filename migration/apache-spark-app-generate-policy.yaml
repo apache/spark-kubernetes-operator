@@ -1,0 +1,68 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: apache-spark-app-generate
+spec:
+  rules:
+    - name: generate-apache-spark-app
+      match:
+        all:
+          - resources:
+              kinds:
+                - sparkoperator.k8s.io/v1beta2/SparkApplication
+              operations:
+                - CREATE
+      context:
+        - name: driverLabels
+          variable:
+            value: "{{ request.object.spec.driver.labels || `{}`}}"
+        - name: driverLabelsConfValues
+          variable:
+            value: "{{ driverLabels | values(@) }}"
+        - name: driverLabelsConfKeys
+          variable:
+            value: '{{ map(&join(`""`, [`"spark.kubernetes.driver.labels."`, @]), keys({{driverLabels}}))}}'
+        - name: driverLabelsConf
+          variable:
+            value: '{{object_from_lists({{driverLabelsConfKeys}}, {{driverLabelsConfValues}})}})'
+        - name: jobName
+          variable:
+            jmesPath: request.object.metadata.name
+        - name: sparkVersion
+          variable:
+            jmesPath: request.object.spec.sparkVersion
+        - name: dynamicAllocationEnabledConf
+          variable:
+            jmesPath: '{"spark.dynamicAllocation.enabled": to_string(`{{request.object.spec.dynamicAllocation.enabled || false}}`)}'
+        - name: executorInstancesContains
+          variable:
+            jmesPath: "`{{request.object.spec.executor.instances || `0`}}` != `0`"
+        - name: executorInstancesConf
+          variable:
+            jmesPath: '[{"key": `true`, "value": {"spark.executor.instances": to_string(`{{request.object.spec.executor.instances || "foo"}}`)}}, {"key": `false`, "value": `{}`}][?key==`{{executorInstancesContains}}`]|[0].value'
+      reportProperties:
+        sparkAppName: '`{{ jobName }}`'
+      generate:
+        kind: SparkApplication
+        apiVersion: spark.apache.org/v1alpha1
+        name: "{{ request.object.metadata.name }}"
+        namespace: "{{ request.object.metadata.namespace }}"
+        data:
+          kind: SparkApplication
+          apiVersion: spark.apache.org/v1alpha1
+          metadata:
+            ownerReferences:
+              - apiVersion: sparkoperator.k8s.io/v1beta2
+                kind: SparkApplication
+                name: "{{request.object.metadata.name}}"
+                uid: "{{request.object.metadata.uid}}"
+            name: "{{ request.object.metadata.name }}"
+            namespace: "{{ request.object.metadata.namespace }}"
+            labels: "{{ request.object.metadata.labels || `{}`}}"
+          spec:
+            mainClass: "{{ request.object.spec.mainClass }}"
+            jars: "{{ request.object.spec.mainApplicationFile }}"
+            driverArgs: "{{ request.object.spec.arguments }}"
+            sparkConf: "{{ merge(`{{request.object.spec.sparkConf}}`, `{{ executorInstancesConf }}`, `{{ dynamicAllocationEnabledConf }}`, `{{ driverLabelsConf }}`)}}"
+            runtimeVersions:
+              sparkVersion: "{{ sparkVersion }}"
