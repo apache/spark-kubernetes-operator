@@ -31,7 +31,7 @@ spec:
         - create:
             file: spark-kubeflow-pi.yaml
         - assert:
-            timeout: 2m
+            timeout: 1m
             file: "../assertions/spark-application/spark-apache-pi.yaml"
       finally:
         - script:

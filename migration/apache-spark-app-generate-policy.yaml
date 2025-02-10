@@ -1,3 +1,20 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -15,22 +32,24 @@ spec:
       context:
         - name: driverLabels
           variable:
-            value: "{{ request.object.spec.driver.labels || `{}`}}"
+            jmesPath: "items(request.object.spec.driver.labels || `{}`, 'key', 'value')"
         - name: driverLabelsConfValues
           variable:
-            value: "{{ driverLabels | values(@) }}"
+            value: "{{ driverLabels | [].value }}"
         - name: driverLabelsConfKeys
           variable:
-            value: '{{ map(&join(`""`, [`"spark.kubernetes.driver.labels."`, @]), keys({{driverLabels}}))}}'
+            value: "{{ map(&join('.', ['spark', 'kubernetes', 'driver', 'label', @]), driverLabels | [].key) }}"
         - name: driverLabelsConf
           variable:
-            value: '{{object_from_lists({{driverLabelsConfKeys}}, {{driverLabelsConfValues}})}})'
+            jmesPath: object_from_lists(driverLabelsConfKeys, driverLabelsConfValues)
         - name: jobName
           variable:
-            jmesPath: request.object.metadata.name
+            value: "{{request.object.metadata.name}}"
+            jmesPath: 'to_string(@)'
         - name: sparkVersion
           variable:
-            jmesPath: request.object.spec.sparkVersion
+            value: "{{request.object.spec.sparkVersion}}"
+            jmesPath: 'to_string(@)'
         - name: dynamicAllocationEnabledConf
           variable:
             jmesPath: '{"spark.dynamicAllocation.enabled": to_string(`{{request.object.spec.dynamicAllocation.enabled || false}}`)}'
@@ -40,8 +59,22 @@ spec:
         - name: executorInstancesConf
           variable:
             jmesPath: '[{"key": `true`, "value": {"spark.executor.instances": to_string(`{{request.object.spec.executor.instances || "foo"}}`)}}, {"key": `false`, "value": `{}`}][?key==`{{executorInstancesContains}}`]|[0].value'
-      reportProperties:
-        sparkAppName: '`{{ jobName }}`'
+        - name: sparkContainerImageConf
+          variable:
+            value:
+              spark.kubernetes.container.image: "{{ request.object.spec.image }}"
+        - name: sparkK8sDriverServiceAccountConf
+          variable:
+            value:
+              spark.kubernetes.authenticate.driver.serviceAccountName: "{{request.object.spec.driver.serviceAccount}}"
+        - name: sparkConf
+          variable:
+            jmesPath: request.object.spec.sparkConf
+            default: {}
+        - name: sparkConf
+          variable:
+            jmesPath: merge(sparkConf, sparkK8sDriverServiceAccountConf, sparkContainerImageConf,
+              driverLabelsConf, executorInstancesConf)
       generate:
         kind: SparkApplication
         apiVersion: spark.apache.org/v1alpha1
@@ -58,11 +91,11 @@ spec:
                 uid: "{{request.object.metadata.uid}}"
             name: "{{ request.object.metadata.name }}"
             namespace: "{{ request.object.metadata.namespace }}"
-            labels: "{{ request.object.metadata.labels || `{}`}}"
           spec:
             mainClass: "{{ request.object.spec.mainClass }}"
             jars: "{{ request.object.spec.mainApplicationFile }}"
             driverArgs: "{{ request.object.spec.arguments }}"
-            sparkConf: "{{ merge(`{{request.object.spec.sparkConf}}`, `{{ executorInstancesConf }}`, `{{ dynamicAllocationEnabledConf }}`, `{{ driverLabelsConf }}`)}}"
+            sparkConf:
+              "{{ sparkConf }}"
             runtimeVersions:
               sparkVersion: "{{ sparkVersion }}"

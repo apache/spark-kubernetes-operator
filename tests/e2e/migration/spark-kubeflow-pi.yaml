@@ -34,12 +34,8 @@ spec:
   sparkVersion: 3.5.2
   driver:
     labels:
-      version: 3.5.2
-      nodeType: p1
-    cores: 1
-    memory: 512m
-    serviceAccount: spark
+      version: "3.5.2"
+      nodeType: "p1"
+    serviceAccount: spark-sa
   executor:
     instances: 10
-    cores: 2
-    memory: 512m

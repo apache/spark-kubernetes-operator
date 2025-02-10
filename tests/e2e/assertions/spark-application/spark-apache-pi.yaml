@@ -24,7 +24,6 @@ metadata:
     - apiVersion: "sparkoperator.k8s.io/v1beta2"
       kind: "SparkApplication"
       name: "spark-pi"
-#      uid: "*"
 spec:
   mainClass: "org.apache.spark.examples.SparkPi"
   jars: "local:///opt/spark/examples/jars/spark-examples_2.12-3.5.2.jar"
@@ -35,11 +34,7 @@ spec:
     spark.kubernetes.container.image: "spark:3.5.2"
     spark.kubernetes.driver.label.version: "3.5.2"
     spark.kubernetes.driver.label.nodeType: "p1"
-    spark.driver.cores: "1"
-    spark.driver.memory: "512m"
-    spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
-    spark.executor.memory: "512m"
+    spark.kubernetes.authenticate.driver.serviceAccountName: "spark-sa"
     spark.executor.instances: "10"
-    spark.executor.cores: "2"
   runtimeVersions:
     sparkVersion: "3.5.2"
