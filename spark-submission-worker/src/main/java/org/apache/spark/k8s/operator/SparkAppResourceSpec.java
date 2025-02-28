@@ -20,7 +20,10 @@
 package org.apache.spark.k8s.operator;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import scala.Tuple2;
 import scala.collection.immutable.HashMap;
@@ -40,6 +43,8 @@ import org.apache.spark.deploy.k8s.Constants;
 import org.apache.spark.deploy.k8s.KubernetesDriverSpec;
 import org.apache.spark.deploy.k8s.SparkPod;
 import org.apache.spark.deploy.k8s.submit.KubernetesClientUtils;
+import org.apache.spark.k8s.operator.spec.DriverServiceIngressSpec;
+import org.apache.spark.k8s.operator.utils.DriverServiceIngressUtils;
 
 /**
  * Resembles resources that would be directly launched by operator. Based on resolved
@@ -59,7 +64,9 @@ public class SparkAppResourceSpec {
   private final SparkAppDriverConf kubernetesDriverConf;
 
   public SparkAppResourceSpec(
-      SparkAppDriverConf kubernetesDriverConf, KubernetesDriverSpec kubernetesDriverSpec) {
+      SparkAppDriverConf kubernetesDriverConf,
+      KubernetesDriverSpec kubernetesDriverSpec,
+      List<DriverServiceIngressSpec> driverServiceIngressList) {
     this.kubernetesDriverConf = kubernetesDriverConf;
     String namespace = kubernetesDriverConf.sparkConf().get(Config.KUBERNETES_NAMESPACE().key());
     Map<String, String> confFilesMap =
@@ -86,6 +93,7 @@ public class SparkAppResourceSpec {
     this.driverResources.add(
         KubernetesClientUtils.buildConfigMap(
             kubernetesDriverConf.configMapNameDriver(), confFilesMap, new HashMap<>()));
+    this.driverResources.addAll(configureDriverServerIngress(sparkPod, driverServiceIngressList));
     this.driverPreResources.forEach(r -> setNamespaceIfMissing(r, namespace));
     this.driverResources.forEach(r -> setNamespaceIfMissing(r, namespace));
   }
@@ -125,5 +133,16 @@ public class SparkAppResourceSpec {
             .endSpec()
             .build();
     return new SparkPod(podWithConfigMapVolume, containerWithConfigMapVolume);
+  }
+
+  private List<HasMetadata> configureDriverServerIngress(
+      SparkPod pod, List<DriverServiceIngressSpec> driverServiceIngressList) {
+    if (driverServiceIngressList == null || driverServiceIngressList.isEmpty()) {
+      return Collections.emptyList();
+    }
+    return driverServiceIngressList.stream()
+        .map(spec -> DriverServiceIngressUtils.buildIngressService(spec, pod.pod().getMetadata()))
+        .flatMap(Collection::stream)
+        .collect(Collectors.toList());
   }
 }
