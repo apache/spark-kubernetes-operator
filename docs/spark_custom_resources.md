@@ -99,6 +99,46 @@ Please be advised that Spark still overrides necessary pod configuration in both
 more details,
 refer [Spark doc](https://spark.apache.org/docs/latest/running-on-kubernetes.html#pod-template).
 
+## Enable Additional Ingress for Driver
+
+Operator may create [Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/) for
+Spark driver of running applications on demand. For example, to expose Spark UI - which is by 
+default enabled on driver port 4040, you may configure 
+
+```yaml
+spec:
+  driverServiceIngressList:
+    - serviceMetadata:
+        name: "spark-ui-service"
+      serviceSpec:
+        ports:
+          - protocol: TCP
+            port: 80
+            targetPort: 4040
+      ingressMetadata:
+        name: "spark-ui-ingress"
+        annotations:
+          nginx.ingress.kubernetes.io/rewrite-target: /
+      ingressSpec:
+        ingressClassName: nginx-example
+        rules:
+          - http:
+              paths:
+                - path: "/"
+                  pathType: Prefix
+                  backend:
+                    service:
+                      name: spark-ui-service
+                      port:
+                        number: 80
+```
+
+Spark Operator by default would populate the `.spec.selector` field of the created Service to match 
+the driver labels. If `.ingressSpec.rules` is not provided, Spark Operator would also populate one
+default rule backed by the associated Service. It's recommended to always provide the ingress spec 
+to make sure it's compatible with your 
+[IngressController](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/).
+
 ## Understanding Failure Types
 
 In addition to the general `Failed` state (that driver pod fails or driver container exits

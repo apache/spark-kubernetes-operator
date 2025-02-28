@@ -69,7 +69,8 @@ class SparkAppResourceSpecTest {
     when(mockSpec.pod()).thenReturn(sparkPod);
     when(mockSpec.systemProperties()).thenReturn(new HashMap<>());
 
-    SparkAppResourceSpec appResourceSpec = new SparkAppResourceSpec(mockConf, mockSpec);
+    SparkAppResourceSpec appResourceSpec =
+        new SparkAppResourceSpec(mockConf, mockSpec, Collections.emptyList());
 
     Assertions.assertEquals(2, appResourceSpec.getDriverResources().size());
     Assertions.assertEquals(1, appResourceSpec.getDriverPreResources().size());

@@ -20,6 +20,7 @@
 package org.apache.spark.k8s.operator;
 
 import java.math.BigInteger;
+import java.util.List;
 import java.util.Map;
 
 import scala.Option;
@@ -37,6 +38,7 @@ import org.apache.spark.deploy.k8s.submit.MainAppResource;
 import org.apache.spark.deploy.k8s.submit.PythonMainAppResource;
 import org.apache.spark.deploy.k8s.submit.RMainAppResource;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
+import org.apache.spark.k8s.operator.spec.DriverServiceIngressSpec;
 import org.apache.spark.k8s.operator.utils.ModelUtils;
 
 /**
@@ -82,7 +84,7 @@ public class SparkAppSubmissionWorker {
   public SparkAppResourceSpec getResourceSpec(
       SparkApplication app, KubernetesClient client, Map<String, String> confOverrides) {
     SparkAppDriverConf appDriverConf = buildDriverConf(app, confOverrides);
-    return buildResourceSpec(appDriverConf, client);
+    return buildResourceSpec(appDriverConf, app.getSpec().getDriverServiceIngressList(), client);
   }
 
   protected SparkAppDriverConf buildDriverConf(
@@ -127,11 +129,14 @@ public class SparkAppSubmissionWorker {
   }
 
   protected SparkAppResourceSpec buildResourceSpec(
-      SparkAppDriverConf kubernetesDriverConf, KubernetesClient client) {
+      SparkAppDriverConf kubernetesDriverConf,
+      List<DriverServiceIngressSpec> driverServiceIngressList,
+      KubernetesClient client) {
     KubernetesDriverBuilder builder = new KubernetesDriverBuilder();
     KubernetesDriverSpec kubernetesDriverSpec =
         builder.buildFromFeatures(kubernetesDriverConf, client);
-    return new SparkAppResourceSpec(kubernetesDriverConf, kubernetesDriverSpec);
+    return new SparkAppResourceSpec(
+        kubernetesDriverConf, kubernetesDriverSpec, driverServiceIngressList);
   }
 
   /**
