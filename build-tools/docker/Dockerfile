@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM gradle:8.12.1-jdk17-jammy AS builder
+FROM gradle:8.12.1-jdk17-noble AS builder
 WORKDIR /app
 COPY . .
 RUN ./gradlew clean build -x check
