@@ -43,7 +43,9 @@ import org.apache.spark.deploy.k8s.Constants;
 import org.apache.spark.deploy.k8s.KubernetesDriverSpec;
 import org.apache.spark.deploy.k8s.SparkPod;
 import org.apache.spark.deploy.k8s.submit.KubernetesClientUtils;
+import org.apache.spark.k8s.operator.spec.ConfigMapSpec;
 import org.apache.spark.k8s.operator.spec.DriverServiceIngressSpec;
+import org.apache.spark.k8s.operator.utils.ConfigMapSpecUtils;
 import org.apache.spark.k8s.operator.utils.DriverServiceIngressUtils;
 
 /**
@@ -66,7 +68,8 @@ public class SparkAppResourceSpec {
   public SparkAppResourceSpec(
       SparkAppDriverConf kubernetesDriverConf,
       KubernetesDriverSpec kubernetesDriverSpec,
-      List<DriverServiceIngressSpec> driverServiceIngressList) {
+      List<DriverServiceIngressSpec> driverServiceIngressList,
+      List<ConfigMapSpec> configMapSpecs) {
     this.kubernetesDriverConf = kubernetesDriverConf;
     String namespace = kubernetesDriverConf.sparkConf().get(Config.KUBERNETES_NAMESPACE().key());
     Map<String, String> confFilesMap =
@@ -93,6 +96,7 @@ public class SparkAppResourceSpec {
     this.driverResources.add(
         KubernetesClientUtils.buildConfigMap(
             kubernetesDriverConf.configMapNameDriver(), confFilesMap, new HashMap<>()));
+    this.driverPreResources.addAll(ConfigMapSpecUtils.buildConfigMaps(configMapSpecs));
     this.driverResources.addAll(configureDriverServerIngress(sparkPod, driverServiceIngressList));
     this.driverPreResources.forEach(r -> setNamespaceIfMissing(r, namespace));
     this.driverResources.forEach(r -> setNamespaceIfMissing(r, namespace));
