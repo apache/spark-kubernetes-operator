@@ -15,13 +15,18 @@
 # limitations under the License.
 #
 FROM gradle:8.13-jdk17-noble AS builder
-WORKDIR /app
-COPY . .
-RUN ./gradlew clean build -x check
 
-FROM azul/zulu-openjdk:21
+WORKDIR /app
+
+COPY . .
+
+RUN --mount=type=cache,target=/home/gradle/.gradle/caches gradle --no-daemon clean build -x check
+
+FROM azul/zulu-openjdk:21-jre
+
 ARG APP_VERSION=0.1.0-SNAPSHOT
 ARG SPARK_UID=185
+
 LABEL org.opencontainers.image.authors="Apache Spark project <dev@spark.apache.org>"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.ref.name="Apache Spark Kubernetes Operator"
@@ -32,6 +37,7 @@ ENV SPARK_OPERATOR_WORK_DIR=/opt/spark-operator/operator
 ENV SPARK_OPERATOR_JAR=spark-kubernetes-operator.jar
 
 WORKDIR $SPARK_OPERATOR_WORK_DIR
+
 RUN groupadd --system --gid=$SPARK_UID spark && \
     useradd --system --home-dir $SPARK_OPERATOR_HOME --uid=$SPARK_UID --gid=spark spark && \
     chown -R spark:spark $SPARK_OPERATOR_HOME
@@ -39,7 +45,8 @@ RUN groupadd --system --gid=$SPARK_UID spark && \
 COPY --from=builder --chown=spark:spark /app/spark-operator/build/libs/spark-kubernetes-operator-$APP_VERSION-all.jar $SPARK_OPERATOR_JAR
 COPY --from=builder --chown=spark:spark /app/build-tools/docker/docker-entrypoint.sh .
 
-
 USER spark
+
 ENTRYPOINT ["/opt/spark-operator/operator/docker-entrypoint.sh"]
+
 CMD ["help"]
