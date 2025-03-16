@@ -138,6 +138,62 @@ default rule backed by the associated Service. It's recommended to always provid
 to make sure it's compatible with your 
 [IngressController](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/).
 
+## Create and Mount ConfigMap
+
+It is possible to ask operator to create configmap so they can be used by driver and/or executor 
+pods on the fly. `configMapSpecs` allows you to specify the desired metadata and data as string 
+literals for the configmap(s) to be created.
+
+```yaml
+spec:
+  configMapSpecs:
+    - name: "example-config-map"
+      data:
+        foo: "bar"
+```
+
+Like other app-specific resources, the created configmap has owner reference to Spark driver and
+therefore shares the same lifecycle and garbage collection mechanism with the associated app.  
+
+This feature can be used to create lightweight override config files for given Spark app. For 
+example, below snippet would create and mount a configmap with metrics property file, then use it
+in SparkConf:   
+
+```yaml
+spec:
+  sparkConf:
+    spark.metrics.conf: "/etc/metrics/metrics.properties"
+  driverSpec:
+    podTemplateSpec:
+      spec:
+        containers:
+          - volumeMounts:
+              - name: "config-override"
+                mountPath: "/etc/metrics"
+                readOnly: true
+        volumes:
+          - name: config-override
+            configMap:
+              name: metrics-configmap
+  executorSpec:
+    podTemplateSpec:
+      spec:
+        containers:
+          - volumeMounts:
+              - name: "config-override"
+                mountPath: "/etc/metrics"
+                readOnly: true
+        volumes:
+          - name: config-override
+            configMap:
+              name: metrics-configmap
+  configMapSpecs:
+    - name: "metrics-configmap"
+      data:
+        metrics.properties: "*.sink.jmx.class=org.apache.spark.metrics.sink.JmxSink\n"
+
+```
+
 ## Understanding Failure Types
 
 In addition to the general `Failed` state (that driver pod fails or driver container exits
