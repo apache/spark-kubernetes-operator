@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: 'com.gradleup.shadow'
 
 dependencies {
   implementation project(":spark-operator-api")
