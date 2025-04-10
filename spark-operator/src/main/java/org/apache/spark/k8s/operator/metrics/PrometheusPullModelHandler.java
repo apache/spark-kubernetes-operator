@@ -24,7 +24,9 @@ import static org.apache.spark.k8s.operator.utils.ProbeUtil.sendMessage;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 import com.codahale.metrics.MetricRegistry;
@@ -58,7 +60,11 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
   public void handle(HttpExchange exchange) throws IOException {
     HttpServletRequest httpServletRequest = null;
     String value = getMetricsSnapshot(httpServletRequest);
-    sendMessage(exchange, HTTP_OK, String.join("\n", filterNonEmptyRecords(value)));
+    sendMessage(
+        exchange,
+        HTTP_OK,
+        String.join("\n", filterNonEmptyRecords(value)),
+        Map.of("Content-Type", Collections.singletonList("text/plain;version=0.0.4")));
   }
 
   protected List<String> filterNonEmptyRecords(String metricsSnapshot) {
