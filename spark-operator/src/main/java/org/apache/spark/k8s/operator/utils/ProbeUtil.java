@@ -23,8 +23,10 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
+import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import io.javaoperatorsdk.operator.Operator;
 import io.javaoperatorsdk.operator.RuntimeInfo;
@@ -46,8 +48,28 @@ public final class ProbeUtil {
    */
   public static void sendMessage(HttpExchange httpExchange, int code, String message)
       throws IOException {
+    sendMessage(httpExchange, code, message, null);
+  }
+
+  /**
+   * Send an HTTP response message with the given response header HTTP status code, message and
+   * headers.
+   *
+   * @param httpExchange The handler for this HTTP response.
+   * @param code A response header HTTP status code defined in java.net.HttpURLConnection.HTTP_*
+   * @param message A message to send as a body
+   * @param headers Headers to be sent with the response
+   * @throws IOException Failed to send a response.
+   */
+  public static void sendMessage(
+      HttpExchange httpExchange, int code, String message, Map<String, List<String>> headers)
+      throws IOException {
     try (OutputStream outputStream = httpExchange.getResponseBody()) {
       byte[] bytes = message.getBytes(StandardCharsets.UTF_8);
+      if (headers != null && !headers.isEmpty()) {
+        Headers responseHeaders = httpExchange.getResponseHeaders();
+        responseHeaders.putAll(headers);
+      }
       httpExchange.sendResponseHeaders(code, bytes.length);
       outputStream.write(bytes);
       outputStream.flush();
