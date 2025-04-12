@@ -28,9 +28,10 @@ jobs:
           config: .github/.licenserc.yaml
   build-test:
     name: "Build Test CI"
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        os: [ 'ubuntu-latest', 'ubuntu-24.04-arm' ]
         java-version: [ 17, 21 ]
     steps:
       - name: Checkout repository
