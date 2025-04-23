@@ -31,6 +31,7 @@ import static org.mockito.Mockito.when;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
@@ -47,6 +48,8 @@ import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.context.SparkAppContext;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
+import org.apache.spark.k8s.operator.spec.ApplicationTolerations;
+import org.apache.spark.k8s.operator.spec.ResourceRetainPolicy;
 import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
@@ -56,6 +59,40 @@ import org.apache.spark.k8s.operator.utils.SparkAppStatusUtils;
 
 @SuppressWarnings("PMD.NcssCount")
 class AppCleanUpStepTest {
+  private final ApplicationSpec alwaysRetain =
+      ApplicationSpec.builder()
+          .applicationTolerations(
+              ApplicationTolerations.builder()
+                  .resourceRetainPolicy(ResourceRetainPolicy.Always)
+                  .build())
+          .build();
+  private final ApplicationSpec neverRetain =
+      ApplicationSpec.builder()
+          .applicationTolerations(
+              ApplicationTolerations.builder()
+                  .resourceRetainPolicy(ResourceRetainPolicy.Never)
+                  .build())
+          .build();
+  private final ApplicationSpec exceedRetainDuration =
+      ApplicationSpec.builder()
+          .applicationTolerations(
+              ApplicationTolerations.builder()
+                  .resourceRetainPolicy(ResourceRetainPolicy.Always)
+                  .resourceRetainDurationMillis(1L)
+                  .build())
+          .build();
+  private final ApplicationSpec notExceedRetainDuration =
+      ApplicationSpec.builder()
+          .applicationTolerations(
+              ApplicationTolerations.builder()
+                  .resourceRetainPolicy(ResourceRetainPolicy.Always)
+                  .resourceRetainDurationMillis(24 * 60 * 60 * 1000L)
+                  .build())
+          .build();
+
+  private final List<ApplicationSpec> specs =
+      List.of(alwaysRetain, neverRetain, exceedRetainDuration, notExceedRetainDuration);
+
   @Test
   void enableForceDelete() {
     AppCleanUpStep appCleanUpStep = new AppCleanUpStep();
@@ -120,7 +157,7 @@ class AppCleanUpStepTest {
               ReconcileProgress.completeAndRequeueAfter(Duration.ofMillis(2000)), progress);
         }
 
-        verify(mockAppContext).getResource();
+        verify(mockAppContext, times(1)).getResource();
         verify(mockApp, times(2)).getSpec();
         verify(mockApp, times(2)).getStatus();
         verify(mockAppContext).getClient();
@@ -151,9 +188,9 @@ class AppCleanUpStepTest {
         when(mockApp.getSpec()).thenReturn(spec);
         ReconcileProgress progress = routineCheck.reconcile(mockAppContext, mockRecorder);
         Assertions.assertEquals(ReconcileProgress.completeAndNoRequeue(), progress);
-        verify(mockAppContext).getResource();
-        verify(mockApp).getSpec();
-        verify(mockApp).getStatus();
+        verify(mockAppContext, times(1)).getResource();
+        verify(mockApp, times(2)).getSpec();
+        verify(mockApp, times(2)).getStatus();
         verify(mockRecorder).removeCachedStatus(mockApp);
         verifyNoMoreInteractions(mockAppContext, mockRecorder, mockApp);
       }
@@ -163,7 +200,7 @@ class AppCleanUpStepTest {
   @Test
   void onDemandCleanupForTerminatedAppExpectNoAction() {
     SparkAppStatusRecorder mockRecorder = mock(SparkAppStatusRecorder.class);
-    AppCleanUpStep routineCheck = new AppCleanUpStep();
+    AppCleanUpStep cleanUpWithReason = new AppCleanUpStep(SparkAppStatusUtils::appCancelled);
     ApplicationStatus status = prepareApplicationStatus(ApplicationStateSummary.ResourceReleased);
     SparkApplication mockApp = mock(SparkApplication.class);
     ApplicationSpec spec = ApplicationSpec.builder().build();
@@ -171,11 +208,11 @@ class AppCleanUpStepTest {
     SparkAppContext mockAppContext = mock(SparkAppContext.class);
     when(mockAppContext.getResource()).thenReturn(mockApp);
     when(mockApp.getSpec()).thenReturn(spec);
-    ReconcileProgress progress = routineCheck.reconcile(mockAppContext, mockRecorder);
+    ReconcileProgress progress = cleanUpWithReason.reconcile(mockAppContext, mockRecorder);
     Assertions.assertEquals(ReconcileProgress.completeAndNoRequeue(), progress);
-    verify(mockAppContext).getResource();
-    verify(mockApp).getSpec();
-    verify(mockApp).getStatus();
+    verify(mockAppContext, times(1)).getResource();
+    verify(mockApp, times(2)).getSpec();
+    verify(mockApp, times(2)).getStatus();
     verify(mockRecorder).removeCachedStatus(mockApp);
     verifyNoMoreInteractions(mockAppContext, mockRecorder, mockApp);
   }
@@ -206,9 +243,9 @@ class AppCleanUpStepTest {
           ReconcileProgress.completeAndRequeueAfter(Duration.ofMillis(2000)), progress);
     }
 
-    verify(mockAppContext).getResource();
-    verify(mockApp, times(2)).getSpec();
-    verify(mockApp, times(2)).getStatus();
+    verify(mockAppContext, times(1)).getResource();
+    verify(mockApp, times(3)).getSpec();
+    verify(mockApp, times(3)).getStatus();
     verify(mockAppContext).getClient();
     verify(mockAppContext).getDriverPod();
     ArgumentCaptor<ApplicationState> captor = ArgumentCaptor.forClass(ApplicationState.class);
@@ -269,14 +306,14 @@ class AppCleanUpStepTest {
           ReconcileProgress.completeAndRequeueAfter(Duration.ofMillis(2000)), progress2);
     }
 
-    verify(mockAppContext1).getResource();
+    verify(mockAppContext1, times(1)).getResource();
     verify(mockApp1, times(2)).getSpec();
     verify(mockApp1, times(2)).getStatus();
     verify(mockAppContext1, times(3)).getClient();
     verify(mockAppContext1).getDriverPreResourcesSpec();
     verify(mockAppContext1).getDriverPodSpec();
     verify(mockAppContext1).getDriverResourcesSpec();
-    verify(mockAppContext2).getResource();
+    verify(mockAppContext2, times(1)).getResource();
     verify(mockApp2, times(2)).getSpec();
     verify(mockApp2, times(2)).getStatus();
     verify(mockAppContext2, times(3)).getClient();
@@ -299,9 +336,195 @@ class AppCleanUpStepTest {
         mockAppContext1, mockAppContext2, mockRecorder, mockApp1, mockApp2, mockClient, driverPod);
   }
 
+  @Test
+  void checkEarlyExitForResourceReleasedApp() {
+    AppCleanUpStep routineCheck = new AppCleanUpStep();
+    AppCleanUpStep cleanUpWithReason = new AppCleanUpStep(SparkAppStatusUtils::appCancelled);
+    ApplicationStatus succeeded =
+        prepareApplicationStatus(
+            ApplicationStateSummary.ResourceReleased, ApplicationStateSummary.Succeeded);
+    ApplicationStatus failed =
+        prepareApplicationStatus(
+            ApplicationStateSummary.ResourceReleased, ApplicationStateSummary.SchedulingFailure);
+    ApplicationStatus cancelled =
+        prepareApplicationStatus(
+            ApplicationStateSummary.ResourceReleased, ApplicationStateSummary.RunningHealthy);
+    List<ApplicationStatus> statusList = List.of(succeeded, failed, cancelled);
+
+    for (ApplicationSpec appSpec : specs) {
+      for (ApplicationStatus appStatus : statusList) {
+        SparkAppStatusRecorder mockRecorder1 = mock(SparkAppStatusRecorder.class);
+        SparkAppStatusRecorder mockRecorder2 = mock(SparkAppStatusRecorder.class);
+        SparkApplication mockApp = mock(SparkApplication.class);
+        when(mockApp.getStatus()).thenReturn(appStatus);
+        when(mockApp.getSpec()).thenReturn(appSpec);
+
+        Optional<ReconcileProgress> routineCheckProgress =
+            routineCheck.checkEarlyExitForTerminatedApp(mockApp, mockRecorder1);
+        assertTrue(routineCheckProgress.isPresent());
+        Assertions.assertEquals(
+            ReconcileProgress.completeAndNoRequeue(), routineCheckProgress.get());
+        verify(mockRecorder1).removeCachedStatus(mockApp);
+
+        Optional<ReconcileProgress> onDemandProgress =
+            cleanUpWithReason.checkEarlyExitForTerminatedApp(mockApp, mockRecorder2);
+        assertTrue(onDemandProgress.isPresent());
+        Assertions.assertEquals(
+            ReconcileProgress.completeAndNoRequeue(), routineCheckProgress.get());
+        verify(mockRecorder2).removeCachedStatus(mockApp);
+      }
+    }
+  }
+
+  @Test
+  void checkEarlyExitForAppTerminatedWithoutReleaseResourcesInfiniteRetain() {
+    AppCleanUpStep routineCheck = new AppCleanUpStep();
+    AppCleanUpStep cleanUpWithReason = new AppCleanUpStep(SparkAppStatusUtils::appCancelled);
+    ApplicationStatus succeeded =
+        prepareApplicationStatus(
+            ApplicationStateSummary.TerminatedWithoutReleaseResources,
+            ApplicationStateSummary.Succeeded);
+    ApplicationStatus failed =
+        prepareApplicationStatus(
+            ApplicationStateSummary.TerminatedWithoutReleaseResources,
+            ApplicationStateSummary.SchedulingFailure);
+    ApplicationStatus cancelled =
+        prepareApplicationStatus(
+            ApplicationStateSummary.TerminatedWithoutReleaseResources,
+            ApplicationStateSummary.RunningHealthy);
+    List<ApplicationStatus> statusList = List.of(succeeded, failed, cancelled);
+
+    for (ApplicationStatus appStatus : statusList) {
+      SparkAppStatusRecorder mockRecorder1 = mock(SparkAppStatusRecorder.class);
+      SparkAppStatusRecorder mockRecorder2 = mock(SparkAppStatusRecorder.class);
+      SparkApplication mockApp = mock(SparkApplication.class);
+      when(mockApp.getStatus()).thenReturn(appStatus);
+      when(mockApp.getSpec()).thenReturn(alwaysRetain);
+
+      Optional<ReconcileProgress> routineCheckProgress =
+          routineCheck.checkEarlyExitForTerminatedApp(mockApp, mockRecorder1);
+      assertTrue(routineCheckProgress.isPresent());
+      Assertions.assertEquals(ReconcileProgress.completeAndNoRequeue(), routineCheckProgress.get());
+      verify(mockRecorder1).removeCachedStatus(mockApp);
+
+      Optional<ReconcileProgress> onDemandProgress =
+          cleanUpWithReason.checkEarlyExitForTerminatedApp(mockApp, mockRecorder2);
+      assertFalse(onDemandProgress.isPresent());
+      verifyNoMoreInteractions(mockRecorder2);
+    }
+  }
+
+  @Test
+  void checkEarlyExitForAppTerminatedWithoutReleaseResourcesExceededRetainDuration() {
+    AppCleanUpStep routineCheck = new AppCleanUpStep();
+    AppCleanUpStep cleanUpWithReason = new AppCleanUpStep(SparkAppStatusUtils::appCancelled);
+    ApplicationStatus succeeded =
+        prepareApplicationStatus(
+            ApplicationStateSummary.TerminatedWithoutReleaseResources,
+            ApplicationStateSummary.Succeeded);
+    ApplicationStatus failed =
+        prepareApplicationStatus(
+            ApplicationStateSummary.TerminatedWithoutReleaseResources,
+            ApplicationStateSummary.SchedulingFailure);
+    ApplicationStatus cancelled =
+        prepareApplicationStatus(
+            ApplicationStateSummary.TerminatedWithoutReleaseResources,
+            ApplicationStateSummary.RunningHealthy);
+    List<ApplicationStatus> statusList = List.of(succeeded, failed, cancelled);
+
+    for (ApplicationStatus appStatus : statusList) {
+      SparkAppStatusRecorder mockRecorder1 = mock(SparkAppStatusRecorder.class);
+      SparkAppStatusRecorder mockRecorder2 = mock(SparkAppStatusRecorder.class);
+      SparkApplication mockApp = mock(SparkApplication.class);
+      when(mockApp.getStatus()).thenReturn(appStatus);
+      when(mockApp.getSpec()).thenReturn(exceedRetainDuration);
+
+      Optional<ReconcileProgress> routineCheckProgress =
+          routineCheck.checkEarlyExitForTerminatedApp(mockApp, mockRecorder1);
+      assertFalse(routineCheckProgress.isPresent());
+      verifyNoMoreInteractions(mockRecorder1);
+
+      Optional<ReconcileProgress> onDemandProgress =
+          cleanUpWithReason.checkEarlyExitForTerminatedApp(mockApp, mockRecorder2);
+      assertFalse(onDemandProgress.isPresent());
+      verifyNoMoreInteractions(mockRecorder2);
+    }
+  }
+
+  @Test
+  void checkEarlyExitForAppTerminatedWithoutReleaseResourcesWithinRetainDuration() {
+    AppCleanUpStep routineCheck = new AppCleanUpStep();
+    AppCleanUpStep cleanUpWithReason = new AppCleanUpStep(SparkAppStatusUtils::appCancelled);
+    ApplicationStatus succeeded =
+        prepareApplicationStatus(
+            ApplicationStateSummary.TerminatedWithoutReleaseResources,
+            ApplicationStateSummary.Succeeded);
+    ApplicationStatus failed =
+        prepareApplicationStatus(
+            ApplicationStateSummary.TerminatedWithoutReleaseResources,
+            ApplicationStateSummary.SchedulingFailure);
+    ApplicationStatus cancelled =
+        prepareApplicationStatus(
+            ApplicationStateSummary.TerminatedWithoutReleaseResources,
+            ApplicationStateSummary.RunningHealthy);
+    List<ApplicationStatus> statusList = List.of(succeeded, failed, cancelled);
+
+    for (ApplicationStatus appStatus : statusList) {
+      SparkAppStatusRecorder mockRecorder1 = mock(SparkAppStatusRecorder.class);
+      SparkAppStatusRecorder mockRecorder2 = mock(SparkAppStatusRecorder.class);
+      SparkApplication mockApp = mock(SparkApplication.class);
+      when(mockApp.getStatus()).thenReturn(appStatus);
+      when(mockApp.getSpec()).thenReturn(notExceedRetainDuration);
+
+      Optional<ReconcileProgress> routineCheckProgress =
+          routineCheck.checkEarlyExitForTerminatedApp(mockApp, mockRecorder1);
+      assertTrue(routineCheckProgress.isPresent());
+      ReconcileProgress reconcileProgress = routineCheckProgress.get();
+      assertTrue(reconcileProgress.isCompleted());
+      assertTrue(reconcileProgress.isRequeue());
+      verifyNoMoreInteractions(mockRecorder2);
+
+      Optional<ReconcileProgress> onDemandProgress =
+          cleanUpWithReason.checkEarlyExitForTerminatedApp(mockApp, mockRecorder2);
+      assertFalse(onDemandProgress.isPresent());
+      verifyNoMoreInteractions(mockRecorder2);
+    }
+  }
+
+  @Test
+  void checkEarlyExitForNotTerminatedApp() {
+    AppCleanUpStep routineCheck = new AppCleanUpStep();
+    AppCleanUpStep cleanUpWithReason = new AppCleanUpStep(SparkAppStatusUtils::appCancelled);
+    for (ApplicationStateSummary stateSummary : ApplicationStateSummary.values()) {
+      if (stateSummary.isTerminated()) {
+        continue;
+      }
+      ApplicationStatus status = prepareApplicationStatus(stateSummary);
+      for (ApplicationSpec appSpec : specs) {
+        SparkAppStatusRecorder mockRecorder1 = mock(SparkAppStatusRecorder.class);
+        SparkAppStatusRecorder mockRecorder2 = mock(SparkAppStatusRecorder.class);
+        SparkApplication mockApp = mock(SparkApplication.class);
+        when(mockApp.getStatus()).thenReturn(status);
+        when(mockApp.getSpec()).thenReturn(appSpec);
+
+        Optional<ReconcileProgress> routineCheckProgress =
+            routineCheck.checkEarlyExitForTerminatedApp(mockApp, mockRecorder1);
+        assertTrue(routineCheckProgress.isEmpty());
+        verifyNoMoreInteractions(mockRecorder1);
+
+        Optional<ReconcileProgress> onDemandProgress =
+            cleanUpWithReason.checkEarlyExitForTerminatedApp(mockApp, mockRecorder2);
+        assertTrue(onDemandProgress.isEmpty());
+        verifyNoMoreInteractions(mockRecorder2);
+      }
+    }
+  }
+
   private ApplicationStatus prepareApplicationStatus(ApplicationStateSummary currentStateSummary) {
     ApplicationStatus status = new ApplicationStatus();
     ApplicationState state = new ApplicationState(currentStateSummary, "foo");
+    // to make sure the state exceeds threshold
+    state.setLastTransitionTime(Instant.now().minusSeconds(10).toString());
     return status.appendNewState(state);
   }
 
@@ -309,6 +532,7 @@ class AppCleanUpStepTest {
       ApplicationStateSummary currentStateSummary, ApplicationStateSummary previousStateSummary) {
     ApplicationStatus status = prepareApplicationStatus(previousStateSummary);
     ApplicationState state = new ApplicationState(currentStateSummary, "foo");
+    state.setLastTransitionTime(Instant.now().minusSeconds(5).toString());
     return status.appendNewState(state);
   }
 

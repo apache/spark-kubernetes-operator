@@ -61,6 +61,11 @@ public final class SparkAppStatusUtils {
         ApplicationStateSummary.ResourceReleased, Constants.APP_CANCELLED_MESSAGE);
   }
 
+  public static ApplicationState appExceededRetainDuration() {
+    return new ApplicationState(
+        ApplicationStateSummary.ResourceReleased, Constants.APP_EXCEEDED_RETAIN_DURATION_MESSAGE);
+  }
+
   public static boolean hasReachedState(
       SparkApplication application, ApplicationState stateToCheck) {
     return isValidApplicationStatus(application)

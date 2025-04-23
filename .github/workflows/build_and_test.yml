@@ -82,6 +82,7 @@ jobs:
           - spark-versions
           - python
           - state-transition
+          - resource-retain-duration
           - watched-namespaces
         exclude:
           - mode: dynamic
@@ -90,6 +91,8 @@ jobs:
             test-group: python
           - mode: dynamic
             test-group: state-transition
+          - mode: dynamic
+            test-group: resource-retain-duration
           - mode: static
             test-group: watched-namespaces
     steps:
