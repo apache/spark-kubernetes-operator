@@ -289,12 +289,18 @@ On the other hand, when developing an application, it's possible to configure
 ```yaml
 applicationTolerations:
   # Acceptable values are 'Always', 'OnFailure', 'Never'
-  resourceRetentionPolicy: OnFailure
+  # Setting this to 'OnFailure' would retain secondary resources if and only if the app fails
+  resourceRetainPolicy: OnFailure
+  # Secondary resources would be garbage collected 10 minutes after app termination 
+  resourceRetainDurationMillis: 600000
+
 ```
 
 to avoid operator attempt to delete driver pod and driver resources if app fails. Similarly,
-if resourceRetentionPolicy is set to `Always`, operator would not delete driver resources
-when app ends. Note that this applies only to operator-created resources (driver pod, SparkConf
+if resourceRetainPolicy is set to `Always`, operator would not delete driver resources
+when app ends. They would be by default kept with the same lifecycle as the App. It's also
+possible to configure `resourceRetainDurationMillis` to define the maximal retain duration for
+these resources. Note that this applies only to operator-created resources (driver pod, SparkConf
 configmap .etc). You may also want to tune `spark.kubernetes.driver.service.deleteOnTermination`
 and `spark.kubernetes.executor.deleteOnTermination` to control the behavior of driver-created
 resources.

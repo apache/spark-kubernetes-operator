@@ -116,4 +116,61 @@ class SparkAppReconcilerTest {
       assertTrue(deleteControl.isRemoveFinalizer());
     }
   }
+
+  @SuppressWarnings("PMD.UnusedLocalVariable")
+  @Test
+  void testCleanupAppTerminatedWithoutReleaseResources() {
+    try (MockedConstruction<SparkAppContext> mockAppContext =
+            mockConstruction(
+                SparkAppContext.class,
+                (mock, context) -> {
+                  when(mock.getResource()).thenReturn(app);
+                  when(mock.getClient()).thenReturn(mockClient);
+                  when(mock.getDriverPod()).thenReturn(Optional.of(mockDriver));
+                  when(mock.getDriverPodSpec()).thenReturn(mockDriver);
+                  when(mock.getDriverPreResourcesSpec()).thenReturn(Collections.emptyList());
+                  when(mock.getDriverResourcesSpec()).thenReturn(Collections.emptyList());
+                });
+        MockedStatic<ReconcilerUtils> utils = Mockito.mockStatic(ReconcilerUtils.class)) {
+      // delete app
+      app.setStatus(
+          app.getStatus()
+              .appendNewState(
+                  new ApplicationState(
+                      ApplicationStateSummary.TerminatedWithoutReleaseResources, "")));
+      DeleteControl deleteControl = reconciler.cleanup(app, mockContext);
+      assertFalse(deleteControl.isRemoveFinalizer());
+      utils.verify(() -> ReconcilerUtils.deleteResourceIfExists(mockClient, mockDriver, false));
+      assertEquals(
+          ApplicationStateSummary.ResourceReleased,
+          app.getStatus().getCurrentState().getCurrentStateSummary());
+
+      // proceed delete for terminated app
+      deleteControl = reconciler.cleanup(app, mockContext);
+      assertTrue(deleteControl.isRemoveFinalizer());
+    }
+  }
+
+  @SuppressWarnings("PMD.UnusedLocalVariable")
+  @Test
+  void testCleanupAppTerminatedResourceReleased() {
+    try (MockedConstruction<SparkAppContext> mockAppContext =
+            mockConstruction(
+                SparkAppContext.class,
+                (mock, context) -> {
+                  when(mock.getResource()).thenReturn(app);
+                  when(mock.getClient()).thenReturn(mockClient);
+                  when(mock.getDriverPreResourcesSpec()).thenReturn(Collections.emptyList());
+                  when(mock.getDriverResourcesSpec()).thenReturn(Collections.emptyList());
+                });
+        MockedStatic<ReconcilerUtils> utils = Mockito.mockStatic(ReconcilerUtils.class)) {
+      // delete app
+      app.setStatus(
+          app.getStatus()
+              .appendNewState(new ApplicationState(ApplicationStateSummary.ResourceReleased, "")));
+      DeleteControl deleteControl = reconciler.cleanup(app, mockContext);
+      assertTrue(deleteControl.isRemoveFinalizer());
+      utils.verifyNoInteractions();
+    }
+  }
 }

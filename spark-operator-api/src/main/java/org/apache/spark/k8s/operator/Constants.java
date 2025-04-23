@@ -63,6 +63,8 @@ public class Constants {
           + "observed status for details.";
   public static final String APP_CANCELLED_MESSAGE =
       "Spark application has been shutdown as requested.";
+  public static final String APP_EXCEEDED_RETAIN_DURATION_MESSAGE =
+      "Spark application resources released after exceeding the configured retain duration.";
   public static final String DRIVER_UNEXPECTED_REMOVED_MESSAGE =
       "Driver removed. This could caused by 'exit' called in driver process with non-zero "
           + "code, involuntary disruptions or unintentional destroy behavior, check "
