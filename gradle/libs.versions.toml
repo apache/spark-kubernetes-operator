@@ -16,17 +16,17 @@
 # under the License.
 [versions]
 fabric8 = "7.1.0"
-lombok = "1.18.32"
+lombok = "1.18.38"
 operator-sdk = "4.9.0"
 okhttp = "4.12.0"
 dropwizard-metrics = "4.2.25"
-spark = "4.0.0-preview2"
+spark = "4.0.1-SNAPSHOT"
 log4j = "2.24.2"
 
 # Test
 junit = "5.10.2"
-jacoco = "0.8.12"
-mockito = "5.11.0"
+jacoco = "0.8.13"
+mockito = "5.17.0"
 powermock = "2.0.9"
 
 # Build Analysis
