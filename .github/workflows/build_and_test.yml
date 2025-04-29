@@ -30,6 +30,7 @@ jobs:
     name: "Build Test CI"
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ 'ubuntu-latest', 'ubuntu-24.04-arm' ]
         java-version: [ 17, 21 ]
