@@ -19,9 +19,9 @@ under the License.
 
 ### Compatibility
 
-- Java 17 and 21
+- Java 17, 21 and 24
 - Kubernetes version compatibility:
-    + k8s version >= 1.28 is recommended. Operator attempts to be API compatible as possible, but 
+    + k8s version >= 1.30 is recommended. Operator attempts to be API compatible as possible, but
       patch support will not be performed on k8s versions that reached EOL.
 - Spark versions 3.5 or above.
 
