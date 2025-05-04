@@ -55,9 +55,6 @@ subprojects {
 
   repositories {
     mavenCentral()
-    maven {
-      url = "https://repository.apache.org/content/repositories/snapshots/"
-    }
   }
 
   apply plugin: 'checkstyle'
@@ -68,24 +65,22 @@ subprojects {
     showViolations = true
   }
 
-  if (JavaVersion.current() < JavaVersion.VERSION_24) {
-    apply plugin: 'pmd'
-    pmd {
-      ruleSetFiles = files("$rootDir/config/pmd/ruleset.xml")
-      toolVersion = libs.versions.pmd.get()
-      consoleOutput = true
-      ignoreFailures = false
-    }
+  apply plugin: 'pmd'
+  pmd {
+    ruleSetFiles = files("$rootDir/config/pmd/ruleset.xml")
+    toolVersion = libs.versions.pmd.get()
+    consoleOutput = true
+    ignoreFailures = false
+  }
 
-    apply plugin: 'com.github.spotbugs'
-    spotbugs {
-      toolVersion = libs.versions.spotbugs.tool.get()
-      afterEvaluate {
-        reportsDir = file("${project.reporting.baseDir}/findbugs")
-      }
-      excludeFilter = file("$rootDir/config/spotbugs/spotbugs_exclude.xml")
-      ignoreFailures = false
+  apply plugin: 'com.github.spotbugs'
+  spotbugs {
+    toolVersion = libs.versions.spotbugs.tool.get()
+    afterEvaluate {
+      reportsDir = file("${project.reporting.baseDir}/findbugs")
     }
+    excludeFilter = file("$rootDir/config/spotbugs/spotbugs_exclude.xml")
+    ignoreFailures = false
   }
 
   apply plugin: 'jacoco'

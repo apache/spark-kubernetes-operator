@@ -43,8 +43,6 @@ operatorDeployment:
     operatorContainer:
       jvmArgs: "-Dfile.encoding=UTF8"
       env:
-        - name: "SPARK_USER"
-          value: "spark"
       envFrom:
       volumeMounts: { }
       resources:

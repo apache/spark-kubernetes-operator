@@ -22,7 +22,7 @@ COPY . .
 
 RUN --mount=type=cache,target=/home/gradle/.gradle/caches gradle --no-daemon clean build -x check
 
-FROM azul/zulu-openjdk:24-jre
+FROM azul/zulu-openjdk:21-jre
 
 ARG APP_VERSION=0.2.0-SNAPSHOT
 ARG SPARK_UID=185
