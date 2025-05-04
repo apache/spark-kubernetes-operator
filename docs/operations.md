@@ -19,7 +19,7 @@ under the License.
 
 ### Compatibility
 
-- Java 17, 21 and 24
+- Java 17 and 21
 - Kubernetes version compatibility:
     + k8s version >= 1.30 is recommended. Operator attempts to be API compatible as possible, but
       patch support will not be performed on k8s versions that reached EOL.
