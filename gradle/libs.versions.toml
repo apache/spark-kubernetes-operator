@@ -24,7 +24,7 @@ spark = "4.0.1-SNAPSHOT"
 log4j = "2.24.3"
 
 # Test
-junit = "5.10.2"
+junit = "5.12.2"
 jacoco = "0.8.13"
 mockito = "5.17.0"
 powermock = "2.0.9"
