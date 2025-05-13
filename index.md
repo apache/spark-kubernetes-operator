@@ -1,5 +1,6 @@
-# Apache Spark K8s Operator
+# Apache Spark Kubernetes Operator
 
+[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/spark-kubernetes-operator)](https://artifacthub.io/packages/search?repo=spark-kubernetes-operator)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 Apache Spark™ K8s Operator is a subproject of [Apache Spark](https://spark.apache.org/) and
@@ -8,7 +9,7 @@ aims to extend K8s resource manager to manage Apache Spark applications via
 
 ## Releases
 
-- https://github.com/apache/spark-kubernetes-operator/releases/tag/v0.1.0
+- <https://github.com/apache/spark-kubernetes-operator/releases/tag/v0.1.0>
 
 ## Install Helm Chart
 
