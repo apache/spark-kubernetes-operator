@@ -23,6 +23,11 @@ on:
   push:
     branches:
       - gh-pages
+  workflow_dispatch:
+    inputs:
+      branch:
+        required: true
+        default: '["gh-pages"]'
 
 jobs:
   docs:
