@@ -13,9 +13,12 @@ aims to extend K8s resource manager to manage Apache Spark applications via
 ## Install Helm Chart
 
 ```bash
-helm repo add spark-kubernetes-operator https://apache.github.io/spark-kubernetes-operator
-helm repo update
-helm install spark-kubernetes-operator
+$ helm repo add spark-kubernetes-operator https://apache.github.io/spark-kubernetes-operator
+$ helm repo update
+$ helm install spark-kubernetes-operator spark-kubernetes-operator/spark-kubernetes-operator
+$ helm list
+NAME                     	NAMESPACE	REVISION	UPDATED                             	STATUS  	CHART                          	APP VERSION
+spark-kubernetes-operator	default  	1       	2025-05-13 12:11:15.303067 -0700 PDT	deployed	spark-kubernetes-operator-0.1.0	0.1.0
 ```
 
 ## Run Spark Pi App
