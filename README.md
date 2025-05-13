@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 Apache Spark™ K8s Operator is a subproject of [Apache Spark](https://spark.apache.org/) and
-aims to extend K8s resource manager to manage Apache Spark applications via
+aims to extend K8s resource manager to manage Apache Spark applications and clusters via
 [Operator Pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/).
 
 ## Releases
