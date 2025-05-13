@@ -61,7 +61,7 @@ jobs:
       - name: Build Operator Image
         run: |
           ./gradlew buildDockerImage
-          docker run spark-kubernetes-operator:$(./gradlew properties | grep '^version:' | awk '{print $2}')
+          docker run apache/spark-kubernetes-operator:$(./gradlew properties | grep '^version:' | awk '{print $2}')
   k8s-integration-tests:
     name: "K8s Integration Tests"
     runs-on: ubuntu-latest

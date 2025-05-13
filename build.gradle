@@ -38,7 +38,7 @@ allprojects {
 }
 
 tasks.register('buildDockerImage', Exec) {
-  String cmd = "docker build --build-arg APP_VERSION=${version} -t spark-kubernetes-operator:${version} -f build-tools/docker/Dockerfile ."
+  String cmd = "docker build --build-arg APP_VERSION=${version} -t apache/spark-kubernetes-operator:${version} -f build-tools/docker/Dockerfile ."
   println "Build Docker Image: $cmd"
   commandLine "sh", "-c", "$cmd"
 }
