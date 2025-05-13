@@ -15,7 +15,7 @@
 # limitations under the License.
 
 # Artifact Hub repository metadata file
-repositoryID: 38571f21-ea59-4942-8d04-31109410f776
+repositoryID: 9f3f0d5e-1729-438e-9dd9-9d289a5c1591
 owners:
   - name: Apache Spark PMC Members
     email: dev@spark.apache.org
