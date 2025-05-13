@@ -1,19 +1,5 @@
 *.swp
 *~
-.java-version
 .DS_Store
 .idea/
 .vscode
-/lib/
-target/
-build-tools/helm/spark-kubernetes-operator/crds
-
-# Gradle Files #
-################
-.gradle
-.m2
-.out/
-build
-dependencies.lock
-**/dependencies.lock
-gradle/wrapper/gradle-wrapper.jar
