@@ -11,6 +11,11 @@ aims to extend K8s resource manager to manage Apache Spark applications and clus
 
 - <https://github.com/apache/spark-kubernetes-operator/releases/tag/v0.1.0>
 
+## Requirements
+
+- Kubernetes 1.30+ cluster
+- Helm 3.0+
+
 ## Install Helm Chart
 
 ```bash
