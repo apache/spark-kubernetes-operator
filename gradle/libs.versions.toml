@@ -27,7 +27,6 @@ log4j = "2.24.3"
 junit = "5.12.2"
 jacoco = "0.8.13"
 mockito = "5.17.0"
-powermock = "2.0.9"
 
 # Build Analysis
 checkstyle = "10.17.0"
@@ -64,7 +63,6 @@ mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mo
 junit-bom = { group = "org.junit", name = "junit-bom", version.ref = "junit"}
 junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter", version.ref = "junit"}
 junit-platform-launcher = { group = "org.junit.platform", name = "junit-platform-launcher"}
-powermock-core = { group = "org.powermock", name = "powermock-core", version.ref = "powermock"}
 spotbugs-gradle-plugin = { group = "com.github.spotbugs.snom", name = "spotbugs-gradle-plugin", version.ref = "spotbugs-plugin" }
 spotless-plugin-gradle = { group = "com.diffplug.spotless", name = "spotless-plugin-gradle", version.ref = "spotless-plugin" }
 shadow = { group = "com.gradleup.shadow", name = "shadow-gradle-plugin", version.ref = "shadow-jar-plugin"}

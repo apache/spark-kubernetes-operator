@@ -26,7 +26,7 @@ import java.io.File;
 import java.util.Map;
 
 import io.fabric8.kubernetes.api.model.ObjectMeta;
-import org.powermock.reflect.Whitebox;
+import org.apache.commons.lang3.reflect.FieldUtils;
 
 import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.SparkApplication;
@@ -67,6 +67,10 @@ public final class TestUtils {
   }
 
   public static <T> void setConfigKey(ConfigOption<T> configKey, T newValue) {
-    Whitebox.setInternalState(configKey, "defaultValue", newValue);
+    try {
+      FieldUtils.writeField(configKey, "defaultValue", newValue, true);
+    } catch (IllegalAccessException e) {
+      throw new UnsupportedOperationException(e);
+    }
   }
 }
