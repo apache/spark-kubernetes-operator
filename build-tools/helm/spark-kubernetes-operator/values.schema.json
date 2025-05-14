@@ -1,0 +1,712 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "description": "Values for Spark Kubernetes Operator Helm Chart",
+  "properties": {
+    "image": {
+      "type": "object",
+      "description": "Operator image configuration",
+      "required": [
+        "repository",
+        "pullPolicy",
+        "tag"
+      ],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "description": "Docker image repository"
+        },
+        "pullPolicy": {
+          "type": "string",
+          "description": "Image pull policy",
+          "enum": [
+            "IfNotPresent",
+            "Always",
+            "Never"
+          ]
+        },
+        "tag": {
+          "type": "string",
+          "description": "Docker image tag"
+        },
+        "digest": {
+          "type": "string",
+          "description": "Docker image digest, takes precedence over tag if set"
+        }
+      }
+    },
+    "imagePullSecrets": {
+      "type": "array",
+      "description": "List of image pull secrets",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "operatorDeployment": {
+      "type": "object",
+      "description": "Operator deployment configuration",
+      "required": [
+        "replicas",
+        "strategy",
+        "operatorPod"
+      ],
+      "properties": {
+        "replicas": {
+          "type": "integer",
+          "description": "Number of operator replicas, must be 1 unless leader election is enabled",
+          "minimum": 1
+        },
+        "strategy": {
+          "type": "object",
+          "description": "Deployment strategy",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "description": "Type of deployment strategy",
+              "enum": [
+                "Recreate",
+                "RollingUpdate"
+              ]
+            }
+          }
+        },
+        "operatorPod": {
+          "type": "object",
+          "description": "Operator pod configuration",
+          "properties": {
+            "priorityClassName": {
+              "type": ["string", "null"],
+              "description": "Pod priority class name"
+            },
+            "annotations": {
+              "type": "object",
+              "description": "Pod annotations",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "labels": {
+              "type": "object",
+              "description": "Pod labels",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "affinity": {
+              "type": "object",
+              "description": "Pod affinity rules",
+              "additionalProperties": true
+            },
+            "nodeSelector": {
+              "type": "object",
+              "description": "Node selector for pod placement",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "tolerations": {
+              "type": "array",
+              "description": "Pod tolerations",
+              "items": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "topologySpreadConstraints": {
+              "type": "array",
+              "description": "Pod topology spread constraints",
+              "items": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "operatorContainer": {
+              "type": "object",
+              "description": "Operator container configuration",
+              "required": [
+                "jvmArgs"
+              ],
+              "properties": {
+                "jvmArgs": {
+                  "type": "string",
+                  "description": "JVM arguments for operator"
+                },
+                "env": {
+                  "type": "array",
+                  "description": "Environment variables",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "name"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "value": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "envFrom": {
+                  "type": ["null", "array"],
+                  "description": "Environment variables from sources",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                },
+                "volumeMounts": {
+                  "type": "object",
+                  "description": "Container volume mounts",
+                  "additionalProperties": true
+                },
+                "resources": {
+                  "type": "object",
+                  "description": "Container resource requirements",
+                  "properties": {
+                    "limits": {
+                      "type": "object",
+                      "description": "Resource limits",
+                      "properties": {
+                        "cpu": {
+                          "type": ["string", "number"],
+                          "description": "CPU limit"
+                        },
+                        "memory": {
+                          "type": "string",
+                          "description": "Memory limit"
+                        },
+                        "ephemeral-storage": {
+                          "type": "string",
+                          "description": "Ephemeral storage limit"
+                        }
+                      }
+                    },
+                    "requests": {
+                      "type": "object",
+                      "description": "Resource requests",
+                      "properties": {
+                        "cpu": {
+                          "type": ["string", "number"],
+                          "description": "CPU request"
+                        },
+                        "memory": {
+                          "type": "string",
+                          "description": "Memory request"
+                        },
+                        "ephemeral-storage": {
+                          "type": "string",
+                          "description": "Ephemeral storage request"
+                        }
+                      }
+                    }
+                  }
+                },
+                "probes": {
+                  "type": "object",
+                  "description": "Container probe configuration",
+                  "properties": {
+                    "port": {
+                      "type": "integer",
+                      "description": "Probe port"
+                    },
+                    "livenessProbe": {
+                      "type": "object",
+                      "description": "Liveness probe configuration",
+                      "properties": {
+                        "periodSeconds": {
+                          "type": "integer",
+                          "description": "Period between probe invocations",
+                          "minimum": 1
+                        },
+                        "initialDelaySeconds": {
+                          "type": "integer",
+                          "description": "Initial delay before probing",
+                          "minimum": 0
+                        }
+                      }
+                    },
+                    "startupProbe": {
+                      "type": "object",
+                      "description": "Startup probe configuration",
+                      "properties": {
+                        "failureThreshold": {
+                          "type": "integer",
+                          "description": "Number of failures before giving up",
+                          "minimum": 1
+                        },
+                        "periodSeconds": {
+                          "type": "integer",
+                          "description": "Period between probe invocations",
+                          "minimum": 1
+                        }
+                      }
+                    }
+                  }
+                },
+                "securityContext": {
+                  "type": "object",
+                  "description": "Container security context",
+                  "properties": {
+                    "allowPrivilegeEscalation": {
+                      "type": "boolean",
+                      "description": "Allow privilege escalation"
+                    },
+                    "capabilities": {
+                      "type": "object",
+                      "description": "Security capabilities",
+                      "properties": {
+                        "drop": {
+                          "type": "array",
+                          "description": "Capabilities to drop",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "runAsNonRoot": {
+                      "type": "boolean",
+                      "description": "Run as non-root user"
+                    },
+                    "runAsUser": {
+                      "type": "integer",
+                      "description": "User ID to run container"
+                    },
+                    "seccompProfile": {
+                      "type": "object",
+                      "description": "Seccomp profile",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "description": "Seccomp profile type",
+                          "enum": [
+                            "RuntimeDefault",
+                            "Localhost",
+                            "Unconfined"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "additionalContainers": {
+              "type": "object",
+              "description": "Additional containers in the pod",
+              "additionalProperties": true
+            },
+            "volumes": {
+              "type": "object",
+              "description": "Pod volumes",
+              "additionalProperties": true
+            },
+            "securityContext": {
+              "type": "object",
+              "description": "Pod security context",
+              "additionalProperties": true
+            },
+            "dnsPolicy": {
+              "type": ["string", "null"],
+              "description": "DNS policy for pod"
+            },
+            "dnsConfig": {
+              "type": ["object", "null"],
+              "description": "DNS configuration for pod",
+              "additionalProperties": true
+            }
+          }
+        }
+      }
+    },
+    "operatorRbac": {
+      "type": "object",
+      "description": "RBAC configuration for operator",
+      "required": [
+        "serviceAccount",
+        "clusterRole",
+        "clusterRoleBinding",
+        "role",
+        "roleBinding",
+        "configManagement"
+      ],
+      "properties": {
+        "serviceAccount": {
+          "type": "object",
+          "description": "Service account for operator",
+          "required": [
+            "create",
+            "name"
+          ],
+          "properties": {
+            "create": {
+              "type": "boolean",
+              "description": "Create service account"
+            },
+            "name": {
+              "type": "string",
+              "description": "Service account name"
+            }
+          }
+        },
+        "clusterRole": {
+          "type": "object",
+          "description": "Cluster role for operator",
+          "required": [
+            "create",
+            "name"
+          ],
+          "properties": {
+            "create": {
+              "type": "boolean",
+              "description": "Create cluster role"
+            },
+            "name": {
+              "type": "string",
+              "description": "Cluster role name"
+            }
+          }
+        },
+        "clusterRoleBinding": {
+          "type": "object",
+          "description": "Cluster role binding for operator",
+          "required": [
+            "create",
+            "name"
+          ],
+          "properties": {
+            "create": {
+              "type": "boolean",
+              "description": "Create cluster role binding"
+            },
+            "name": {
+              "type": "string",
+              "description": "Cluster role binding name"
+            }
+          }
+        },
+        "role": {
+          "type": "object",
+          "description": "Role for operator",
+          "required": [
+            "create",
+            "name"
+          ],
+          "properties": {
+            "create": {
+              "type": "boolean",
+              "description": "Create role"
+            },
+            "name": {
+              "type": "string",
+              "description": "Role name"
+            }
+          }
+        },
+        "roleBinding": {
+          "type": "object",
+          "description": "Role binding for operator",
+          "required": [
+            "create",
+            "name",
+            "roleRef"
+          ],
+          "properties": {
+            "create": {
+              "type": "boolean",
+              "description": "Create role binding"
+            },
+            "name": {
+              "type": "string",
+              "description": "Role binding name"
+            },
+            "roleRef": {
+              "type": "object",
+              "description": "Role reference",
+              "required": [
+                "kind",
+                "name"
+              ],
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "description": "Kind of role reference",
+                  "enum": [
+                    "Role",
+                    "ClusterRole"
+                  ]
+                },
+                "name": {
+                  "type": "string",
+                  "description": "Name of role reference"
+                }
+              }
+            }
+          }
+        },
+        "configManagement": {
+          "type": "object",
+          "description": "Config management RBAC",
+          "required": [
+            "create",
+            "roleName",
+            "roleBindingName"
+          ],
+          "properties": {
+            "create": {
+              "type": "boolean",
+              "description": "Create config management role"
+            },
+            "roleName": {
+              "type": "string",
+              "description": "Config management role name"
+            },
+            "roleBindingName": {
+              "type": "string",
+              "description": "Config management role binding name"
+            }
+          }
+        },
+        "labels": {
+          "type": "object",
+          "description": "Labels for RBAC resources",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "annotations": {
+          "type": "object",
+          "description": "Annotations for RBAC resources",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "workloadResources": {
+      "type": "object",
+      "description": "Resources for Spark workloads",
+      "required": [
+        "namespaces",
+        "serviceAccount",
+        "role",
+        "clusterRole",
+        "roleBinding",
+        "sparkApplicationSentinel",
+        "annotations",
+        "labels"
+      ],
+      "properties": {
+        "namespaces": {
+          "type": "object",
+          "description": "Namespaces configuration",
+          "required": [
+            "create",
+            "overrideWatchedNamespaces"
+          ],
+          "properties": {
+            "create": {
+              "type": "boolean",
+              "description": "Create namespaces"
+            },
+            "overrideWatchedNamespaces": {
+              "type": "boolean",
+              "description": "Override watched namespaces"
+            },
+            "data": {
+              "type": ["null", "array"],
+              "description": "List of namespace names",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "serviceAccount": {
+          "type": "object",
+          "description": "Service account for workloads",
+          "required": [
+            "create",
+            "name"
+          ],
+          "properties": {
+            "create": {
+              "type": "boolean",
+              "description": "Create service account"
+            },
+            "name": {
+              "type": "string",
+              "description": "Service account name"
+            }
+          }
+        },
+        "role": {
+          "type": "object",
+          "description": "Role for workloads",
+          "required": [
+            "create",
+            "name"
+          ],
+          "properties": {
+            "create": {
+              "type": "boolean",
+              "description": "Create role"
+            },
+            "name": {
+              "type": "string",
+              "description": "Role name"
+            }
+          }
+        },
+        "clusterRole": {
+          "type": "object",
+          "description": "Cluster role for workloads",
+          "required": [
+            "create",
+            "name"
+          ],
+          "properties": {
+            "create": {
+              "type": "boolean",
+              "description": "Create cluster role"
+            },
+            "name": {
+              "type": "string",
+              "description": "Cluster role name"
+            }
+          }
+        },
+        "roleBinding": {
+          "type": "object",
+          "description": "Role binding for workloads",
+          "required": [
+            "create",
+            "name"
+          ],
+          "properties": {
+            "create": {
+              "type": "boolean",
+              "description": "Create role binding"
+            },
+            "name": {
+              "type": "string",
+              "description": "Role binding name"
+            }
+          }
+        },
+        "sparkApplicationSentinel": {
+          "type": "object",
+          "description": "Spark application sentinel configuration",
+          "required": [
+            "create",
+            "name",
+            "sentinelNamespaces"
+          ],
+          "properties": {
+            "create": {
+              "type": "boolean",
+              "description": "Create sentinel application"
+            },
+            "name": {
+              "type": "string",
+              "description": "Sentinel name"
+            },
+            "sentinelNamespaces": {
+              "type": "object",
+              "description": "Sentinel namespaces",
+              "properties": {
+                "data": {
+                  "type": ["null", "array"],
+                  "description": "List of namespace names",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "annotations": {
+          "type": "object",
+          "description": "Annotations for workload resources",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "labels": {
+          "type": "object",
+          "description": "Labels for workload resources",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "operatorConfiguration": {
+      "type": "object",
+      "description": "Operator configuration",
+      "required": [
+        "append"
+      ],
+      "properties": {
+        "append": {
+          "type": "boolean",
+          "description": "Append configuration instead of replacing"
+        },
+        "log4j2.properties": {
+          "type": "string",
+          "description": "Log4j2 properties"
+        },
+        "spark-operator.properties": {
+          "type": "string",
+          "description": "Spark operator properties"
+        },
+        "metrics.properties": {
+          "type": "string",
+          "description": "Metrics properties"
+        },
+        "dynamicConfig": {
+          "type": "object",
+          "description": "Dynamic configuration",
+          "required": [
+            "enable",
+            "create",
+            "annotations",
+            "data"
+          ],
+          "properties": {
+            "enable": {
+              "type": "boolean",
+              "description": "Enable dynamic configuration"
+            },
+            "create": {
+              "type": "boolean",
+              "description": "Create ConfigMap for dynamic configuration"
+            },
+            "annotations": {
+              "type": "object",
+              "description": "Annotations for dynamic config ConfigMap",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "data": {
+              "type": "object",
+              "description": "Dynamic configuration data",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
