@@ -30,7 +30,7 @@ mockito = "5.17.0"
 powermock = "2.0.9"
 
 # Build Analysis
-checkstyle = "10.17.0"
+checkstyle = "10.23.1"
 pmd = "6.55.0"
 spotbugs-tool = "4.8.6"
 spotbugs-plugin = "6.0.17"
