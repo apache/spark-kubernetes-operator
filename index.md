@@ -19,12 +19,12 @@ aims to extend K8s resource manager to manage Apache Spark applications and clus
 ## Install Helm Chart
 
 ```bash
-$ helm repo add spark-kubernetes-operator https://apache.github.io/spark-kubernetes-operator
+$ helm repo add spark https://apache.github.io/spark-kubernetes-operator
 $ helm repo update
-$ helm install spark-kubernetes-operator spark-kubernetes-operator/spark-kubernetes-operator
+$ helm install spark spark/spark-kubernetes-operator
 $ helm list
-NAME                     	NAMESPACE	REVISION	UPDATED                             	STATUS  	CHART                          	APP VERSION
-spark-kubernetes-operator	default  	1       	2025-05-13 12:11:15.303067 -0700 PDT	deployed	spark-kubernetes-operator-0.1.0	0.1.0
+NAME 	NAMESPACE	REVISION	UPDATED                             	STATUS  	CHART                          	APP VERSION
+spark	default  	1       	2025-05-14 11:55:22.341181 -0700 PDT	deployed	spark-kubernetes-operator-0.1.0	0.1.0
 ```
 
 ## Run Spark Pi App
@@ -67,7 +67,7 @@ No resources found in default namespace.
 Remove HelmChart and CRDs.
 
 ```
-$ helm uninstall spark-kubernetes-operator
+$ helm uninstall spark
 
 $ kubectl delete crd sparkapplications.spark.apache.org
 
