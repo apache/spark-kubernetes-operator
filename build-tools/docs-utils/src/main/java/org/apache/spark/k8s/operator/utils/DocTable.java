@@ -57,8 +57,7 @@ public class DocTable {
   private String joinRow(List<String> elements) {
     StringBuilder stringBuilder = new StringBuilder(ROW_SEPARATOR);
     for (String element : elements) {
-      stringBuilder.append(element);
-      stringBuilder.append(ROW_SEPARATOR);
+      stringBuilder.append(element).append(ROW_SEPARATOR);
     }
     if (elements.size() < columns) {
       // Append empty cells to end if needed
