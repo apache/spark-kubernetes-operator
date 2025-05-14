@@ -77,7 +77,6 @@ dependencies {
   testImplementation(libs.mockwebserver)
   testImplementation platform(libs.junit.bom)
   testImplementation(libs.junit.jupiter)
-  testImplementation(libs.powermock.core)
   testRuntimeOnly(libs.junit.platform.launcher)
 
   testImplementation(libs.mockito.core)
