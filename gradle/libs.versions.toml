@@ -29,7 +29,7 @@ jacoco = "0.8.13"
 mockito = "5.17.0"
 
 # Build Analysis
-checkstyle = "10.17.0"
+checkstyle = "10.23.1"
 pmd = "6.55.0"
 spotbugs-tool = "4.8.6"
 spotbugs-plugin = "6.0.17"
