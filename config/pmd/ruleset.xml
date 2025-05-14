@@ -22,8 +22,13 @@
     Apache Spark Kubernetes Operator Ruleset
   </description>
   <rule ref="category/java/bestpractices.xml">
-    <exclude name="JUnitAssertionsShouldIncludeMessage" />
-    <exclude name="JUnitTestContainsTooManyAsserts" />
+    <exclude name="GuardLogStatement" />
+    <exclude name="ImplicitFunctionalInterface" />
+    <exclude name="UnitTestAssertionsShouldIncludeMessage" />
+    <exclude name="UnitTestContainsTooManyAsserts" />
+    <exclude name="UnitTestShouldIncludeAssert" />
+    <exclude name="UnusedLocalVariable" />
+    <exclude name="LooseCoupling" />
   </rule>
   <rule ref="category/java/codestyle.xml">
     <exclude name="AtLeastOneConstructor" />
@@ -36,16 +41,24 @@
     <exclude name="OnlyOneReturn" />
     <exclude name="ShortVariable" />
     <exclude name="TooManyStaticImports" />
+    <exclude name="UnnecessaryCast" />
+    <exclude name="UnnecessaryFullyQualifiedName" />
+    <exclude name="UseExplicitTypes" />
     <exclude name="UseUnderscoresInNumericLiterals" />
   </rule>
   <rule ref="category/java/design.xml">
     <exclude name="AbstractClassWithoutAnyMethod" />
     <exclude name="AvoidCatchingGenericException" />
+    <exclude name="ClassWithOnlyPrivateConstructorsShouldBeFinal" />
     <exclude name="CognitiveComplexity" />
+    <exclude name="CouplingBetweenObjects" />
     <exclude name="CyclomaticComplexity" />
+    <exclude name="DataClass" />
     <exclude name="ExcessiveImports" />
+    <exclude name="FinalFieldCouldBeStatic" />
     <exclude name="LawOfDemeter" />
     <exclude name="NPathComplexity" />
+    <exclude name="SimplifyBooleanReturns" />
     <exclude name="TooManyMethods" />
   </rule>
   <rule ref="category/java/documentation.xml">
@@ -67,6 +80,7 @@
     <exclude name="UseProperClassLoader" />
   </rule>
   <rule ref="category/java/multithreading.xml">
+    <exclude name="AvoidSynchronizedStatement" />
     <exclude name="DoNotUseThreads" />
     <exclude name="UseConcurrentHashMap" />
   </rule>
@@ -74,6 +88,7 @@
     <exclude name="AvoidFileStream" />
     <exclude name="AvoidInstantiatingObjectsInLoops" />
     <exclude name="RedundantFieldInitializer" />
+    <exclude name="UseArraysAsList" />
   </rule>
   <rule ref="category/java/security.xml"/>
   <!-- exclude on generated files -->
