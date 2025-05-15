@@ -3,10 +3,11 @@ entries:
   spark-kubernetes-operator:
   - apiVersion: v2
     appVersion: 0.1.0
-    created: "2025-05-13T00:30:51.885979468Z"
-    description: A Helm chart for the Apache Spark, the unified engine for large-scale data analytics
-    digest: 67605e5d7a9b4b32f7906e727b8a7f2f8ffd5f61f92690fc38e6e538c7da7641
-    home: https://spark.apache.org/
+    created: "2025-05-15T08:30:12.542164-07:00"
+    description: The official Helm chart to deploy Apache Spark, an unified engine
+      for large-scale data analytics
+    digest: 7355ec7ec6c8f5cec78e849b46cf171289449598ac16419326dbd5332899925b
+    home: https://apache.github.io/spark-kubernetes-operator/
     icon: https://spark.apache.org/images/spark-logo.png
     keywords:
     - apache
@@ -23,4 +24,4 @@ entries:
     urls:
     - https://github.com/apache/spark-kubernetes-operator/releases/download/v0.1.0/spark-kubernetes-operator-0.1.0.tgz
     version: 0.1.0
-generated: "2025-05-13T01:30:51.883608234Z"
+generated: "2025-05-15T08:30:12.541442-07:00"
