@@ -17,7 +17,7 @@
 ---
 github:
   description: "Apache Spark Kubernetes Operator"
-  homepage: https://spark.apache.org/
+  homepage: https://apache.github.io/spark-kubernetes-operator/
   labels:
     - java
     - spark
