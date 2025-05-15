@@ -22,6 +22,7 @@ github:
     - java
     - spark
     - kubernetes
+    - operator
   enabled_merge_buttons:
     merge: false
     squash: true
