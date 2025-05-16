@@ -26,7 +26,6 @@ import static org.apache.spark.k8s.operator.utils.SparkExceptionUtils.buildGener
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -70,13 +69,11 @@ public class AppInitStep extends AppReconcileStep {
       }
     }
     try {
-      List<HasMetadata> createdPreResources = new ArrayList<>();
-      for (HasMetadata resource : context.getDriverPreResourcesSpec()) {
+      List<HasMetadata> preResourcesSpec = context.getDriverPreResourcesSpec();
+      for (HasMetadata resource : preResourcesSpec) {
         Optional<HasMetadata> createdResource =
             ReconcilerUtils.getOrCreateSecondaryResource(context.getClient(), resource);
-        if (createdResource.isPresent()) {
-          createdPreResources.add(createdResource.get());
-        } else {
+        if (createdResource.isEmpty()) {
           return appendStateAndImmediateRequeue(
               context, statusRecorder, creationFailureState(resource));
         }
@@ -86,8 +83,8 @@ public class AppInitStep extends AppReconcileStep {
               context.getClient(), context.getDriverPodSpec());
       if (driverPod.isPresent()) {
         DriverResourceDecorator decorator = new DriverResourceDecorator(driverPod.get());
-        createdPreResources.forEach(decorator::decorate);
-        context.getClient().resourceList(createdPreResources).forceConflicts().serverSideApply();
+        preResourcesSpec.forEach(decorator::decorate);
+        context.getClient().resourceList(preResourcesSpec).forceConflicts().serverSideApply();
         List<HasMetadata> driverResources = context.getDriverResourcesSpec();
         driverResources.forEach(decorator::decorate);
         for (HasMetadata resource : driverResources) {
