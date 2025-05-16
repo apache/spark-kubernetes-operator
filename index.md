@@ -42,6 +42,20 @@ $ kubectl delete sparkapp pi
 sparkapplication.spark.apache.org "pi" deleted
 ```
 
+## Run Spark Connect Server (A long-running app)
+
+```bash
+$ kubectl apply -f https://apache.github.io/spark-kubernetes-operator/spark-connect-server.yaml
+sparkapplication.spark.apache.org/spark-connect-server created
+
+$ kubectl get sparkapp
+NAME                   CURRENT STATE    AGE
+spark-connect-server   RunningHealthy   12s
+
+$ kubectl delete sparkapp spark-connect-server
+sparkapplication.spark.apache.org "spark-connect-server" deleted
+```
+
 ## Run Spark Cluster
 
 ```bash
