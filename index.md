@@ -30,19 +30,21 @@ spark	default  	1       	2025-05-14 11:55:22.341181 -0700 PDT	deployed	spark-kub
 ## Run Spark Pi App
 
 ```bash
-$ kubectl apply -f https://raw.githubusercontent.com/apache/spark-kubernetes-operator/refs/tags/v0.1.0/examples/pi.yaml
+$ kubectl apply -f https://apache.github.io/spark-kubernetes-operator/pi.yaml
+sparkapplication.spark.apache.org/pi created
 
 $ kubectl get sparkapp
 NAME   CURRENT STATE      AGE
 pi     ResourceReleased   4m10s
 
-$ kubectl delete sparkapp/pi
+$ kubectl delete sparkapp pi
 ```
 
 ## Run Spark Cluster
 
 ```bash
 $ kubectl apply -f https://raw.githubusercontent.com/apache/spark-kubernetes-operator/refs/tags/v0.1.0/examples/prod-cluster-with-three-workers.yaml
+sparkcluster.spark.apache.org/prod created
 
 $ kubectl get sparkcluster
 NAME   CURRENT STATE    AGE
