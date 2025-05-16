@@ -13,6 +13,7 @@ aims to extend K8s resource manager to manage Apache Spark applications and clus
 
 ## Requirements
 
+- Apache Spark 3.5+
 - Kubernetes 1.30+ cluster
 - Helm 3.0+
 
@@ -38,6 +39,7 @@ NAME   CURRENT STATE      AGE
 pi     ResourceReleased   4m10s
 
 $ kubectl delete sparkapp pi
+sparkapplication.spark.apache.org "pi" deleted
 ```
 
 ## Run Spark Cluster
