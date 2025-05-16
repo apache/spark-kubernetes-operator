@@ -28,7 +28,7 @@ aims to extend K8s resource manager to manage Apache Spark applications and clus
 
 ## Introduction
 
-This chart will bootstrap an [Apache Spark K8s Operator](https://github.com/apache/spark-kubernetes-operator/) deployment on a [Kubernetes](http://kubernetes.io)
+This chart will bootstrap an [Apache Spark K8s Operator](https://apache.github.io/spark-kubernetes-operator/) deployment on a [Kubernetes](http://kubernetes.io)
 cluster using the [Helm](https://helm.sh) package manager. With this, you can launch Spark applications and clusters.
 
 ## Requirements
