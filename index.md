@@ -50,7 +50,7 @@ sparkapplication.spark.apache.org/spark-connect-server created
 
 $ kubectl get sparkapp
 NAME                   CURRENT STATE    AGE
-spark-connect-server   RunningHealthy   12s
+spark-connect-server   RunningHealthy   14h
 
 $ kubectl delete sparkapp spark-connect-server
 sparkapplication.spark.apache.org "spark-connect-server" deleted
