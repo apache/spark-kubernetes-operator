@@ -123,7 +123,7 @@ class OperatorJosdkMetricsTest {
     assertTrue(metrics.containsKey("sparkapplication.testns.added.resource.event"));
   }
 
-  private static class TestingExecutionBase<T> implements Metrics.ControllerExecution<T> {
+  private static final class TestingExecutionBase<T> implements Metrics.ControllerExecution<T> {
     @Override
     public String controllerName() {
       return controllerName;
@@ -156,7 +156,7 @@ class OperatorJosdkMetricsTest {
     }
   }
 
-  private static class FooTestingExecutionBase<T> implements Metrics.ControllerExecution<T> {
+  private static final class FooTestingExecutionBase<T> implements Metrics.ControllerExecution<T> {
     @Override
     public String controllerName() {
       return controllerName;

@@ -19,6 +19,7 @@
 
 package org.apache.spark.k8s.operator;
 
+@SuppressWarnings("PMD.DataClass")
 public class Constants {
   public static final String API_GROUP = "spark.apache.org";
   public static final String API_VERSION = "v1alpha1";

@@ -122,9 +122,7 @@ class SentinelManagerTest {
 
     assertEquals(sparkConf2.get(Constants.SENTINEL_RESOURCE_DUMMY_FIELD), "1");
     assertEquals(generation2, 2L);
-    var state2 =
-        (SentinelManager<SparkApplication>.SentinelResourceState)
-            sentinelManager.getSentinelResources().get(ResourceID.fromResource(mockApp));
+    var state2 = sentinelManager.getSentinelResources().get(ResourceID.fromResource(mockApp));
     long previousGeneration2 = state2.previousGeneration;
     assertTrue(sentinelManager.allSentinelsAreHealthy());
     assertEquals(previousGeneration2, 1L);
@@ -140,9 +138,7 @@ class SentinelManagerTest {
     assertNotEquals(
         sparkConf2.get(Constants.SENTINEL_RESOURCE_DUMMY_FIELD),
         sparkConf3.get(Constants.SENTINEL_RESOURCE_DUMMY_FIELD));
-    var state3 =
-        (SentinelManager<SparkApplication>.SentinelResourceState)
-            sentinelManager.getSentinelResources().get(ResourceID.fromResource(mockApp));
+    var state3 = sentinelManager.getSentinelResources().get(ResourceID.fromResource(mockApp));
     assertEquals(state3.previousGeneration, previousGeneration2);
     // Given the 2 * SENTINEL_RESOURCE_RECONCILIATION_DELAY_SECONDS, the reconcile method is
     // not called to handleSentinelResourceReconciliation to update

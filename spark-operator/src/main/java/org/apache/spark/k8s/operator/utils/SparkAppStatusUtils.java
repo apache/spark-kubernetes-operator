@@ -63,13 +63,11 @@ public final class SparkAppStatusUtils {
 
   public static boolean hasReachedState(
       SparkApplication application, ApplicationState stateToCheck) {
-    if (!isValidApplicationStatus(application)) {
-      return false;
-    }
-    return application.getStatus().getStateTransitionHistory().keySet().parallelStream()
-        .anyMatch(
-            stateId ->
-                stateToCheck.equals(
-                    application.getStatus().getStateTransitionHistory().get(stateId)));
+    return isValidApplicationStatus(application)
+        && application.getStatus().getStateTransitionHistory().keySet().parallelStream()
+            .anyMatch(
+                stateId ->
+                    stateToCheck.equals(
+                        application.getStatus().getStateTransitionHistory().get(stateId)));
   }
 }
