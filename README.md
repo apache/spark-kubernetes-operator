@@ -138,7 +138,7 @@ As of now, you can try `spark-kubernetes-operator` nightly version in the follow
 
 ```
 $ helm install spark-kubernetes-operator \
-https://nightlies.apache.org/spark/charts/spark-kubernetes-operator-0.2.0-SNAPSHOT.tgz
+https://nightlies.apache.org/spark/charts/spark-kubernetes-operator-0.2.1-SNAPSHOT.tgz
 ```
 
 ## Clean Up
