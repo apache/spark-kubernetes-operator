@@ -28,7 +28,7 @@ metadata:
     app.kubernetes.io/component: operator-dynamic-config-overrides
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/name: spark-kubernetes-operator
-    app.kubernetes.io/version: 0.2.0-SNAPSHOT
-    helm.sh/chart: spark-kubernetes-operator-0.2.0-SNAPSHOT
+    app.kubernetes.io/version: 0.3.0-SNAPSHOT
+    helm.sh/chart: spark-kubernetes-operator-0.3.0-SNAPSHOT
   name: spark-kubernetes-operator-dynamic-configuration
   namespace: default
