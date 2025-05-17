@@ -47,7 +47,7 @@ $ ./gradlew buildDockerImage
 ```bash
 $ ./gradlew spark-operator-api:relocateGeneratedCRD
 
-$ helm install spark-kubernetes-operator --create-namespace -f build-tools/helm/spark-kubernetes-operator/values.yaml build-tools/helm/spark-kubernetes-operator/
+$ helm install spark -f build-tools/helm/spark-kubernetes-operator/values.yaml build-tools/helm/spark-kubernetes-operator/
 ```
 
 ## Run Spark Pi App
