@@ -49,7 +49,6 @@ import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 
 @EnableKubernetesMockClient(crud = true)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-@SuppressWarnings("PMD")
 @SuppressFBWarnings(
     value = {"UWF_UNWRITTEN_FIELD", "NP_UNWRITTEN_FIELD", "UUF_UNUSED_FIELD"},
     justification = "Unwritten fields are covered by Kubernetes mock client")

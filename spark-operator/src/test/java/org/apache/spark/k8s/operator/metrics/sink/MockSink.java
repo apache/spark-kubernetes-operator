@@ -28,7 +28,7 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.spark.metrics.sink.Sink;
 
-@SuppressWarnings("PMD")
+@SuppressWarnings("PMD.UnusedPrivateField")
 public class MockSink implements Sink {
   private static final Logger logger = LoggerFactory.getLogger(MockSink.class);
   private final Properties properties;
