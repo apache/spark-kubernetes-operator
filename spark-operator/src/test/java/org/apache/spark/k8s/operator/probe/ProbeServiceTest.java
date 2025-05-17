@@ -43,7 +43,7 @@ import org.junit.jupiter.api.Test;
 
 import org.apache.spark.k8s.operator.metrics.healthcheck.SentinelManager;
 
-@SuppressWarnings("PMD.JUnitTestsShouldIncludeAssert")
+@SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
 @EnableKubernetesMockClient
 class ProbeServiceTest {
   @Test

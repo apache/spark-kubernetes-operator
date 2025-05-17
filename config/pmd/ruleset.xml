@@ -26,7 +26,6 @@
     <exclude name="ImplicitFunctionalInterface" />
     <exclude name="UnitTestAssertionsShouldIncludeMessage" />
     <exclude name="UnitTestContainsTooManyAsserts" />
-    <exclude name="UnitTestShouldIncludeAssert" />
     <exclude name="UnusedLocalVariable" />
     <exclude name="LooseCoupling" />
   </rule>

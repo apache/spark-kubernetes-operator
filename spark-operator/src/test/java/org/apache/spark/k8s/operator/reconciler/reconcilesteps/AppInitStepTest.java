@@ -52,7 +52,6 @@ import org.apache.spark.k8s.operator.context.SparkAppContext;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 
 @EnableKubernetesMockClient(crud = true)
-@SuppressWarnings("PMD")
 @SuppressFBWarnings(
     value = {"UWF_UNWRITTEN_FIELD", "NP_UNWRITTEN_FIELD", "UUF_UNUSED_FIELD"},
     justification = "Unwritten fields are covered by Kubernetes mock client")
