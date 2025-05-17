@@ -40,13 +40,6 @@ import org.apache.spark.k8s.operator.listeners.BaseStatusListener;
 import org.apache.spark.k8s.operator.status.BaseStatus;
 
 /**
- *
- *
- * <pre>
- * Note - this is inspired by
- * <a href="https://github.com/apache/flink-kubernetes-operator/blob/main/flink-kubernetes-operator/src/main/java/org/apache/flink/kubernetes/operator/utils/AppStatusRecorder.java">Flink Operator Status Recorder</a>
- * </pre>
- *
  * Enables additional (extendable) observers for Spark App status. Cache and version locking might
  * be removed in future version as batch app does not expect spec change after submitted.
  */
