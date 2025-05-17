@@ -56,7 +56,7 @@ public class StatusRecorder<
     CR extends BaseResource<?, ?, ?, ?, STATUS>,
     LISTENER extends BaseStatusListener<STATUS, CR>> {
   protected final List<LISTENER> statusListeners;
-  protected final ObjectMapper objectMapper = ModelUtils.objectMapper;
+  protected static final ObjectMapper objectMapper = ModelUtils.objectMapper;
   protected final Class<STATUS> statusClass;
   protected final Class<CR> resourceClass;
   protected final ConcurrentHashMap<ResourceID, ObjectNode> statusCache;
