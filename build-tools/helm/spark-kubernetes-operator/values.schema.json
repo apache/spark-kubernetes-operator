@@ -136,7 +136,7 @@
                   "description": "JVM arguments for operator"
                 },
                 "env": {
-                  "type": "array",
+                  "type": ["null", "array"],
                   "description": "Environment variables",
                   "items": {
                     "type": "object",
