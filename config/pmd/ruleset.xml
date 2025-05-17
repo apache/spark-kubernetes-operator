@@ -40,24 +40,18 @@
     <exclude name="OnlyOneReturn" />
     <exclude name="ShortVariable" />
     <exclude name="TooManyStaticImports" />
-    <exclude name="UnnecessaryCast" />
-    <exclude name="UnnecessaryFullyQualifiedName" />
     <exclude name="UseExplicitTypes" />
     <exclude name="UseUnderscoresInNumericLiterals" />
   </rule>
   <rule ref="category/java/design.xml">
     <exclude name="AbstractClassWithoutAnyMethod" />
     <exclude name="AvoidCatchingGenericException" />
-    <exclude name="ClassWithOnlyPrivateConstructorsShouldBeFinal" />
     <exclude name="CognitiveComplexity" />
     <exclude name="CouplingBetweenObjects" />
     <exclude name="CyclomaticComplexity" />
-    <exclude name="DataClass" />
     <exclude name="ExcessiveImports" />
-    <exclude name="FinalFieldCouldBeStatic" />
     <exclude name="LawOfDemeter" />
     <exclude name="NPathComplexity" />
-    <exclude name="SimplifyBooleanReturns" />
     <exclude name="TooManyMethods" />
   </rule>
   <rule ref="category/java/documentation.xml">

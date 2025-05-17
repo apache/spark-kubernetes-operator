@@ -123,7 +123,7 @@ public final class Utils {
   }
 
   public static Set<String> getWatchedNamespaces() {
-    return Utils.sanitizeCommaSeparatedStrAsSet(OPERATOR_WATCHED_NAMESPACES.getValue());
+    return sanitizeCommaSeparatedStrAsSet(OPERATOR_WATCHED_NAMESPACES.getValue());
   }
 
   public static List<SparkAppStatusListener> getAppStatusListener() {
