@@ -9,7 +9,8 @@ aims to extend K8s resource manager to manage Apache Spark applications and clus
 
 ## Releases
 
-- <https://github.com/apache/spark-kubernetes-operator/releases/tag/v0.1.0>
+- [0.2.0 (2025-05-20)](https://github.com/apache/spark-kubernetes-operator/releases/tag/0.2.0)
+- [0.1.0 (2025-05-08)](https://github.com/apache/spark-kubernetes-operator/releases/tag/v0.1.0)
 
 ## Requirements
 
@@ -24,8 +25,8 @@ $ helm repo add spark https://apache.github.io/spark-kubernetes-operator
 $ helm repo update
 $ helm install spark spark/spark-kubernetes-operator
 $ helm list
-NAME 	NAMESPACE	REVISION	UPDATED                             	STATUS  	CHART                          	APP VERSION
-spark	default  	1       	2025-05-14 11:55:22.341181 -0700 PDT	deployed	spark-kubernetes-operator-0.1.0	0.1.0
+NAME 	NAMESPACE	REVISION	UPDATED                            	STATUS  	CHART                          	APP VERSION
+spark	default  	1       	2025-05-20 11:32:45.58896 -0700 PDT	deployed	spark-kubernetes-operator-1.0.0	0.2.0
 ```
 
 ## Run Spark Pi App
@@ -59,7 +60,7 @@ sparkapplication.spark.apache.org "spark-connect-server" deleted
 ## Run Spark Cluster
 
 ```bash
-$ kubectl apply -f https://raw.githubusercontent.com/apache/spark-kubernetes-operator/refs/tags/v0.1.0/examples/prod-cluster-with-three-workers.yaml
+$ kubectl apply -f https://raw.githubusercontent.com/apache/spark-kubernetes-operator/refs/tags/0.2.0/examples/prod-cluster-with-three-workers.yaml
 sparkcluster.spark.apache.org/prod created
 
 $ kubectl get sparkcluster
