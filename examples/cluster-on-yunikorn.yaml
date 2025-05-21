@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-apiVersion: spark.apache.org/v1alpha1
+apiVersion: spark.apache.org/v1beta1
 kind: SparkCluster
 metadata:
   name: cluster-on-yunikorn
