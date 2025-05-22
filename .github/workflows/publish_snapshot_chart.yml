@@ -34,7 +34,7 @@ jobs:
         cache: 'gradle'
     - name: Build Operator
       run: |
-        ./gradlew build spark-operator-api:relocateGeneratedCRD -x check --no-daemon
+        ./gradlew build -x check --no-daemon
     - name: Build Chart
       env:
         DIR: 'charts'

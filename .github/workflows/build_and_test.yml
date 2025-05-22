@@ -118,7 +118,6 @@ jobs:
         run: |
           eval $(minikube docker-env)
           ./gradlew buildDockerImage
-          ./gradlew spark-operator-api:relocateGeneratedCRD
           helm install spark-kubernetes-operator --create-namespace -f build-tools/helm/spark-kubernetes-operator/values.yaml build-tools/helm/spark-kubernetes-operator/
           helm test spark-kubernetes-operator
           # Use remote host' s docker image
@@ -132,7 +131,6 @@ jobs:
         run: |
           eval $(minikube docker-env)
           ./gradlew buildDockerImage
-          ./gradlew spark-operator-api:relocateGeneratedCRD
           helm install spark-kubernetes-operator --create-namespace -f \
           build-tools/helm/spark-kubernetes-operator/values.yaml -f \
           tests/e2e/helm/dynamic-config-values.yaml \
