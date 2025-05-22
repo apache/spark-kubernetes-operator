@@ -18,14 +18,14 @@ metadata:
   name: prod
 spec:
   runtimeVersions:
-    sparkVersion: "4.0.0-preview2"
+    sparkVersion: "4.0.0"
   clusterTolerations:
     instanceConfig:
       initWorkers: 3
       minWorkers: 3
       maxWorkers: 3
   sparkConf:
-    spark.kubernetes.container.image: "apache/spark:4.0.0-preview2"
+    spark.kubernetes.container.image: "apache/spark:4.0.0"
     spark.master.ui.title: "Prod Spark Cluster"
     spark.master.rest.enabled: "true"
     spark.master.rest.host: "0.0.0.0"

@@ -48,12 +48,12 @@ spec:
     spark.dynamicAllocation.shuffleTracking.enabled: "true"
     spark.dynamicAllocation.maxExecutors: "3"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
-    spark.kubernetes.container.image: "apache/spark:4.0.0-preview2"
+    spark.kubernetes.container.image: "apache/spark:4.0.0"
   applicationTolerations:
     resourceRetainPolicy: OnFailure
   runtimeVersions:
     scalaVersion: "2.13"
-    sparkVersion: "4.0.0-preview2"
+    sparkVersion: "4.0.0"
 ```
 
 After application is submitted, Operator will add status information to your application based on

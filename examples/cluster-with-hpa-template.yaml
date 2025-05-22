@@ -18,7 +18,7 @@ metadata:
   name: cluster-with-hpa-template
 spec:
   runtimeVersions:
-    sparkVersion: "4.0.0-preview2"
+    sparkVersion: "4.0.0"
   clusterTolerations:
     instanceConfig:
       initWorkers: 1
@@ -58,7 +58,7 @@ spec:
             value: 1
             periodSeconds: 1200
   sparkConf:
-    spark.kubernetes.container.image: "apache/spark:4.0.0-preview2-java21"
+    spark.kubernetes.container.image: "apache/spark:4.0.0-java21"
     spark.master.ui.title: "Cluster with HorizontalPodAutoscaler Template"
     spark.master.rest.enabled: "true"
     spark.master.rest.host: "0.0.0.0"
