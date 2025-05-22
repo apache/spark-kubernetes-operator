@@ -59,11 +59,11 @@ spec:
           namespace: default
           selector: app.kubernetes.io/component=operator-deployment,app.kubernetes.io/name=spark-kubernetes-operator
       - describe:
-          apiVersion: spark.apache.org/v1alpha1
+          apiVersion: spark.apache.org/v1beta1
           kind: SparkApplication
           namespace: spark-1
       - describe:
-          apiVersion: spark.apache.org/v1alpha1
+          apiVersion: spark.apache.org/v1beta1
           kind: SparkApplication
           namespace: spark-2
     finally:
@@ -103,7 +103,7 @@ spec:
           namespace: default-2
           selector: app.kubernetes.io/component=operator-deployment,app.kubernetes.io/name=spark-kubernetes-operator
       - describe:
-          apiVersion: spark.apache.org/v1alpha1
+          apiVersion: spark.apache.org/v1beta1
           kind: SparkApplication
           namespace: spark-3
       - get:
