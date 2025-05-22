@@ -6,7 +6,6 @@
 .vscode
 /lib/
 target/
-build-tools/helm/spark-kubernetes-operator/crds
 
 # Gradle Files #
 ################

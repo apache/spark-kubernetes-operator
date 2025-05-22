@@ -45,8 +45,6 @@ $ ./gradlew buildDockerImage
 ## Install Helm Chart
 
 ```bash
-$ ./gradlew spark-operator-api:relocateGeneratedCRD
-
 $ helm install spark -f build-tools/helm/spark-kubernetes-operator/values.yaml build-tools/helm/spark-kubernetes-operator/
 ```
 
