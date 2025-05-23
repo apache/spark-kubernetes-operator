@@ -38,6 +38,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import io.fabric8.kubernetes.api.model.HasMetadata;
+import io.javaoperatorsdk.operator.processing.event.ResourceID;
+import io.javaoperatorsdk.operator.processing.event.source.SecondaryToPrimaryMapper;
 import org.apache.commons.lang3.StringUtils;
 
 import org.apache.spark.k8s.operator.Constants;
@@ -143,5 +146,26 @@ public final class Utils {
    */
   public static String commonResourceLabelsStr() {
     return labelsAsStr(commonManagedResourceLabels());
+  }
+
+  public static <T extends HasMetadata>
+      SecondaryToPrimaryMapper<T> basicLabelSecondaryToPrimaryMapper(String nameKey) {
+    return resource -> {
+      final var metadata = resource.getMetadata();
+      if (metadata == null) {
+        return Collections.emptySet();
+      } else {
+        final var map = metadata.getLabels();
+        if (map == null) {
+          return Collections.emptySet();
+        }
+        var name = map.get(nameKey);
+        if (name == null) {
+          return Collections.emptySet();
+        }
+        var namespace = resource.getMetadata().getNamespace();
+        return Set.of(new ResourceID(name, namespace));
+      }
+    };
   }
 }
