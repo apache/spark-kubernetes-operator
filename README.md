@@ -12,13 +12,14 @@ aims to extend K8s resource manager to manage Apache Spark applications via
 ## Install Helm Chart
 
 Apache Spark provides a Helm Chart.
+
 - <https://apache.github.io/spark-kubernetes-operator/>
 - <https://artifacthub.io/packages/helm/spark-kubernetes-operator/spark-kubernetes-operator/>
 
-```
-$ helm repo add spark-kubernetes-operator https://apache.github.io/spark-kubernetes-operator
-$ helm repo update
-$ helm install spark-kubernetes-operator spark-kubernetes-operator/spark-kubernetes-operator
+```bash
+helm repo add spark-kubernetes-operator https://apache.github.io/spark-kubernetes-operator
+helm repo update
+helm install spark-kubernetes-operator spark-kubernetes-operator/spark-kubernetes-operator
 ```
 
 ## Building Spark K8s Operator
@@ -27,25 +28,25 @@ Spark K8s Operator is built using Gradle.
 To build, run:
 
 ```bash
-$ ./gradlew build -x test
+./gradlew build -x test
 ```
 
 ## Running Tests
 
 ```bash
-$ ./gradlew build
+./gradlew build
 ```
 
 ## Build Docker Image
 
 ```bash
-$ ./gradlew buildDockerImage
+./gradlew buildDockerImage
 ```
 
-## Install Helm Chart
+## Install Helm Chart from the source code
 
 ```bash
-$ helm install spark -f build-tools/helm/spark-kubernetes-operator/values.yaml build-tools/helm/spark-kubernetes-operator/
+helm install spark -f build-tools/helm/spark-kubernetes-operator/values.yaml build-tools/helm/spark-kubernetes-operator/
 ```
 
 ## Run Spark Pi App
@@ -97,14 +98,14 @@ sparkcluster.spark.apache.org "prod" deleted
 
 ## Run Spark Pi App on Apache YuniKorn scheduler
 
-If you have not yet done so, follow [YuniKorn docs](https://yunikorn.apache.org/docs/#install) to install the latest version: 
+If you have not yet done so, follow [YuniKorn docs](https://yunikorn.apache.org/docs/#install) to install the latest version:
 
 ```bash
-$ helm repo add yunikorn https://apache.github.io/yunikorn-release
+helm repo add yunikorn https://apache.github.io/yunikorn-release
 
-$ helm repo update
+helm repo update
 
-$ helm install yunikorn yunikorn/yunikorn --namespace yunikorn --version 1.6.3 --create-namespace --set embedAdmissionController=false
+helm install yunikorn yunikorn/yunikorn --namespace yunikorn --version 1.6.3 --create-namespace --set embedAdmissionController=false
 ```
 
 Submit a Spark app to YuniKorn enabled cluster:
@@ -134,7 +135,7 @@ sparkapplication.spark.apache.org "pi-on-yunikorn" deleted
 
 Check the existing Spark applications and clusters. If exists, delete them.
 
-```
+```bash
 $ kubectl get sparkapp
 No resources found in default namespace.
 
@@ -144,12 +145,12 @@ No resources found in default namespace.
 
 Remove HelmChart and CRDs.
 
-```
-$ helm uninstall spark-kubernetes-operator
+```bash
+helm uninstall spark-kubernetes-operator
 
-$ kubectl delete crd sparkapplications.spark.apache.org
+kubectl delete crd sparkapplications.spark.apache.org
 
-$ kubectl delete crd sparkclusters.spark.apache.org
+kubectl delete crd sparkclusters.spark.apache.org
 ```
 
 ## Contributing

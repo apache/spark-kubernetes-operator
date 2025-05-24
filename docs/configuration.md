@@ -29,20 +29,20 @@ Spark Operator supports different ways to configure the behavior:
   files](../build-tools/helm/spark-kubernetes-operator/values.yaml).
 * **System Properties** : when provided as system properties (e.g. via -D options to the
   operator JVM), it overrides the values provided in property file.
-* **Hot property loading** : when enabled, a 
-  [configmap](https://kubernetes.io/docs/concepts/configuration/configmap/) would be created with 
-  the operator in the same namespace. Operator can monitor updates performed on the configmap. Hot 
+* **Hot property loading** : when enabled, a
+  [configmap](https://kubernetes.io/docs/concepts/configuration/configmap/) would be created with
+  the operator in the same namespace. Operator can monitor updates performed on the configmap. Hot
   properties reloading takes higher precedence comparing with default properties override.
-    - An example use case: operator use hot properties to figure the list of namespace(s) to
+  * An example use case: operator use hot properties to figure the list of namespace(s) to
       operate Spark applications. The hot properties config map can be updated and
       maintained by user or additional microservice to tune the operator behavior without
       rebooting it.
-    - Please be advised that not all properties can be hot-loaded and honored at runtime.
+  * Please be advised that not all properties can be hot-loaded and honored at runtime.
       Refer the list of [supported properties](./config_properties.md) for more details.
 
 To enable hot properties loading, update the **helm chart values file** with
 
-```
+```yaml
 operatorConfiguration:
   spark-operator.properties: |+
     spark.operator.dynamic.config.enabled=true
@@ -60,18 +60,18 @@ the [Dropwizard Metrics Library](https://metrics.dropwizard.io/4.2.25/). Note th
 does not have Spark UI, MetricsServlet
 and PrometheusServlet from org.apache.spark.metrics.sink package are not supported. If you are
 interested in Prometheus metrics exporting, please take a look at below
-section [Forward Metrics to Prometheus](#Forward-Metrics-to-Prometheus)
+section [Forward Metrics to Prometheus](#forward-metrics-to-prometheus)
 
 ### JVM Metrics
 
 Spark Operator collects JVM metrics
 via [Codahale JVM Metrics](https://javadoc.io/doc/com.codahale.metrics/metrics-jvm/latest/index.html)
 
-- BufferPoolMetricSet
-- FileDescriptorRatioGauge
-- GarbageCollectorMetricSet
-- MemoryUsageGaugeSet
-- ThreadStatesGaugeSet
+* BufferPoolMetricSet
+* FileDescriptorRatioGauge
+* GarbageCollectorMetricSet
+* MemoryUsageGaugeSet
+* ThreadStatesGaugeSet
 
 ### Kubernetes Client Metrics
 
@@ -81,15 +81,15 @@ via [Codahale JVM Metrics](https://javadoc.io/doc/com.codahale.metrics/metrics-j
 | kubernetes.client.http.response                           | Meter      | Tracking the rates of HTTP response from the Kubernetes API Server                                                       |
 | kubernetes.client.http.response.failed                    | Meter      | Tracking the rates of HTTP requests which have no response from the Kubernetes API Server                                |
 | kubernetes.client.http.response.latency.nanos             | Histograms | Measures the statistical distribution of HTTP response latency from the Kubernetes API Server                            |
-| kubernetes.client.http.response.<ResponseCode>            | Meter      | Tracking the rates of HTTP response based on response code from the Kubernetes API Server                                |
-| kubernetes.client.http.request.<RequestMethod>            | Meter      | Tracking the rates of HTTP request based type of method to the Kubernetes API Server                                     |
+| kubernetes.client.http.response.`ResponseCode`            | Meter      | Tracking the rates of HTTP response based on response code from the Kubernetes API Server                                |
+| kubernetes.client.http.request.`RequestMethod`            | Meter      | Tracking the rates of HTTP request based type of method to the Kubernetes API Server                                     |
 | kubernetes.client.http.response.1xx                       | Meter      | Tracking the rates of HTTP Code 1xx responses (informational) received from the Kubernetes API Server per response code. |
 | kubernetes.client.http.response.2xx                       | Meter      | Tracking the rates of HTTP Code 2xx responses (success) received from the Kubernetes API Server per response code.       |
 | kubernetes.client.http.response.3xx                       | Meter      | Tracking the rates of HTTP Code 3xx responses (redirection) received from the Kubernetes API Server per response code.   |
 | kubernetes.client.http.response.4xx                       | Meter      | Tracking the rates of HTTP Code 4xx responses (client error) received from the Kubernetes API Server per response code.  |
 | kubernetes.client.http.response.5xx                       | Meter      | Tracking the rates of HTTP Code 5xx responses (server error) received from the Kubernetes API Server per response code.  |
-| kubernetes.client.<ResourceName>.<Method>                 | Meter      | Tracking the rates of HTTP request for a combination of one Kubernetes resource and one http method                      |
-| kubernetes.client.<NamespaceName>.<ResourceName>.<Method> | Meter      | Tracking the rates of HTTP request for a combination of one namespace-scoped Kubernetes resource and one http method     |
+| kubernetes.client.`ResourceName`.`Method`                 | Meter      | Tracking the rates of HTTP request for a combination of one Kubernetes resource and one http method                      |
+| kubernetes.client.`NamespaceName`.`ResourceName`.`Method` | Meter      | Tracking the rates of HTTP request for a combination of one namespace-scoped Kubernetes resource and one http method     |
 
 ### Forward Metrics to Prometheus
 
@@ -141,4 +141,4 @@ kubectl port-forward --address 0.0.0.0 pod/prometheus-server-654bc74fc9-8hgkb  8
 
 open your browser with address `localhost:8080`. Click on Status Targets tab, you should be able
 to find target as below.
-[<img src="resources/prometheus.png">](resources/prometheus.png)
+[![Prometheus](resources/prometheus.png)](resources/prometheus.png)
