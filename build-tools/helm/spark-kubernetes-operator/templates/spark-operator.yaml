@@ -31,6 +31,7 @@ spec:
   template:
     metadata:
       labels:
+        spark-role: operator
         {{- include "spark-operator.deploymentSelectorLabels" . | nindent 8 }}
         {{- if index (.Values.operatorDeployment.operatorPod) "labels" }}
           {{- with .Values.operatorDeployment.operatorPod.labels }}

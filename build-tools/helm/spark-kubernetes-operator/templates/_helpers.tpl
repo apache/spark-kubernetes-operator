@@ -54,6 +54,7 @@ app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 helm.sh/chart: {{ include "spark-operator.chart" . }}
+spark-role: operator
 {{- end }}
 
 {{/*
