@@ -25,8 +25,8 @@ $ helm repo add spark https://apache.github.io/spark-kubernetes-operator
 $ helm repo update
 $ helm install spark spark/spark-kubernetes-operator
 $ helm list
-NAME 	NAMESPACE	REVISION	UPDATED                            	STATUS  	CHART                          	APP VERSION
-spark	default  	1       	2025-05-20 11:32:45.58896 -0700 PDT	deployed	spark-kubernetes-operator-1.0.0	0.2.0
+NAME  NAMESPACE REVISION UPDATED                             STATUS   CHART                           APP VERSION
+spark default   1        2025-05-20 11:32:45.58896 -0700 PDT deployed spark-kubernetes-operator-1.0.0 0.2.0
 ```
 
 ## Run Spark Pi App
@@ -75,7 +75,7 @@ sparkcluster.spark.apache.org "prod" deleted
 
 Check the existing Spark applications and clusters. If exists, delete them.
 
-```
+```bash
 $ kubectl get sparkapp
 No resources found in default namespace.
 
@@ -85,10 +85,10 @@ No resources found in default namespace.
 
 Remove HelmChart and CRDs.
 
-```
-$ helm uninstall spark
+```bash
+helm uninstall spark
 
-$ kubectl delete crd sparkapplications.spark.apache.org
+kubectl delete crd sparkapplications.spark.apache.org
 
-$ kubectl delete crd sparkclusters.spark.apache.org
+kubectl delete crd sparkclusters.spark.apache.org
 ```
