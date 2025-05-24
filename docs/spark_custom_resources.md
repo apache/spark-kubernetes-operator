@@ -17,21 +17,21 @@ specific language governing permissions and limitations
 under the License.
 -->
 
-## Spark Operator API
+# Spark Operator API
 
-The core user facing API of the Spark Kubernetes Operator is the `SparkApplication` and 
-`SparkCluster` Custom Resources Definition (CRD). Spark custom resource extends 
+The core user facing API of the Spark Kubernetes Operator is the `SparkApplication` and
+`SparkCluster` Custom Resources Definition (CRD). Spark custom resource extends
 standard k8s API, defines Spark Application spec and tracks status.
 
 Once the Spark Operator is installed and running in your Kubernetes environment, it will
-continuously watch SparkApplication(s) and SparkCluster(s) submitted, via k8s API client or 
+continuously watch SparkApplication(s) and SparkCluster(s) submitted, via k8s API client or
 kubectl by the user, orchestrate secondary resources (pods, configmaps .etc).
 
 Please check out the [quickstart](../README.md) as well for installing operator.
 
 ## SparkApplication
 
-SparkApplication can be defined in YAML format. User may configure the application entrypoint 
+SparkApplication can be defined in YAML format. User may configure the application entrypoint
 and configurations. Let's start with the [Spark-Pi example](../examples/pi.yaml):
 
 ```yaml
@@ -59,7 +59,7 @@ spec:
 After application is submitted, Operator will add status information to your application based on
 the observed state:
 
-```
+```bash
 kubectl get sparkapp pi -o yaml
 ```
 
@@ -101,8 +101,8 @@ refer [Spark doc](https://spark.apache.org/docs/latest/running-on-kubernetes.htm
 ## Enable Additional Ingress for Driver
 
 Operator may create [Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/) for
-Spark driver of running applications on demand. For example, to expose Spark UI - which is by 
-default enabled on driver port 4040, you may configure 
+Spark driver of running applications on demand. For example, to expose Spark UI - which is by
+default enabled on driver port 4040, you may configure
 
 ```yaml
 spec:
@@ -132,16 +132,16 @@ spec:
                         number: 80
 ```
 
-Spark Operator by default would populate the `.spec.selector` field of the created Service to match 
+Spark Operator by default would populate the `.spec.selector` field of the created Service to match
 the driver labels. If `.ingressSpec.rules` is not provided, Spark Operator would also populate one
-default rule backed by the associated Service. It's recommended to always provide the ingress spec 
-to make sure it's compatible with your 
+default rule backed by the associated Service. It's recommended to always provide the ingress spec
+to make sure it's compatible with your
 [IngressController](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/).
 
 ## Create and Mount ConfigMap
 
-It is possible to ask operator to create configmap so they can be used by driver and/or executor 
-pods on the fly. `configMapSpecs` allows you to specify the desired metadata and data as string 
+It is possible to ask operator to create configmap so they can be used by driver and/or executor
+pods on the fly. `configMapSpecs` allows you to specify the desired metadata and data as string
 literals for the configmap(s) to be created.
 
 ```yaml
@@ -155,9 +155,9 @@ spec:
 Like other app-specific resources, the created configmap has owner reference to Spark driver and
 therefore shares the same lifecycle and garbage collection mechanism with the associated app.  
 
-This feature can be used to create lightweight override config files for given Spark app. For 
+This feature can be used to create lightweight override config files for given Spark app. For
 example, below snippet would create and mount a configmap with metrics property file, then use it
-in SparkConf:   
+in SparkConf:
 
 ```yaml
 spec:
@@ -201,17 +201,11 @@ with non-zero code), Spark Operator introduces a few different failure state for
 app status monitoring at high level, and for ease of setting up different handlers if users
 are creating / managing SparkApplications with external microservices or workflow engines.
 
-
 Spark Operator recognizes "infrastructure failure" in the best effort way. It is possible to
 configure different restart policy on general failure(s) vs. on potential infrastructure
 failure(s). For example, you may configure the app to restart only upon infrastructure
-failures. If Spark application fails as a result of
-
-```
-DriverStartTimedOut
-ExecutorsStartTimedOut
-SchedulingFailure
-```
+failures. If Spark application fails as a result of `DriverStartTimedOut`,
+`ExecutorsStartTimedOut`, `SchedulingFailure`.
 
 It is more likely that the app failed as a result of infrastructure reason(s), including
 scenarios like driver or executors cannot be scheduled or cannot initialize in configured
@@ -242,9 +236,8 @@ restartConfig:
 
 ### Timeouts
 
-It's possible to configure applications to be proactively terminated and resubmitted in particular 
-cases to avoid resource deadlock. 
-
+It's possible to configure applications to be proactively terminated and resubmitted in particular
+cases to avoid resource deadlock.
 
 | Field                                                                                   | Type    | Default Value | Descritpion                                                                                                        |
 |-----------------------------------------------------------------------------------------|---------|---------------|--------------------------------------------------------------------------------------------------------------------|
@@ -253,7 +246,6 @@ cases to avoid resource deadlock.
 | .spec.applicationTolerations.applicationTimeoutConfig.forceTerminationGracePeriodMillis | integer | 300000        | Time to wait for force delete resources at the end of attempt.                                                     |
 | .spec.applicationTolerations.applicationTimeoutConfig.driverReadyTimeoutMillis          | integer | 300000        | Time to wait for driver reaches ready state.                                                                       |
 | .spec.applicationTolerations.applicationTimeoutConfig.terminationRequeuePeriodMillis    | integer | 2000          | Back-off time when releasing resource need to be re-attempted for application.                                     |
-
 
 ### Instance Config
 
@@ -318,5 +310,5 @@ worker instances would be deployed as [StatefulSets](https://kubernetes.io/docs/
 and exposed via k8s [service(s)](https://kubernetes.io/docs/concepts/services-networking/service/).
 
 Like Pod Template Support for Applications, it's also possible to submit template(s) for the Spark
-instances for `SparkCluster` to configure spec that's not supported via SparkConf. It's worth notice 
+instances for `SparkCluster` to configure spec that's not supported via SparkConf. It's worth notice
 that Spark may overwrite certain fields.

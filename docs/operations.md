@@ -17,15 +17,17 @@ specific language governing permissions and limitations
 under the License.
 -->
 
-### Compatibility
+# Operations
+
+## Compatibility
 
 - Java 17, 21 and 24
 - Kubernetes version compatibility:
-    + k8s version >= 1.30 is recommended. Operator attempts to be API compatible as possible, but
+  - k8s version >= 1.30 is recommended. Operator attempts to be API compatible as possible, but
       patch support will not be performed on k8s versions that reached EOL.
 - Spark versions 3.5 or above.
 
-### Spark Application Namespaces
+## Spark Application Namespaces
 
 By default, Spark applications are created in the same namespace as the operator deployment.
 You many also configure the chart deployment to add necessary RBAC resources for
@@ -38,7 +40,7 @@ in `values.yaml`) for the Helm chart.
 
 To override single parameters you can use `--set`, for example:
 
-```
+```bash
 helm install --set image.repository=<my_registory>/spark-kubernetes-operator \
    -f build-tools/helm/spark-kubernetes-operator/values.yaml \
   build-tools/helm/spark-kubernetes-operator/
@@ -47,7 +49,7 @@ helm install --set image.repository=<my_registory>/spark-kubernetes-operator \
 You can also provide multiple custom values file by using the `-f` flag, the latest takes
 higher precedence:
 
-```
+```bash
 helm install spark-kubernetes-operator \
    -f build-tools/helm/spark-kubernetes-operator/values.yaml \
    -f my_values.yaml \
