@@ -24,7 +24,7 @@ spec:
     spark.executor.cores: "1"
     spark.cores.max: "3"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
-    spark.kubernetes.container.image: "apache/spark:4.0.0-preview2"
+    spark.kubernetes.container.image: "apache/spark:4.0.0"
     spark.ui.reverseProxy: "true"
   runtimeVersions:
-    sparkVersion: "4.0.0-preview2"
+    sparkVersion: "4.0.0"

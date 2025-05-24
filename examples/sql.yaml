@@ -25,6 +25,6 @@ spec:
     spark.dynamicAllocation.shuffleTracking.enabled: "true"
     spark.dynamicAllocation.maxExecutors: "3"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
-    spark.kubernetes.container.image: "apache/spark:4.0.0-preview2"
+    spark.kubernetes.container.image: "apache/spark:4.0.0"
   runtimeVersions:
-    sparkVersion: "4.0.0-preview2"
+    sparkVersion: "4.0.0"
