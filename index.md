@@ -57,6 +57,16 @@ $ kubectl delete sparkapp spark-connect-server
 sparkapplication.spark.apache.org "spark-connect-server" deleted
 ```
 
+## Run [Spark Connect Swift](https://apache.github.io/spark-connect-swift/) App via [K8s Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/)
+
+```bash
+$ kubectl apply -f https://apache.github.io/spark-kubernetes-operator/pi-swift.yaml
+job.batch/spark-connect-swift-pi created
+
+$ kubectl logs -f job/spark-connect-swift-pi
+Pi is roughly 3.1426151426151425
+```
+
 ## Run Spark Cluster
 
 ```bash
