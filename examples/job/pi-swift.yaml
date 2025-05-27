@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
       - name: job
-        image: dongjoon/spark-connect-swift:pi
+        image: apache/spark-connect-swift:pi
         env:
         - name: SPARK_REMOTE
           value: 'sc://spark-connect-server-0-driver-svc:15002'
