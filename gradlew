@@ -89,11 +89,11 @@ APP_BASE_NAME=${0##*/}
 APP_HOME=$( cd -P "${APP_HOME:-./}" > /dev/null && printf '%s
 ' "$PWD" ) || exit
 if [ ! -e $APP_HOME/gradle/wrapper/gradle-wrapper.jar -a "$(command -v curl)" ]; then
-    curl -o $APP_HOME/gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.14.1/gradle/wrapper/gradle-wrapper.jar
+    curl -o $APP_HOME/gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.14.2/gradle/wrapper/gradle-wrapper.jar
 fi
 # If the file still doesn't exist, let's try `wget` and cross our fingers
 if [ ! -e $APP_HOME/gradle/wrapper/gradle-wrapper.jar -a "$(command -v wget)" ]; then
-    wget -O $APP_HOME/gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.14.1/gradle/wrapper/gradle-wrapper.jar
+    wget -O $APP_HOME/gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.14.2/gradle/wrapper/gradle-wrapper.jar
 fi
 
 # Use the maximum available, or set MAX_FD != -1 to use that value.
