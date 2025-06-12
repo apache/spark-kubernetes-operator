@@ -25,7 +25,6 @@ spec:
   pyFiles: "local:///opt/spark/examples/src/main/python/streaming/network_wordcount.py"
   sparkConf:
     spark.executor.instances: "1"
-    # see also https://hub.docker.com/_/spark
     spark.kubernetes.container.image: ($IMAGE)
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
   runtimeVersions:
