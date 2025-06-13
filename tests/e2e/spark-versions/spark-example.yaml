@@ -26,7 +26,6 @@ spec:
   jars: ($JARS)
   sparkConf:
     spark.executor.instances: "1"
-    # see also https://hub.docker.com/_/spark
     spark.kubernetes.container.image: ($IMAGE)
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
   runtimeVersions:
