@@ -38,6 +38,7 @@ spec:
           - /bin/sh
           - -c
           - >
+            awslocal s3 mb s3://spark-events;
             awslocal s3 mb s3://data;
             awslocal s3 cp /opt/code/localstack/Makefile s3://data/
 ---
