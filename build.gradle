@@ -54,10 +54,13 @@ subprojects {
   }
 
   repositories {
-    mavenCentral()
+    // Google Mirror of Maven Central, placed first so that it's used instead of flaky Maven Central.
+    // See https://storage-download.googleapis.com/maven-central/index.html
     maven {
-      url = "https://repository.apache.org/content/repositories/snapshots/"
+      name = "GCS Maven Central mirror"
+      url = uri("https://maven-central.storage-download.googleapis.com/maven2/")
     }
+    mavenCentral()
   }
 
   apply plugin: 'checkstyle'
