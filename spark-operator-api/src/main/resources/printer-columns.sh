@@ -21,7 +21,7 @@
 # We do a yq to add printer columns
 
 SCRIPT_PATH=$(cd "$(dirname "$0")"; pwd)
+printerColumns='"additionalPrinterColumns": [{"jsonPath": ".status.currentState.currentStateSummary", "name": "Current State", "type": "string"}, {"jsonPath": ".metadata.creationTimestamp", "name": "Age", "type": "date"}]'
 for f in $(ls ${SCRIPT_PATH}/../../../build/classes/java/main/META-INF/fabric8/*.spark.apache.org-v1.yml); do
-  yq -i '.spec.versions[0] += ({"additionalPrinterColumns": [{"jsonPath": ".status.currentState.currentStateSummary", "name": "Current State", "type": "string"}, {"jsonPath": ".metadata.creationTimestamp", "name": "Age", "type": "date"}]})' $f
+  yq -i ".spec.versions |= map (. + ({$printerColumns}))" $f
 done
-
