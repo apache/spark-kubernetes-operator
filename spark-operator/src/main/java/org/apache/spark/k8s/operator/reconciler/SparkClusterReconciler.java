@@ -19,32 +19,29 @@
 
 package org.apache.spark.k8s.operator.reconciler;
 
+import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_APPLICATION_NAME;
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.completeAndDefaultRequeue;
+import static org.apache.spark.k8s.operator.utils.Utils.basicLabelSecondaryToPrimaryMapper;
 import static org.apache.spark.k8s.operator.utils.Utils.commonResourceLabelsStr;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import io.fabric8.kubernetes.api.model.Pod;
-import io.javaoperatorsdk.operator.api.config.informer.InformerConfiguration;
+import io.javaoperatorsdk.operator.api.config.informer.InformerEventSourceConfiguration;
 import io.javaoperatorsdk.operator.api.reconciler.Cleaner;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
 import io.javaoperatorsdk.operator.api.reconciler.ControllerConfiguration;
 import io.javaoperatorsdk.operator.api.reconciler.DeleteControl;
-import io.javaoperatorsdk.operator.api.reconciler.ErrorStatusHandler;
 import io.javaoperatorsdk.operator.api.reconciler.ErrorStatusUpdateControl;
 import io.javaoperatorsdk.operator.api.reconciler.EventSourceContext;
-import io.javaoperatorsdk.operator.api.reconciler.EventSourceInitializer;
 import io.javaoperatorsdk.operator.api.reconciler.Reconciler;
 import io.javaoperatorsdk.operator.api.reconciler.UpdateControl;
 import io.javaoperatorsdk.operator.processing.event.source.EventSource;
 import io.javaoperatorsdk.operator.processing.event.source.informer.InformerEventSource;
-import io.javaoperatorsdk.operator.processing.event.source.informer.Mappers;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.SparkCluster;
 import org.apache.spark.k8s.operator.SparkClusterSubmissionWorker;
 import org.apache.spark.k8s.operator.context.SparkClusterContext;
@@ -61,11 +58,7 @@ import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
 @ControllerConfiguration
 @Slf4j
 @RequiredArgsConstructor
-public class SparkClusterReconciler
-    implements Reconciler<SparkCluster>,
-        ErrorStatusHandler<SparkCluster>,
-        EventSourceInitializer<SparkCluster>,
-        Cleaner<SparkCluster> {
+public class SparkClusterReconciler implements Reconciler<SparkCluster>, Cleaner<SparkCluster> {
   private final SparkClusterSubmissionWorker submissionWorker;
   private final SparkClusterStatusRecorder sparkClusterStatusRecorder;
   private final SentinelManager<SparkCluster> sentinelManager;
@@ -118,16 +111,17 @@ public class SparkClusterReconciler
   }
 
   @Override
-  public Map<String, EventSource> prepareEventSources(EventSourceContext<SparkCluster> context) {
+  public List<EventSource<?, SparkCluster>> prepareEventSources(
+      EventSourceContext<SparkCluster> context) {
     EventSource podEventSource =
         new InformerEventSource<>(
-            InformerConfiguration.from(Pod.class, context)
+            InformerEventSourceConfiguration.from(Pod.class, SparkCluster.class)
                 .withSecondaryToPrimaryMapper(
-                    Mappers.fromLabel(Constants.LABEL_SPARK_APPLICATION_NAME))
+                    basicLabelSecondaryToPrimaryMapper(LABEL_SPARK_APPLICATION_NAME))
                 .withLabelSelector(commonResourceLabelsStr())
                 .build(),
             context);
-    return EventSourceInitializer.nameEventSources(podEventSource);
+    return List.of(podEventSource);
   }
 
   protected List<ClusterReconcileStep> getReconcileSteps(final SparkCluster cluster) {
