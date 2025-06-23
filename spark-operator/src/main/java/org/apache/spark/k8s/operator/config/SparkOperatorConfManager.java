@@ -20,6 +20,7 @@
 package org.apache.spark.k8s.operator.config;
 
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
@@ -94,6 +95,8 @@ public class SparkOperatorConfManager {
     Properties properties = new Properties();
     try (InputStream inputStream = new FileInputStream(filePath)) {
       properties.load(inputStream);
+    } catch (FileNotFoundException e) {
+      log.warn("File Not Found: {}", filePath);
     } catch (IOException e) {
       log.error("Failed to load properties from {}.", filePath, e);
     }
