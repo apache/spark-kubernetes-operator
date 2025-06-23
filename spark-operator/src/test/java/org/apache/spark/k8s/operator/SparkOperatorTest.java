@@ -142,6 +142,7 @@ class SparkOperatorTest {
     }
   }
 
+  @SuppressWarnings("PMD.UnusedLocalVariable")
   @Test
   void testUpdateWatchedNamespacesWithDynamicConfigEnabled() {
     MetricsSystem mockMetricsSystem = mock(MetricsSystem.class);
