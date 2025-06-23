@@ -49,6 +49,7 @@ import org.apache.spark.k8s.operator.status.ApplicationAttemptSummary;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
 import org.apache.spark.k8s.operator.status.AttemptInfo;
 
+@SuppressWarnings("PMD.UnusedLocalVariable")
 class SparkAppSubmissionWorkerTest {
   @Test
   void buildDriverConfShouldApplySpecAndPropertiesOverride() {

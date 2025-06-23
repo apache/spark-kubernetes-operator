@@ -85,6 +85,7 @@ class SparkAppReconcilerTest {
         .appendNewStateAndPersist(any(SparkAppContext.class), any(ApplicationState.class));
   }
 
+  @SuppressWarnings("PMD.UnusedLocalVariable")
   @Test
   void testCleanupRunningApp() {
     try (MockedConstruction<SparkAppContext> mockAppContext =
