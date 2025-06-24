@@ -60,8 +60,10 @@ public class SparkOperatorConfManager {
   }
 
   public String getValue(String key) {
-    String currentValue = configOverrides.getProperty(key);
-    return StringUtils.isEmpty(currentValue) ? getInitialValue(key) : currentValue;
+    synchronized (this) {
+      String currentValue = configOverrides.getProperty(key);
+      return StringUtils.isEmpty(currentValue) ? getInitialValue(key) : currentValue;
+    }
   }
 
   public String getInitialValue(String key) {
