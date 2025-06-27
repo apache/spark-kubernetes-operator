@@ -188,6 +188,7 @@ public class SparkOperator {
       overrider.withMetrics(operatorJosdkMetrics);
       metricsSystem.registerSource(operatorJosdkMetrics);
     }
+    overrider.withUseSSAToPatchPrimaryResource(false);
   }
 
   protected void overrideConfigMonitorConfigs(ConfigurationServiceOverrider overrider) {
