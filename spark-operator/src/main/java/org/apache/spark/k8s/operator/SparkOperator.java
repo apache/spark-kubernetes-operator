@@ -199,6 +199,7 @@ public class SparkOperator {
     overrider.withInformerStoppedHandler(
         (informer, ex) ->
             log.error("Dynamic config informer stopped: operator will not accept config updates."));
+    overrider.withUseSSAToPatchPrimaryResource(false);
   }
 
   protected void overrideControllerConfigs(ControllerConfigurationOverrider<?> overrider) {
