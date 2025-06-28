@@ -16,7 +16,7 @@
 image:
   repository: apache/spark-kubernetes-operator
   pullPolicy: IfNotPresent
-  tag: 0.4.0-SNAPSHOT
+  tag: 0.5.0-SNAPSHOT
   # If image digest is set then it takes precedence and the image tag will be ignored
   # digest: ""
 
