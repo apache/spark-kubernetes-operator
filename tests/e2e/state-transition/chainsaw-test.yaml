@@ -47,7 +47,7 @@ spec:
         file: "../assertions/spark-application/spark-state-transition.yaml"
     catch:
     - describe:
-        apiVersion: spark.apache.org/v1beta1
+        apiVersion: spark.apache.org/v1
         kind: SparkApplication
         namespace: default
     finally:
@@ -72,7 +72,7 @@ spec:
         file: "../assertions/spark-cluster/spark-cluster-state-transition.yaml"
     catch:
     - describe:
-        apiVersion: spark.apache.org/v1beta1
+        apiVersion: spark.apache.org/v1
         kind: SparkCluster
         namespace: default
     finally:

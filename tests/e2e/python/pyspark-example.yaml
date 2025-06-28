@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-apiVersion: spark.apache.org/v1beta1
+apiVersion: spark.apache.org/v1
 kind: SparkApplication
 metadata:
   name: ($SPARK_APPLICATION_NAME)

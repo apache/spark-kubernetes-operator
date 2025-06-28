@@ -40,6 +40,6 @@ cluster using the [Helm](https://helm.sh) package manager. With this, you can la
 
 - Support Apache Spark 3.5+
 - Support `SparkApp` and `SparkCluster` CRDs
-  - `sparkapplications.spark.apache.org` (v1beta1)
-  - `sparkclusters.spark.apache.org` (v1beta1)
+  - `sparkapplications.spark.apache.org` (v1)
+  - `sparkclusters.spark.apache.org` (v1)
 - Support HPA for SparkCluster

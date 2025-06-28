@@ -54,7 +54,7 @@ spec:
         - events:
             namespace: default
         - describe:
-            apiVersion: spark.apache.org/v1beta1
+            apiVersion: spark.apache.org/v1
             kind: SparkApplication
             namespace: default
         - describe:

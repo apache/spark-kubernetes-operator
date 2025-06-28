@@ -15,7 +15,7 @@
 #
 # Since this requires a remote storage, prepare it via `localstack.yml`.
 #
-apiVersion: spark.apache.org/v1beta1
+apiVersion: spark.apache.org/v1
 kind: SparkApplication
 metadata:
   name: dfs-read-write
