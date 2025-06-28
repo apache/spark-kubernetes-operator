@@ -144,7 +144,7 @@ send the HTTP Get to the liveness endpoint, and the
 kubelet will then kill the spark operator container and restart it.
 
 ```yaml
-apiVersion: org.apache.spark/v1beta1
+apiVersion: org.apache.spark/v1
 kind: SparkApplication
 metadata:
   name: spark-sentinel-resources

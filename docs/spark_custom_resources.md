@@ -35,7 +35,7 @@ SparkApplication can be defined in YAML format. User may configure the applicati
 and configurations. Let's start with the [Spark-Pi example](../examples/pi.yaml):
 
 ```yaml
-apiVersion: spark.apache.org/v1beta1
+apiVersion: spark.apache.org/v1
 kind: SparkApplication
 metadata:
   name: pi
