@@ -31,6 +31,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
+/** Spec for a Spark application. */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

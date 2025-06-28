@@ -26,6 +26,11 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
+/**
+ * Base class for state information.
+ *
+ * @param <T> The type of the current state summary.
+ */
 @Data
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)

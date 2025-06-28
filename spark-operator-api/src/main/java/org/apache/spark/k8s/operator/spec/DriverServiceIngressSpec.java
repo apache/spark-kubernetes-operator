@@ -28,6 +28,7 @@ import io.fabric8.kubernetes.api.model.networking.v1.IngressSpec;
 import lombok.Builder;
 import lombok.Data;
 
+/** Spec for a driver service ingress. */
 @Data
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)

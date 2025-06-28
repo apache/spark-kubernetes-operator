@@ -37,7 +37,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import org.apache.spark.metrics.sink.PrometheusServlet;
 
-/** Serves as simple Prometheus sink (pull model), presenting metrics snapshot as HttpHandler */
+/** Serves as simple Prometheus sink (pull model), presenting metrics snapshot as HttpHandler. */
 @Slf4j
 public class PrometheusPullModelHandler extends PrometheusServlet implements HttpHandler {
   private static final String EMPTY_RECORD_VALUE = "[]";

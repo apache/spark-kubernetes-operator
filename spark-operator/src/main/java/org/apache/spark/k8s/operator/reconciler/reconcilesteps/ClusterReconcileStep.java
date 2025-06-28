@@ -27,7 +27,7 @@ import org.apache.spark.k8s.operator.status.ClusterState;
 import org.apache.spark.k8s.operator.status.ClusterStatus;
 import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
 
-/** Basic reconcile step for cluster */
+/** Basic reconcile step for cluster. */
 public abstract class ClusterReconcileStep {
   public abstract ReconcileProgress reconcile(
       SparkClusterContext context, SparkClusterStatusRecorder statusRecorder);

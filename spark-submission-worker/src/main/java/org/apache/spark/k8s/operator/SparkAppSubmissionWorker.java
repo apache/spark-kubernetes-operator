@@ -44,7 +44,7 @@ import org.apache.spark.k8s.operator.utils.ModelUtils;
 
 /**
  * Similar to org.apache.spark.deploy.k8s.submit.KubernetesClientApplication. This reads args from
- * SparkApplication instead of starting separate spark-submit process
+ * SparkApplication instead of starting separate spark-submit process.
  */
 public class SparkAppSubmissionWorker {
   // Default length limit for generated app id. Generated id is used as resource-prefix when

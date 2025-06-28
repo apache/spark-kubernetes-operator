@@ -31,7 +31,11 @@ import org.apache.commons.lang3.StringUtils;
 
 import org.apache.spark.k8s.operator.utils.ModelUtils;
 
-/** Config options for Spark Operator. Supports primitive and serialized JSON */
+/**
+ * Config options for Spark Operator. Supports primitive and serialized JSON.
+ *
+ * @param <T> The type of the config option's value.
+ */
 @RequiredArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode

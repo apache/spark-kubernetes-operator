@@ -28,7 +28,7 @@ import java.util.concurrent.Executor;
 import com.sun.net.httpserver.HttpServer;
 import lombok.extern.slf4j.Slf4j;
 
-/** Start Http service at endpoint /prometheus, exposing operator metrics */
+/** Start Http service at endpoint /prometheus, exposing operator metrics. */
 @Slf4j
 public class MetricsService {
   HttpServer server;

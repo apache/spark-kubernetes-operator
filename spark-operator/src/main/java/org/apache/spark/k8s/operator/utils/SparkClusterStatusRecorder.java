@@ -27,6 +27,7 @@ import org.apache.spark.k8s.operator.listeners.SparkClusterStatusListener;
 import org.apache.spark.k8s.operator.status.ClusterState;
 import org.apache.spark.k8s.operator.status.ClusterStatus;
 
+/** Records the status of a Spark cluster. */
 public class SparkClusterStatusRecorder
     extends StatusRecorder<ClusterStatus, SparkCluster, SparkClusterStatusListener> {
   public SparkClusterStatusRecorder(List<SparkClusterStatusListener> statusListeners) {

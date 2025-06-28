@@ -43,7 +43,7 @@ import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 import org.apache.spark.k8s.operator.utils.Utils;
 
 /**
- * Sentinel manager monitors dedicated sentinel resources to make sure the operator is healthy
+ * Sentinel manager monitors dedicated sentinel resources to make sure the operator is healthy.
  *
  * @param <CR> custom resource type
  */

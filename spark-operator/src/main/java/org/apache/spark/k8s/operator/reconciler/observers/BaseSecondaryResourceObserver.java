@@ -31,6 +31,13 @@ import org.apache.spark.k8s.operator.status.BaseStatus;
 /**
  * Observe given secondary resource, return state to be updated if applicable. These observers only
  * observe secondary resource status and update the status of owner, SparkApplication, if needed.
+ *
+ * @param <S> The type of the state summary.
+ * @param <AS> The type of the attempt summary.
+ * @param <STATE> The type of the state.
+ * @param <SPEC> The type of the spec.
+ * @param <STATUS> The type of the status.
+ * @param <SR> The type of the secondary resource.
  */
 public abstract class BaseSecondaryResourceObserver<
     S,

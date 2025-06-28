@@ -32,6 +32,7 @@ import org.apache.spark.k8s.operator.status.ClusterState;
 import org.apache.spark.k8s.operator.status.ClusterStateSummary;
 import org.apache.spark.k8s.operator.status.ClusterStatus;
 
+/** SparkCluster is the Custom Resource Definition (CRD) for a Spark cluster. */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonDeserialize()
 @Group(Constants.API_GROUP)

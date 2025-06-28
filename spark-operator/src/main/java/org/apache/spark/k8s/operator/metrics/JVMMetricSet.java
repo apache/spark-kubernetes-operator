@@ -31,6 +31,7 @@ import com.codahale.metrics.jvm.GarbageCollectorMetricSet;
 import com.codahale.metrics.jvm.MemoryUsageGaugeSet;
 import com.codahale.metrics.jvm.ThreadStatesGaugeSet;
 
+/** A MetricSet for JVM metrics. */
 public class JVMMetricSet implements MetricSet {
 
   /** Refer codahale FileDescriptorRatioGauge for the definition */

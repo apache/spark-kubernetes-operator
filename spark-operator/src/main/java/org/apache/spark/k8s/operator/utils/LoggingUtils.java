@@ -28,6 +28,7 @@ import org.slf4j.MDC;
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.status.ApplicationAttemptSummary;
 
+/** Utility class for logging. */
 public class LoggingUtils {
   public static final class TrackedMDC {
     public static final String AppAttemptIdKey = "resource.app.attemptId";

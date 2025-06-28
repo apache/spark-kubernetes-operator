@@ -28,6 +28,7 @@ import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
 
 import org.apache.spark.k8s.operator.spec.ConfigMapSpec;
 
+/** Utility class for ConfigMap specifications. */
 public final class ConfigMapSpecUtils {
   private ConfigMapSpecUtils() {}
 

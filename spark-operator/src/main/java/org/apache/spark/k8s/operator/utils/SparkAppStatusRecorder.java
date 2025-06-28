@@ -27,6 +27,7 @@ import org.apache.spark.k8s.operator.listeners.SparkAppStatusListener;
 import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
 
+/** Records the status of a Spark application. */
 public class SparkAppStatusRecorder
     extends StatusRecorder<ApplicationStatus, SparkApplication, SparkAppStatusListener> {
   public SparkAppStatusRecorder(List<SparkAppStatusListener> statusListeners) {

@@ -24,7 +24,7 @@ import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
 
-/** Handy utils for create and manage Application Status */
+/** Handy utils for create and manage Application Status. */
 public final class SparkAppStatusUtils {
 
   private SparkAppStatusUtils() {}

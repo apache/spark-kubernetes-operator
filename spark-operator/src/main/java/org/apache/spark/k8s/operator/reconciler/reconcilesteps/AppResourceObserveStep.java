@@ -28,7 +28,7 @@ import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.reconciler.observers.BaseAppDriverObserver;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 
-/** Observes secondary resource and update app status if needed */
+/** Observes secondary resource and update app status if needed. */
 @RequiredArgsConstructor
 public class AppResourceObserveStep extends AppReconcileStep {
 

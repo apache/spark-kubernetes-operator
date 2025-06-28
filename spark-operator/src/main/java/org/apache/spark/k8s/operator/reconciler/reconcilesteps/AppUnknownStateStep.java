@@ -30,7 +30,7 @@ import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 
-/** Abnormal state handler */
+/** Abnormal state handler. */
 public class AppUnknownStateStep extends AppReconcileStep {
   @Override
   public ReconcileProgress reconcile(

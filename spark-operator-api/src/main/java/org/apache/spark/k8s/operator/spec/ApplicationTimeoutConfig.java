@@ -26,6 +26,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/** Application timeout configuration. */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

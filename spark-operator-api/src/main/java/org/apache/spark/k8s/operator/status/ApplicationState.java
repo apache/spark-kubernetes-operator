@@ -32,6 +32,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
+/** Represents the state of a Spark application. */
 @ToString(callSuper = true)
 @EqualsAndHashCode(callSuper = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)

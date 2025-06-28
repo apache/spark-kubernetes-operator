@@ -45,6 +45,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.spark.k8s.operator.BaseResource;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 
+/** Utility class for reconciler operations. */
 @Slf4j
 public final class ReconcilerUtils {
 

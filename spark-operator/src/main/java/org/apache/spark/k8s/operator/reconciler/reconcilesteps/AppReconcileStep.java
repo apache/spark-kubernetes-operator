@@ -37,7 +37,7 @@ import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 
-/** Basic reconcile step for application */
+/** Basic reconcile step for application. */
 public abstract class AppReconcileStep {
   public abstract ReconcileProgress reconcile(
       SparkAppContext context, SparkAppStatusRecorder statusRecorder);

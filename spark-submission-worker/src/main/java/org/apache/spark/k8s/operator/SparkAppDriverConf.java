@@ -28,6 +28,7 @@ import org.apache.spark.deploy.k8s.KubernetesVolumeUtils;
 import org.apache.spark.deploy.k8s.submit.KubernetesClientUtils;
 import org.apache.spark.deploy.k8s.submit.MainAppResource;
 
+/** Spark application driver configuration. */
 public final class SparkAppDriverConf extends KubernetesDriverConf {
   private SparkAppDriverConf(
       SparkConf sparkConf,

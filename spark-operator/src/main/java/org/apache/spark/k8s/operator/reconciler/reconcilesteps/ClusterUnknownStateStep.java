@@ -26,7 +26,7 @@ import org.apache.spark.k8s.operator.status.ClusterState;
 import org.apache.spark.k8s.operator.status.ClusterStateSummary;
 import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
 
-/** Abnormal state handler */
+/** Abnormal state handler for clusters. */
 public class ClusterUnknownStateStep extends ClusterReconcileStep {
   @Override
   public ReconcileProgress reconcile(

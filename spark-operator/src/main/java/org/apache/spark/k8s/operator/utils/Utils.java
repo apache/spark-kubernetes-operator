@@ -46,6 +46,7 @@ import org.apache.spark.k8s.operator.SparkCluster;
 import org.apache.spark.k8s.operator.listeners.SparkAppStatusListener;
 import org.apache.spark.k8s.operator.listeners.SparkClusterStatusListener;
 
+/** Utility class for common operations. */
 public final class Utils {
 
   private Utils() {}

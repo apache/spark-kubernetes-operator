@@ -33,6 +33,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import org.apache.spark.k8s.operator.metrics.healthcheck.SentinelManager;
 
+/** Service for health and readiness probes. */
 @Slf4j
 public class ProbeService {
   public static final String HEALTHZ = "/healthz";

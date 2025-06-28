@@ -40,7 +40,7 @@ import org.apache.spark.k8s.operator.status.ClusterState;
 import org.apache.spark.k8s.operator.status.ClusterStatus;
 import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
 
-/** Request cluster master and its resources when starting an attempt */
+/** Request cluster master and its resources when starting an attempt. */
 @Slf4j
 public class ClusterInitStep extends ClusterReconcileStep {
   @Override

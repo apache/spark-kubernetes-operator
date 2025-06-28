@@ -40,7 +40,7 @@ import org.apache.spark.k8s.operator.utils.ModelUtils;
 import org.apache.spark.k8s.operator.utils.PodPhase;
 import org.apache.spark.k8s.operator.utils.PodUtils;
 
-/** Observes driver pod status and update Application status as needed */
+/** Observes driver pod status and update Application status as needed. */
 @Slf4j
 public abstract class BaseAppDriverObserver
     extends BaseSecondaryResourceObserver<

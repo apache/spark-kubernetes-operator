@@ -27,6 +27,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/** Base class for application template specs for driver and executors. */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

@@ -44,6 +44,7 @@ import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.decorators.DriverDecorator;
 import org.apache.spark.k8s.operator.utils.ModelUtils;
 
+/** Factory for creating SparkAppResourceSpec objects. */
 @Slf4j
 public final class SparkAppResourceSpecFactory {
 
@@ -74,7 +75,6 @@ public final class SparkAppResourceSpecFactory {
     if (app.getSpec().getSparkConf().containsKey("spark.app.name")) {
       confOverrides.put("spark.app.name", app.getMetadata().getName());
     }
-    // FIXME: avoid this file flushing
     confOverrides.putAll(getOrCreateLocalFileForDriverSpec(app, confOverrides));
     confOverrides.putAll(getOrCreateLocalFileForExecutorSpec(app, confOverrides));
     return confOverrides;

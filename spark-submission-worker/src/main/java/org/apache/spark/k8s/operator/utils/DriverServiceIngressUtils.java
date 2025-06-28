@@ -35,6 +35,7 @@ import io.fabric8.kubernetes.api.model.networking.v1.IngressSpecBuilder;
 
 import org.apache.spark.k8s.operator.spec.DriverServiceIngressSpec;
 
+/** Utility class for driver service ingress. */
 public final class DriverServiceIngressUtils {
   private DriverServiceIngressUtils() {}
 

@@ -57,7 +57,7 @@ import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
 /**
  * Entry point for Spark Operator. Bootstrap the operator app by starting watch and reconciler for
  * SparkApps, starting watch for hot property loading, if enabled, and starting metrics server with
- * sentinel monitor if enabled
+ * sentinel monitor if enabled.
  */
 @Slf4j
 public class SparkOperator {

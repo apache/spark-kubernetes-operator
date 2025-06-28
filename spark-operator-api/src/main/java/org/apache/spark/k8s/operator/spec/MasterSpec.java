@@ -28,6 +28,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/** Spec for a Spark master. */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

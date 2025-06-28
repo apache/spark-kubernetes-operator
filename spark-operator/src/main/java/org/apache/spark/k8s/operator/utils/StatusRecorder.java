@@ -42,6 +42,10 @@ import org.apache.spark.k8s.operator.status.BaseStatus;
 /**
  * Enables additional (extendable) observers for Spark App status. Cache and version locking might
  * be removed in future version as batch app does not expect spec change after submitted.
+ *
+ * @param <STATUS> The type of the status.
+ * @param <CR> The type of the custom resource.
+ * @param <LISTENER> The type of the status listener.
  */
 @Slf4j
 public class StatusRecorder<

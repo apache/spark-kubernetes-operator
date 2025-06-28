@@ -46,7 +46,7 @@ import org.apache.spark.k8s.operator.spec.ClusterSpec;
 import org.apache.spark.k8s.operator.spec.MasterSpec;
 import org.apache.spark.k8s.operator.spec.WorkerSpec;
 
-/** Spark Cluster Resource Spec: Master Service, Master StatefulSet, Worker StatefulSet */
+/** Spark Cluster Resource Spec: Master Service, Master StatefulSet, Worker StatefulSet. */
 public class SparkClusterResourceSpec {
   @Getter private final Service masterService;
   @Getter private final Service workerService;

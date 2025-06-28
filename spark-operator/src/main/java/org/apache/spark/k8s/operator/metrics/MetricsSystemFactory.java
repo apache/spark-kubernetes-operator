@@ -28,7 +28,7 @@ import org.apache.commons.lang3.StringUtils;
 
 import org.apache.spark.k8s.operator.config.SparkOperatorConfManager;
 
-/** Factory for MetricsSystem */
+/** Factory for MetricsSystem. */
 public final class MetricsSystemFactory {
   public static final String METRIC_PREFIX = "spark.metrics.conf.operator.";
   public static final String SINK = "sink.";

@@ -25,6 +25,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/** Config tolerations of worker instances for the cluster. */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
