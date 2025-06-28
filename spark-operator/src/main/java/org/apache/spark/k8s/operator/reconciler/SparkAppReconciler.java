@@ -56,7 +56,6 @@ import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppInitStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppReconcileStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppResourceObserveStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppRunningStep;
-import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppTerminatedStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppUnknownStateStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppValidateStep;
 import org.apache.spark.k8s.operator.utils.LoggingUtils;
@@ -144,7 +143,7 @@ public class SparkAppReconciler implements Reconciler<SparkApplication>, Cleaner
   protected List<AppReconcileStep> getReconcileSteps(final SparkApplication app) {
     List<AppReconcileStep> steps = new ArrayList<>();
     steps.add(new AppValidateStep());
-    steps.add(new AppTerminatedStep());
+    steps.add(new AppCleanUpStep());
     switch (app.getStatus().getCurrentState().getCurrentStateSummary()) {
       case Submitted, ScheduledToRestart -> steps.add(new AppInitStep());
       case DriverRequested, DriverStarted -> {
@@ -166,14 +165,6 @@ public class SparkAppReconciler implements Reconciler<SparkApplication>, Cleaner
         steps.add(
             new AppResourceObserveStep(Collections.singletonList(new AppDriverTimeoutObserver())));
       }
-      case DriverReadyTimedOut,
-              DriverStartTimedOut,
-              ExecutorsStartTimedOut,
-              Succeeded,
-              DriverEvicted,
-              Failed,
-              SchedulingFailure ->
-          steps.add(new AppCleanUpStep());
       default -> steps.add(new AppUnknownStateStep());
     }
     return steps;
@@ -196,7 +187,6 @@ public class SparkAppReconciler implements Reconciler<SparkApplication>, Cleaner
       SparkAppContext ctx = new SparkAppContext(sparkApplication, context, submissionWorker);
       List<AppReconcileStep> cleanupSteps = new ArrayList<>();
       cleanupSteps.add(new AppValidateStep());
-      cleanupSteps.add(new AppTerminatedStep());
       cleanupSteps.add(new AppCleanUpStep(SparkAppStatusUtils::appCancelled));
       for (AppReconcileStep step : cleanupSteps) {
         ReconcileProgress progress = step.reconcile(ctx, sparkAppStatusRecorder);
