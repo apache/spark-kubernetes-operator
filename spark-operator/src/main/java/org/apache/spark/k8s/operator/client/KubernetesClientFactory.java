@@ -27,7 +27,7 @@ import io.fabric8.kubernetes.client.okhttp.OkHttpClientFactory;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 
-/** Build Kubernetes Client with metrics configured */
+/** Factory for building Kubernetes clients with metrics configured. */
 public final class KubernetesClientFactory {
 
   private KubernetesClientFactory() {}

@@ -29,6 +29,7 @@ import org.apache.commons.lang3.StringUtils;
 
 import org.apache.spark.k8s.operator.listeners.BaseStatusListener;
 
+/** Utility class for loading classes. */
 @Slf4j
 public final class ClassLoadingUtils {
 

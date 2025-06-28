@@ -19,6 +19,7 @@
 
 package org.apache.spark.k8s.operator;
 
+/** Constants used in the Spark Kubernetes Operator. */
 @SuppressWarnings("PMD.DataClass")
 public class Constants {
   public static final String API_GROUP = "spark.apache.org";

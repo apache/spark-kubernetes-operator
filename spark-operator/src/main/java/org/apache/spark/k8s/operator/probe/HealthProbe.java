@@ -43,6 +43,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import org.apache.spark.k8s.operator.metrics.healthcheck.SentinelManager;
 
+/** Health probe for the operator. */
 @Getter
 @Slf4j
 @RequiredArgsConstructor

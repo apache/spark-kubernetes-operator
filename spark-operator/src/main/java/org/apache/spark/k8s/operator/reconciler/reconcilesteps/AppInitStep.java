@@ -44,7 +44,7 @@ import org.apache.spark.k8s.operator.status.ApplicationStatus;
 import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 
-/** Request all driver and its resources when starting an attempt */
+/** Request all driver and its resources when starting an attempt. */
 @Slf4j
 public class AppInitStep extends AppReconcileStep {
   @Override

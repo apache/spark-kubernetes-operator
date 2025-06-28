@@ -57,7 +57,7 @@ import org.apache.spark.k8s.operator.utils.DriverServiceIngressUtils;
  *   <li>Converts scala types to Java for easier reference from operator
  * </ul>
  *
- * <p>This is not thread safe and not expected to be shared among reconciler threads
+ * <p>This is not thread safe and not expected to be shared among reconciler threads.
  */
 public class SparkAppResourceSpec {
   @Getter private final Pod configuredPod;

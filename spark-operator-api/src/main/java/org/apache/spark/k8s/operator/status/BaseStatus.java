@@ -29,6 +29,13 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
 
+/**
+ * Base class for status information.
+ *
+ * @param <S> The type of the state summary.
+ * @param <STATE> The type of the state.
+ * @param <AS> The type of the attempt summary.
+ */
 @ToString
 @EqualsAndHashCode
 @JsonInclude(JsonInclude.Include.NON_NULL)

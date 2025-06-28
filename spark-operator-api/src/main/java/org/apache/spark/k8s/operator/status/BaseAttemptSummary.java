@@ -26,6 +26,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.ToString;
 
+/** Base class for attempt summaries. */
 @EqualsAndHashCode
 @ToString
 @Getter

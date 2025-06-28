@@ -48,6 +48,7 @@ import org.apache.spark.metrics.source.Source;
 import org.apache.spark.util.Clock;
 import org.apache.spark.util.SystemClock;
 
+/** Metrics for the Java Operator SDK. */
 @Slf4j
 public class OperatorJosdkMetrics implements Source, Metrics {
   public static final String FINISHED = "finished";

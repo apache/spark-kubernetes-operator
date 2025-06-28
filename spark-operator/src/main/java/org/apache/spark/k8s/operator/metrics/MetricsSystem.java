@@ -36,6 +36,7 @@ import org.apache.spark.k8s.operator.metrics.source.OperatorJvmSource;
 import org.apache.spark.metrics.sink.Sink;
 import org.apache.spark.metrics.source.Source;
 
+/** Manages the metrics system for the Spark Operator. */
 @Slf4j
 public class MetricsSystem {
   private final AtomicBoolean running = new AtomicBoolean(false);

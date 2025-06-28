@@ -25,6 +25,7 @@ import io.fabric8.kubernetes.client.KubernetesClientException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 
+/** Utility class for Spark exceptions. */
 public final class SparkExceptionUtils {
 
   private SparkExceptionUtils() {}

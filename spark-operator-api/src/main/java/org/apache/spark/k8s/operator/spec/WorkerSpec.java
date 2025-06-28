@@ -29,6 +29,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/** Spec for a Spark worker. */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

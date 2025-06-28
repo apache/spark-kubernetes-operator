@@ -28,6 +28,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
 
+/** Information about an attempt. */
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder

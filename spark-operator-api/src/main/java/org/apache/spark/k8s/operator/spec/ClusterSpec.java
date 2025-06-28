@@ -28,6 +28,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
+/** Spec for a Spark cluster. */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

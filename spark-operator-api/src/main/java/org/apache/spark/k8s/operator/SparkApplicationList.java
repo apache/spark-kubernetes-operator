@@ -22,5 +22,6 @@ package org.apache.spark.k8s.operator;
 import io.fabric8.kubernetes.api.model.DefaultKubernetesResourceList;
 import lombok.NoArgsConstructor;
 
+/** List of SparkApplications. */
 @NoArgsConstructor
 public class SparkApplicationList extends DefaultKubernetesResourceList<SparkApplication> {}

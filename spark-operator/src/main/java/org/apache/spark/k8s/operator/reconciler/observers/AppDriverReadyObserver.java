@@ -31,7 +31,7 @@ import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
 import org.apache.spark.k8s.operator.utils.PodUtils;
 
-/** Observes whether driver is ready */
+/** Observes whether driver is ready. */
 public class AppDriverReadyObserver extends BaseAppDriverObserver {
   @Override
   public Optional<ApplicationState> observe(

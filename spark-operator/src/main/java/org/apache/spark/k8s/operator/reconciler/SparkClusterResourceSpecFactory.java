@@ -29,6 +29,7 @@ import org.apache.spark.k8s.operator.SparkClusterResourceSpec;
 import org.apache.spark.k8s.operator.SparkClusterSubmissionWorker;
 import org.apache.spark.k8s.operator.decorators.ClusterDecorator;
 
+/** Factory for creating SparkClusterResourceSpec objects. */
 @Slf4j
 public final class SparkClusterResourceSpecFactory {
 

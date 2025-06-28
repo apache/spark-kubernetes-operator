@@ -25,6 +25,7 @@ import org.apache.commons.collections4.MapUtils;
 
 import org.apache.spark.SparkConf;
 
+/** Worker for submitting Spark clusters. */
 public class SparkClusterSubmissionWorker {
   public SparkClusterResourceSpec getResourceSpec(
       SparkCluster cluster, Map<String, String> confOverrides) {

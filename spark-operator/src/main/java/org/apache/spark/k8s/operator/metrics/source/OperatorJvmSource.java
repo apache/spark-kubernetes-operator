@@ -24,6 +24,7 @@ import com.codahale.metrics.MetricRegistry;
 import org.apache.spark.k8s.operator.metrics.JVMMetricSet;
 import org.apache.spark.metrics.source.Source;
 
+/** Source for JVM metrics. */
 public class OperatorJvmSource implements Source {
   @Override
   public String sourceName() {

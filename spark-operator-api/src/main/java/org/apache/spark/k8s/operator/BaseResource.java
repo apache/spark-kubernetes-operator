@@ -27,6 +27,16 @@ import org.apache.spark.k8s.operator.status.BaseAttemptSummary;
 import org.apache.spark.k8s.operator.status.BaseState;
 import org.apache.spark.k8s.operator.status.BaseStatus;
 
+/**
+ * Base class for Spark Kubernetes Operator's custom resources like SparkApplication and
+ * SparkCluster.
+ *
+ * @param <S> The type of the state.
+ * @param <AS> The type of the attempt summary.
+ * @param <STATE> The type of the state.
+ * @param <SPEC> The type of the spec.
+ * @param <STATUS> The type of the status.
+ */
 public class BaseResource<
     S,
     AS extends BaseAttemptSummary,

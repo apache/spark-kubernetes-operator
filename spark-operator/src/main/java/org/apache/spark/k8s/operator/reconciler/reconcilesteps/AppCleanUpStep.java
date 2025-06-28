@@ -48,7 +48,7 @@ import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 
 /**
  * Cleanup all secondary resources when application is deleted, or at the end of each attempt.
- * Update Application status to indicate whether another attempt would be made
+ * Update Application status to indicate whether another attempt would be made.
  */
 @AllArgsConstructor
 @NoArgsConstructor

@@ -28,6 +28,7 @@ import io.fabric8.kubernetes.api.model.Pod;
 
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 
+/** Utility class for Pod operations. */
 public final class PodUtils {
 
   public static final String POD_READY_CONDITION_TYPE = "ready";

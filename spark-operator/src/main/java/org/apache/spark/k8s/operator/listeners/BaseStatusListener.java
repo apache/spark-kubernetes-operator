@@ -21,7 +21,12 @@ package org.apache.spark.k8s.operator.listeners;
 import org.apache.spark.k8s.operator.BaseResource;
 import org.apache.spark.k8s.operator.status.BaseStatus;
 
-/** Custom listeners, if added, would be listening to resource status change */
+/**
+ * Custom listeners, if added, would be listening to resource status change.
+ *
+ * @param <STATUS> The type of the status.
+ * @param <CR> The type of the custom resource.
+ */
 public abstract class BaseStatusListener<
     STATUS extends BaseStatus<?, ?, ?>, CR extends BaseResource<?, ?, ?, ?, STATUS>> {
   public abstract void listenStatus(CR resource, STATUS prevStatus, STATUS updatedStatus);

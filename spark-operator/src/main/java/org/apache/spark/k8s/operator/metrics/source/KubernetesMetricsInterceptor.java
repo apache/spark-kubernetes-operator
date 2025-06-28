@@ -40,6 +40,7 @@ import org.jetbrains.annotations.NotNull;
 
 import org.apache.spark.metrics.source.Source;
 
+/** Interceptor for Kubernetes client to collect metrics. */
 @Slf4j
 public class KubernetesMetricsInterceptor implements Interceptor, Source {
   final MetricRegistry metricRegistry;

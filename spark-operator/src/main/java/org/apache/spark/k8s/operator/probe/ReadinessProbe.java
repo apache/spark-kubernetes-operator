@@ -32,6 +32,7 @@ import com.sun.net.httpserver.HttpHandler;
 import io.javaoperatorsdk.operator.Operator;
 import lombok.extern.slf4j.Slf4j;
 
+/** Readiness probe for the operator. */
 @Slf4j
 public class ReadinessProbe implements HttpHandler {
   private final List<Operator> operators;

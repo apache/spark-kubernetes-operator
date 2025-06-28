@@ -23,6 +23,11 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 
 import org.apache.spark.k8s.operator.BaseResource;
 
+/**
+ * Base class for context objects.
+ *
+ * @param <CR> The type of the custom resource.
+ */
 public abstract class BaseContext<CR extends BaseResource<?, ?, ?, ?, ?>> {
   public abstract CR getResource();
 
