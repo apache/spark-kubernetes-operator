@@ -17,9 +17,9 @@ Apache Spark provides a Helm Chart.
 - <https://artifacthub.io/packages/helm/spark-kubernetes-operator/spark-kubernetes-operator/>
 
 ```bash
-helm repo add spark-kubernetes-operator https://apache.github.io/spark-kubernetes-operator
+helm repo add spark https://apache.github.io/spark-kubernetes-operator
 helm repo update
-helm install spark-kubernetes-operator spark-kubernetes-operator/spark-kubernetes-operator
+helm install spark spark/spark-kubernetes-operator
 ```
 
 ## Building Spark K8s Operator
@@ -75,21 +75,21 @@ $ kubectl port-forward prod-master-0 6066 &
 $ ./examples/submit-pi-to-prod.sh
 {
   "action" : "CreateSubmissionResponse",
-  "message" : "Driver successfully submitted as driver-20240821181327-0000",
+  "message" : "Driver successfully submitted as driver-20250628212324-0000",
   "serverSparkVersion" : "4.0.0",
-  "submissionId" : "driver-20240821181327-0000",
+  "submissionId" : "driver-20250628212324-0000",
   "success" : true
 }
 
-$ curl http://localhost:6066/v1/submissions/status/driver-20240821181327-0000/
+$ curl http://localhost:6066/v1/submissions/status/driver-20250628212324-0000/
 {
   "action" : "SubmissionStatusResponse",
   "driverState" : "FINISHED",
   "serverSparkVersion" : "4.0.0",
-  "submissionId" : "driver-20240821181327-0000",
+  "submissionId" : "driver-20250628212324-0000",
   "success" : true,
-  "workerHostPort" : "10.1.5.188:42099",
-  "workerId" : "worker-20240821181236-10.1.5.188-42099"
+  "workerHostPort" : "10.1.0.88:34643",
+  "workerId" : "worker-20250628212306-10.1.0.88-34643"
 }
 
 $ kubectl delete sparkcluster prod
@@ -146,7 +146,7 @@ No resources found in default namespace.
 Remove HelmChart and CRDs.
 
 ```bash
-helm uninstall spark-kubernetes-operator
+helm uninstall spark
 
 kubectl delete crd sparkapplications.spark.apache.org
 
