@@ -19,18 +19,16 @@
 
 package org.apache.spark.k8s.operator.config;
 
-import java.util.Map;
+import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
-import io.javaoperatorsdk.operator.api.config.informer.InformerConfiguration;
+import io.javaoperatorsdk.operator.api.config.informer.InformerEventSourceConfiguration;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
 import io.javaoperatorsdk.operator.api.reconciler.ControllerConfiguration;
-import io.javaoperatorsdk.operator.api.reconciler.ErrorStatusHandler;
 import io.javaoperatorsdk.operator.api.reconciler.ErrorStatusUpdateControl;
 import io.javaoperatorsdk.operator.api.reconciler.EventSourceContext;
-import io.javaoperatorsdk.operator.api.reconciler.EventSourceInitializer;
 import io.javaoperatorsdk.operator.api.reconciler.Reconciler;
 import io.javaoperatorsdk.operator.api.reconciler.UpdateControl;
 import io.javaoperatorsdk.operator.processing.event.source.EventSource;
@@ -46,10 +44,7 @@ import lombok.extern.slf4j.Slf4j;
 @ControllerConfiguration
 @RequiredArgsConstructor
 @Slf4j
-public class SparkOperatorConfigMapReconciler
-    implements Reconciler<ConfigMap>,
-        ErrorStatusHandler<ConfigMap>,
-        EventSourceInitializer<ConfigMap> {
+public class SparkOperatorConfigMapReconciler implements Reconciler<ConfigMap> {
   private final Function<Set<String>, Boolean> namespaceUpdater;
   private final String operatorNamespace;
   private final Function<Void, Set<String>> watchedNamespacesGetter;
@@ -62,14 +57,15 @@ public class SparkOperatorConfigMapReconciler
   }
 
   @Override
-  public Map<String, EventSource> prepareEventSources(EventSourceContext<ConfigMap> context) {
-    EventSource configMapEventSource =
+  public List<EventSource<?, ConfigMap>> prepareEventSources(
+      EventSourceContext<ConfigMap> context) {
+    var configMapEventSource =
         new InformerEventSource<>(
-            InformerConfiguration.from(ConfigMap.class, context)
-                .withNamespaces(operatorNamespace)
+            InformerEventSourceConfiguration.from(ConfigMap.class, ConfigMap.class)
+                .withNamespaces(Set.of(operatorNamespace))
                 .build(),
             context);
-    return EventSourceInitializer.nameEventSources(configMapEventSource);
+    return List.of(configMapEventSource);
   }
 
   @Override

@@ -17,7 +17,7 @@
 [versions]
 fabric8 = "7.3.1"
 lombok = "1.18.38"
-operator-sdk = "4.9.0"
+operator-sdk = "5.1.1"
 okhttp = "4.12.0"
 dropwizard-metrics = "4.2.30"
 spark = "4.0.0"

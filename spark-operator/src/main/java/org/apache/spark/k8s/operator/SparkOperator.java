@@ -23,6 +23,7 @@ import static org.apache.spark.k8s.operator.utils.Utils.getAppStatusListener;
 import static org.apache.spark.k8s.operator.utils.Utils.getClusterStatusListener;
 import static org.apache.spark.k8s.operator.utils.Utils.getWatchedNamespaces;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -168,8 +169,8 @@ public class SparkOperator {
     overrider.withKubernetesClient(client);
     overrider.withStopOnInformerErrorDuringStartup(
         SparkOperatorConf.TERMINATE_ON_INFORMER_FAILURE_ENABLED.getValue());
-    overrider.withTerminationTimeoutSeconds(
-        SparkOperatorConf.RECONCILER_TERMINATION_TIMEOUT_SECONDS.getValue());
+    overrider.withReconciliationTerminationTimeout(
+        Duration.ofSeconds(SparkOperatorConf.RECONCILER_TERMINATION_TIMEOUT_SECONDS.getValue()));
     int parallelism = SparkOperatorConf.RECONCILER_PARALLELISM.getValue();
     if (parallelism > 0) {
       log.info("Configuring operator with {} reconciliation threads.", parallelism);
@@ -187,6 +188,7 @@ public class SparkOperator {
       overrider.withMetrics(operatorJosdkMetrics);
       metricsSystem.registerSource(operatorJosdkMetrics);
     }
+    overrider.withUseSSAToPatchPrimaryResource(false);
   }
 
   protected void overrideConfigMonitorConfigs(ConfigurationServiceOverrider overrider) {
@@ -198,6 +200,7 @@ public class SparkOperator {
     overrider.withInformerStoppedHandler(
         (informer, ex) ->
             log.error("Dynamic config informer stopped: operator will not accept config updates."));
+    overrider.withUseSSAToPatchPrimaryResource(false);
   }
 
   protected void overrideControllerConfigs(ControllerConfigurationOverrider<?> overrider) {
