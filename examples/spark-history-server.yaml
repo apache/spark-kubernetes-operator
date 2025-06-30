@@ -24,6 +24,7 @@ spec:
     spark.driver.memory: "2g"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
     spark.kubernetes.container.image: "apache/spark:4.0.0-java21-scala"
+    spark.ui.port: "18080"
     spark.history.fs.logDirectory: "s3a://spark-events"
     spark.history.fs.cleaner.enabled: "true"
     spark.history.fs.cleaner.maxAge: "30d"
