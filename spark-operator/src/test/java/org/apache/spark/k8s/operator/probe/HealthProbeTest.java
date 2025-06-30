@@ -47,7 +47,7 @@ import org.apache.spark.k8s.operator.metrics.healthcheck.SentinelManager;
 
 @EnableKubernetesMockClient(crud = true)
 @SuppressFBWarnings(
-    value = {"UWF_UNWRITTEN_FIELD", "NP_UNWRITTEN_FIELD", "UUF_UNUSED_FIELD"},
+    value = {"UWF_UNWRITTEN_FIELD"},
     justification = "Unwritten fields are covered by Kubernetes mock client")
 class HealthProbeTest {
   private static Operator operator;
