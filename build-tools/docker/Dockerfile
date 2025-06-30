@@ -24,7 +24,7 @@ RUN --mount=type=cache,target=/home/gradle/.gradle/caches gradle --no-daemon cle
 
 FROM azul/zulu-openjdk:24-jre
 
-ARG APP_VERSION=0.4.0
+ARG APP_VERSION=0.4.1-SNAPSHOT
 ARG SPARK_UID=185
 
 LABEL org.opencontainers.image.authors="Apache Spark project <dev@spark.apache.org>"
