@@ -34,7 +34,7 @@ assert JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_17): "Java 17 
 
 allprojects {
   group = "org.apache.spark.k8s.operator"
-  version = "0.4.0-SNAPSHOT"
+  version = "0.4.0"
 }
 
 tasks.register('buildDockerImage', Exec) {
