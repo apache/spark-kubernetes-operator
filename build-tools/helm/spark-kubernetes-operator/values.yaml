@@ -41,7 +41,7 @@ operatorDeployment:
     # https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/
     topologySpreadConstraints: [ ]
     operatorContainer:
-      jvmArgs: "-Dfile.encoding=UTF8 -XX:+ExitOnOutOfMemoryError"
+      jvmArgs: "-Dfile.encoding=UTF8 -XX:+ExitOnOutOfMemoryError -XX:+UseParallelGC"
       env:
         - name: "SPARK_USER"
           value: "spark"
