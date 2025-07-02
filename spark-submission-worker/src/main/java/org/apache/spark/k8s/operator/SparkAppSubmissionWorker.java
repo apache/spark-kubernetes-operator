@@ -126,7 +126,7 @@ public class SparkAppSubmissionWorker {
     effectiveSparkConf.setIfMissing("spark.app.id", appId);
     return SparkAppDriverConf.create(
         effectiveSparkConf,
-        appId,
+        effectiveSparkConf.getAppId(),
         primaryResource,
         applicationSpec.getMainClass(),
         applicationSpec.getDriverArgs().toArray(String[]::new),
