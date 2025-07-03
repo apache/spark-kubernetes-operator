@@ -30,7 +30,6 @@ import java.util.function.Supplier;
 
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Pod;
-import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -47,16 +46,22 @@ import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
 import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
+import org.apache.spark.k8s.operator.utils.SparkAppStatusUtils;
 
 /**
  * Cleanup all secondary resources when application is deleted, or at the end of each attempt.
  * Update Application status to indicate whether another attempt would be made.
  */
-@AllArgsConstructor
 @NoArgsConstructor
 @Slf4j
 public class AppCleanUpStep extends AppReconcileStep {
   private Supplier<ApplicationState> onDemandCleanUpReason;
+  private String stateUpdateMessage;
+
+  public AppCleanUpStep(Supplier<ApplicationState> onDemandCleanUpReason) {
+    super();
+    this.onDemandCleanUpReason = onDemandCleanUpReason;
+  }
 
   /**
    * Cleanup secondary resources for an application if needed and updates application status
@@ -70,7 +75,7 @@ public class AppCleanUpStep extends AppReconcileStep {
    *   <li>When the application is being deleted on demand(e.g. being deleted) with a reason
    *   <li>When the application is stopping
    *   <li>When the application has terminated without releasing resources, but it has exceeded
-   *       configured retention duration
+   *       configured retain duration
    * </ul>
    *
    * <p>It would proceed to next steps with no actions for application in other states. Note that
@@ -88,42 +93,37 @@ public class AppCleanUpStep extends AppReconcileStep {
     ApplicationStatus currentStatus = application.getStatus();
     ApplicationState currentState = currentStatus.getCurrentState();
     ApplicationTolerations tolerations = application.getSpec().getApplicationTolerations();
-    if (ApplicationStateSummary.ResourceReleased.equals(currentState.getCurrentStateSummary())) {
-      statusRecorder.removeCachedStatus(application);
-      return ReconcileProgress.completeAndNoRequeue();
-    }
-    String stateMessage = null;
-    if (isOnDemandCleanup()) {
-      log.info("Cleaning up application resources on demand");
-    } else {
-      if (ApplicationStateSummary.TerminatedWithoutReleaseResources.equals(
-          currentState.getCurrentStateSummary())) {
-        statusRecorder.removeCachedStatus(application);
-        return ReconcileProgress.completeAndNoRequeue();
-      } else if (currentState.getCurrentStateSummary().isStopping()) {
-        if (retainReleaseResourceForPolicyAndState(
-            tolerations.getResourceRetainPolicy(), currentState)) {
-          if (tolerations.getRestartConfig() != null
-              && !RestartPolicy.Never.equals(tolerations.getRestartConfig().getRestartPolicy())) {
-            stateMessage =
-                "Application is configured to restart, resources created in current "
-                    + "attempt would be force released.";
-            log.warn(stateMessage);
-          } else {
-            ApplicationState terminationState =
-                new ApplicationState(
-                    ApplicationStateSummary.TerminatedWithoutReleaseResources,
-                    "Application is terminated without releasing resources as configured.");
-            long requeueAfterMillis =
-                tolerations.getApplicationTimeoutConfig().getTerminationRequeuePeriodMillis();
-            return appendStateAndRequeueAfter(
-                context, statusRecorder, terminationState, Duration.ofMillis(requeueAfterMillis));
-          }
-        }
-      } else {
-        log.debug("Clean up is not expected for app, proceeding to next step.");
-        return ReconcileProgress.proceed();
+    if (currentState.getCurrentStateSummary().isTerminated()) {
+      Optional<ReconcileProgress> terminatedAppProgress =
+          checkEarlyExitForTerminatedApp(application, statusRecorder);
+      if (terminatedAppProgress.isPresent()) {
+        return terminatedAppProgress.get();
       }
+    } else if (isOnDemandCleanup()) {
+      log.info("Releasing secondary resources for application on demand.");
+    } else if (currentState.getCurrentStateSummary().isStopping()) {
+      if (retainReleaseResourceForPolicyAndState(
+          tolerations.getResourceRetainPolicy(), currentState)) {
+        if (tolerations.getRestartConfig() != null
+            && !RestartPolicy.Never.equals(tolerations.getRestartConfig().getRestartPolicy())) {
+          stateUpdateMessage =
+              "Application is configured to restart, resources created in current "
+                  + "attempt would be force released.";
+          log.warn(stateUpdateMessage);
+        } else {
+          ApplicationState terminationState =
+              new ApplicationState(
+                  ApplicationStateSummary.TerminatedWithoutReleaseResources,
+                  "Application is terminated without releasing resources as configured.");
+          long requeueAfterMillis =
+              tolerations.getApplicationTimeoutConfig().getTerminationRequeuePeriodMillis();
+          return appendStateAndRequeueAfter(
+              context, statusRecorder, terminationState, Duration.ofMillis(requeueAfterMillis));
+        }
+      }
+    } else {
+      log.debug("Clean up is not expected for app, proceeding to next step.");
+      return ReconcileProgress.proceed();
     }
 
     List<HasMetadata> resourcesToRemove = new ArrayList<>();
@@ -159,8 +159,8 @@ public class AppCleanUpStep extends AppReconcileStep {
     ApplicationStatus updatedStatus;
     if (onDemandCleanUpReason != null) {
       ApplicationState state = onDemandCleanUpReason.get();
-      if (StringUtils.isNotEmpty(stateMessage)) {
-        state.setMessage(stateMessage);
+      if (StringUtils.isNotEmpty(stateUpdateMessage)) {
+        state.setMessage(stateUpdateMessage);
       }
       long requeueAfterMillis =
           tolerations.getApplicationTimeoutConfig().getTerminationRequeuePeriodMillis();
@@ -171,7 +171,7 @@ public class AppCleanUpStep extends AppReconcileStep {
           currentStatus.terminateOrRestart(
               tolerations.getRestartConfig(),
               tolerations.getResourceRetainPolicy(),
-              stateMessage,
+              stateUpdateMessage,
               SparkOperatorConf.TRIM_ATTEMPT_STATE_TRANSITION_HISTORY.getValue());
       long requeueAfterMillis =
           tolerations.getApplicationTimeoutConfig().getTerminationRequeuePeriodMillis();
@@ -182,6 +182,41 @@ public class AppCleanUpStep extends AppReconcileStep {
       return updateStatusAndRequeueAfter(
           context, statusRecorder, updatedStatus, Duration.ofMillis(requeueAfterMillis));
     }
+  }
+
+  protected Optional<ReconcileProgress> checkEarlyExitForTerminatedApp(
+      final SparkApplication application, final SparkAppStatusRecorder statusRecorder) {
+    ApplicationStatus currentStatus = application.getStatus();
+    ApplicationState currentState = currentStatus.getCurrentState();
+    ApplicationTolerations tolerations = application.getSpec().getApplicationTolerations();
+    if (ApplicationStateSummary.ResourceReleased.equals(currentState.getCurrentStateSummary())) {
+      statusRecorder.removeCachedStatus(application);
+      return Optional.of(ReconcileProgress.completeAndNoRequeue());
+    }
+    if (isOnDemandCleanup()) {
+      return Optional.empty();
+    }
+    if (ApplicationStateSummary.TerminatedWithoutReleaseResources.equals(
+        currentState.getCurrentStateSummary())) {
+      if (tolerations.isRetainDurationEnabled()) {
+        Instant now = Instant.now();
+        if (tolerations.exceedRetainDurationAtInstant(currentState, now)) {
+          onDemandCleanUpReason = SparkAppStatusUtils::appExceededRetainDuration;
+          return Optional.empty();
+        } else {
+          Duration nextCheckDuration =
+              Duration.between(
+                  Instant.now(),
+                  Instant.parse(currentState.getLastTransitionTime())
+                      .plusMillis(tolerations.getResourceRetainDurationMillis()));
+          return Optional.of(ReconcileProgress.completeAndRequeueAfter(nextCheckDuration));
+        }
+      } else {
+        statusRecorder.removeCachedStatus(application);
+        return Optional.of(ReconcileProgress.completeAndNoRequeue());
+      }
+    }
+    return Optional.empty();
   }
 
   protected boolean isOnDemandCleanup() {
