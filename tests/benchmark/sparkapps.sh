@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# 1. Clear the existing CRDs before staring the benchmark
+echo "CLEAN UP NAMESPACE FOR BENCHMARK"
+kubectl get sparkapplications.spark.apache.org -o name | xargs kubectl delete
+
+NUM="${1:-1000}"
+echo "START BENCHMARK WITH $NUM JOBS"
+
+# 2. Creation Benchmark
+filename=$(mktemp)
+
+for i in $(seq -f "%05g" 1 $NUM); do
+  cat << EOF >> $filename
+apiVersion: spark.apache.org/v1beta1
+kind: SparkApplication
+metadata:
+  name: test-${i}
+spec:
+  mainClass: "org.apache.spark.examples.DriverSubmissionTest"
+  jars: "local:///opt/spark/examples/jars/spark-examples.jar"
+  driverArgs: ["0"]
+  sparkConf:
+    spark.kubernetes.driver.request.cores: "100m"
+    spark.kubernetes.driver.request.memory: "100Mi"
+    spark.kubernetes.driver.master: "local[1]"
+    spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
+    spark.kubernetes.container.image: "apache/spark:4.0.0"
+  runtimeVersions:
+    sparkVersion: "4.0.0"
+---
+EOF
+done
+
+start=`date +%s`
+kubectl apply -f $filename > /dev/null
+while [ $(kubectl get sparkapplications.spark.apache.org | grep ResourceReleased | wc -l) -lt $NUM ]
+do
+  sleep 1
+done
+end=`date +%s`
+completionTime=$((end - start))
+echo "FINISHED $NUM JOBS IN $completionTime SECONDS."
+
+# 3. Deletion Benchmark
+start=`date +%s`
+kubectl get sparkapplications.spark.apache.org -o name | xargs kubectl delete > /dev/null
+end=`date +%s`
+deletionTime=$((end - start))
+echo "DELETED $NUM JOBS IN $deletionTime SECONDS."
