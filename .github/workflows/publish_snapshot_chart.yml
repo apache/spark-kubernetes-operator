@@ -10,7 +10,7 @@ on:
         description: 'list of branches to publish (JSON)'
         required: true
         # keep in sync with default value of strategy matrix 'branch'
-        default: '["main", "branch-0.1", "branch-0.2"]'
+        default: '["main", "branch-0.4"]'
 
 jobs:
   publish-snapshot-chart:
@@ -20,7 +20,7 @@ jobs:
       fail-fast: false
       matrix:
         # keep in sync with default value of workflow_dispatch input 'branch'
-        branch: ${{ fromJSON( inputs.branch || '["main", "branch-0.1", "branch-0.2"]' ) }}
+        branch: ${{ fromJSON( inputs.branch || '["main", "branch-0.4"]' ) }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
