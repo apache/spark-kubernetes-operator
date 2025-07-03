@@ -9,6 +9,7 @@ aims to extend K8s resource manager to manage Apache Spark applications and clus
 
 ## Releases
 
+- [0.4.0 (2025-07-03)](https://github.com/apache/spark-kubernetes-operator/releases/tag/0.4.0)
 - [0.3.0 (2025-06-04)](https://github.com/apache/spark-kubernetes-operator/releases/tag/0.3.0)
 - [0.2.0 (2025-05-20)](https://github.com/apache/spark-kubernetes-operator/releases/tag/0.2.0)
 - [0.1.0 (2025-05-08)](https://github.com/apache/spark-kubernetes-operator/releases/tag/v0.1.0)
@@ -16,7 +17,7 @@ aims to extend K8s resource manager to manage Apache Spark applications and clus
 ## Requirements
 
 - Apache Spark 3.5+
-- Kubernetes 1.30+ cluster
+- Kubernetes 1.31+ cluster
 - Helm 3.0+
 
 ## Install Helm Chart
@@ -27,7 +28,8 @@ $ helm repo update
 $ helm install spark spark/spark-kubernetes-operator
 $ helm list
 NAME  NAMESPACE REVISION UPDATED                             STATUS   CHART                           APP VERSION
-spark default   1        2025-06-04 11:06:24.61408 -0700 PDT deployed spark-kubernetes-operator-1.1.0 0.3.0
+spark default   1        2025-07-03 09:28:56.90529 -0700 PDT deployed spark-kubernetes-operator-1.2.0 0.4.0
+
 ```
 
 ## Run Spark Pi App
@@ -71,7 +73,7 @@ Pi is roughly 3.1426151426151425
 ## Run Spark Cluster
 
 ```bash
-$ kubectl apply -f https://raw.githubusercontent.com/apache/spark-kubernetes-operator/refs/tags/0.3.0/examples/prod-cluster-with-three-workers.yaml
+$ kubectl apply -f https://raw.githubusercontent.com/apache/spark-kubernetes-operator/refs/tags/0.4.0/examples/prod-cluster-with-three-workers.yaml
 sparkcluster.spark.apache.org/prod created
 
 $ kubectl get sparkcluster
