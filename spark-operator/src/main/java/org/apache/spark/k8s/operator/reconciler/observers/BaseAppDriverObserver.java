@@ -82,7 +82,7 @@ public abstract class BaseAppDriverObserver
     if (status == null
         || status.getContainerStatuses() == null
         || status.getContainerStatuses().isEmpty()) {
-      log.warn("Cannot determine driver pod status, the pod may in pending state.");
+      log.debug("Cannot determine driver pod status, the pod may in pending state.");
       return Optional.empty();
     }
 
