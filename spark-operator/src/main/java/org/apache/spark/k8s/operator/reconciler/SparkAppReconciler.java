@@ -183,7 +183,7 @@ public class SparkAppReconciler implements Reconciler<SparkApplication>, Cleaner
     LoggingUtils.TrackedMDC trackedMDC = new LoggingUtils.TrackedMDC();
     try {
       trackedMDC.set(sparkApplication);
-      log.info("Cleaning up resources for SparkApp.");
+      log.info("Cleaning up resources for SparkApp:" + sparkApplication.getMetadata().getName());
       SparkAppContext ctx = new SparkAppContext(sparkApplication, context, submissionWorker);
       List<AppReconcileStep> cleanupSteps = new ArrayList<>();
       cleanupSteps.add(new AppValidateStep());
@@ -200,7 +200,7 @@ public class SparkAppReconciler implements Reconciler<SparkApplication>, Cleaner
         }
       }
     } finally {
-      log.info("Cleanup completed");
+      log.debug("Cleanup completed");
       trackedMDC.reset();
     }
     sparkAppStatusRecorder.removeCachedStatus(sparkApplication);
