@@ -219,4 +219,20 @@ class SparkAppSubmissionWorkerTest {
     String appId = SparkAppSubmissionWorker.generateSparkAppId(mockApp);
     assertTrue(appId.length() <= DEFAULT_ID_LENGTH_LIMIT);
   }
+
+  @Test
+  void checkAppIdWhenUserSpecifiedInSparkConf() {
+    SparkApplication mockApp = mock(SparkApplication.class);
+    ApplicationSpec mockSpec = mock(ApplicationSpec.class);
+    Map<String, String> appProps = new HashMap<>();
+    appProps.put("spark.app.id", "foo");
+    ObjectMeta appMeta = new ObjectMetaBuilder().withName("app1").withNamespace("ns1").build();
+    when(mockSpec.getSparkConf()).thenReturn(appProps);
+    when(mockApp.getSpec()).thenReturn(mockSpec);
+    when(mockApp.getMetadata()).thenReturn(appMeta);
+
+    SparkAppSubmissionWorker submissionWorker = new SparkAppSubmissionWorker();
+    SparkAppDriverConf conf = submissionWorker.buildDriverConf(mockApp, Collections.emptyMap());
+    assertEquals(conf.appId(), "foo");
+  }
 }
