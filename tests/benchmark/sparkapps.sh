@@ -42,7 +42,7 @@ spec:
     spark.kubernetes.driver.request.memory: "100Mi"
     spark.kubernetes.driver.master: "local[1]"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
-    spark.kubernetes.container.image: "apache/spark:4.0.0"
+    spark.kubernetes.container.image: "apache/spark:4.0.0-java21-scala"
   runtimeVersions:
     sparkVersion: "4.0.0"
 ---
