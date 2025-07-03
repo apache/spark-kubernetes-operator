@@ -29,7 +29,6 @@ $ helm install spark spark/spark-kubernetes-operator
 $ helm list
 NAME  NAMESPACE REVISION UPDATED                             STATUS   CHART                           APP VERSION
 spark default   1        2025-07-03 09:28:56.90529 -0700 PDT deployed spark-kubernetes-operator-1.2.0 0.4.0
-
 ```
 
 ## Run Spark Pi App
