@@ -41,19 +41,11 @@ test {
   useJUnitPlatform()
 }
 
-// Adds additional printer columns to generated yaml
-// This requires yq
+// Adds additional printer columns to generated yaml, and merge it with the crd template file with
+// older versions, place the result in Helm chart
+// This requires yq.
 tasks.register('finalizeGeneratedCRD', Exec) {
   dependsOn jar
-  println "Updating PrinterColumns for generated CRD"
-  commandLine 'sh', './src/main/resources/printer-columns.sh'
-}
-
-// Copy generated yaml to Helm charts
-tasks.register('relocateGeneratedCRD', Copy) {
-  dependsOn finalizeGeneratedCRD
-  from "build/classes/java/main/META-INF/fabric8/"
-  include "*.spark.apache.org-v1.yml"
-  into "../build-tools/helm/spark-kubernetes-operator/crds"
-  rename '(.+).yml', '$1.yaml'
+  println "Finalizing PrinterColumns and historical versions for generated CRD"
+  commandLine 'sh', './src/main/resources/finalize-generated-crd.sh'
 }

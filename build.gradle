@@ -38,6 +38,7 @@ allprojects {
 }
 
 tasks.register('buildDockerImage', Exec) {
+  dependsOn "spark-operator-api:finalizeGeneratedCRD"
   String cmd = "docker build --build-arg APP_VERSION=${version} -t apache/spark-kubernetes-operator:${version} -f build-tools/docker/Dockerfile ."
   println "Build Docker Image: $cmd"
   commandLine "sh", "-c", "$cmd"

@@ -35,6 +35,9 @@ jobs:
     - name: Build Operator
       run: |
         ./gradlew build -x check --no-daemon
+    - name: Finalize Generated CRD
+      run: |
+        ./gradlew spark-operator-api:finalizeGeneratedCRD --no-daemon
     - name: Build Chart
       env:
         DIR: 'charts'

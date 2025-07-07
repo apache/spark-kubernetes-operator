@@ -23,5 +23,15 @@
 SCRIPT_PATH=$(cd "$(dirname "$0")"; pwd)
 for f in $(ls ${SCRIPT_PATH}/../../../build/classes/java/main/META-INF/fabric8/*.spark.apache.org-v1.yml); do
   yq -i '.spec.versions[0] += ({"additionalPrinterColumns": [{"jsonPath": ".status.currentState.currentStateSummary", "name": "Current State", "type": "string"}, {"jsonPath": ".metadata.creationTimestamp", "name": "Age", "type": "date"}]})' $f
+  filename=$(basename "$f")
+  template_file_path="${SCRIPT_PATH}/../../../../build-tools/crd-templates/${filename}"
+  target_dir="${SCRIPT_PATH}/../../../../build-tools/helm/spark-kubernetes-operator/crds"
+  mkdir -p "${target_dir}"
+  target_file_path="${target_dir}/${filename}"
+  yq eval-all '
+    select(fileIndex == 1) as $source
+    | select(fileIndex == 0)
+    | .spec.versions += [$source.spec.versions[0]]
+  ' "$template_file_path" "$f" > "$target_file_path"
 done
 
