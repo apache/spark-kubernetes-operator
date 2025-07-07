@@ -176,7 +176,7 @@ operatorConfiguration:
     appender.console.name = console
     appender.console.target = SYSTEM_ERR
     appender.console.layout.type = PatternLayout
-    appender.console.layout.pattern = %d{yy/MM/dd HH:mm:ss} %p %c{1}: %m%n%ex
+    appender.console.layout.pattern = %d{yy/MM/dd HH:mm:ss} %p %X %C{1.} [%t] %m%n%ex
   spark-operator.properties: |+
     # Property Overrides. e.g.
     # spark.kubernetes.operator.reconciler.intervalSeconds=60
