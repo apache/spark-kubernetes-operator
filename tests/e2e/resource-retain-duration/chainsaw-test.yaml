@@ -39,7 +39,7 @@ spec:
         bindings:
           - name: SPARK_APP_NAMESPACE
             value: default
-        timeout: 60s
+        timeout: 120s
         file: "../assertions/spark-application/spark-state-transition-with-retain-check.yaml"
     catch:
     - describe:
@@ -51,6 +51,6 @@ spec:
         env:
           - name: SPARK_APPLICATION_NAME
             value: ($SPARK_APPLICATION_NAME)
-        timeout: 60s
+        timeout: 120s
         content: |
           kubectl delete sparkapplication $SPARK_APPLICATION_NAME

@@ -290,14 +290,13 @@ On the other hand, when developing an application, it's possible to configure
 applicationTolerations:
   # Acceptable values are 'Always', 'OnFailure', 'Never'
   # Setting this to 'OnFailure' would retain secondary resources if and only if the app fails
-  resourceRetainPolicy: OnFailure
+  resourceRetentionPolicy: OnFailure
   # Secondary resources would be garbage collected 10 minutes after app termination 
   resourceRetainDurationMillis: 600000
-
 ```
 
 to avoid operator attempt to delete driver pod and driver resources if app fails. Similarly,
-if resourceRetainPolicy is set to `Always`, operator would not delete driver resources
+if resourceRetentionPolicy is set to `Always`, operator would not delete driver resources
 when app ends. They would be by default kept with the same lifecycle as the App. It's also
 possible to configure `resourceRetainDurationMillis` to define the maximal retain duration for
 these resources. Note that this applies only to operator-created resources (driver pod, SparkConf

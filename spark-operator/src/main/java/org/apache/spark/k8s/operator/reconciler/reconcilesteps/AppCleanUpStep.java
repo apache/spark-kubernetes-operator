@@ -75,7 +75,7 @@ public class AppCleanUpStep extends AppReconcileStep {
    *   <li>When the application is being deleted on demand(e.g. being deleted) with a reason
    *   <li>When the application is stopping
    *   <li>When the application has terminated without releasing resources, but it has exceeded
-   *       configured retain duration
+   *       configured retention duration
    * </ul>
    *
    * <p>It would proceed to next steps with no actions for application in other states. Note that
