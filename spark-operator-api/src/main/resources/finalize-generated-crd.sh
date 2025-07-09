@@ -21,6 +21,7 @@
 # We do a yq to add printer columns
 
 SCRIPT_PATH=$(cd "$(dirname "$0")"; pwd)
+supported_versions_file="${SCRIPT_PATH}/supported-crd-versions.yml"
 for f in $(ls ${SCRIPT_PATH}/../../../build/classes/java/main/META-INF/fabric8/*.spark.apache.org-v1.yml); do
   yq -i '.spec.versions[0] += ({"additionalPrinterColumns": [{"jsonPath": ".status.currentState.currentStateSummary", "name": "Current State", "type": "string"}, {"jsonPath": ".metadata.creationTimestamp", "name": "Age", "type": "date"}]})' $f
   filename=$(basename "$f")
@@ -29,9 +30,16 @@ for f in $(ls ${SCRIPT_PATH}/../../../build/classes/java/main/META-INF/fabric8/*
   mkdir -p "${target_dir}"
   target_file_path="${target_dir}/${filename}"
   yq eval-all '
-    select(fileIndex == 1) as $source
+    select(fileIndex == 2) as $generatedSchema
+    | select(fileIndex == 1) as $supportedVersionsFile
     | select(fileIndex == 0)
-    | .spec.versions += [$source.spec.versions[0]]
-  ' "$template_file_path" "$f" > "$target_file_path"
+    | .spec.versions += (
+        $supportedVersionsFile.values
+        | map(
+          $generatedSchema.spec.versions[0] as $tmpl
+           | $tmpl * { "name": .}
+          )
+       )
+  ' "$template_file_path" "$supported_versions_file" "$f" > "$target_file_path"
 done
 
