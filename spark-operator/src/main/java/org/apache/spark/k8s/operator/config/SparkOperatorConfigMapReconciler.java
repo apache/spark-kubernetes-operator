@@ -24,7 +24,9 @@ import java.util.Set;
 import java.util.function.Function;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
+import io.javaoperatorsdk.operator.api.config.informer.Informer;
 import io.javaoperatorsdk.operator.api.config.informer.InformerEventSourceConfiguration;
+import io.javaoperatorsdk.operator.api.reconciler.Constants;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
 import io.javaoperatorsdk.operator.api.reconciler.ControllerConfiguration;
 import io.javaoperatorsdk.operator.api.reconciler.ErrorStatusUpdateControl;
@@ -41,12 +43,11 @@ import lombok.extern.slf4j.Slf4j;
  * is located in given config map. It would keep watch the config map and apply changes when update
  * is detected.
  */
-@ControllerConfiguration
+@ControllerConfiguration(informer = @Informer(name = Constants.WATCH_CURRENT_NAMESPACE))
 @RequiredArgsConstructor
 @Slf4j
 public class SparkOperatorConfigMapReconciler implements Reconciler<ConfigMap> {
   private final Function<Set<String>, Boolean> namespaceUpdater;
-  private final String operatorNamespace;
   private final Function<Void, Set<String>> watchedNamespacesGetter;
 
   @Override
@@ -54,18 +55,6 @@ public class SparkOperatorConfigMapReconciler implements Reconciler<ConfigMap> {
       ConfigMap resource, Context<ConfigMap> context, Exception e) {
     log.error("Failed to reconcile dynamic config change.");
     return ErrorStatusUpdateControl.noStatusUpdate();
-  }
-
-  @Override
-  public List<EventSource<?, ConfigMap>> prepareEventSources(
-      EventSourceContext<ConfigMap> context) {
-    var configMapEventSource =
-        new InformerEventSource<>(
-            InformerEventSourceConfiguration.from(ConfigMap.class, ConfigMap.class)
-                .withNamespaces(Set.of(operatorNamespace))
-                .build(),
-            context);
-    return List.of(configMapEventSource);
   }
 
   @Override
