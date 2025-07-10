@@ -23,8 +23,6 @@ import java.util.Set;
 import java.util.function.Function;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
-import io.javaoperatorsdk.operator.api.config.informer.Informer;
-import io.javaoperatorsdk.operator.api.reconciler.Constants;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
 import io.javaoperatorsdk.operator.api.reconciler.ControllerConfiguration;
 import io.javaoperatorsdk.operator.api.reconciler.ErrorStatusUpdateControl;
@@ -38,7 +36,7 @@ import lombok.extern.slf4j.Slf4j;
  * is located in given config map. It would keep watch the config map and apply changes when update
  * is detected.
  */
-@ControllerConfiguration(informer = @Informer(name = Constants.WATCH_CURRENT_NAMESPACE))
+@ControllerConfiguration
 @RequiredArgsConstructor
 @Slf4j
 public class SparkOperatorConfigMapReconciler implements Reconciler<ConfigMap> {
