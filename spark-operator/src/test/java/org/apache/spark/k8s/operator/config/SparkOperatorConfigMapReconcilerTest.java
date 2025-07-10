@@ -31,6 +31,7 @@ class SparkOperatorConfigMapReconcilerTest {
   Operator operator;
 
   @BeforeEach
+  @SuppressWarnings("unchecked")
   void startController() {
     var reconciler =
         new SparkOperatorConfigMapReconciler(mock(Function.class), mock(Function.class));
@@ -53,6 +54,8 @@ class SparkOperatorConfigMapReconcilerTest {
             () -> {
               assertThat(RECONCILER_INTERVAL_SECONDS.getValue()).isEqualTo(60L);
             });
+    // adding this here to make pmd happy
+    assertThat(RECONCILER_INTERVAL_SECONDS.getValue()).isEqualTo(60L);
   }
 
   ConfigMap testConfigMap() {
