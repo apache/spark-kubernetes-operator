@@ -57,8 +57,6 @@ spec:
                         minExecutors:
                           type: integer
                       type: object
-                    resourceRetainDurationMillis:
-                      type: integer
                     resourceRetainPolicy:
                       enum:
                         - Always
@@ -8736,8 +8734,6 @@ spec:
                         minExecutors:
                           type: integer
                       type: object
-                    resourceRetainDurationMillis:
-                      type: integer
                     resourceRetainPolicy:
                       enum:
                         - Always
@@ -17416,6 +17412,7 @@ spec:
                           type: integer
                       type: object
                     resourceRetainDurationMillis:
+                      default: -1
                       type: integer
                     resourceRetainPolicy:
                       enum:

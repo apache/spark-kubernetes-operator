@@ -23,6 +23,7 @@ import java.time.Instant;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import io.fabric8.generator.annotation.Default;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -53,7 +54,9 @@ public class ApplicationTolerations {
    * set to a negative value, secondary resources could be retained with the same lifecycle as the
    * application according to the retain policy.
    */
-  @Builder.Default protected Long resourceRetainDurationMillis = -1L;
+  @Default("-1")
+  @Builder.Default
+  protected Long resourceRetainDurationMillis = -1L;
 
   /**
    * Check whether a terminated application has exceeded the resource retain duration at the
