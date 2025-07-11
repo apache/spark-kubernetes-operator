@@ -57,3 +57,43 @@ tasks.register('relocateGeneratedCRD', Copy) {
   into "../build-tools/helm/spark-kubernetes-operator/crds"
   rename '(.+).yml', '$1.yaml'
 }
+
+tasks.register("assertGeneratedCRDMatchesHelmChart") {
+  dependsOn 'finalizeGeneratedCRD'
+  description = 'Asserts that the generated CRD yaml matches the staged version in Helm Chart'
+  doLast {
+    def currentPath = projectDir.absolutePath
+    def generatedCRDFileBase = "$currentPath/build/classes/java/main/META-INF/fabric8/"
+    def stagedCRDFileBase = "$currentPath/../build-tools/helm/spark-kubernetes-operator/crds/"
+    def generatedAppCRD = [
+        "yq",
+        "e",
+        ".spec.versions[0]",
+        "${generatedCRDFileBase}sparkapplications.spark.apache.org-v1.yml"
+    ].execute().text.trim()
+    def generatedClusterCRD = [
+        "yq",
+        "e",
+        ".spec.versions[0]",
+        "${generatedCRDFileBase}sparkclusters.spark.apache.org-v1.yml"
+    ].execute().text.trim()
+    def stagedAppCRD = [
+        "yq",
+        "e",
+        ".spec.versions[-1]",
+        "${stagedCRDFileBase}sparkapplications.spark.apache.org-v1.yaml"
+    ].execute().text.trim()
+    def stagedClusterCRD = [
+        "yq",
+        "e",
+        ".spec.versions[-1]",
+        "${stagedCRDFileBase}sparkclusters.spark.apache.org-v1.yaml"
+    ].execute().text.trim()
+    if (generatedAppCRD != stagedAppCRD || generatedClusterCRD != stagedClusterCRD) {
+      throw new GradleException("Generated CRD yaml does not match the staged version in " +
+          "Helm Chart, please keep the chart updated.")
+    }
+  }
+}
+
+test.finalizedBy('assertGeneratedCRDMatchesHelmChart')

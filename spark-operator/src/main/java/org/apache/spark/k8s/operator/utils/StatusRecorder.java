@@ -93,6 +93,7 @@ public class StatusRecorder<
         CR updated = client.resource(resource).lockResourceVersion().updateStatus();
         resource.getMetadata().setResourceVersion(updated.getMetadata().getResourceVersion());
         err = null;
+        break;
       } catch (KubernetesClientException e) {
         log.warn("Error while patching status, retrying {}/{}...", i + 1, maxRetry, e);
         Thread.sleep(TimeUnit.SECONDS.toMillis(API_RETRY_ATTEMPT_AFTER_SECONDS.getValue()));
