@@ -289,11 +289,11 @@ On the other hand, when developing an application, it's possible to configure
 ```yaml
 applicationTolerations:
   # Acceptable values are 'Always', 'OnFailure', 'Never'
-  resourceRetentionPolicy: OnFailure
+  resourceRetainPolicy: OnFailure
 ```
 
 to avoid operator attempt to delete driver pod and driver resources if app fails. Similarly,
-if resourceRetentionPolicy is set to `Always`, operator would not delete driver resources
+if resourceRetainPolicy is set to `Always`, operator would not delete driver resources
 when app ends. Note that this applies only to operator-created resources (driver pod, SparkConf
 configmap .etc). You may also want to tune `spark.kubernetes.driver.service.deleteOnTermination`
 and `spark.kubernetes.executor.deleteOnTermination` to control the behavior of driver-created
