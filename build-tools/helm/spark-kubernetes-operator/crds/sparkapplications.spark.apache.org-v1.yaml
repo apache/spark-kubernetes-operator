@@ -17411,6 +17411,9 @@ spec:
                         minExecutors:
                           type: integer
                       type: object
+                    resourceRetainDurationMillis:
+                      default: -1
+                      type: integer
                     resourceRetainPolicy:
                       enum:
                         - Always

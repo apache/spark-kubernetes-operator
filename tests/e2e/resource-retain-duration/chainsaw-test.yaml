@@ -1,0 +1,56 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: garbage-collect-with-retain-duration-test
+spec:
+  scenarios:
+  - bindings:
+      - name: TEST_NAME
+        value: succeeded
+      - name: APPLICATION_FILE_NAME
+        value: spark-example-retain-duration.yaml
+      - name: SPARK_APPLICATION_NAME
+        value: spark-example-retain-duration
+  steps:
+  - try:
+    - script:
+        env:
+          - name: FILE_NAME
+            value: ($APPLICATION_FILE_NAME)
+        content: kubectl apply -f $FILE_NAME
+    - assert:
+        bindings:
+          - name: SPARK_APP_NAMESPACE
+            value: default
+        timeout: 120s
+        file: "../assertions/spark-application/spark-state-transition-with-retain-check.yaml"
+    catch:
+    - describe:
+        apiVersion: spark.apache.org/v1
+        kind: SparkApplication
+        namespace: default
+    finally:
+    - script:
+        env:
+          - name: SPARK_APPLICATION_NAME
+            value: ($SPARK_APPLICATION_NAME)
+        timeout: 120s
+        content: |
+          kubectl delete sparkapplication $SPARK_APPLICATION_NAME
