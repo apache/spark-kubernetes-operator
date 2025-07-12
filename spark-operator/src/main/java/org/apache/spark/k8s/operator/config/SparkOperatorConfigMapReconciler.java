@@ -19,20 +19,15 @@
 
 package org.apache.spark.k8s.operator.config;
 
-import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
-import io.javaoperatorsdk.operator.api.config.informer.InformerEventSourceConfiguration;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
 import io.javaoperatorsdk.operator.api.reconciler.ControllerConfiguration;
 import io.javaoperatorsdk.operator.api.reconciler.ErrorStatusUpdateControl;
-import io.javaoperatorsdk.operator.api.reconciler.EventSourceContext;
 import io.javaoperatorsdk.operator.api.reconciler.Reconciler;
 import io.javaoperatorsdk.operator.api.reconciler.UpdateControl;
-import io.javaoperatorsdk.operator.processing.event.source.EventSource;
-import io.javaoperatorsdk.operator.processing.event.source.informer.InformerEventSource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -46,7 +41,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class SparkOperatorConfigMapReconciler implements Reconciler<ConfigMap> {
   private final Function<Set<String>, Boolean> namespaceUpdater;
-  private final String operatorNamespace;
   private final Function<Void, Set<String>> watchedNamespacesGetter;
 
   @Override
@@ -54,18 +48,6 @@ public class SparkOperatorConfigMapReconciler implements Reconciler<ConfigMap> {
       ConfigMap resource, Context<ConfigMap> context, Exception e) {
     log.error("Failed to reconcile dynamic config change.");
     return ErrorStatusUpdateControl.noStatusUpdate();
-  }
-
-  @Override
-  public List<EventSource<?, ConfigMap>> prepareEventSources(
-      EventSourceContext<ConfigMap> context) {
-    var configMapEventSource =
-        new InformerEventSource<>(
-            InformerEventSourceConfiguration.from(ConfigMap.class, ConfigMap.class)
-                .withNamespaces(Set.of(operatorNamespace))
-                .build(),
-            context);
-    return List.of(configMapEventSource);
   }
 
   @Override

@@ -80,6 +80,7 @@ dependencies {
   testRuntimeOnly(libs.junit.platform.launcher)
 
   testImplementation(libs.mockito.core)
+  testImplementation(libs.kube.api.test.client.inject)
 }
 
 test {
