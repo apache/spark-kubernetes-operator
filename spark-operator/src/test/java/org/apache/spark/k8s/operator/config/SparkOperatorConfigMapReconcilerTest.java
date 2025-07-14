@@ -65,6 +65,7 @@ class SparkOperatorConfigMapReconcilerTest {
   }
 
   @Test
+  @SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
   void sanityTest() {
     client.resource(testConfigMap()).create();
 
@@ -73,8 +74,6 @@ class SparkOperatorConfigMapReconcilerTest {
             () -> {
               assertThat(RECONCILER_INTERVAL_SECONDS.getValue()).isEqualTo(60L);
             });
-    // adding this here to make pmd happy
-    assertThat(RECONCILER_INTERVAL_SECONDS.getValue()).isEqualTo(60L);
   }
 
   ConfigMap testConfigMap() {
