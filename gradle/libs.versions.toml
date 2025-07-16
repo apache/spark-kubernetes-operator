@@ -42,6 +42,7 @@ shadow-jar-plugin = "8.3.6"
 kubernetes-client = { group = "io.fabric8", name = "kubernetes-client", version.ref = "fabric8" }
 kubernetes-httpclient-okhttp = { group = "io.fabric8", name = "kubernetes-httpclient-okhttp", version.ref = "fabric8" }
 kubernetes-server-mock = { group = "io.fabric8", name = "kubernetes-server-mock", version.ref = "fabric8" }
+kube-api-test-client-inject = {group = "io.fabric8", name = "kube-api-test-client-inject", version.ref = "fabric8"}
 crd-generator-apt = { group = "io.fabric8", name = "crd-generator-apt", version.ref = "fabric8" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttp" }

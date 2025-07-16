@@ -128,9 +128,7 @@ public class SparkOperator {
         confSelector);
     op.register(
         new SparkOperatorConfigMapReconciler(
-            this::updateWatchingNamespaces,
-            SparkOperatorConf.OPERATOR_NAMESPACE.getValue(),
-            unused -> getWatchedNamespaces()),
+            this::updateWatchingNamespaces, unused -> getWatchedNamespaces()),
         c -> {
           c.withRateLimiter(SparkOperatorConf.getOperatorRateLimiter());
           c.settingNamespaces(operatorNamespace);
