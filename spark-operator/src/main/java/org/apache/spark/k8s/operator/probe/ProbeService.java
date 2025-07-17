@@ -53,7 +53,7 @@ public class ProbeService {
   }
 
   public void start() {
-    log.info("Probe service started");
+    log.info("Probe service started at " + OPERATOR_PROBE_PORT.getValue());
     server.start();
   }
 
