@@ -38,8 +38,9 @@ spec:
   jars: "local:///opt/spark/examples/jars/spark-examples.jar"
   driverArgs: ["0"]
   sparkConf:
+    spark.driver.memory: "256m"
+    spark.driver.memoryOverhead: "0m"
     spark.kubernetes.driver.request.cores: "100m"
-    spark.kubernetes.driver.request.memory: "100Mi"
     spark.kubernetes.driver.master: "local[1]"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
     spark.kubernetes.container.image: "apache/spark:4.0.0-java21-scala"
