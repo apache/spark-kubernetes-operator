@@ -293,6 +293,8 @@ applicationTolerations:
   resourceRetainPolicy: OnFailure
   # Secondary resources would be garbage collected 10 minutes after app termination 
   resourceRetainDurationMillis: 600000
+  # Garbage collect the SparkApplication custom resource itself 30 minutes after termination
+  ttlAfterStopMillis: 1800000
 ```
 
 to avoid operator attempt to delete driver pod and driver resources if app fails. Similarly,
@@ -302,7 +304,11 @@ possible to configure `resourceRetainDurationMillis` to define the maximal retai
 these resources. Note that this applies only to operator-created resources (driver pod, SparkConf
 configmap .etc). You may also want to tune `spark.kubernetes.driver.service.deleteOnTermination`
 and `spark.kubernetes.executor.deleteOnTermination` to control the behavior of driver-created
-resources.
+resources. `ttlAfterStopMillis` controls the garbage collection behavior at the SparkApplication
+level after it stops. When set to a non-negative value, Spark operator would garbage collect the
+application (and therefore all its associated resources) after given timeout. If the application
+is configured to restart, `resourceRetainPolicy`, `resourceRetainDurationMillis` and
+`ttlAfterStopMillis` would be applied only to the last attempt.
 
 ## Spark Cluster
 

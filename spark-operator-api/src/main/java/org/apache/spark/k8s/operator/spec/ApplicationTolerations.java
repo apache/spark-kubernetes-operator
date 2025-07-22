@@ -59,6 +59,34 @@ public class ApplicationTolerations {
   protected Long resourceRetainDurationMillis = -1L;
 
   /**
+   * Time-to-live in milliseconds for SparkApplication and all its associated secondary resources
+   * after stop. If set to a negative value, the application could be retained according to the
+   * retain policy. If the application is configured to restart, this would apply to the last
+   * attempt only.
+   */
+  @Default("-1")
+  @Builder.Default
+  protected Long ttlAfterStopMillis = -1L;
+
+  /**
+   * @return The effective retain duration for secondary resources, which would be the smaller value
+   *     of `resourceRetainDurationMillis` or `ttlAfterStopMillis`, if they are set to non-negative
+   *     value. Return -1 if none of them are set.
+   */
+  public long computeEffectiveRetainDurationMillis() {
+    if (resourceRetainDurationMillis < 0 && ttlAfterStopMillis < 0) {
+      return -1L;
+    }
+    if (resourceRetainDurationMillis < 0) {
+      return ttlAfterStopMillis;
+    }
+    if (ttlAfterStopMillis < 0) {
+      return resourceRetainDurationMillis;
+    }
+    return Math.min(resourceRetainDurationMillis, ttlAfterStopMillis);
+  }
+
+  /**
    * Check whether a terminated application has exceeded the resource retain duration at the
    * provided instant
    *
@@ -68,20 +96,30 @@ public class ApplicationTolerations {
    */
   public boolean exceedRetainDurationAtInstant(
       ApplicationState lastObservedState, Instant instant) {
-    return lastObservedState != null
+    return isRetainDurationEnabled()
+        && lastObservedState != null
         && lastObservedState.getCurrentStateSummary().isTerminated()
-        && resourceRetainDurationMillis > 0L
         && Instant.parse(lastObservedState.getLastTransitionTime())
-            .plusMillis(resourceRetainDurationMillis)
+            .plusMillis(computeEffectiveRetainDurationMillis())
             .isBefore(instant);
   }
 
   /**
    * Indicates whether the reconciler need to perform retain duration check
    *
-   * @return true `resourceRetainDurationMillis` is set to non-negative value
+   * @return true if `resourceRetainDurationMillis` or `ttlAfterStopMillis` is set to non-negative
+   *     value
    */
   public boolean isRetainDurationEnabled() {
-    return resourceRetainDurationMillis >= 0L;
+    return resourceRetainDurationMillis >= 0L || ttlAfterStopMillis >= 0L;
+  }
+
+  /**
+   * Indicates whether the reconciler need to perform ttl check
+   *
+   * @return true if `ttlAfterStopMillis` is set to non-negative value
+   */
+  public boolean isTTLEnabled() {
+    return ttlAfterStopMillis >= 0L;
   }
 }

@@ -30,6 +30,7 @@ import java.util.function.Supplier;
 
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.client.KubernetesClient;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -95,7 +96,7 @@ public class AppCleanUpStep extends AppReconcileStep {
     ApplicationTolerations tolerations = application.getSpec().getApplicationTolerations();
     if (currentState.getCurrentStateSummary().isTerminated()) {
       Optional<ReconcileProgress> terminatedAppProgress =
-          checkEarlyExitForTerminatedApp(application, statusRecorder);
+          checkEarlyExitForTerminatedApp(context.getClient(), application, statusRecorder);
       if (terminatedAppProgress.isPresent()) {
         return terminatedAppProgress.get();
       }
@@ -184,14 +185,45 @@ public class AppCleanUpStep extends AppReconcileStep {
     }
   }
 
-  protected Optional<ReconcileProgress> checkEarlyExitForTerminatedApp(
+  protected Optional<ReconcileProgress> clearCacheAndFinishReconcileForApplication(
       final SparkApplication application, final SparkAppStatusRecorder statusRecorder) {
+    log.debug("Cleaning up status cache and stop reconciling for application.");
+    statusRecorder.removeCachedStatus(application);
+    return Optional.of(ReconcileProgress.completeAndNoRequeue());
+  }
+
+  protected Optional<ReconcileProgress> checkEarlyExitForTerminatedApp(
+      final KubernetesClient client,
+      final SparkApplication application,
+      final SparkAppStatusRecorder statusRecorder) {
     ApplicationStatus currentStatus = application.getStatus();
     ApplicationState currentState = currentStatus.getCurrentState();
     ApplicationTolerations tolerations = application.getSpec().getApplicationTolerations();
+    Instant now = Instant.now();
     if (ApplicationStateSummary.ResourceReleased.equals(currentState.getCurrentStateSummary())) {
-      statusRecorder.removeCachedStatus(application);
-      return Optional.of(ReconcileProgress.completeAndNoRequeue());
+      // Perform TTL check after removing all secondary resources, if enabled
+      if (isOnDemandCleanup() || !tolerations.isTTLEnabled()) {
+        // all secondary resources have been released, no more reconciliations needed
+        return clearCacheAndFinishReconcileForApplication(application, statusRecorder);
+      } else {
+        ApplicationState lastObservedStateBeforeTermination =
+            getLastObservedStateBeforeTermination(currentStatus);
+        Duration nextCheckDuration =
+            Duration.between(
+                now,
+                Instant.parse(lastObservedStateBeforeTermination.getLastTransitionTime())
+                    .plusMillis(tolerations.getTtlAfterStopMillis()));
+        if (nextCheckDuration.isNegative()) {
+          log.info("Garbage collecting application exceeded given ttl.");
+          ReconcilerUtils.deleteResourceIfExists(client, application, true);
+          return clearCacheAndFinishReconcileForApplication(application, statusRecorder);
+        } else {
+          log.info(
+              "Application has yet expired, reconciliation would be resumed in {} millis.",
+              nextCheckDuration.toMillis());
+          return Optional.of(ReconcileProgress.completeAndRequeueAfter(nextCheckDuration));
+        }
+      }
     }
     if (isOnDemandCleanup()) {
       return Optional.empty();
@@ -199,21 +231,24 @@ public class AppCleanUpStep extends AppReconcileStep {
     if (ApplicationStateSummary.TerminatedWithoutReleaseResources.equals(
         currentState.getCurrentStateSummary())) {
       if (tolerations.isRetainDurationEnabled()) {
-        Instant now = Instant.now();
         if (tolerations.exceedRetainDurationAtInstant(currentState, now)) {
+          log.info("Garbage collecting secondary resources for application");
           onDemandCleanUpReason = SparkAppStatusUtils::appExceededRetainDuration;
           return Optional.empty();
         } else {
           Duration nextCheckDuration =
               Duration.between(
-                  Instant.now(),
+                  now,
                   Instant.parse(currentState.getLastTransitionTime())
-                      .plusMillis(tolerations.getResourceRetainDurationMillis()));
+                      .plusMillis(tolerations.computeEffectiveRetainDurationMillis()));
+          log.info(
+              "Application is within retention, reconciliation would be resumed in {} millis.",
+              nextCheckDuration.toMillis());
           return Optional.of(ReconcileProgress.completeAndRequeueAfter(nextCheckDuration));
         }
       } else {
-        statusRecorder.removeCachedStatus(application);
-        return Optional.of(ReconcileProgress.completeAndNoRequeue());
+        log.info("Retention duration check is not enabled for application.");
+        return clearCacheAndFinishReconcileForApplication(application, statusRecorder);
       }
     }
     return Optional.empty();
@@ -223,17 +258,25 @@ public class AppCleanUpStep extends AppReconcileStep {
     return onDemandCleanUpReason != null;
   }
 
-  protected boolean isReleasingResourcesForSchedulingFailureAttempt(
-      final ApplicationStatus status) {
+  /**
+   * @param status status of the application
+   * @return The last observed state before termination if the app has terminated. If the app has
+   *     not terminated, return the last observed state
+   */
+  protected ApplicationState getLastObservedStateBeforeTermination(final ApplicationStatus status) {
     ApplicationState lastObservedState = status.getCurrentState();
-    if (ApplicationStateSummary.TerminatedWithoutReleaseResources.equals(
-        lastObservedState.getCurrentStateSummary())) {
-      // if the app has already terminated, use the last observed state before termination
+    if (lastObservedState.getCurrentStateSummary().isTerminated()) {
       NavigableMap<Long, ApplicationState> navMap =
           (NavigableMap<Long, ApplicationState>) status.getStateTransitionHistory();
       Map.Entry<Long, ApplicationState> terminateState = navMap.lastEntry();
-      lastObservedState = navMap.lowerEntry(terminateState.getKey()).getValue();
+      return navMap.lowerEntry(terminateState.getKey()).getValue();
     }
+    return lastObservedState;
+  }
+
+  protected boolean isReleasingResourcesForSchedulingFailureAttempt(
+      final ApplicationStatus status) {
+    ApplicationState lastObservedState = getLastObservedStateBeforeTermination(status);
     return ApplicationStateSummary.SchedulingFailure.equals(
         lastObservedState.getCurrentStateSummary());
   }

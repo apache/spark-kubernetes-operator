@@ -41,6 +41,14 @@ spec:
             value: default
         timeout: 120s
         file: "../assertions/spark-application/spark-state-transition-with-retain-check.yaml"
+    - wait:
+        apiVersion: spark.apache.org/v1
+        kind: SparkApplication
+        namespace: default
+        name: ($SPARK_APPLICATION_NAME)
+        for:
+          deletion: {}
+        timeout: 60s
     catch:
     - describe:
         apiVersion: spark.apache.org/v1
@@ -53,4 +61,4 @@ spec:
             value: ($SPARK_APPLICATION_NAME)
         timeout: 120s
         content: |
-          kubectl delete sparkapplication $SPARK_APPLICATION_NAME
+          kubectl delete sparkapplication $SPARK_APPLICATION_NAME --ignore-not-found=true 
