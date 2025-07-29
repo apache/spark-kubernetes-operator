@@ -21,7 +21,7 @@ package org.apache.spark.k8s.operator;
 
 import static org.apache.spark.k8s.operator.Constants.*;
 
-import java.util.Collections;
+import java.util.Map;
 import java.util.Optional;
 
 import scala.Tuple2;
@@ -117,8 +117,13 @@ public class SparkClusterResourceSpec {
         .endMetadata()
         .withNewSpecLike(serviceSpec)
         .withClusterIP("None")
+        .withClusterIP("None")
         .withSelector(
-            Collections.singletonMap(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_MASTER_VALUE))
+            Map.of(
+                LABEL_SPARK_CLUSTER_NAME,
+                name,
+                LABEL_SPARK_ROLE_NAME,
+                LABEL_SPARK_ROLE_MASTER_VALUE))
         .addNewPort()
         .withName("web")
         .withPort(8080)
@@ -150,7 +155,11 @@ public class SparkClusterResourceSpec {
         .withNewSpecLike(serviceSpec)
         .withClusterIP("None")
         .withSelector(
-            Collections.singletonMap(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_WORKER_VALUE))
+            Map.of(
+                LABEL_SPARK_CLUSTER_NAME,
+                name,
+                LABEL_SPARK_ROLE_NAME,
+                LABEL_SPARK_ROLE_WORKER_VALUE))
         .addNewPort()
         .withName("web")
         .withPort(8081)
@@ -186,6 +195,7 @@ public class SparkClusterResourceSpec {
             .editOrNewTemplate()
             .editOrNewMetadata()
             .addToLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_MASTER_VALUE)
+            .addToLabels(LABEL_SPARK_CLUSTER_NAME, name)
             .addToLabels(LABEL_SPARK_VERSION_NAME, version)
             .endMetadata()
             .editOrNewSpec()
@@ -253,6 +263,7 @@ public class SparkClusterResourceSpec {
             .editOrNewTemplate()
             .editOrNewMetadata()
             .addToLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_WORKER_VALUE)
+            .addToLabels(LABEL_SPARK_CLUSTER_NAME, name)
             .addToLabels(LABEL_SPARK_VERSION_NAME, version)
             .endMetadata()
             .editOrNewSpec()
