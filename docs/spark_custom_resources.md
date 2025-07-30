@@ -310,6 +310,49 @@ application (and therefore all its associated resources) after given timeout. If
 is configured to restart, `resourceRetainPolicy`, `resourceRetainDurationMillis` and
 `ttlAfterStopMillis` would be applied only to the last attempt.
 
+For example, if an app with below configuration:
+
+```yaml
+applicationTolerations:
+  restartConfig:
+    restartPolicy: OnFailure
+  maxRestartAttempts: 1
+  resourceRetainPolicy: Always
+  resourceRetainDurationMillis: 30000
+  ttlAfterStopMillis: 60000
+```
+
+ends up with status like:
+
+```yaml
+status:
+#... the 1st attempt
+      "5":
+        currentStateSummary: Failed
+      "6":
+        currentStateSummary: ScheduledToRestart
+# ...the 2nd attempt
+      "11":
+        currentStateSummary: Succeeded
+      "12":
+        currentStateSummary: TerminatedWithoutReleaseResources
+```
+
+The retain policy only takes effect after the final state `12`. Secondary resources are always
+released between attempts between `5` and `6`. TTL would be calculated based on the last state as
+well.
+
+| Field                                                     | Type                              | Default Value | Description                                                                                                                                                                                               |
+|-----------------------------------------------------------|-----------------------------------|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| .spec.applicationTolerations.resourceRetainPolicy         | `Always` / `OnFailure` / `Never`  | Never         | Configure operator to delete / retain secondary resources for an app after it terminates.                                                                                                                 |
+| .spec.applicationTolerations.resourceRetainDurationMillis | integer                           | -1            | Time to wait in milliseconds for releasing **secondary resources** after termination. Setting to negative value would disable the retention duration check for secondary resources after termination.     |
+| .spec.applicationTolerations.ttlAfterStopMillis           | integer                           | -1            | Time-to-live in milliseconds for SparkApplication and **all its associated secondary resources**. If set to a negative value, the application would be retained and not be garbage collected by operator. |
+
+Note that `ttlAfterStopMillis` applies to the app as well as its secondary resources. If both
+`resourceRetainDurationMillis` and `ttlAfterStopMillis` are set to non-negative value and the
+latter is smaller, then it takes higher precedence: operator would remove all resources related
+to this app after `ttlAfterStopMillis`.
+
 ## Spark Cluster
 
 Spark Operator also supports launching Spark clusters in k8s via `SparkCluster` custom resource,
