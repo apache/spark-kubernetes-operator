@@ -22,7 +22,11 @@ package org.apache.spark.k8s.operator.spec;
 import static org.apache.spark.k8s.operator.spec.DeploymentMode.ClusterMode;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
+import java.io.InputStream;
 
 class ApplicationSpecTest {
   @Test
@@ -45,5 +49,23 @@ class ApplicationSpecTest {
     assertEquals(0, tolerations.instanceConfig.initExecutors);
     assertEquals(0, tolerations.instanceConfig.minExecutors);
     assertEquals(0, tolerations.instanceConfig.maxExecutors);
+  }
+
+  @Test
+  void testSpecWithDriverServiceIngressList() throws IOException {
+    ObjectMapper objectMapper = new ObjectMapper();
+
+    InputStream inputStream =
+                 getClass().getClassLoader().getResourceAsStream("spark-job-with-driver-service" +
+                         "-ingress.json");
+    ApplicationSpec spec = objectMapper.readValue(inputStream, ApplicationSpec.class);
+    assertNotNull(spec.getDriverServiceIngressList());
+    assertEquals(1, spec.getDriverServiceIngressList().size());
+
+    DriverServiceIngressSpec driverServiceIngress = spec.getDriverServiceIngressList().get(0);
+    assertNotNull(driverServiceIngress.getIngressMetadata());
+    assertNotNull(driverServiceIngress.getIngressSpec());
+    assertNotNull(driverServiceIngress.getServiceSpec());
+    assertNotNull(driverServiceIngress.getServiceMetadata());
   }
 }

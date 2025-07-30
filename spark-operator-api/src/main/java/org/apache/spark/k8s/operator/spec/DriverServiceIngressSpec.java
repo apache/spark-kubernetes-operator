@@ -25,13 +25,17 @@ import io.fabric8.generator.annotation.Required;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ServiceSpec;
 import io.fabric8.kubernetes.api.model.networking.v1.IngressSpec;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /** Spec for a driver service ingress. */
 @Data
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@NoArgsConstructor
+@AllArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class DriverServiceIngressSpec {
   @Required protected ObjectMeta serviceMetadata;

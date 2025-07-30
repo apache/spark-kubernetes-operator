@@ -1,0 +1,59 @@
+{
+  "mainClass": "org.apache.spark.examples.SparkPi",
+  "jars": "local:///opt/spark/examples/jars/spark-examples.jar",
+  "sparkConf": {
+    "spark.kubernetes.driver.master": "local[10]",
+    "spark.kubernetes.driver.request.cores": "5",
+    "spark.kubernetes.driver.limit.cores": "5",
+    "spark.kubernetes.authenticate.driver.serviceAccountName": "spark",
+    "spark.kubernetes.container.image": "apache/spark:4.0.0"
+  },
+  "runtimeVersions": {
+    "sparkVersion": "4.0.0"
+  },
+  "driverServiceIngressList": [
+    {
+      "serviceMetadata": {
+        "name": "spark-ui-service"
+      },
+      "serviceSpec": {
+        "ports": [
+          {
+            "protocol": "TCP",
+            "port": 80,
+            "targetPort": 4040
+          }
+        ]
+      },
+      "ingressMetadata": {
+        "name": "spark-ui-ingress",
+        "annotations": {
+          "nginx.ingress.kubernetes.io/rewrite-target": "/"
+        }
+      },
+      "ingressSpec": {
+        "ingressClassName": "nginx-example",
+        "rules": [
+          {
+            "http": {
+              "paths": [
+                {
+                  "path": "/",
+                  "pathType": "Prefix",
+                  "backend": {
+                    "service": {
+                      "name": "spark-ui-service",
+                      "port": {
+                        "number": 80
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
