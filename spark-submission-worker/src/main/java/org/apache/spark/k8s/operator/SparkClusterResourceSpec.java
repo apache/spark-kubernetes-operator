@@ -117,7 +117,6 @@ public class SparkClusterResourceSpec {
         .endMetadata()
         .withNewSpecLike(serviceSpec)
         .withClusterIP("None")
-        .withClusterIP("None")
         .withSelector(
             Map.of(
                 LABEL_SPARK_CLUSTER_NAME,
