@@ -21,7 +21,7 @@ package org.apache.spark.k8s.operator;
 
 import static org.apache.spark.k8s.operator.Constants.*;
 
-import java.util.Map;
+import java.util.Collections;
 import java.util.Optional;
 
 import scala.Tuple2;
@@ -117,12 +117,9 @@ public class SparkClusterResourceSpec {
         .endMetadata()
         .withNewSpecLike(serviceSpec)
         .withClusterIP("None")
-        .withSelector(
-            Map.of(
-                LABEL_SPARK_CLUSTER_NAME,
-                name,
-                LABEL_SPARK_ROLE_NAME,
-                LABEL_SPARK_ROLE_MASTER_VALUE))
+        .addToSelector(Collections.singletonMap(LABEL_SPARK_CLUSTER_NAME, name))
+        .addToSelector(
+            Collections.singletonMap(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_MASTER_VALUE))
         .addNewPort()
         .withName("web")
         .withPort(8080)
@@ -153,12 +150,9 @@ public class SparkClusterResourceSpec {
         .endMetadata()
         .withNewSpecLike(serviceSpec)
         .withClusterIP("None")
-        .withSelector(
-            Map.of(
-                LABEL_SPARK_CLUSTER_NAME,
-                name,
-                LABEL_SPARK_ROLE_NAME,
-                LABEL_SPARK_ROLE_WORKER_VALUE))
+        .addToSelector(Collections.singletonMap(LABEL_SPARK_CLUSTER_NAME, name))
+        .addToSelector(
+            Collections.singletonMap(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_WORKER_VALUE))
         .addNewPort()
         .withName("web")
         .withPort(8081)
