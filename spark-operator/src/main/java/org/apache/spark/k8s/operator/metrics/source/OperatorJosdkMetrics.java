@@ -44,6 +44,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import org.apache.spark.k8s.operator.BaseResource;
 import org.apache.spark.k8s.operator.SparkApplication;
+import org.apache.spark.k8s.operator.SparkCluster;
 import org.apache.spark.metrics.source.Source;
 import org.apache.spark.util.Clock;
 import org.apache.spark.util.SystemClock;
@@ -305,6 +306,8 @@ public class OperatorJosdkMetrics implements Source, Metrics {
 
     if (resourceGvk.getKind().equals(SparkApplication.class.getSimpleName())) {
       resourceClass = SparkApplication.class;
+    } else if (resourceGvk.getKind().equals(SparkCluster.class.getSimpleName())) {
+      resourceClass = SparkCluster.class;
     } else {
       return Optional.empty();
     }
