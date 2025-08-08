@@ -64,6 +64,8 @@ operatorDeployment:
         startupProbe:
           failureThreshold: 30
           periodSeconds: 10
+      metrics:
+        port: 19090
       # By default, operator container is configured to comply restricted standard
       # https://kubernetes.io/docs/concepts/security/pod-security-standards/
       securityContext:

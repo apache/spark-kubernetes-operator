@@ -80,6 +80,8 @@ spec:
           ports:
             - containerPort: {{ include "spark-operator.probePort" . }}
               name: probe-port
+            - containerPort: {{ include "spark-operator.metricsPort" . }}
+              name: metrics-port
           env:
             - name: OPERATOR_NAMESPACE
               valueFrom:
