@@ -17434,6 +17434,9 @@ spec:
                             - OnInfrastructureFailure
                           type: string
                       type: object
+                    ttlAfterStopMillis:
+                      default: -1
+                      type: integer
                   type: object
                 configMapSpecs:
                   items:
