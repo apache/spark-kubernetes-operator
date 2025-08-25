@@ -334,7 +334,7 @@ public final class SparkOperatorConf {
           .defaultValue(19090)
           .build();
 
-  public static final ConfigOption<Boolean> EnablePrometheusTextBasedFormat =
+  public static final ConfigOption<Boolean> ENABLE_PROMETHEUS_TEXT_BASED_FORMAT =
       ConfigOption.<Boolean>builder()
           .key("spark.kubernetes.operator.enablePrometheusTextBasedFormat")
           .enableDynamicOverride(false)
@@ -346,7 +346,7 @@ public final class SparkOperatorConf {
           .defaultValue(true)
           .build();
 
-  public static final ConfigOption<Boolean> EnableSanitizePrometheusMetricsName =
+  public static final ConfigOption<Boolean> ENABLE_SANITIZED_PROMETHEUS_METRICS_NAME =
       ConfigOption.<Boolean>builder()
           .key("spark.kubernetes.operator.enableSanitizePrometheusMetricsName")
           .enableDynamicOverride(false)

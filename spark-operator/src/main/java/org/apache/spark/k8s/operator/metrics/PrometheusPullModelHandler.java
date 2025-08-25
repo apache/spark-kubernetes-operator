@@ -58,9 +58,9 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
     super(properties, registry);
     this.registry = registry;
     this.enablePrometheusTextBasedFormat =
-        SparkOperatorConf.EnablePrometheusTextBasedFormat.getValue();
+        SparkOperatorConf.ENABLE_PROMETHEUS_TEXT_BASED_FORMAT.getValue();
     this.enableSanitizePrometheusMetricsName =
-        SparkOperatorConf.EnableSanitizePrometheusMetricsName.getValue();
+        SparkOperatorConf.ENABLE_SANITIZED_PROMETHEUS_METRICS_NAME.getValue();
   }
 
   @Override
@@ -75,7 +75,7 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
 
   @Override
   public void handle(HttpExchange exchange) throws IOException {
-    if (SparkOperatorConf.EnablePrometheusTextBasedFormat.getValue()) {
+    if (enablePrometheusTextBasedFormat) {
       sendMessage(
           exchange,
           HTTP_OK,
@@ -163,7 +163,7 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
           + "# TYPE "
           + formattedName
           + " gauge\n"
-          + sanitize(formattedName)
+          + formattedName
           + ' '
           + gauge.getValue()
           + "\n\n";
@@ -173,13 +173,14 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
 
   protected String formatCounter(String name, Counter counter) {
     if (counter != null) {
+      String formattedName = sanitize(name);
       return "# HELP "
-          + name
+          + formattedName
           + " Counter metric\n"
           + "# TYPE "
-          + name
+          + formattedName
           + " counter\n"
-          + name
+          + formattedName
           + " "
           + counter.getCount()
           + "\n\n";
@@ -351,7 +352,7 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
 
   protected String sanitize(String name) {
     if (enableSanitizePrometheusMetricsName) {
-      return name.replaceAll("[^a-zA-Z0-9_:]", "_").toLowerCase();
+      return name.replaceAll("[^a-zA-Z0-9_]", "_").toLowerCase();
     }
     return name;
   }
