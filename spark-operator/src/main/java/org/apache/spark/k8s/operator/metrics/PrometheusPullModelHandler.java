@@ -58,9 +58,9 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
     super(properties, registry);
     this.registry = registry;
     this.enablePrometheusTextBasedFormat =
-        SparkOperatorConf.ENABLE_PROMETHEUS_TEXT_BASED_FORMAT.getValue();
+        SparkOperatorConf.PROMETHEUS_TEXT_BASED_FORMAT_ENABLED.getValue();
     this.enableSanitizePrometheusMetricsName =
-        SparkOperatorConf.ENABLE_SANITIZED_PROMETHEUS_METRICS_NAME.getValue();
+        SparkOperatorConf.SANITIZE_PROMETHEUS_METRICS_NAME_ENABLED.getValue();
   }
 
   @Override
@@ -247,33 +247,30 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
 
   protected String formatMeter(String name, Meter meter) {
     if (meter != null) {
-      StringBuilder stringBuilder = new StringBuilder(200);
       String baseName = sanitize(name);
-      stringBuilder
-          .append("# HELP ")
-          .append(baseName)
-          .append("_total Meter count\n# TYPE ")
-          .append(baseName)
-          .append("_total counter\n")
-          .append(baseName)
-          .append("_total ")
-          .append(meter.getCount())
-          .append("\n\n# TYPE ")
-          .append(baseName)
-          .append("_rate gauge\n")
-          .append(baseName)
-          .append("_rate{interval=\"1m\"} ")
-          .append(meter.getOneMinuteRate())
-          .append('\n')
-          .append(baseName)
-          .append("_rate{interval=\"5m\"} ")
-          .append(meter.getFiveMinuteRate())
-          .append('\n')
-          .append(baseName)
-          .append("_rate{interval=\"15m\"} ")
-          .append(meter.getFifteenMinuteRate())
-          .append("\n\n");
-      return stringBuilder.toString();
+      return "# HELP "
+          + baseName
+          + "_total Meter count\n# TYPE "
+          + baseName
+          + "_total counter\n"
+          + baseName
+          + "_total "
+          + meter.getCount()
+          + "\n\n# TYPE "
+          + baseName
+          + "_rate gauge\n"
+          + baseName
+          + "_rate{interval=\"1m\"} "
+          + meter.getOneMinuteRate()
+          + '\n'
+          + baseName
+          + "_rate{interval=\"5m\"} "
+          + meter.getFiveMinuteRate()
+          + '\n'
+          + baseName
+          + "_rate{interval=\"15m\"} "
+          + meter.getFifteenMinuteRate()
+          + "\n\n";
     }
     return null;
   }
