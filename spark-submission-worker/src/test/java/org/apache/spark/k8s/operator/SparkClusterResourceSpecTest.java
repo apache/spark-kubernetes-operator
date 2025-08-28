@@ -19,12 +19,13 @@
 
 package org.apache.spark.k8s.operator;
 
-import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_VERSION_NAME;
+import static org.apache.spark.k8s.operator.Constants.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.Map;
 import java.util.Optional;
 
 import io.fabric8.kubernetes.api.model.ObjectMeta;
@@ -129,6 +130,13 @@ class SparkClusterResourceSpecTest {
     assertEquals("bar", service1.getMetadata().getLabels().get("foo"));
     assertEquals("4.0.0", service1.getMetadata().getLabels().get(LABEL_SPARK_VERSION_NAME));
     assertEquals("foo", service1.getSpec().getExternalName());
+    assertEquals(
+        Map.of(
+            LABEL_SPARK_CLUSTER_NAME,
+            "cluster-name",
+            LABEL_SPARK_ROLE_NAME,
+            LABEL_SPARK_ROLE_WORKER_VALUE),
+        service1.getSpec().getSelector());
   }
 
   @Test
@@ -151,6 +159,13 @@ class SparkClusterResourceSpecTest {
     assertEquals("bar", service1.getMetadata().getLabels().get("foo"));
     assertEquals("4.0.0", service1.getMetadata().getLabels().get(LABEL_SPARK_VERSION_NAME));
     assertEquals("foo", service1.getSpec().getExternalName());
+    assertEquals(
+        Map.of(
+            LABEL_SPARK_CLUSTER_NAME,
+            "cluster-name",
+            LABEL_SPARK_ROLE_NAME,
+            LABEL_SPARK_ROLE_MASTER_VALUE),
+        service1.getSpec().getSelector());
   }
 
   @Test
@@ -172,6 +187,17 @@ class SparkClusterResourceSpecTest {
     SparkClusterResourceSpec spec2 = new SparkClusterResourceSpec(cluster, sparkConf);
     StatefulSet statefulSet2 = spec2.getMasterStatefulSet();
     assertEquals("other-namespace", statefulSet2.getMetadata().getNamespace());
+    assertEquals(
+        "cluster-name",
+        statefulSet2
+            .getSpec()
+            .getTemplate()
+            .getMetadata()
+            .getLabels()
+            .get(LABEL_SPARK_CLUSTER_NAME));
+    assertEquals(
+        LABEL_SPARK_ROLE_MASTER_VALUE,
+        statefulSet2.getSpec().getTemplate().getMetadata().getLabels().get(LABEL_SPARK_ROLE_NAME));
   }
 
   @Test
@@ -236,6 +262,17 @@ class SparkClusterResourceSpecTest {
     SparkClusterResourceSpec spec2 = new SparkClusterResourceSpec(cluster, sparkConf);
     StatefulSet statefulSet2 = spec2.getWorkerStatefulSet();
     assertEquals("other-namespace", statefulSet2.getMetadata().getNamespace());
+    assertEquals(
+        "cluster-name",
+        statefulSet2
+            .getSpec()
+            .getTemplate()
+            .getMetadata()
+            .getLabels()
+            .get(LABEL_SPARK_CLUSTER_NAME));
+    assertEquals(
+        LABEL_SPARK_ROLE_WORKER_VALUE,
+        statefulSet2.getSpec().getTemplate().getMetadata().getLabels().get(LABEL_SPARK_ROLE_NAME));
   }
 
   @Test
