@@ -21,6 +21,8 @@ package org.apache.spark.k8s.operator.metrics;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 import java.util.Properties;
 
@@ -70,7 +72,7 @@ class PrometheusPullModelHandlerTest {
 
     String output = handler.formatMetricsSnapshot();
 
-    assertTrue(output.contains("# TYPE foo_histogram histogram"));
+    assertTrue(output.contains("# TYPE foo_histogram summary"));
     assertTrue(output.contains("foo_histogram_count 2"));
     assertTrue(output.contains("foo_histogram_sum"));
   }
@@ -87,7 +89,7 @@ class PrometheusPullModelHandlerTest {
 
     String output = handler.formatMetricsSnapshot();
 
-    assertTrue(output.contains("# TYPE foo_nanos_histogram histogram"));
+    assertTrue(output.contains("# TYPE foo_seconds_histogram summary"));
     assertTrue(output.contains("foo_seconds_histogram_count 3"));
     assertTrue(output.contains("foo_seconds_histogram_sum 0.001572032"));
   }
@@ -103,7 +105,7 @@ class PrometheusPullModelHandlerTest {
     String output = handler.formatMetricsSnapshot();
     assertTrue(output.contains("# TYPE foo_meter_total counter"));
     assertTrue(output.contains("foo_meter_total 3"));
-    assertTrue(output.contains("foo_meter_rate{interval=\"1m\"}"));
+    assertTrue(output.contains("foo_meter_m1_rate"));
   }
 
   @Test
@@ -111,16 +113,15 @@ class PrometheusPullModelHandlerTest {
     MetricRegistry registry = new MetricRegistry();
     Timer timer = registry.timer("foo_timer");
 
-    Timer.Context context = timer.time();
-    Thread.sleep(10);
-    context.stop();
-
+    timer.update(Duration.of(500, ChronoUnit.MILLIS));
+    timer.update(Duration.of(1000, ChronoUnit.MILLIS));
     PrometheusPullModelHandler handler = new PrometheusPullModelHandler(new Properties(), registry);
 
     String output = handler.formatMetricsSnapshot();
-    assertTrue(output.contains("# TYPE foo_timer_duration_seconds histogram"));
-    assertTrue(output.contains("foo_timer_duration_seconds_count 1"));
-    assertTrue(output.contains("foo_timer_duration_seconds_sum"));
+    assertTrue(output.contains("# TYPE foo_timer_duration_seconds summary"));
+    assertTrue(output.contains("foo_timer_duration_seconds_count 2"));
+    assertTrue(output.contains("foo_timer_duration_seconds_sum 1.5"));
+    assertTrue(output.contains("foo_timer_m1_rate"));
   }
 
   @Test

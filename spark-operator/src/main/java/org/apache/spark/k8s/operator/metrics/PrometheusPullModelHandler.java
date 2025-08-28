@@ -190,57 +190,54 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
 
   protected String formatHistogram(String name, Histogram histogram) {
     if (histogram != null && histogram.getSnapshot() != null) {
-      StringBuilder stringBuilder = new StringBuilder(300);
       String baseName = sanitize(name);
       Snapshot snap = histogram.getSnapshot();
       long count = histogram.getCount();
-      stringBuilder
-          .append("# HELP ")
-          .append(baseName)
-          .append(" Histogram metric\n# TYPE ")
-          .append(baseName)
-          .append(" histogram\n");
       boolean isNanosHistogram = baseName.contains("nanos");
       if (isNanosHistogram) {
         baseName = nanosMetricsNameToSeconds(baseName);
       }
-      appendBucket(
-          stringBuilder,
-          baseName,
-          "le=\"0.5\"",
-          isNanosHistogram ? nanosToSeconds(snap.getMedian()) : snap.getMean());
-      appendBucket(
-          stringBuilder,
-          baseName,
-          "le=\"0.75\"",
-          isNanosHistogram ? nanosToSeconds(snap.get75thPercentile()) : snap.get75thPercentile());
-      appendBucket(
-          stringBuilder,
-          baseName,
-          "le=\"0.95\"",
-          isNanosHistogram ? nanosToSeconds(snap.get95thPercentile()) : snap.get95thPercentile());
-      appendBucket(
-          stringBuilder,
-          baseName,
-          "le=\"0.98\"",
-          isNanosHistogram ? nanosToSeconds(snap.get98thPercentile()) : snap.get98thPercentile());
-      appendBucket(
-          stringBuilder,
-          baseName,
-          "le=\"0.99\"",
-          isNanosHistogram ? nanosToSeconds(snap.get99thPercentile()) : snap.get99thPercentile());
       double sum =
           isNanosHistogram ? nanosToSeconds(snap.getMean() * count) : snap.getMean() * count;
-      stringBuilder
-          .append(baseName)
-          .append("_count ")
-          .append(count)
-          .append('\n')
-          .append(baseName)
-          .append("_sum ")
-          .append(sum)
-          .append("\n\n");
-      return stringBuilder.toString();
+      return "# HELP "
+          + baseName
+          + " Histogram metric\n# TYPE "
+          + baseName
+          + " summary\n"
+          + baseName
+          + "{quantile=\"0.5\"} "
+          + (isNanosHistogram ? nanosToSeconds(snap.getMedian()) : snap.getMean())
+          + "\n"
+          + baseName
+          + "{quantile=\"0.75\"} "
+          + (isNanosHistogram ? nanosToSeconds(snap.get75thPercentile()) : snap.get75thPercentile())
+          + "\n"
+          + baseName
+          + "{quantile=\"0.95\"} "
+          + (isNanosHistogram ? nanosToSeconds(snap.get95thPercentile()) : snap.get95thPercentile())
+          + "\n"
+          + baseName
+          + "{quantile=\"0.98\"} "
+          + (isNanosHistogram ? nanosToSeconds(snap.get98thPercentile()) : snap.get98thPercentile())
+          + "\n"
+          + baseName
+          + "{quantile=\"0.99\"} "
+          + (isNanosHistogram ? nanosToSeconds(snap.get99thPercentile()) : snap.get99thPercentile())
+          + "\n"
+          + baseName
+          + "{quantile=\"0.999\"} "
+          + (isNanosHistogram
+              ? nanosToSeconds(snap.get999thPercentile())
+              : snap.get99thPercentile())
+          + "\n"
+          + baseName
+          + "_count "
+          + count
+          + "\n"
+          + baseName
+          + "_sum "
+          + sum
+          + "\n\n";
     }
     return null;
   }
@@ -260,15 +257,15 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
           + baseName
           + "_rate gauge\n"
           + baseName
-          + "_rate{interval=\"1m\"} "
+          + "_m1_rate "
           + meter.getOneMinuteRate()
-          + '\n'
+          + "\n"
           + baseName
-          + "_rate{interval=\"5m\"} "
+          + "_m5_rate "
           + meter.getFiveMinuteRate()
-          + '\n'
+          + "\n"
           + baseName
-          + "_rate{interval=\"15m\"} "
+          + "_m15_rate "
           + meter.getFifteenMinuteRate()
           + "\n\n";
     }
@@ -277,70 +274,73 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
 
   protected String formatTimer(String name, Timer timer) {
     if (timer != null && timer.getSnapshot() != null) {
-      StringBuilder stringBuilder = new StringBuilder(300);
       String baseName = sanitize(name);
       Snapshot snap = timer.getSnapshot();
       long count = timer.getCount();
-      stringBuilder
-          .append("# HELP ")
-          .append(baseName)
-          .append("_duration_seconds Timer histogram\n# TYPE ")
-          .append(baseName)
-          .append("_duration_seconds histogram\n");
-      appendBucket(
-          stringBuilder,
-          baseName + "_duration_seconds",
-          "le=\"0.5\"",
-          nanosToSeconds(snap.getMedian()));
-      appendBucket(
-          stringBuilder,
-          baseName + "_duration_seconds",
-          "le=\"0.75\"",
-          nanosToSeconds(snap.get75thPercentile()));
-      appendBucket(
-          stringBuilder,
-          baseName + "_duration_seconds",
-          "le=\"0.95\"",
-          nanosToSeconds(snap.get95thPercentile()));
-      appendBucket(
-          stringBuilder,
-          baseName + "_duration_seconds",
-          "le=\"0.98\"",
-          nanosToSeconds(snap.get98thPercentile()));
-      appendBucket(
-          stringBuilder,
-          baseName + "_duration_seconds",
-          "le=\"0.99\"",
-          nanosToSeconds(snap.get99thPercentile()));
-      stringBuilder
-          .append(baseName)
-          .append("_duration_seconds_count ")
-          .append(count)
-          .append('\n')
-          .append(baseName)
-          .append("_duration_seconds_sum ")
-          .append(nanosToSeconds(snap.getMean() * count))
-          .append("\n\n# TYPE ")
-          .append(baseName)
-          .append("_calls_total counter\n")
-          .append(baseName)
-          .append("_calls_total ")
-          .append(count)
-          .append("\n\n");
-      return stringBuilder.toString();
+      return "# HELP "
+          + baseName
+          + "_duration_seconds Timer summary\n# TYPE "
+          + baseName
+          + "_duration_seconds summary\n"
+          + "\n"
+          + baseName
+          + "_duration_seconds"
+          + "{quantile=\"0.5\"} "
+          + nanosToSeconds(snap.getMedian())
+          + "\n"
+          + baseName
+          + "_duration_seconds"
+          + "{quantile=\"0.75\"} "
+          + nanosToSeconds(snap.get75thPercentile())
+          + "\n"
+          + baseName
+          + "_duration_seconds"
+          + "{quantile=\"0.95\"} "
+          + nanosToSeconds(snap.get95thPercentile())
+          + "\n"
+          + baseName
+          + "_duration_seconds"
+          + "{quantile=\"0.98\"} "
+          + nanosToSeconds(snap.get98thPercentile())
+          + "\n"
+          + baseName
+          + "_duration_seconds"
+          + "{quantile=\"0.99\"} "
+          + nanosToSeconds(snap.get99thPercentile())
+          + "\n"
+          + baseName
+          + "_duration_seconds"
+          + "{quantile=\"0.999\"} "
+          + nanosToSeconds(snap.get999thPercentile())
+          + "\n"
+          + baseName
+          + "_duration_seconds_count "
+          + count
+          + "\n"
+          + baseName
+          + "_duration_seconds_sum "
+          + nanosToSeconds(snap.getMean() * count)
+          + "\n\n# TYPE "
+          + baseName
+          + " gauge\n"
+          + baseName
+          + "_count "
+          + count
+          + "\n"
+          + baseName
+          + "_m1_rate "
+          + timer.getOneMinuteRate()
+          + "\n"
+          + baseName
+          + "_m5_rate "
+          + timer.getFiveMinuteRate()
+          + "\n"
+          + baseName
+          + "_m15_rate "
+          + timer.getFifteenMinuteRate()
+          + "\n\n";
     }
     return null;
-  }
-
-  protected void appendBucket(
-      StringBuilder builder, String baseName, String leLabel, double value) {
-    builder
-        .append(baseName)
-        .append("_bucket{")
-        .append(leLabel)
-        .append("} ")
-        .append(value)
-        .append('\n');
   }
 
   protected double nanosToSeconds(double nanos) {
