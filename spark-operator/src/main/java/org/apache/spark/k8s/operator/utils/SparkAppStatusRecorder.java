@@ -24,18 +24,25 @@ import java.util.List;
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.context.SparkAppContext;
 import org.apache.spark.k8s.operator.listeners.SparkAppStatusListener;
+import org.apache.spark.k8s.operator.metrics.SparkAppStatusRecorderSource;
 import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
 
 /** Records the status of a Spark application. */
 public class SparkAppStatusRecorder
     extends StatusRecorder<ApplicationStatus, SparkApplication, SparkAppStatusListener> {
-  public SparkAppStatusRecorder(List<SparkAppStatusListener> statusListeners) {
+  protected final SparkAppStatusRecorderSource recorderSource;
+
+  public SparkAppStatusRecorder(
+      List<SparkAppStatusListener> statusListeners, SparkAppStatusRecorderSource recorderSource) {
     super(statusListeners, ApplicationStatus.class, SparkApplication.class);
+    this.recorderSource = recorderSource;
   }
 
   public void appendNewStateAndPersist(SparkAppContext context, ApplicationState newState) {
-    ApplicationStatus updatedStatus = context.getResource().getStatus().appendNewState(newState);
+    ApplicationStatus appStatus = context.getResource().getStatus();
+    recorderSource.recordStatusUpdateLatency(appStatus, newState);
+    ApplicationStatus updatedStatus = appStatus.appendNewState(newState);
     persistStatus(context, updatedStatus);
   }
 }

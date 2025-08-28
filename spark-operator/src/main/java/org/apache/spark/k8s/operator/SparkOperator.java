@@ -46,6 +46,7 @@ import org.apache.spark.k8s.operator.config.SparkOperatorConfigMapReconciler;
 import org.apache.spark.k8s.operator.metrics.MetricsService;
 import org.apache.spark.k8s.operator.metrics.MetricsSystem;
 import org.apache.spark.k8s.operator.metrics.MetricsSystemFactory;
+import org.apache.spark.k8s.operator.metrics.SparkAppStatusRecorderSource;
 import org.apache.spark.k8s.operator.metrics.healthcheck.SentinelManager;
 import org.apache.spark.k8s.operator.metrics.source.KubernetesMetricsInterceptor;
 import org.apache.spark.k8s.operator.metrics.source.OperatorJosdkMetrics;
@@ -83,7 +84,10 @@ public class SparkOperator {
         KubernetesClientFactory.buildKubernetesClient(getClientInterceptors(metricsSystem));
     this.appSubmissionWorker = new SparkAppSubmissionWorker();
     this.clusterSubmissionWorker = new SparkClusterSubmissionWorker();
-    this.sparkAppStatusRecorder = new SparkAppStatusRecorder(getAppStatusListener());
+    SparkAppStatusRecorderSource recorderSource = new SparkAppStatusRecorderSource();
+    this.metricsSystem.registerSource(recorderSource);
+    this.sparkAppStatusRecorder =
+        new SparkAppStatusRecorder(getAppStatusListener(), recorderSource);
     this.sparkClusterStatusRecorder = new SparkClusterStatusRecorder(getClusterStatusListener());
     this.registeredSparkControllers = new HashSet<>();
     this.watchedNamespaces = getWatchedNamespaces();
