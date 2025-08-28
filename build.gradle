@@ -84,7 +84,7 @@ subprojects {
     spotbugs {
       toolVersion = libs.versions.spotbugs.tool.get()
       afterEvaluate {
-        reportsDir = file("${project.reporting.baseDir}/findbugs")
+        reportsDir = file("${project.reporting.baseDirectory}/findbugs")
       }
       excludeFilter = file("$rootDir/config/spotbugs/spotbugs_exclude.xml")
       ignoreFailures = false
