@@ -16,9 +16,13 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+plugins {
+  id 'java-library'
+}
+
 dependencies {
   // fabric8
-  implementation(libs.kubernetes.client) {
+  api(libs.kubernetes.client) {
     exclude group: 'com.squareup.okhttp3'
   }
   compileOnly(libs.crd.generator.apt)
