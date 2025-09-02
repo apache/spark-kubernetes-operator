@@ -23,7 +23,7 @@ jobs:
         branch: ${{ fromJSON( inputs.branch || '["main", "branch-0.4"]' ) }}
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         ref: ${{ matrix.branch }}
     - name: Set up JDK 17
