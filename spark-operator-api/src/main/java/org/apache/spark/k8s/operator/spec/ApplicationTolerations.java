@@ -21,6 +21,7 @@ package org.apache.spark.k8s.operator.spec;
 
 import java.time.Instant;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.fabric8.generator.annotation.Default;
@@ -110,6 +111,7 @@ public class ApplicationTolerations {
    * @return true if `resourceRetainDurationMillis` or `ttlAfterStopMillis` is set to non-negative
    *     value
    */
+  @JsonIgnore
   public boolean isRetainDurationEnabled() {
     return resourceRetainDurationMillis >= 0L || ttlAfterStopMillis >= 0L;
   }
@@ -119,6 +121,7 @@ public class ApplicationTolerations {
    *
    * @return true if `ttlAfterStopMillis` is set to non-negative value
    */
+  @JsonIgnore
   public boolean isTTLEnabled() {
     return ttlAfterStopMillis >= 0L;
   }
