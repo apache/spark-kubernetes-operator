@@ -56,16 +56,16 @@ class SparkAppStatusRecorderSourceTest {
 
     Map<String, Timer> timers = source.metricRegistry().getTimers();
     assertEquals(2, timers.size());
-    assertTrue(timers.containsKey("sparkapp.latency.from.Submitted.to.DriverRequested"));
+    assertTrue(timers.containsKey("sparkapp.latency.from.submitted.to.driverrequested"));
     assertTrue(
-        timers.get("sparkapp.latency.from.Submitted.to.DriverRequested").getSnapshot().getMin()
+        timers.get("sparkapp.latency.from.submitted.to.driverrequested").getSnapshot().getMin()
             > 0);
-    assertEquals(2, timers.get("sparkapp.latency.from.Submitted.to.DriverRequested").getCount());
-    assertTrue(timers.containsKey("sparkapp.latency.from.DriverRequested.to.DriverStarted"));
+    assertEquals(2, timers.get("sparkapp.latency.from.submitted.to.driverrequested").getCount());
+    assertTrue(timers.containsKey("sparkapp.latency.from.driverrequested.to.driverstarted"));
     assertEquals(
-        1, timers.get("sparkapp.latency.from.DriverRequested.to.DriverStarted").getCount());
+        1, timers.get("sparkapp.latency.from.driverrequested.to.driverstarted").getCount());
     assertTrue(
-        timers.get("sparkapp.latency.from.DriverRequested.to.DriverStarted").getSnapshot().getMin()
+        timers.get("sparkapp.latency.from.driverrequested.to.driverstarted").getSnapshot().getMin()
             > 0);
   }
 

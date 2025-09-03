@@ -55,14 +55,13 @@ public class SparkAppStatusRecorderSource extends BaseOperatorSource implements 
           Duration.between(
               Instant.parse(currentState.getLastTransitionTime()),
               Instant.parse(newState.getLastTransitionTime()));
-      String metricName =
-          MetricRegistry.name(
+      getTimer(
               RESOURCE_TYPE,
               String.format(
                   LATENCY_METRIC_FORMAT,
                   currentState.getCurrentStateSummary().name(),
-                  newState.getCurrentStateSummary().name()));
-      getTimer(metricName).update(duration);
+                  newState.getCurrentStateSummary().name()))
+          .update(duration);
     }
   }
 }

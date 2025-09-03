@@ -37,8 +37,9 @@ public class BaseOperatorSource {
   protected final Map<String, Gauge<?>> gauges = new ConcurrentHashMap<>();
   protected final Map<String, Timer> timers = new ConcurrentHashMap<>();
 
-  protected Histogram getHistogram(String metricName) {
+  protected Histogram getHistogram(String metricNamePrefix, String... names) {
     Histogram histogram;
+    String metricName = MetricRegistry.name(metricNamePrefix, names).toLowerCase();
     if (histograms.containsKey(metricName)) {
       histogram = histograms.get(metricName);
     } else {
@@ -48,8 +49,9 @@ public class BaseOperatorSource {
     return histogram;
   }
 
-  protected Counter getCounter(String metricName) {
+  protected Counter getCounter(String metricNamePrefix, String... names) {
     Counter counter;
+    String metricName = MetricRegistry.name(metricNamePrefix, names).toLowerCase();
     if (counters.containsKey(metricName)) {
       counter = counters.get(metricName);
     } else {
@@ -59,8 +61,9 @@ public class BaseOperatorSource {
     return counter;
   }
 
-  protected Gauge<?> getGauge(Gauge<?> defaultGauge, String metricName) {
+  protected Gauge<?> getGauge(Gauge<?> defaultGauge, String metricNamePrefix, String... names) {
     Gauge<?> gauge;
+    String metricName = MetricRegistry.name(metricNamePrefix, names).toLowerCase();
     if (gauges.containsKey(metricName)) {
       gauge = gauges.get(metricName);
     } else {
@@ -70,8 +73,9 @@ public class BaseOperatorSource {
     return gauge;
   }
 
-  protected Timer getTimer(String metricName) {
+  protected Timer getTimer(String metricNamePrefix, String... names) {
     Timer timer;
+    String metricName = MetricRegistry.name(metricNamePrefix, names).toLowerCase();
     if (timers.containsKey(metricName)) {
       timer = timers.get(metricName);
     } else {
@@ -81,7 +85,7 @@ public class BaseOperatorSource {
     return timer;
   }
 
-  public String getMetricName(Class<?> klass, String... names) {
-    return MetricRegistry.name(klass.getSimpleName(), names).toLowerCase();
+  protected String getMetricNamePrefix(Class<?> klass) {
+    return klass.getSimpleName();
   }
 }

@@ -99,16 +99,15 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
       final Optional<String> namespaceOptional = event.getRelatedCustomResourceID().getNamespace();
       resource.ifPresent(
           aClass ->
-              getCounter(getMetricName(aClass, action.name().toLowerCase(), RESOURCE, EVENT))
+              getCounter(getMetricNamePrefix(aClass), action.name().toLowerCase(), RESOURCE, EVENT)
                   .inc());
       if (resource.isPresent() && namespaceOptional.isPresent()) {
         getCounter(
-                getMetricName(
-                    resource.get(),
-                    namespaceOptional.get(),
-                    action.name().toLowerCase(),
-                    RESOURCE,
-                    EVENT))
+                getMetricNamePrefix(resource.get()),
+                namespaceOptional.get(),
+                action.name().toLowerCase(),
+                RESOURCE,
+                EVENT)
             .inc();
       }
     }
@@ -130,24 +129,13 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
       T result = execution.execute();
       final String successType = execution.successTypeName(result);
       if (resourceClass.isPresent()) {
-        String histogramName = getMetricName(resourceClass.get(), name, execName, successType);
-        getHistogram(histogramName).update(toSeconds(startTime));
-        String counterName =
-            getMetricName(resourceClass.get(), name, execName, SUCCESS, successType);
-        getCounter(counterName).inc();
+        String metricsPrefix = getMetricNamePrefix(resourceClass.get());
+        getHistogram(metricsPrefix, name, execName, successType).update(toSeconds(startTime));
+        getCounter(metricsPrefix, name, execName, SUCCESS, successType).inc();
         if (namespaceOptional.isPresent()) {
-          getHistogram(
-                  getMetricName(
-                      resourceClass.get(), namespaceOptional.get(), name, execName, successType))
+          getHistogram(metricsPrefix, namespaceOptional.get(), name, execName, successType)
               .update(toSeconds(startTime));
-          getCounter(
-                  getMetricName(
-                      resourceClass.get(),
-                      namespaceOptional.get(),
-                      name,
-                      execName,
-                      SUCCESS,
-                      successType))
+          getCounter(metricsPrefix, namespaceOptional.get(), name, execName, SUCCESS, successType)
               .inc();
         }
       }
@@ -157,25 +145,20 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
           "Controller execution failed for resource {}, metadata {}", resourceID, metadata, e);
       final String exception = e.getClass().getSimpleName();
       if (resourceClass.isPresent()) {
-        getHistogram(getMetricName(resourceClass.get(), name, execName, FAILURE))
-            .update(toSeconds(startTime));
-        getCounter(
-                getMetricName(resourceClass.get(), name, execName, FAILURE, EXCEPTION, exception))
-            .inc();
+        String metricsPrefix = getMetricNamePrefix(resourceClass.get());
+        getHistogram(metricsPrefix, name, execName, FAILURE).update(toSeconds(startTime));
+        getCounter(metricsPrefix, name, execName, FAILURE, EXCEPTION, exception).inc();
         if (namespaceOptional.isPresent()) {
-          getHistogram(
-                  getMetricName(
-                      resourceClass.get(), namespaceOptional.get(), name, execName, FAILURE))
+          getHistogram(metricsPrefix, namespaceOptional.get(), name, execName, FAILURE)
               .update(toSeconds(startTime));
           getCounter(
-                  getMetricName(
-                      resourceClass.get(),
-                      namespaceOptional.get(),
-                      name,
-                      execName,
-                      FAILURE,
-                      EXCEPTION,
-                      exception))
+                  metricsPrefix,
+                  namespaceOptional.get(),
+                  name,
+                  execName,
+                  FAILURE,
+                  EXCEPTION,
+                  exception)
               .inc();
         }
       }
@@ -191,16 +174,13 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
         resource,
         retryInfo,
         metadata);
+    String metricsPrefix = getMetricNamePrefix(resource.getClass());
     if (retryInfo != null) {
       final String namespace = resource.getMetadata().getNamespace();
-      getCounter(getMetricName(resource.getClass(), RECONCILIATION, RETRIES)).inc();
-      getCounter(getMetricName(resource.getClass(), namespace, RECONCILIATION, RETRIES)).inc();
+      getCounter(metricsPrefix, RECONCILIATION, RETRIES).inc();
+      getCounter(metricsPrefix, namespace, RECONCILIATION, RETRIES).inc();
     }
-    getCounter(
-            getMetricName(
-                resource.getClass(),
-                (String) metadata.get(CONTROLLER_NAME),
-                RECONCILIATIONS_QUEUE_SIZE))
+    getCounter(metricsPrefix, (String) metadata.get(CONTROLLER_NAME), RECONCILIATIONS_QUEUE_SIZE)
         .inc();
   }
 
@@ -209,32 +189,27 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
       HasMetadata resource, Exception exception, Map<String, Object> metadata) {
     log.error(
         "Failed reconciliation for resource {} with metadata {}", resource, exception, exception);
-    getCounter(getMetricName(resource.getClass(), RECONCILIATION, FAILED)).inc();
-    getCounter(
-            getMetricName(
-                resource.getClass(), resource.getMetadata().getNamespace(), RECONCILIATION, FAILED))
-        .inc();
+    String metricsPrefix = getMetricNamePrefix(resource.getClass());
+    getCounter(metricsPrefix, RECONCILIATION, FAILED).inc();
+    getCounter(metricsPrefix, resource.getMetadata().getNamespace(), RECONCILIATION, FAILED).inc();
   }
 
   @Override
   public void finishedReconciliation(HasMetadata resource, Map<String, Object> metadata) {
     log.debug("Finished reconciliation for resource {} with metadata {}", resource, metadata);
-    getCounter(getMetricName(resource.getClass(), RECONCILIATION, FINISHED)).inc();
-    getCounter(
-        getMetricName(
-            resource.getClass(), resource.getMetadata().getNamespace(), RECONCILIATION, FINISHED));
+    String metricsPrefix = getMetricNamePrefix(resource.getClass());
+    getCounter(metricsPrefix, RECONCILIATION, FINISHED).inc();
+    getCounter(metricsPrefix, resource.getMetadata().getNamespace(), RECONCILIATION, FINISHED);
   }
 
   @Override
   public void cleanupDoneFor(ResourceID resourceID, Map<String, Object> metadata) {
     log.debug("Cleanup Done for resource {} with metadata {}", resourceID, metadata);
-    getCounter(getMetricName(resourceID.getClass(), RECONCILIATION, CLEANUP)).inc();
+    String metricsPrefix = getMetricNamePrefix(resourceID.getClass());
+    getCounter(metricsPrefix, RECONCILIATION, CLEANUP).inc();
     resourceID
         .getNamespace()
-        .ifPresent(
-            ns ->
-                getCounter(getMetricName(resourceID.getClass(), ns, RECONCILIATION, CLEANUP))
-                    .inc());
+        .ifPresent(ns -> getCounter(metricsPrefix, ns, RECONCILIATION, CLEANUP).inc());
   }
 
   @Override
@@ -255,18 +230,14 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
   public void reconciliationExecutionStarted(HasMetadata resource, Map<String, Object> metadata) {
     log.debug("Reconciliation execution started");
     String namespace = resource.getMetadata().getNamespace();
-    getCounter(
-            getMetricName(
-                resource.getClass(),
-                (String) metadata.get(CONTROLLER_NAME),
-                RECONCILIATIONS_EXECUTIONS))
+    String metricsPrefix = getMetricNamePrefix(resource.getClass());
+    getCounter(metricsPrefix, (String) metadata.get(CONTROLLER_NAME), RECONCILIATIONS_EXECUTIONS)
         .inc();
     getCounter(
-            getMetricName(
-                resource.getClass(),
-                namespace,
-                (String) metadata.get(CONTROLLER_NAME),
-                RECONCILIATIONS_EXECUTIONS))
+            metricsPrefix,
+            namespace,
+            (String) metadata.get(CONTROLLER_NAME),
+            RECONCILIATIONS_EXECUTIONS)
         .inc();
   }
 
@@ -274,24 +245,16 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
   public void reconciliationExecutionFinished(HasMetadata resource, Map<String, Object> metadata) {
     log.debug("Reconciliation execution finished");
     String namespace = resource.getMetadata().getNamespace();
-    getCounter(
-            getMetricName(
-                resource.getClass(),
-                (String) metadata.get(CONTROLLER_NAME),
-                RECONCILIATIONS_EXECUTIONS))
+    String metricsPrefix = getMetricNamePrefix(resource.getClass());
+    getCounter(metricsPrefix, (String) metadata.get(CONTROLLER_NAME), RECONCILIATIONS_EXECUTIONS)
         .dec();
     getCounter(
-            getMetricName(
-                resource.getClass(),
-                namespace,
-                (String) metadata.get(CONTROLLER_NAME),
-                RECONCILIATIONS_EXECUTIONS))
+            metricsPrefix,
+            namespace,
+            (String) metadata.get(CONTROLLER_NAME),
+            RECONCILIATIONS_EXECUTIONS)
         .dec();
-    getCounter(
-            getMetricName(
-                resource.getClass(),
-                (String) metadata.get(CONTROLLER_NAME),
-                RECONCILIATIONS_QUEUE_SIZE))
+    getCounter(metricsPrefix, (String) metadata.get(CONTROLLER_NAME), RECONCILIATIONS_QUEUE_SIZE)
         .dec();
   }
 
