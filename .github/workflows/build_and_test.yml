@@ -105,7 +105,7 @@ jobs:
           distribution: 'adopt'
           cache: 'gradle'
       - name: Set up Minikube
-        uses: medyagh/setup-minikube@v0.0.19
+        uses: medyagh/setup-minikube@v0.0.20
         with:
           cache: true
           kubernetes-version: ${{ matrix.kubernetes-version }}
