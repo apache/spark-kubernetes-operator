@@ -334,6 +334,30 @@ public final class SparkOperatorConf {
           .defaultValue(19090)
           .build();
 
+  public static final ConfigOption<Boolean> PROMETHEUS_TEXT_BASED_FORMAT_ENABLED =
+      ConfigOption.<Boolean>builder()
+          .key("spark.kubernetes.operator.metrics.prometheusTextBasedFormatEnabled")
+          .enableDynamicOverride(false)
+          .description(
+              "Whether or not to enable text-based format for Prometheus 2.0, as "
+                  + "recommended by "
+                  + "https://prometheus.io/docs/instrumenting/exposition_formats/#text-based-format")
+          .typeParameterClass(Boolean.class)
+          .defaultValue(true)
+          .build();
+
+  public static final ConfigOption<Boolean> SANITIZE_PROMETHEUS_METRICS_NAME_ENABLED =
+      ConfigOption.<Boolean>builder()
+          .key("spark.kubernetes.operator.metrics.sanitizePrometheusMetricsNameEnabled")
+          .enableDynamicOverride(false)
+          .description(
+              "Whether or not to enable automatic name sanitizing for all metrics based on "
+                  + "best-practice guide from Prometheus "
+                  + "https://prometheus.io/docs/practices/naming/")
+          .typeParameterClass(Boolean.class)
+          .defaultValue(true)
+          .build();
+
   public static final ConfigOption<Integer> OPERATOR_PROBE_PORT =
       ConfigOption.<Integer>builder()
           .key("spark.kubernetes.operator.health.probePort")
