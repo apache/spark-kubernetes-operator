@@ -91,6 +91,20 @@ via [Codahale JVM Metrics](https://javadoc.io/doc/com.codahale.metrics/metrics-j
 | kubernetes.client.`ResourceName`.`Method`                 | Meter      | Tracking the rates of HTTP request for a combination of one Kubernetes resource and one http method                      |
 | kubernetes.client.`NamespaceName`.`ResourceName`.`Method` | Meter      | Tracking the rates of HTTP request for a combination of one namespace-scoped Kubernetes resource and one http method     |
 
+### Latency for State Transition
+
+Spark Operator also measures the latency between each state transition for apps, in the format of
+
+| Metrics Name                                         | Type  | Description                                                      |
+|------------------------------------------------------|-------|------------------------------------------------------------------|
+| sparkapp.latency.from.`<fromState>`.to.`<toState>`   | Timer | Tracking latency for app of transition from one state to another |
+
+The latency metrics can be used to provide insights about time spent in each state. For example, a
+long latency between `DriverRequested` and `DriverStarted` indicates overhead for driver pod to be
+scheduled. Latency between `DriverStarted` and `DriverReady` indicates overhead to pull image, to
+run init containers and to start SparkSession. These metrics can be used to analyze the overhead
+from multiple dimensions.
+
 ### Forward Metrics to Prometheus
 
 In this section, we will show you how to forward Spark Operator metrics
