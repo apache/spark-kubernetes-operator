@@ -25,7 +25,6 @@ rules:
       - services
       - configmaps
       - persistentvolumeclaims
-      - persistentvolumes
       - events
     verbs:
       - '*'
