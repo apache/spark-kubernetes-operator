@@ -23,7 +23,7 @@ spec:
     spark.jars.ivy: "/tmp/.ivy2.5.2"
     spark.driver.memory: "2g"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
-    spark.kubernetes.container.image: "apache/spark:4.0.0-java21-scala"
+    spark.kubernetes.container.image: "apache/spark:4.0.1-java21-scala"
     spark.ui.port: "18080"
     spark.history.fs.logDirectory: "s3a://spark-events"
     spark.history.fs.cleaner.enabled: "true"
@@ -36,7 +36,7 @@ spec:
     spark.hadoop.fs.s3a.access.key: "test"
     spark.hadoop.fs.s3a.secret.key: "test"
   runtimeVersions:
-    sparkVersion: "4.0.0"
+    sparkVersion: "4.0.1"
   applicationTolerations:
     restartConfig:
       restartPolicy: Always

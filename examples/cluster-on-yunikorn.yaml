@@ -18,14 +18,14 @@ metadata:
   name: cluster-on-yunikorn
 spec:
   runtimeVersions:
-    sparkVersion: "4.0.0"
+    sparkVersion: "4.0.1"
   clusterTolerations:
     instanceConfig:
       initWorkers: 1
       minWorkers: 1
       maxWorkers: 1
   sparkConf:
-    spark.kubernetes.container.image: "apache/spark:4.0.0"
+    spark.kubernetes.container.image: "apache/spark:4.0.1"
     spark.kubernetes.scheduler.name: "yunikorn"
     spark.master.ui.title: "Spark Cluster on YuniKorn Scheduler"
     spark.master.rest.enabled: "true"

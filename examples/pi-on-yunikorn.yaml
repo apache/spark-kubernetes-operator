@@ -25,7 +25,7 @@ spec:
     spark.dynamicAllocation.shuffleTracking.enabled: "true"
     spark.dynamicAllocation.maxExecutors: "3"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
-    spark.kubernetes.container.image: "apache/spark:4.0.0"
+    spark.kubernetes.container.image: "apache/spark:4.0.1"
     spark.kubernetes.scheduler.name: "yunikorn"
     spark.kubernetes.driver.label.queue: "root.default"
     spark.kubernetes.executor.label.queue: "root.default"
@@ -34,4 +34,4 @@ spec:
   applicationTolerations:
     resourceRetainPolicy: OnFailure
   runtimeVersions:
-    sparkVersion: "4.0.0"
+    sparkVersion: "4.0.1"
