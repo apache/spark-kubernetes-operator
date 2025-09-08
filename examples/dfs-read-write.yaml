@@ -32,7 +32,7 @@ spec:
     spark.dynamicAllocation.shuffleTracking.enabled: "true"
     spark.dynamicAllocation.maxExecutors: "3"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
-    spark.kubernetes.container.image: "apache/spark:4.0.0-java21-scala"
+    spark.kubernetes.container.image: "apache/spark:4.0.1-java21-scala"
     spark.hadoop.fs.defaultFS: "s3a://data"
     spark.hadoop.fs.s3a.endpoint: "http://localstack:4566"
     spark.hadoop.fs.s3a.path.style.access: "true"
@@ -41,4 +41,4 @@ spec:
   applicationTolerations:
     resourceRetainPolicy: OnFailure
   runtimeVersions:
-    sparkVersion: "4.0.0"
+    sparkVersion: "4.0.1"
