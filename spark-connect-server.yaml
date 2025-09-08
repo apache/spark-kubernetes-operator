@@ -24,9 +24,9 @@ spec:
     spark.dynamicAllocation.minExecutors: "3"
     spark.dynamicAllocation.maxExecutors: "3"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
-    spark.kubernetes.container.image: "apache/spark:4.0.0"
+    spark.kubernetes.container.image: "apache/spark:4.0.1"
   applicationTolerations:
     resourceRetainPolicy: OnFailure
   runtimeVersions:
     scalaVersion: "2.13"
-    sparkVersion: "4.0.0"
+    sparkVersion: "4.0.1"
