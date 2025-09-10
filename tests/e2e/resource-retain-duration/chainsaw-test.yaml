@@ -61,4 +61,4 @@ spec:
             value: ($SPARK_APPLICATION_NAME)
         timeout: 120s
         content: |
-          kubectl delete sparkapplication $SPARK_APPLICATION_NAME --ignore-not-found=true 
+          kubectl delete sparkapplication $SPARK_APPLICATION_NAME --ignore-not-found=true

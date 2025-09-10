@@ -27,4 +27,3 @@ spec:
   (volumes[?configMap.name=='spark-conf-volume-driver'] != []): true
 status:
   phase: Running
-

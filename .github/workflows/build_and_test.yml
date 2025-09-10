@@ -131,7 +131,7 @@ jobs:
           minikube docker-env --unset
       - name: Run E2E Test with Dynamic Configuration Disabled
         if: matrix.mode == 'static'
-        run: |        
+        run: |
           chainsaw test --test-dir ./tests/e2e/${{ matrix.test-group }} --parallel 2
       - name: Run Spark K8s Operator on K8S with Dynamic Configuration Enabled
         if: matrix.mode == 'dynamic'
