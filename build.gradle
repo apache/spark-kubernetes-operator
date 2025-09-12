@@ -116,11 +116,15 @@ subprojects {
       trimTrailingWhitespace()
       removeUnusedImports()
     }
-    format 'misc', {
-      target '*.md', '*.gradle', '**/*.properties', '**/*.xml', '**/*.yaml', '**/*.yml'
-      endWithNewline()
-      trimTrailingWhitespace()
-    }
+  }
+}
+
+apply plugin: 'com.diffplug.spotless'
+spotless {
+  format 'misc', {
+    target '*.md', '*.gradle', '**/*.properties', '**/*.xml', '**/*.yaml', '**/*.yml'
+    endWithNewline()
+    trimTrailingWhitespace()
   }
 }
 
