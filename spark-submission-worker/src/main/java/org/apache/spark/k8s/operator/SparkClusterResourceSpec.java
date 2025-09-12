@@ -117,7 +117,8 @@ public class SparkClusterResourceSpec {
         .endMetadata()
         .withNewSpecLike(serviceSpec)
         .withClusterIP("None")
-        .withSelector(
+        .addToSelector(Collections.singletonMap(LABEL_SPARK_CLUSTER_NAME, name))
+        .addToSelector(
             Collections.singletonMap(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_MASTER_VALUE))
         .addNewPort()
         .withName("web")
@@ -149,7 +150,8 @@ public class SparkClusterResourceSpec {
         .endMetadata()
         .withNewSpecLike(serviceSpec)
         .withClusterIP("None")
-        .withSelector(
+        .addToSelector(Collections.singletonMap(LABEL_SPARK_CLUSTER_NAME, name))
+        .addToSelector(
             Collections.singletonMap(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_WORKER_VALUE))
         .addNewPort()
         .withName("web")
@@ -186,6 +188,7 @@ public class SparkClusterResourceSpec {
             .editOrNewTemplate()
             .editOrNewMetadata()
             .addToLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_MASTER_VALUE)
+            .addToLabels(LABEL_SPARK_CLUSTER_NAME, name)
             .addToLabels(LABEL_SPARK_VERSION_NAME, version)
             .endMetadata()
             .editOrNewSpec()
@@ -253,6 +256,7 @@ public class SparkClusterResourceSpec {
             .editOrNewTemplate()
             .editOrNewMetadata()
             .addToLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_WORKER_VALUE)
+            .addToLabels(LABEL_SPARK_CLUSTER_NAME, name)
             .addToLabels(LABEL_SPARK_VERSION_NAME, version)
             .endMetadata()
             .editOrNewSpec()
