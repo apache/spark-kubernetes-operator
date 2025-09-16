@@ -22,7 +22,7 @@ plugins {
 
 dependencies {
   // fabric8
-  api(libs.kubernetes.client) {
+  implementation(libs.kubernetes.client) {
     exclude group: 'com.squareup.okhttp3'
   }
   compileOnly(libs.crd.generator.apt)
