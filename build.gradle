@@ -71,24 +71,22 @@ subprojects {
     showViolations = true
   }
 
-  if (JavaVersion.current() < JavaVersion.VERSION_25) {
-    apply plugin: 'pmd'
-    pmd {
-      ruleSetFiles = files("$rootDir/config/pmd/ruleset.xml")
-      toolVersion = libs.versions.pmd.get()
-      consoleOutput = true
-      ignoreFailures = false
-    }
+  apply plugin: 'pmd'
+  pmd {
+    ruleSetFiles = files("$rootDir/config/pmd/ruleset.xml")
+    toolVersion = libs.versions.pmd.get()
+    consoleOutput = true
+    ignoreFailures = false
+  }
 
-    apply plugin: 'com.github.spotbugs'
-    spotbugs {
-      toolVersion = libs.versions.spotbugs.tool.get()
-      afterEvaluate {
-        reportsDir = file("${project.reporting.baseDirectory}/findbugs")
-      }
-      excludeFilter = file("$rootDir/config/spotbugs/spotbugs_exclude.xml")
-      ignoreFailures = false
+  apply plugin: 'com.github.spotbugs'
+  spotbugs {
+    toolVersion = libs.versions.spotbugs.tool.get()
+    afterEvaluate {
+      reportsDir = file("${project.reporting.baseDirectory}/findbugs")
     }
+    excludeFilter = file("$rootDir/config/spotbugs/spotbugs_exclude.xml")
+    ignoreFailures = false
   }
 
   apply plugin: 'jacoco'
