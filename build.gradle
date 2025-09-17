@@ -71,7 +71,7 @@ subprojects {
     showViolations = true
   }
 
-  if (JavaVersion.current() < JavaVersion.VERSION_24) {
+  if (JavaVersion.current() < JavaVersion.VERSION_25) {
     apply plugin: 'pmd'
     pmd {
       ruleSetFiles = files("$rootDir/config/pmd/ruleset.xml")
