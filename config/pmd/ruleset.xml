@@ -41,6 +41,7 @@
     <exclude name="TooManyStaticImports" />
     <exclude name="UseExplicitTypes" />
     <exclude name="UseUnderscoresInNumericLiterals" />
+    <exclude name="TypeParameterNamingConventions" />
   </rule>
   <rule ref="category/java/design.xml">
     <exclude name="AbstractClassWithoutAnyMethod" />

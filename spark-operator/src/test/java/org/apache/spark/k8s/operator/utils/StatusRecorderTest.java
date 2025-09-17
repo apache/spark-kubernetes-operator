@@ -86,7 +86,8 @@ class StatusRecorderTest {
             any());
   }
 
-  private static @NotNull SparkApplication getSparkApplication(String resourceVersion) {
+  @NotNull
+  private static SparkApplication getSparkApplication(String resourceVersion) {
     var updated = TestUtils.createMockApp(DEFAULT_NS);
     updated.getMetadata().setResourceVersion(resourceVersion);
     return updated;

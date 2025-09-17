@@ -37,7 +37,6 @@ import org.mockito.Mockito;
 
 import org.apache.spark.k8s.operator.utils.ProbeUtil;
 
-@SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
 class ReadinessProbeTest {
   KubernetesClient client;
   HttpExchange httpExchange;
