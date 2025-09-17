@@ -33,7 +33,7 @@ cluster using the [Helm](https://helm.sh) package manager. With this, you can la
 
 ## Requirements
 
-- Kubernetes 1.30+ cluster
+- Kubernetes 1.32+ cluster
 - Helm 3.0+
 
 ## Features
