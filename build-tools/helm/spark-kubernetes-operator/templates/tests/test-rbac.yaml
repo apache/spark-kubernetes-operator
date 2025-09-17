@@ -25,7 +25,7 @@ metadata:
 spec:
   containers:
     - name: kubectl
-      image: bitnami/kubectl:latest
+      image: bitnamisecure/kubectl:latest
       command: ['bash', '-c' ]
       args: [
         'kubectl auth can-i list sparkapplications --all-namespaces',
@@ -52,7 +52,7 @@ metadata:
 spec:
   containers:
     - name: kubectl
-      image: bitnami/kubectl:latest
+      image: bitnamisecure/kubectl:latest
       command: ['bash', '-c' ]
       args: [
         'kubectl auth can-i create pods -n {{ .Release.Namespace }}',
