@@ -43,7 +43,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java-version }}
-          distribution: 'adopt'
+          distribution: 'zulu'
           cache: 'gradle'
       - name: Build with Gradle
         run: |
@@ -59,7 +59,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           java-version: 17
-          distribution: 'adopt'
+          distribution: 'zulu'
           cache: 'gradle'
       - name: Build Operator Image
         run: |
@@ -102,7 +102,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           java-version: 21
-          distribution: 'adopt'
+          distribution: 'zulu'
           cache: 'gradle'
       - name: Set up Minikube
         uses: medyagh/setup-minikube@v0.0.20
@@ -167,7 +167,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           java-version: 17
-          distribution: 'adopt'
+          distribution: 'zulu'
           cache: 'gradle'
       - name: Linters
         run: |
