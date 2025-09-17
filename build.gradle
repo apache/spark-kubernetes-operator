@@ -103,7 +103,7 @@ subprojects {
   spotless {
     java {
       endWithNewline()
-      googleJavaFormat('1.22.0')
+      googleJavaFormat('1.28.0')
       importOrder(
         'java',
         'javax',
