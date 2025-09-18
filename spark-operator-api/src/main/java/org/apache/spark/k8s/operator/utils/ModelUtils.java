@@ -45,6 +45,12 @@ public final class ModelUtils {
 
   private ModelUtils() {}
 
+  /**
+   * Converts a PodTemplateSpec to a Pod object.
+   *
+   * @param podTemplateSpec The PodTemplateSpec to convert.
+   * @return A new Pod object.
+   */
   public static Pod getPodFromTemplateSpec(PodTemplateSpec podTemplateSpec) {
     if (podTemplateSpec == null) {
       return new PodBuilder().withNewMetadata().endMetadata().withNewSpec().endSpec().build();
@@ -57,9 +63,13 @@ public final class ModelUtils {
   }
 
   /**
-   * Find the Spark main container(s) in driver pod. If `spark.kubernetes.driver
-   * .podTemplateContainerName` is not set, all containers are considered as main container from
-   * health monitoring perspective
+   * Finds the Spark main container(s) in the driver pod based on the application specification. If
+   * `spark.kubernetes.driver.podTemplateContainerName` is not set, all containers are considered as
+   * main containers.
+   *
+   * @param appSpec The ApplicationSpec of the Spark application.
+   * @param containerStatusList A list of ContainerStatus objects from the driver pod.
+   * @return A List of ContainerStatus objects representing the main containers.
    */
   public static List<ContainerStatus> findDriverMainContainerStatus(
       final ApplicationSpec appSpec, final List<ContainerStatus> containerStatusList) {
@@ -78,10 +88,10 @@ public final class ModelUtils {
   }
 
   /**
-   * Build OwnerReference to the given resource
+   * Builds an OwnerReference to the given resource.
    *
-   * @param owner the owner
-   * @return OwnerReference to be used for subresources
+   * @param owner The owner resource.
+   * @return An OwnerReference object to be used for subresources.
    */
   public static OwnerReference buildOwnerReferenceTo(HasMetadata owner) {
     return new OwnerReferenceBuilder()
@@ -93,6 +103,13 @@ public final class ModelUtils {
         .build();
   }
 
+  /**
+   * Converts a Kubernetes resource to its JSON string representation.
+   *
+   * @param resource The resource to convert.
+   * @param <T> The type of the resource, extending HasMetadata.
+   * @return A JSON string representation of the resource.
+   */
   public static <T extends HasMetadata> String asJsonString(T resource) {
     try {
       return objectMapper.writeValueAsString(resource);
@@ -101,18 +118,36 @@ public final class ModelUtils {
     }
   }
 
+  /**
+   * Checks if overriding the driver template is enabled in the application specification.
+   *
+   * @param applicationSpec The ApplicationSpec to check.
+   * @return True if driver template override is enabled, false otherwise.
+   */
   public static boolean overrideDriverTemplateEnabled(ApplicationSpec applicationSpec) {
     return applicationSpec != null
         && applicationSpec.getDriverSpec() != null
         && applicationSpec.getDriverSpec().getPodTemplateSpec() != null;
   }
 
+  /**
+   * Checks if overriding the executor template is enabled in the application specification.
+   *
+   * @param applicationSpec The ApplicationSpec to check.
+   * @return True if executor template override is enabled, false otherwise.
+   */
   public static boolean overrideExecutorTemplateEnabled(ApplicationSpec applicationSpec) {
     return applicationSpec != null
         && applicationSpec.getExecutorSpec() != null
         && applicationSpec.getExecutorSpec().getPodTemplateSpec() != null;
   }
 
+  /**
+   * Retrieves the current attempt ID from a SparkApplication's status.
+   *
+   * @param app The SparkApplication to get the attempt ID from.
+   * @return The current attempt ID, or 0L if not available.
+   */
   public static long getAttemptId(final SparkApplication app) {
     long attemptId = 0L;
     if (app.getStatus() != null && app.getStatus().getCurrentAttemptSummary() != null) {

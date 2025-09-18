@@ -33,6 +33,15 @@ import org.apache.spark.k8s.operator.utils.PodUtils;
 
 /** Observes whether the driver pod has started. */
 public class AppDriverStartObserver extends BaseAppDriverObserver {
+  /**
+   * Observes the driver pod to determine if it has started.
+   *
+   * @param driver The driver Pod object.
+   * @param spec The ApplicationSpec of the Spark application.
+   * @param currentStatus The current ApplicationStatus of the Spark application.
+   * @return An Optional containing the new ApplicationState if the driver has started or
+   *     terminated, otherwise empty.
+   */
   @Override
   public Optional<ApplicationState> observe(
       Pod driver, ApplicationSpec spec, ApplicationStatus currentStatus) {

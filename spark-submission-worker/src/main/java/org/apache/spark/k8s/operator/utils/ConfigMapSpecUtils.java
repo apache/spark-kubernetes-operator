@@ -32,6 +32,12 @@ import org.apache.spark.k8s.operator.spec.ConfigMapSpec;
 public final class ConfigMapSpecUtils {
   private ConfigMapSpecUtils() {}
 
+  /**
+   * Builds a list of Kubernetes ConfigMap objects from a list of ConfigMapSpec.
+   *
+   * @param configMapMountList A list of ConfigMapSpec objects.
+   * @return A List of ConfigMap objects.
+   */
   public static List<ConfigMap> buildConfigMaps(List<ConfigMapSpec> configMapMountList) {
     if (configMapMountList == null || configMapMountList.isEmpty()) {
       return Collections.emptyList();

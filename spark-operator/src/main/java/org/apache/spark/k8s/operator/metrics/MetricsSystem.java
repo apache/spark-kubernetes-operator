@@ -48,10 +48,16 @@ public class MetricsSystem {
   @Getter private final PrometheusPullModelHandler prometheusPullModelHandler;
   private final Map<String, SinkProperties> sinkPropertiesMap;
 
+  /** Constructs a new MetricsSystem with default properties. */
   public MetricsSystem() {
     this(new Properties());
   }
 
+  /**
+   * Constructs a new MetricsSystem with the given properties.
+   *
+   * @param properties The properties to configure the metrics system.
+   */
   public MetricsSystem(Properties properties) {
     this.sources = new HashSet<>();
     this.sinks = new HashSet<>();
@@ -63,6 +69,10 @@ public class MetricsSystem {
     this.sinks.add(prometheusPullModelHandler);
   }
 
+  /**
+   * Starts the metrics system, registering default sources and configured sinks. Throws
+   * IllegalStateException if the system is already running.
+   */
   public void start() {
     if (running.get()) {
       throw new IllegalStateException(
@@ -74,6 +84,7 @@ public class MetricsSystem {
     sinks.forEach(Sink::start);
   }
 
+  /** Stops the metrics system, stopping all sinks and clearing the registry. */
   public void stop() {
     if (running.get()) {
       sinks.forEach(Sink::stop);
@@ -84,14 +95,20 @@ public class MetricsSystem {
     running.set(false);
   }
 
+  /** Triggers all registered sinks to report their metrics. */
   public void report() {
     sinks.forEach(Sink::report);
   }
 
+  /** Registers default metric sources, such as JVM metrics. */
   protected void registerDefaultSources() {
     registerSource(new OperatorJvmSource());
   }
 
+  /**
+   * Registers all configured metrics sinks based on the provided properties. Sinks are instantiated
+   * via reflection.
+   */
   protected void registerSinks() {
     log.info("sinkPropertiesMap: {}", sinkPropertiesMap);
     sinkPropertiesMap
@@ -124,6 +141,11 @@ public class MetricsSystem {
             });
   }
 
+  /**
+   * Registers a custom metric source with the metrics system.
+   *
+   * @param source The Source to register.
+   */
   public void registerSource(Source source) {
     sources.add(source);
     try {
@@ -139,6 +161,7 @@ public class MetricsSystem {
     String className;
     Properties properties;
 
+    /** Constructs a new, empty SinkProperties object. */
     public SinkProperties() {
       this.className = "";
       this.properties = new Properties();

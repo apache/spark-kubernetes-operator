@@ -58,6 +58,12 @@ public class SentinelManager<CR extends BaseResource<?, ?, ?, ?, ?>> {
       Executors.newScheduledThreadPool(
           SparkOperatorConf.SENTINEL_EXECUTOR_SERVICE_POOL_SIZE.getValue());
 
+  /**
+   * Checks if a given resource is a sentinel resource.
+   *
+   * @param resource The resource to check.
+   * @return True if the resource is a sentinel resource, false otherwise.
+   */
   public static boolean isSentinelResource(HasMetadata resource) {
     Map<String, String> labels = resource.getMetadata().getLabels();
     if (labels == null) {
@@ -82,6 +88,11 @@ public class SentinelManager<CR extends BaseResource<?, ?, ?, ?, ?>> {
     return true;
   }
 
+  /**
+   * Checks if all tracked sentinel resources are healthy.
+   *
+   * @return True if all sentinels are healthy, false otherwise.
+   */
   public boolean allSentinelsAreHealthy() {
     Set<ResourceID> unWatchedKey = new HashSet<>();
     boolean result =
@@ -101,6 +112,12 @@ public class SentinelManager<CR extends BaseResource<?, ?, ?, ?, ?>> {
     return result;
   }
 
+  /**
+   * Checks the health of a specific sentinel resource.
+   *
+   * @param resourceID The ID of the resource to check.
+   * @param client The Kubernetes client.
+   */
   public void checkHealth(ResourceID resourceID, KubernetesClient client) {
     SentinelResourceState sentinelResourceState = sentinelResources.get(resourceID);
     if (sentinelResourceState == null) {
@@ -128,6 +145,13 @@ public class SentinelManager<CR extends BaseResource<?, ?, ?, ?, ?>> {
     updateSpecAndScheduleHealthCheck(resourceID, sentinelResourceState, client);
   }
 
+  /**
+   * Handles the reconciliation of a sentinel resource.
+   *
+   * @param resource The custom resource being reconciled.
+   * @param client The Kubernetes client.
+   * @return True if the resource was a sentinel resource and was handled, false otherwise.
+   */
   public boolean handleSentinelResourceReconciliation(CR resource, KubernetesClient client) {
     if (!isSentinelResource(resource)) {
       return false;
@@ -191,14 +215,29 @@ public class SentinelManager<CR extends BaseResource<?, ?, ?, ?, ?>> {
 
     @Getter boolean isHealthy = true;
 
+    /**
+     * Updates the internal resource with the latest custom resource.
+     *
+     * @param cr The latest custom resource.
+     */
     void onReconcile(CR cr) {
       resource = cr;
     }
 
+    /**
+     * Checks if the resource has been reconciled since its last update.
+     *
+     * @return True if reconciled, false otherwise.
+     */
     boolean reconciledSinceUpdate() {
       return resource.getMetadata().getGeneration() > previousGeneration;
     }
 
+    /**
+     * Returns a string representation of the SentinelResourceState.
+     *
+     * @return A string representation.
+     */
     @Override
     public String toString() {
       return new ToStringBuilder(this)
@@ -209,6 +248,11 @@ public class SentinelManager<CR extends BaseResource<?, ?, ?, ?, ?>> {
     }
   }
 
+  /**
+   * Returns the map of sentinel resources for testing purposes.
+   *
+   * @return A ConcurrentHashMap of ResourceID to SentinelResourceState.
+   */
   @VisibleForTesting
   public ConcurrentHashMap<ResourceID, SentinelResourceState> getSentinelResources() {
     return sentinelResources;

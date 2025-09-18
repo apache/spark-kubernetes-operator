@@ -40,6 +40,17 @@ public final class SparkAppDriverConf extends KubernetesDriverConf {
     super(sparkConf, appId, mainAppResource, mainClass, appArgs, proxyUser, null);
   }
 
+  /**
+   * Creates a new SparkAppDriverConf instance.
+   *
+   * @param sparkConf The SparkConf object.
+   * @param appId The application ID.
+   * @param mainAppResource The main application resource.
+   * @param mainClass The main class of the application.
+   * @param appArgs The application arguments.
+   * @param proxyUser The proxy user option.
+   * @return A new SparkAppDriverConf instance.
+   */
   public static SparkAppDriverConf create(
       SparkConf sparkConf,
       String appId,
@@ -53,20 +64,24 @@ public final class SparkAppDriverConf extends KubernetesDriverConf {
     return new SparkAppDriverConf(sparkConf, appId, mainAppResource, mainClass, appArgs, proxyUser);
   }
 
-  /** Application managed by operator has a deterministic prefix */
+  /**
+   * Returns the resource name prefix, which is the application ID.
+   *
+   * @return The application ID.
+   */
   @Override
   public String resourceNamePrefix() {
     return appId();
   }
 
   /**
-   * Create the name to be used by driver config map. The consists of `resourceNamePrefix` and Spark
-   * instance type (driver). Operator proposes `resourceNamePrefix` with leaves naming length margin
-   * for sub-resources to be qualified as DNS subdomain or label. In addition, the overall config
-   * name length is governed by `KubernetesClientUtils.configMapName` - which ensures the name
-   * length meets requirements as DNS subdomain name.
+   * Creates the name to be used by the driver config map. The name consists of `resourceNamePrefix`
+   * and Spark instance type (driver). Operator proposes `resourceNamePrefix` with leaves naming
+   * length margin for sub-resources to be qualified as DNS subdomain or label. In addition, the
+   * overall config name length is governed by `KubernetesClientUtils.configMapName` - which ensures
+   * the name length meets the requirements as DNS subdomain name.
    *
-   * @return proposed name to be used by driver config map
+   * @return The proposed name for the driver config map.
    */
   public String configMapNameDriver() {
     return KubernetesClientUtils.configMapName(String.format("%s-spark-drv", resourceNamePrefix()));

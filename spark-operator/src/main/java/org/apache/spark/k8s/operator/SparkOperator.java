@@ -78,6 +78,7 @@ public class SparkOperator {
   private final MetricsService metricsService;
   private final ExecutorService metricsResourcesSingleThreadPool;
 
+  /** Constructs a new SparkOperator, initializing all its components. */
   public SparkOperator() {
     this.metricsSystem = MetricsSystemFactory.createMetricsSystem();
     this.client =
@@ -107,6 +108,11 @@ public class SparkOperator {
     this.metricsService = new MetricsService(metricsSystem, metricsResourcesSingleThreadPool);
   }
 
+  /**
+   * Registers the Spark Application and Spark Cluster reconcilers with the operator.
+   *
+   * @return The Operator instance with registered controllers.
+   */
   protected Operator registerSparkOperator() {
     Operator op = new Operator(this::overrideOperatorConfigs);
     registeredSparkControllers.add(
@@ -122,6 +128,11 @@ public class SparkOperator {
     return op;
   }
 
+  /**
+   * Registers a monitor for dynamic configuration changes via ConfigMaps.
+   *
+   * @return The Operator instance for the config monitor.
+   */
   protected Operator registerSparkOperatorConfMonitor() {
     Operator op = new Operator(this::overrideConfigMonitorConfigs);
     String operatorNamespace = SparkOperatorConf.OPERATOR_NAMESPACE.getValue();
@@ -141,6 +152,12 @@ public class SparkOperator {
     return op;
   }
 
+  /**
+   * Updates the set of namespaces that the operator is watching.
+   *
+   * @param namespaces The new set of namespaces to watch.
+   * @return True if the namespaces were updated, false otherwise.
+   */
   protected boolean updateWatchingNamespaces(Set<String> namespaces) {
     if (watchedNamespaces.equals(namespaces)) {
       log.info("No watched namespace change detected");
@@ -167,6 +184,11 @@ public class SparkOperator {
     return true;
   }
 
+  /**
+   * Overrides the default configuration for the operator.
+   *
+   * @param overrider The ConfigurationServiceOverrider to apply changes to.
+   */
   protected void overrideOperatorConfigs(ConfigurationServiceOverrider overrider) {
     overrider.withKubernetesClient(client);
     overrider.withStopOnInformerErrorDuringStartup(
@@ -193,6 +215,11 @@ public class SparkOperator {
     overrider.withUseSSAToPatchPrimaryResource(false);
   }
 
+  /**
+   * Overrides the configuration for the dynamic config monitor.
+   *
+   * @param overrider The ConfigurationServiceOverrider to apply changes to.
+   */
   protected void overrideConfigMonitorConfigs(ConfigurationServiceOverrider overrider) {
     overrider.withKubernetesClient(client);
     overrider.withConcurrentReconciliationThreads(
@@ -205,6 +232,11 @@ public class SparkOperator {
     overrider.withUseSSAToPatchPrimaryResource(false);
   }
 
+  /**
+   * Overrides the default configuration for individual controllers.
+   *
+   * @param overrider The ControllerConfigurationOverrider to apply changes to.
+   */
   protected void overrideControllerConfigs(ControllerConfigurationOverrider<?> overrider) {
     if (watchedNamespaces.isEmpty()) {
       log.info("Initializing operator watching at cluster level.");
@@ -216,6 +248,13 @@ public class SparkOperator {
     overrider.withRetry(SparkOperatorConf.getOperatorRetry());
   }
 
+  /**
+   * Returns a list of OkHttp interceptors for the Kubernetes client, including metrics interceptors
+   * if enabled.
+   *
+   * @param metricsSystem The MetricsSystem to register interceptors with.
+   * @return A List of Interceptor objects.
+   */
   protected List<Interceptor> getClientInterceptors(MetricsSystem metricsSystem) {
     List<Interceptor> clientInterceptors = new ArrayList<>();
     if (SparkOperatorConf.KUBERNETES_CLIENT_METRICS_ENABLED.getValue()) {
@@ -227,9 +266,9 @@ public class SparkOperator {
   }
 
   /**
-   * Bootstrap Spark Operator
+   * Main entry point for the Spark Operator application.
    *
-   * @param args not used - operator behavior are configured from SparkOperatorConf
+   * @param args Command line arguments (not used).
    */
   public static void main(String[] args) {
     SparkOperator sparkOperator = new SparkOperator();

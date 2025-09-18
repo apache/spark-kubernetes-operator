@@ -30,11 +30,17 @@ import org.apache.spark.k8s.operator.status.ApplicationAttemptSummary;
 
 /** Utility class for logging. */
 public class LoggingUtils {
+  /** Utility class for managing MDC (Mapped Diagnostic Context) for logging. */
   public static final class TrackedMDC {
     public static final String AppAttemptIdKey = "resource.app.attemptId";
     private final ReentrantLock lock = new ReentrantLock();
     private final Set<String> keys = new HashSet<>();
 
+    /**
+     * Sets the MDC (Mapped Diagnostic Context) with the application attempt ID if available.
+     *
+     * @param application The SparkApplication object.
+     */
     public void set(final SparkApplication application) {
       if (application != null && application.getStatus() != null) {
         try {
@@ -50,6 +56,7 @@ public class LoggingUtils {
       }
     }
 
+    /** Resets the MDC by removing all previously set keys. */
     public void reset() {
       try {
         lock.lock();

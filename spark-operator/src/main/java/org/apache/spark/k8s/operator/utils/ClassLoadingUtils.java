@@ -36,13 +36,13 @@ public final class ClassLoadingUtils {
   private ClassLoadingUtils() {}
 
   /**
-   * load status listener classes for given type of BaseStatusListener
+   * Loads status listener classes for a given type of BaseStatusListener.
    *
    * @param clazz Class name of status listener. e.g. SparkAppStatusListener
    * @param implementationClassNames Comma-separated implementation class names of given type of
    *     StatusListener
-   * @return list of listeners loaded
    * @param <T> Class of status listener. e.g. SparkAppStatusListener
+   * @return list of listeners loaded
    */
   public static <T extends BaseStatusListener<?, ?>> List<T> getStatusListener(
       Class<T> clazz, String implementationClassNames) {

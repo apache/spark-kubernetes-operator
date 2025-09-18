@@ -50,6 +50,14 @@ public final class SparkAppResourceSpecFactory {
 
   private SparkAppResourceSpecFactory() {}
 
+  /**
+   * Builds a SparkAppResourceSpec for the given SparkApplication.
+   *
+   * @param app The SparkApplication.
+   * @param client The KubernetesClient.
+   * @param worker The SparkAppSubmissionWorker.
+   * @return A SparkAppResourceSpec containing the configured resources.
+   */
   public static SparkAppResourceSpec buildResourceSpec(
       final SparkApplication app,
       final KubernetesClient client,
@@ -62,6 +70,12 @@ public final class SparkAppResourceSpecFactory {
     return resourceSpec;
   }
 
+  /**
+   * Overrides dependency configurations based on the SparkApplication's spec.
+   *
+   * @param app The SparkApplication.
+   * @return A Map of configuration overrides.
+   */
   private static Map<String, String> overrideDependencyConf(final SparkApplication app) {
     Map<String, String> confOverrides = new HashMap<>();
     sparkAppResourceLabels(app)
@@ -80,6 +94,12 @@ public final class SparkAppResourceSpecFactory {
     return confOverrides;
   }
 
+  /**
+   * Cleans up temporary resources created for the SparkApplication.
+   *
+   * @param app The SparkApplication.
+   * @param confOverrides The configuration overrides map.
+   */
   private static void cleanUpTempResourcesForApp(
       final SparkApplication app, Map<String, String> confOverrides) {
     if (overrideDriverTemplateEnabled(app.getSpec())) {
@@ -90,6 +110,13 @@ public final class SparkAppResourceSpecFactory {
     }
   }
 
+  /**
+   * Retrieves a local file from a given path key in the configuration overrides.
+   *
+   * @param confOverrides The configuration overrides map.
+   * @param pathKey The key for the file path.
+   * @return An Optional containing the File object if found and valid, otherwise empty.
+   */
   private static Optional<File> getLocalFileFromPathKey(
       Map<String, String> confOverrides, String pathKey) {
     if (confOverrides.containsKey(pathKey)) {
@@ -101,6 +128,12 @@ public final class SparkAppResourceSpecFactory {
     return Optional.empty();
   }
 
+  /**
+   * Deletes a local file specified by a path key in the configuration overrides.
+   *
+   * @param confOverrides The configuration overrides map.
+   * @param pathKey The key for the file path.
+   */
   private static void deleteLocalFileFromPathKey(
       Map<String, String> confOverrides, String pathKey) {
     Optional<File> localFile = Optional.empty();
@@ -121,6 +154,14 @@ public final class SparkAppResourceSpecFactory {
     }
   }
 
+  /**
+   * Gets or creates a local file for the driver pod template specification.
+   *
+   * @param app The SparkApplication.
+   * @param confOverrides The configuration overrides map.
+   * @return A Map containing the path to the local file if created or found, otherwise an empty
+   *     map.
+   */
   private static Map<String, String> getOrCreateLocalFileForDriverSpec(
       final SparkApplication app, final Map<String, String> confOverrides) {
     if (overrideDriverTemplateEnabled(app.getSpec())) {
@@ -137,6 +178,14 @@ public final class SparkAppResourceSpecFactory {
     return Collections.emptyMap();
   }
 
+  /**
+   * Gets or creates a local file for the executor pod template specification.
+   *
+   * @param app The SparkApplication.
+   * @param confOverrides The configuration overrides map.
+   * @return A Map containing the path to the local file if created or found, otherwise an empty
+   *     map.
+   */
   private static Map<String, String> getOrCreateLocalFileForExecutorSpec(
       final SparkApplication app, final Map<String, String> confOverrides) {
     if (overrideExecutorTemplateEnabled(app.getSpec())) {
@@ -154,9 +203,11 @@ public final class SparkAppResourceSpecFactory {
   }
 
   /**
-   * Flush driver pod template spec to a local file
+   * Flushes a PodTemplateSpec to a local temporary file.
    *
-   * @return temp file path
+   * @param podTemplateSpec The PodTemplateSpec to write to a file.
+   * @param tempFilePrefix The prefix for the temporary file name.
+   * @return The absolute path to the created temporary file.
    */
   private static String createLocalFileForPodTemplateSpec(
       final PodTemplateSpec podTemplateSpec, final String tempFilePrefix) {

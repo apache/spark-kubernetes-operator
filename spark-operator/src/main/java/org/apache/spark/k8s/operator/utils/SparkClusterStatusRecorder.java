@@ -30,10 +30,21 @@ import org.apache.spark.k8s.operator.status.ClusterStatus;
 /** Records the status of a Spark cluster. */
 public class SparkClusterStatusRecorder
     extends StatusRecorder<ClusterStatus, SparkCluster, SparkClusterStatusListener> {
+  /**
+   * Constructs a new SparkClusterStatusRecorder.
+   *
+   * @param statusListeners A list of SparkClusterStatusListener instances.
+   */
   public SparkClusterStatusRecorder(List<SparkClusterStatusListener> statusListeners) {
     super(statusListeners, ClusterStatus.class, SparkCluster.class);
   }
 
+  /**
+   * Appends a new state to the cluster status and persists the updated status.
+   *
+   * @param context The SparkClusterContext for the cluster.
+   * @param newState The new ClusterState to append.
+   */
   public void appendNewStateAndPersist(SparkClusterContext context, ClusterState newState) {
     ClusterStatus updatedStatus = context.getResource().getStatus().appendNewState(newState);
     persistStatus(context, updatedStatus);

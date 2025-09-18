@@ -49,6 +49,11 @@ public class ConfigOption<T> {
   @Getter private T defaultValue;
   @Getter private Class<T> typeParameterClass;
 
+  /**
+   * Returns the resolved value of the config option.
+   *
+   * @return The resolved value.
+   */
   public T getValue() {
     T resolvedValue = resolveValue();
     if (log.isDebugEnabled()) {
@@ -82,6 +87,13 @@ public class ConfigOption<T> {
     }
   }
 
+  /**
+   * Resolves a string value to a primitive type or String.
+   *
+   * @param clazz The class of the target type.
+   * @param value The string value to resolve.
+   * @return The resolved value as an Object.
+   */
   public static Object resolveValueToPrimitiveType(Class<?> clazz, String value) {
     if (Boolean.class == clazz || Boolean.TYPE == clazz) {
       return Boolean.parseBoolean(value);

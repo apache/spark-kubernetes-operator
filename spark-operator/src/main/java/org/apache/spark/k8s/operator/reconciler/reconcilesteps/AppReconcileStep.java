@@ -39,9 +39,24 @@ import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 
 /** Basic reconcile step for application. */
 public abstract class AppReconcileStep {
+  /**
+   * Reconciles a specific step for a Spark application.
+   *
+   * @param context The SparkAppContext for the application.
+   * @param statusRecorder The SparkAppStatusRecorder for recording status updates.
+   * @return The ReconcileProgress indicating the next step.
+   */
   public abstract ReconcileProgress reconcile(
       SparkAppContext context, SparkAppStatusRecorder statusRecorder);
 
+  /**
+   * Observes the driver pod and updates the application status based on a list of observers.
+   *
+   * @param context The SparkAppContext for the application.
+   * @param statusRecorder The SparkAppStatusRecorder for recording status updates.
+   * @param observers A list of BaseAppDriverObserver instances to apply.
+   * @return The ReconcileProgress indicating the next step.
+   */
   protected ReconcileProgress observeDriver(
       final SparkAppContext context,
       final SparkAppStatusRecorder statusRecorder,
@@ -72,6 +87,15 @@ public abstract class AppReconcileStep {
     }
   }
 
+  /**
+   * Updates the application status and re-queues the reconciliation after a specified duration.
+   *
+   * @param context The SparkAppContext for the application.
+   * @param statusRecorder The SparkAppStatusRecorder for recording status updates.
+   * @param updatedStatus The updated ApplicationStatus.
+   * @param requeueAfter The duration after which to re-queue.
+   * @return The ReconcileProgress indicating the re-queue.
+   */
   protected ReconcileProgress updateStatusAndRequeueAfter(
       SparkAppContext context,
       SparkAppStatusRecorder statusRecorder,
@@ -81,6 +105,16 @@ public abstract class AppReconcileStep {
     return ReconcileProgress.completeAndRequeueAfter(requeueAfter);
   }
 
+  /**
+   * Appends a new state to the application status, persists it, and re-queues the reconciliation
+   * after a specified duration.
+   *
+   * @param context The SparkAppContext for the application.
+   * @param statusRecorder The SparkAppStatusRecorder for recording status updates.
+   * @param newState The new ApplicationState to append.
+   * @param requeueAfter The duration after which to re-queue.
+   * @return The ReconcileProgress indicating the re-queue.
+   */
   protected ReconcileProgress appendStateAndRequeueAfter(
       SparkAppContext context,
       SparkAppStatusRecorder statusRecorder,
@@ -90,6 +124,15 @@ public abstract class AppReconcileStep {
     return ReconcileProgress.completeAndRequeueAfter(requeueAfter);
   }
 
+  /**
+   * Appends a new state to the application status, persists it, and immediately re-queues the
+   * reconciliation.
+   *
+   * @param context The SparkAppContext for the application.
+   * @param statusRecorder The SparkAppStatusRecorder for recording status updates.
+   * @param newState The new ApplicationState to append.
+   * @return The ReconcileProgress indicating an immediate re-queue.
+   */
   protected ReconcileProgress appendStateAndImmediateRequeue(
       SparkAppContext context, SparkAppStatusRecorder statusRecorder, ApplicationState newState) {
     return appendStateAndRequeueAfter(context, statusRecorder, newState, Duration.ZERO);

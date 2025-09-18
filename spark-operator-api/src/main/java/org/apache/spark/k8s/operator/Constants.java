@@ -22,79 +22,181 @@ package org.apache.spark.k8s.operator;
 /** Constants used in the Spark Kubernetes Operator. */
 @SuppressWarnings("PMD.DataClass")
 public class Constants {
+  /** The API group for Spark K8s Operator CRD resources. */
   public static final String API_GROUP = "spark.apache.org";
+
+  /** The API version for Spark K8s Operator CRD resources. */
   public static final String API_VERSION = "v1";
+
+  /** The label for the Spark Application name. */
   public static final String LABEL_SPARK_APPLICATION_NAME = "spark.operator/spark-app-name";
+
+  /** The label for the Spark Cluster name. */
   public static final String LABEL_SPARK_CLUSTER_NAME = "spark.operator/spark-cluster-name";
+
+  /** The label for the Spark Operator name. */
   public static final String LABEL_SPARK_OPERATOR_NAME = "spark.operator/name";
+
+  /** The label for a sentinel resource. */
   public static final String LABEL_SENTINEL_RESOURCE = "spark.operator/sentinel";
+
+  /** The label for the resource name. */
   public static final String LABEL_RESOURCE_NAME = "app.kubernetes.io/name";
+
+  /** The label for the component name. */
   public static final String LABEL_COMPONENT_NAME = "app.kubernetes.io/component";
+
+  /** The label for the Spark role name. */
   public static final String LABEL_SPARK_ROLE_NAME = "spark-role";
+
+  /** The value for the Spark driver role label. */
   public static final String LABEL_SPARK_ROLE_DRIVER_VALUE = "driver";
+
+  /** The value for the Spark executor role label. */
   public static final String LABEL_SPARK_ROLE_EXECUTOR_VALUE = "executor";
+
+  /** The value for the Spark cluster role label. */
   public static final String LABEL_SPARK_ROLE_CLUSTER_VALUE = "cluster";
+
+  /** The value for the Spark master role label. */
   public static final String LABEL_SPARK_ROLE_MASTER_VALUE = "master";
+
+  /** The value for the Spark worker role label. */
   public static final String LABEL_SPARK_ROLE_WORKER_VALUE = "worker";
+
+  /** The label for the Spark version. */
   public static final String LABEL_SPARK_VERSION_NAME = "spark-version";
+
+  /** A dummy field for sentinel resources. */
   public static final String SENTINEL_RESOURCE_DUMMY_FIELD = "sentinel.dummy.number";
 
+  /** The property key for the driver Spark container name. */
   public static final String DRIVER_SPARK_CONTAINER_PROP_KEY =
       "spark.kubernetes.driver.podTemplateContainerName";
+
+  /** The property key for the driver Spark pod template file. */
   public static final String DRIVER_SPARK_TEMPLATE_FILE_PROP_KEY =
       "spark.kubernetes.driver.podTemplateFile";
+
+  /** The property key for the executor Spark pod template file. */
   public static final String EXECUTOR_SPARK_TEMPLATE_FILE_PROP_KEY =
       "spark.kubernetes.executor.podTemplateFile";
 
   // Default state messages
+  /** Message indicating that the driver has been requested from the resource scheduler. */
   public static final String DRIVER_REQUESTED_MESSAGE = "Requested driver from resource scheduler.";
+
+  /** Message indicating that the Spark application completed successfully. */
   public static final String DRIVER_COMPLETED_MESSAGE = "Spark application completed successfully.";
+
+  /**
+   * Message indicating that the driver container terminated before SparkContext/SparkSession
+   * initialization.
+   */
   public static final String DRIVER_TERMINATED_BEFORE_INITIALIZATION_MESSAGE =
       "Driver container is terminated without SparkContext / SparkSession initialization.";
+
+  /** Message indicating that the driver has failed init container(s). */
   public static final String DRIVER_FAILED_INIT_CONTAINERS_MESSAGE =
       "Driver has failed init container(s). Refer last observed status for details.";
+
+  /** Message indicating that the driver has one or more failed critical container(s). */
   public static final String DRIVER_FAILED_MESSAGE =
       "Driver has one or more failed critical container(s), refer last observed status for "
           + "details.";
+
+  /** Message indicating that the driver's critical container(s) exited with 0. */
   public static final String DRIVER_SUCCEEDED_MESSAGE =
       "Driver has critical container(s) exited with 0.";
+
+  /** Message indicating that the driver's critical container(s) restarted unexpectedly. */
   public static final String DRIVER_RESTARTED_MESSAGE =
       "Driver has one or more critical container(s) restarted unexpectedly, refer last "
           + "observed status for details.";
+
+  /** Message indicating that the Spark application has been shut down as requested. */
   public static final String APP_CANCELLED_MESSAGE =
       "Spark application has been shutdown as requested.";
+
+  /**
+   * Message indicating that Spark application resources were released after exceeding the
+   * configured retain duration.
+   */
   public static final String APP_EXCEEDED_RETAIN_DURATION_MESSAGE =
       "Spark application resources released after exceeding the configured retain duration.";
+
+  /** Message indicating that the driver was unexpectedly removed. */
   public static final String DRIVER_UNEXPECTED_REMOVED_MESSAGE =
       "Driver removed. This could caused by 'exit' called in driver process with non-zero "
           + "code, involuntary disruptions or unintentional destroy behavior, check "
           + "Kubernetes events for more details.";
+
+  /**
+   * Message indicating that the driver has not responded to the initial health check request within
+   * the allotted start-up time.
+   */
   public static final String DRIVER_LAUNCH_TIMEOUT_MESSAGE =
       "The driver has not responded to the initial health check request within the "
           + "allotted start-up time. This can be configured by setting "
           + ".spec.applicationTolerations.applicationTimeoutConfig.";
+
+  /** Message indicating that the driver has started running. */
   public static final String DRIVER_RUNNING_MESSAGE = "Driver has started running.";
+
+  /** Message indicating that the driver has reached a ready state. */
   public static final String DRIVER_READY_MESSAGE = "Driver has reached ready state.";
+
+  /** Message indicating that the Spark application has been created on the Kubernetes Cluster. */
   public static final String SUBMITTED_STATE_MESSAGE =
       "Spark application has been created on Kubernetes Cluster.";
+
+  /** Message indicating that the application status cannot be processed. */
   public static final String UNKNOWN_STATE_MESSAGE = "Cannot process application status.";
+
+  /** Message indicating that the maximum number of restart attempts has been exceeded. */
   public static final String EXCEED_MAX_RETRY_ATTEMPT_MESSAGE =
       "The maximum number of restart attempts (%d) has been exceeded.";
+
+  /** Message indicating a failure to request the driver from the scheduler backend. */
   public static final String SCHEDULE_FAILURE_MESSAGE =
       "Failed to request driver from scheduler backend.";
+
+  /** Message indicating that the application is running healthy. */
   public static final String RUNNING_HEALTHY_MESSAGE = "Application is running healthy.";
+
+  /**
+   * Message indicating that the application is running with less than the minimal number of
+   * requested initial executors.
+   */
   public static final String INITIALIZED_WITH_BELOW_THRESHOLD_EXECUTORS_MESSAGE =
       "The application is running with less than minimal number of requested initial executors.";
+
+  /**
+   * Message indicating that the Spark application is running with less than the minimal number of
+   * requested executors.
+   */
   public static final String RUNNING_WITH_BELOW_THRESHOLD_EXECUTORS_MESSAGE =
       "The Spark application is running with less than minimal number of requested executors.";
+
+  /**
+   * Message indicating that the Spark application failed to get enough executors in the given time
+   * threshold.
+   */
   public static final String EXECUTOR_LAUNCH_TIMEOUT_MESSAGE =
       "The Spark application failed to get enough executors in the given time threshold.";
 
   // Spark Cluster Messages
+  /** Message indicating a failure to request the Spark cluster from the scheduler backend. */
   public static final String CLUSTER_SCHEDULE_FAILURE_MESSAGE =
       "Failed to request Spark cluster from scheduler backend.";
+
+  /** Message indicating that the Spark cluster has been submitted to the Kubernetes Cluster. */
   public static final String CLUSTER_SUBMITTED_STATE_MESSAGE =
       "Spark cluster has been submitted to Kubernetes Cluster.";
+
+  /** Message indicating that the cluster has reached a ready state. */
   public static final String CLUSTER_READY_MESSAGE = "Cluster has reached ready state.";
+
+  /** Message indicating that the cluster status cannot be processed. */
   public static final String UNKNOWN_CLUSTER_STATE_MESSAGE = "Cannot process cluster status.";
 }

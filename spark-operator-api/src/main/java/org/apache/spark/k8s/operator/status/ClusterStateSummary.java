@@ -35,28 +35,49 @@ public enum ClusterStateSummary implements BaseStateSummary {
   /** all resources (pods, services .etc have been cleaned up) */
   ResourceReleased;
 
+  /**
+   * Checks if the cluster is in an initializing state.
+   *
+   * @return True if the state is Submitted, false otherwise.
+   */
   public boolean isInitializing() {
     return Submitted.equals(this);
   }
 
+  /**
+   * Checks if the cluster is in a starting state.
+   *
+   * @return True if the state is before RunningHealthy, false otherwise.
+   */
   public boolean isStarting() {
     return RunningHealthy.ordinal() > this.ordinal();
   }
 
   /**
-   * A state is 'terminated' if and only if no further actions are needed to reconcile it.
+   * Checks if the cluster is in a terminated state.
    *
-   * @return true if the state indicates the cluster has terminated
+   * @return True if the state indicates the cluster has terminated (ResourceReleased), false
+   *     otherwise.
    */
   public boolean isTerminated() {
     return ResourceReleased.equals(this);
   }
 
+  /**
+   * Checks if the cluster is in a failure state.
+   *
+   * @return True if the state is SchedulingFailure or Failed, false otherwise.
+   */
   @Override
   public boolean isFailure() {
     return SchedulingFailure.equals(this) || Failed.equals(this);
   }
 
+  /**
+   * Checks if the cluster is in an infrastructure failure state.
+   *
+   * @return True if the state is SchedulingFailure, false otherwise.
+   */
   @Override
   public boolean isInfrastructureFailure() {
     return SchedulingFailure.equals(this);

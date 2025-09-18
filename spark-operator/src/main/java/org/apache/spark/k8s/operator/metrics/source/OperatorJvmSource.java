@@ -26,11 +26,21 @@ import org.apache.spark.metrics.source.Source;
 
 /** Source for JVM metrics. */
 public class OperatorJvmSource implements Source {
+  /**
+   * Returns the name of this metrics source.
+   *
+   * @return The source name.
+   */
   @Override
   public String sourceName() {
     return "jvm";
   }
 
+  /**
+   * Returns the MetricRegistry containing JVM metrics.
+   *
+   * @return The MetricRegistry instance.
+   */
   @Override
   public MetricRegistry metricRegistry() {
     MetricRegistry metricRegistry = new MetricRegistry();

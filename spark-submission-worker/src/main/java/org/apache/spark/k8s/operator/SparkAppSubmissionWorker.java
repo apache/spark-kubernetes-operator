@@ -47,17 +47,25 @@ import org.apache.spark.k8s.operator.utils.ModelUtils;
  * SparkApplication instead of starting separate spark-submit process.
  */
 public class SparkAppSubmissionWorker {
-  // Default length limit for generated app id. Generated id is used as resource-prefix when
-  // user-provided id is too long for this purpose. This applied to all resources associated with
-  // the Spark app (including k8s service which has different naming length limit). Thus, we
-  // truncate the hash part to 46 chars to leave some margin for spark resource prefix and suffix
-  // (e.g. 'spark-', '-driver-svc' . etc)
+  /**
+   * Default length limit for generated app ID. Generated ID is used as resource-prefix when
+   * user-provided ID is too long for this purpose. This applied to all resources associated with
+   * the Spark app (including k8s service which has different naming length limit). Thus, we
+   * truncate the hash part to 46 chars to leave some margin for spark resource prefix and suffix
+   * (e.g. 'spark-', '-driver-svc' . etc)
+   */
   public static final int DEFAULT_ID_LENGTH_LIMIT = 46;
-  // Default length limit to be applied to the hash-based part of generated id
+
+  /** Default length limit to be applied to the hash-based part of generated ID. */
   public static final int DEFAULT_HASH_BASED_IDENTIFIER_LENGTH_LIMIT = 36;
-  // Radix value used when generating hash-based identifier
+
+  /** Radix value used when generating hash-based identifier. */
   public static final int DEFAULT_ENCODE_BASE = 36;
+
+  /** Default master URL prefix for Kubernetes. */
   public static final String DEFAULT_MASTER_URL_PREFIX = "k8s://";
+
+  /** Property name for the Spark master URL prefix. */
   public static final String MASTER_URL_PREFIX_PROPS_NAME = "spark.master.url.prefix";
 
   /**
@@ -77,10 +85,10 @@ public class SparkAppSubmissionWorker {
    *       master url based on it.
    * </ul>
    *
-   * @param app the SparkApp resource
-   * @param client k8s client
-   * @param confOverrides key-value pairs of conf overrides for the given app.
-   * @return secondary resources spec as `SparkAppResourceSpec`
+   * @param app The SparkApplication resource.
+   * @param client The Kubernetes client.
+   * @param confOverrides Key-value pairs of configuration overrides for the application.
+   * @return SparkAppResourceSpec containing the secondary resources.
    */
   public SparkAppResourceSpec getResourceSpec(
       SparkApplication app, KubernetesClient client, Map<String, String> confOverrides) {
@@ -92,6 +100,13 @@ public class SparkAppSubmissionWorker {
         client);
   }
 
+  /**
+   * Builds the SparkAppDriverConf for the given SparkApplication.
+   *
+   * @param app The SparkApplication.
+   * @param confOverrides Configuration overrides for the application.
+   * @return A SparkAppDriverConf instance.
+   */
   protected SparkAppDriverConf buildDriverConf(
       SparkApplication app, Map<String, String> confOverrides) {
     ApplicationSpec applicationSpec = app.getSpec();
@@ -133,6 +148,15 @@ public class SparkAppSubmissionWorker {
         Option.apply(applicationSpec.getProxyUser()));
   }
 
+  /**
+   * Builds the SparkAppResourceSpec from the driver configuration and other specifications.
+   *
+   * @param kubernetesDriverConf The SparkAppDriverConf.
+   * @param driverServiceIngressList A list of DriverServiceIngressSpec.
+   * @param configMapSpecs A list of ConfigMapSpec.
+   * @param client The KubernetesClient.
+   * @return A SparkAppResourceSpec instance.
+   */
   protected SparkAppResourceSpec buildResourceSpec(
       SparkAppDriverConf kubernetesDriverConf,
       List<DriverServiceIngressSpec> driverServiceIngressList,
@@ -146,8 +170,11 @@ public class SparkAppSubmissionWorker {
   }
 
   /**
-   * Generate a Spark application id. Similar to `KubernetesConf.getKubernetesAppId()`. This is
-   * deterministic per attempt per Spark App in order to ensure operator reconciliation idempotency
+   * Generates a deterministic Spark application ID based on the application's metadata and attempt
+   * ID in order to ensure operator reconciliation idempotency.
+   *
+   * @param app The SparkApplication object.
+   * @return A generated Spark application ID.
    */
   public static String generateSparkAppId(final SparkApplication app) {
     long attemptId = ModelUtils.getAttemptId(app);
@@ -167,13 +194,12 @@ public class SparkAppSubmissionWorker {
   }
 
   /**
-   * Generate a hash-based id with given identifiers. The hash part would have a length-limit of
-   * `DEFAULT_HASH_BASED_IDENTIFIER_LENGTH_LIMIT`. In addition, prefix would be applied upon
-   * generated hash.
+   * Generates a hash-based ID with a given prefix and identifiers. The hash part would have a
+   * length-limit of `DEFAULT_HASH_BASED_IDENTIFIER_LENGTH_LIMIT`.
    *
-   * @param prefix string prefix to be applied to generated hash-based id.
-   * @param identifiers keys to generate hash
-   * @return generated hash-based id
+   * @param prefix String prefix to be applied to the generated hash-based ID.
+   * @param identifiers Keys to generate the hash.
+   * @return The generated hash-based ID.
    */
   public static String generateHashBasedId(final String prefix, final String... identifiers) {
     String sha256Hash =

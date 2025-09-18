@@ -70,6 +70,10 @@ public class ApplicationTolerations {
   protected Long ttlAfterStopMillis = -1L;
 
   /**
+   * Computes the effective resource retention duration in milliseconds. This is the smaller of
+   * `resourceRetainDurationMillis` or `ttlAfterStopMillis` if both are non-negative. If only one is
+   * non-negative, that value is used. If both are negative, -1L is returned.
+   *
    * @return The effective retain duration for secondary resources, which would be the smaller value
    *     of `resourceRetainDurationMillis` or `ttlAfterStopMillis`, if they are set to non-negative
    *     value. Return -1 if none of them are set.
@@ -89,11 +93,12 @@ public class ApplicationTolerations {
 
   /**
    * Check whether a terminated application has exceeded the resource retain duration at the
-   * provided instant
+   * provided instant.
    *
-   * @param lastObservedState last observed state of the application
-   * @return true if the app has terminated and resource retain duration is configured to a positive
-   *     value and the app is not within retain duration; false otherwise.
+   * @param lastObservedState The last observed state of the application.
+   * @param instant The instant to check against.
+   * @return True if the app has terminated, has a positive retain duration configured, and has
+   *     exceeded that duration; false otherwise.
    */
   public boolean exceedRetainDurationAtInstant(
       ApplicationState lastObservedState, Instant instant) {
@@ -106,10 +111,10 @@ public class ApplicationTolerations {
   }
 
   /**
-   * Indicates whether the reconciler need to perform retain duration check
+   * Indicates whether the reconciler needs to perform a retain duration check.
    *
-   * @return true if `resourceRetainDurationMillis` or `ttlAfterStopMillis` is set to non-negative
-   *     value
+   * @return True if `resourceRetainDurationMillis` or `ttlAfterStopMillis` is set to a non-negative
+   *     value, false otherwise.
    */
   @JsonIgnore
   public boolean isRetainDurationEnabled() {
@@ -117,9 +122,9 @@ public class ApplicationTolerations {
   }
 
   /**
-   * Indicates whether the reconciler need to perform ttl check
+   * Indicates whether the reconciler needs to perform a TTL (Time-To-Live) check.
    *
-   * @return true if `ttlAfterStopMillis` is set to non-negative value
+   * @return True if `ttlAfterStopMillis` is set to a non-negative value, false otherwise.
    */
   @JsonIgnore
   public boolean isTTLEnabled() {

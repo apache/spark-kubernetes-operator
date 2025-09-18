@@ -28,25 +28,43 @@ import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
 import org.apache.spark.metrics.source.Source;
 
+/** Metric source for recording Spark application status updates. */
 public class SparkAppStatusRecorderSource extends BaseOperatorSource implements Source {
 
   public static final String RESOURCE_TYPE = "sparkapp";
   public static final String LATENCY_METRIC_FORMAT = "latency.from.%s.to.%s";
 
+  /** Constructs a new SparkAppStatusRecorderSource. */
   public SparkAppStatusRecorderSource() {
     super(new MetricRegistry());
   }
 
+  /**
+   * Returns the name of the metric source.
+   *
+   * @return The name of the source.
+   */
   @Override
   public String sourceName() {
     return "SparkAppStatusRecorder";
   }
 
+  /**
+   * Returns the MetricRegistry associated with this source.
+   *
+   * @return The MetricRegistry.
+   */
   @Override
   public MetricRegistry metricRegistry() {
     return metricRegistry;
   }
 
+  /**
+   * Records the latency of a status update.
+   *
+   * @param status The current application status.
+   * @param newState The new application state.
+   */
   public void recordStatusUpdateLatency(
       final ApplicationStatus status, final ApplicationState newState) {
     ApplicationState currentState = status.getCurrentState();

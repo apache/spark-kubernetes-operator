@@ -39,6 +39,11 @@ import lombok.ToString;
 public class AttemptInfo {
   @Getter @Builder.Default protected final long id = 0L;
 
+  /**
+   * Creates a new AttemptInfo object representing the next attempt.
+   *
+   * @return A new AttemptInfo with an incremented ID.
+   */
   public AttemptInfo createNextAttemptInfo() {
     return new AttemptInfo(id + 1L);
   }

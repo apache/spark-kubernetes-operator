@@ -45,6 +45,14 @@ import lombok.extern.slf4j.Slf4j;
 public class DriverResourceDecorator implements ResourceDecorator {
   private final Pod driverPod;
 
+  /**
+   * Decorates a Kubernetes resource by adding an owner reference to the driver pod. This ensures
+   * that secondary resources are garbage collected when the driver pod is deleted.
+   *
+   * @param resource The resource to decorate.
+   * @param <T> The type of the resource, extending HasMetadata.
+   * @return The decorated resource.
+   */
   @Override
   public <T extends HasMetadata> T decorate(T resource) {
     boolean ownerReferenceExists = false;

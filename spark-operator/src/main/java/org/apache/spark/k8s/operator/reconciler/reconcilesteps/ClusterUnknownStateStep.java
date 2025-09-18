@@ -28,6 +28,13 @@ import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
 
 /** Abnormal state handler for clusters. */
 public class ClusterUnknownStateStep extends ClusterReconcileStep {
+  /**
+   * Reconciles the cluster when it is in an unknown state, marking it as failed.
+   *
+   * @param context The SparkClusterContext for the cluster.
+   * @param statusRecorder The SparkClusterStatusRecorder for recording status updates.
+   * @return The ReconcileProgress indicating an immediate re-queue.
+   */
   @Override
   public ReconcileProgress reconcile(
       SparkClusterContext context, SparkClusterStatusRecorder statusRecorder) {

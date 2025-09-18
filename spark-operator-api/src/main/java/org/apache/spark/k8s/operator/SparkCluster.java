@@ -42,11 +42,21 @@ import org.apache.spark.k8s.operator.status.ClusterStatus;
 public class SparkCluster
     extends BaseResource<
         ClusterStateSummary, ClusterAttemptSummary, ClusterState, ClusterSpec, ClusterStatus> {
+  /**
+   * Initializes and returns a new ClusterStatus object.
+   *
+   * @return A new ClusterStatus instance.
+   */
   @Override
   public ClusterStatus initStatus() {
     return new ClusterStatus();
   }
 
+  /**
+   * Initializes and returns a new ClusterSpec object.
+   *
+   * @return A new ClusterSpec instance.
+   */
   @Override
   public ClusterSpec initSpec() {
     return new ClusterSpec();

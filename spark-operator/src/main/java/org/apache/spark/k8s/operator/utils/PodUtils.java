@@ -35,7 +35,12 @@ public final class PodUtils {
 
   private PodUtils() {}
 
-  /** Determine whether given pod is up running and ready */
+  /**
+   * Determines whether the given pod is running and ready.
+   *
+   * @param pod The Pod object.
+   * @return True if the pod is running and ready, false otherwise.
+   */
   public static boolean isPodReady(final Pod pod) {
     if (!PodPhase.RUNNING.equals(PodPhase.getPhase(pod))) {
       return false;
@@ -54,11 +59,12 @@ public final class PodUtils {
   }
 
   /**
-   * Determine whether the driver pod is started. Driver is considered as 'started' if any of Spark
-   * container is started and ready
+   * Determines whether the driver pod is started. Driver is considered as 'started' if any of Spark
+   * container is started and ready.
    *
-   * @param driver the driver pod
-   * @param spec expected spec for the SparkApp
+   * @param driver The driver pod.
+   * @param spec The expected spec for the SparkApp.
+   * @return True if the driver pod is started, false otherwise.
    */
   public static boolean isDriverPodStarted(final Pod driver, final ApplicationSpec spec) {
     // Consider pod as 'started' if any of Spark container is started and ready
@@ -81,19 +87,34 @@ public final class PodUtils {
         .anyMatch(ContainerStatus::getReady);
   }
 
-  /** Returns true if the given container has terminated */
+  /**
+   * Returns true if the given container has terminated.
+   *
+   * @param containerStatus The ContainerStatus object.
+   * @return True if the container has terminated, false otherwise.
+   */
   public static boolean isContainerTerminated(final ContainerStatus containerStatus) {
     return containerStatus != null
         && containerStatus.getState() != null
         && containerStatus.getState().getTerminated() != null;
   }
 
-  /** Returns true if the given container has ever restarted */
+  /**
+   * Returns true if the given container has ever restarted.
+   *
+   * @param containerStatus The ContainerStatus object.
+   * @return True if the container has restarted, false otherwise.
+   */
   public static boolean isContainerRestarted(final ContainerStatus containerStatus) {
     return containerStatus != null && containerStatus.getRestartCount() > 0;
   }
 
-  /** Returns true if the given container has exited with non-zero status */
+  /**
+   * Returns true if the given container has exited with a non-zero status.
+   *
+   * @param containerStatus The ContainerStatus object.
+   * @return True if the container has failed, false otherwise.
+   */
   public static boolean isContainerFailed(final ContainerStatus containerStatus) {
     return isContainerTerminated(containerStatus)
         && containerStatus.getState().getTerminated().getExitCode() > 0;

@@ -35,7 +35,13 @@ public class ClusterDecorator implements ResourceDecorator {
 
   private final SparkCluster cluster;
 
-  /** Add labels and owner references to the cluster for all secondary resources */
+  /**
+   * Decorates a Kubernetes resource with owner references and labels from the SparkCluster.
+   *
+   * @param resource The resource to decorate.
+   * @param <T> The type of the resource, extending HasMetadata.
+   * @return The decorated resource.
+   */
   @Override
   public <T extends HasMetadata> T decorate(T resource) {
     ObjectMeta metaData =

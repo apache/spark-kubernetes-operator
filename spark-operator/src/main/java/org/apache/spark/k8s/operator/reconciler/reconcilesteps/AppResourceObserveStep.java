@@ -34,6 +34,14 @@ public class AppResourceObserveStep extends AppReconcileStep {
 
   private final List<BaseAppDriverObserver> observers;
 
+  /**
+   * Reconciles the application by observing secondary resources and updating the application
+   * status.
+   *
+   * @param context The SparkAppContext for the application.
+   * @param statusRecorder The SparkAppStatusRecorder for recording status updates.
+   * @return The ReconcileProgress indicating the next step.
+   */
   @Override
   public ReconcileProgress reconcile(
       final SparkAppContext context, final SparkAppStatusRecorder statusRecorder) {

@@ -34,6 +34,12 @@ public class MetricsService {
   HttpServer server;
   final MetricsSystem metricsSystem;
 
+  /**
+   * Constructs a new MetricsService.
+   *
+   * @param metricsSystem The MetricsSystem to expose metrics from.
+   * @param executor The Executor to use for the HTTP server.
+   */
   public MetricsService(MetricsSystem metricsSystem, Executor executor) {
     this.metricsSystem = metricsSystem;
     try {
@@ -44,12 +50,14 @@ public class MetricsService {
     server.setExecutor(executor);
   }
 
+  /** Starts the HTTP server and exposes the Prometheus metrics endpoint. */
   public void start() {
     log.info("Starting Metrics Service for Prometheus ...");
     server.createContext("/prometheus", metricsSystem.getPrometheusPullModelHandler());
     server.start();
   }
 
+  /** Stops the HTTP server. */
   public void stop() {
     log.info("Metrics Service stopped");
     server.stop(0);

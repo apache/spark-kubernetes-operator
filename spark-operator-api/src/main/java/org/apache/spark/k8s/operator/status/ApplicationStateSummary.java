@@ -111,39 +111,63 @@ public enum ApplicationStateSummary implements BaseStateSummary {
           Failed,
           DriverReadyTimedOut);
 
+  /**
+   * Checks if the application is in an initializing state.
+   *
+   * @return True if the state is Submitted or ScheduledToRestart, false otherwise.
+   */
   public boolean isInitializing() {
     return Submitted.equals(this) || ScheduledToRestart.equals(this);
   }
 
+  /**
+   * Checks if the application is in a starting state.
+   *
+   * @return True if the state is past ScheduledToRestart but before RunningHealthy, false
+   *     otherwise.
+   */
   public boolean isStarting() {
     return ScheduledToRestart.ordinal() < this.ordinal()
         && RunningHealthy.ordinal() > this.ordinal();
   }
 
   /**
-   * A state is 'terminated' if and only if no further actions are needed to reconcile it
+   * Checks if the application is in the `terminated` state which means no further actions are
+   * needed to reconcile it.
    *
-   * @return true if the state indicates app has terminated
+   * @return True if the state indicates the app has terminated (ResourceReleased or
+   *     TerminatedWithoutReleaseResources), false otherwise.
    */
   public boolean isTerminated() {
     return ResourceReleased.equals(this) || TerminatedWithoutReleaseResources.equals(this);
   }
 
   /**
-   * When state is 'stopping', operator releases its resources based on retain policy, and perform
-   * retry based on retry policy
+   * Checks if the application is in the `stopping` state. The operator releases its resources based
+   * on retain policy and perform retry based on retry policy.
    *
-   * @return true if an app is stopping
+   * @return True if the state is past RunningWithBelowThresholdExecutors but not yet terminated,
+   *     false otherwise.
    */
   public boolean isStopping() {
     return RunningWithBelowThresholdExecutors.ordinal() < this.ordinal() && !isTerminated();
   }
 
+  /**
+   * Checks if the application is in a failure state.
+   *
+   * @return True if the state is one of the defined failure states, false otherwise.
+   */
   @Override
   public boolean isFailure() {
     return failures.contains(this);
   }
 
+  /**
+   * Checks if the application is in an infrastructure failure state.
+   *
+   * @return True if the state is one of the defined infrastructure failure states, false otherwise.
+   */
   @Override
   public boolean isInfrastructureFailure() {
     return infrastructureFailures.contains(this);

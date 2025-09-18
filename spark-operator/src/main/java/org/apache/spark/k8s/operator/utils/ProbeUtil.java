@@ -76,6 +76,13 @@ public final class ProbeUtil {
     }
   }
 
+  /**
+   * Checks if all provided Operator instances have started.
+   *
+   * @param operators A List of Operator instances.
+   * @return An Optional containing True if all operators are started, False otherwise. Empty if the
+   *     list is empty.
+   */
   public static Optional<Boolean> areOperatorsStarted(List<Operator> operators) {
     return operators.stream()
         .map(

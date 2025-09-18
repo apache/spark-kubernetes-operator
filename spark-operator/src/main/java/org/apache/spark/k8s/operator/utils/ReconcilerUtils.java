@@ -51,6 +51,16 @@ public final class ReconcilerUtils {
 
   private ReconcilerUtils() {}
 
+  /**
+   * Converts a ReconcileProgress to an UpdateControl.
+   *
+   * @param resource The resource being reconciled.
+   * @param reconcileProgress The ReconcileProgress object.
+   * @param <S> The type of the status.
+   * @param <T> The type of the spec.
+   * @param <O> The type of the resource, extending BaseResource.
+   * @return An UpdateControl object.
+   */
   public static <S, T, O extends BaseResource<?, ?, ?, ?, ?>> UpdateControl<O> toUpdateControl(
       O resource, ReconcileProgress reconcileProgress) {
     // reconciler already handled resource and status update, skip update at lower level
@@ -62,6 +72,16 @@ public final class ReconcilerUtils {
     }
   }
 
+  /**
+   * Converts a ReconcileProgress to a DeleteControl.
+   *
+   * @param resource The resource being reconciled.
+   * @param reconcileProgress The ReconcileProgress object.
+   * @param <S> The type of the status.
+   * @param <T> The type of the spec.
+   * @param <O> The type of the resource, extending BaseResource.
+   * @return A DeleteControl object.
+   */
   public static <S, T, O extends BaseResource<?, ?, ?, ?, ?>> DeleteControl toDeleteControl(
       O resource, ReconcileProgress reconcileProgress) {
     if (reconcileProgress.isRequeue()) {
@@ -72,6 +92,14 @@ public final class ReconcilerUtils {
     }
   }
 
+  /**
+   * Gets or creates a secondary Kubernetes resource.
+   *
+   * @param client The KubernetesClient.
+   * @param resource The desired resource to get or create.
+   * @param <T> The type of the resource, extending HasMetadata.
+   * @return An Optional containing the created or existing resource.
+   */
   public static <T extends HasMetadata> Optional<T> getOrCreateSecondaryResource(
       final KubernetesClient client, final T resource) {
     Optional<T> current = getResource(client, resource);
@@ -112,6 +140,13 @@ public final class ReconcilerUtils {
     return current;
   }
 
+  /**
+   * Adds an owner reference to a list of secondary resources, linking them to a primary owner.
+   *
+   * @param client The KubernetesClient.
+   * @param resources The List of HasMetadata resources to modify.
+   * @param owner The primary owner resource.
+   */
   public static void addOwnerReferenceSecondaryResource(
       final KubernetesClient client, final List<HasMetadata> resources, final HasMetadata owner) {
 
@@ -126,6 +161,14 @@ public final class ReconcilerUtils {
     client.resourceList(resources).forceConflicts().serverSideApply();
   }
 
+  /**
+   * Retrieves a Kubernetes resource by its desired state.
+   *
+   * @param client The KubernetesClient.
+   * @param desired The desired state of the resource.
+   * @param <T> The type of the resource, extending HasMetadata.
+   * @return An Optional containing the retrieved resource, or empty if not found.
+   */
   public static <T extends HasMetadata> Optional<T> getResource(
       final KubernetesClient client, final T desired) {
     T resource = null;
@@ -139,6 +182,14 @@ public final class ReconcilerUtils {
     return Optional.ofNullable(resource);
   }
 
+  /**
+   * Deletes a Kubernetes resource if it exists.
+   *
+   * @param client The KubernetesClient.
+   * @param resource The resource to delete.
+   * @param forceDelete If true, force deletes the resource with a grace period of 0.
+   * @param <T> The type of the resource, extending HasMetadata.
+   */
   public static <T extends HasMetadata> void deleteResourceIfExists(
       final KubernetesClient client, final T resource, boolean forceDelete) {
     try {
@@ -160,6 +211,13 @@ public final class ReconcilerUtils {
     }
   }
 
+  /**
+   * Clones an object using JSON serialization and deserialization.
+   *
+   * @param object The object to clone.
+   * @param <T> The type of the object.
+   * @return A deep copy of the object.
+   */
   public static <T> T clone(T object) {
     if (object == null) {
       return null;

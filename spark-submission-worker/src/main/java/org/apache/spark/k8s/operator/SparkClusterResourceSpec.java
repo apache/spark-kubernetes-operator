@@ -54,6 +54,12 @@ public class SparkClusterResourceSpec {
   @Getter private final StatefulSet workerStatefulSet;
   @Getter private final Optional<HorizontalPodAutoscaler> horizontalPodAutoscaler;
 
+  /**
+   * Constructs a new SparkClusterResourceSpec.
+   *
+   * @param cluster The SparkCluster object.
+   * @param conf The SparkConf object.
+   */
   public SparkClusterResourceSpec(SparkCluster cluster, SparkConf conf) {
     String clusterNamespace = cluster.getMetadata().getNamespace();
     String clusterName = cluster.getMetadata().getName();
@@ -106,6 +112,16 @@ public class SparkClusterResourceSpec {
     horizontalPodAutoscaler = buildHorizontalPodAutoscaler(clusterName, namespace, spec);
   }
 
+  /**
+   * Builds a Kubernetes Service for the Spark master.
+   *
+   * @param name The name of the cluster.
+   * @param namespace The namespace of the cluster.
+   * @param version The Spark version.
+   * @param metadata The ObjectMeta for the service.
+   * @param serviceSpec The ServiceSpec for the service.
+   * @return A Service object for the master.
+   */
   private static Service buildMasterService(
       String name, String namespace, String version, ObjectMeta metadata, ServiceSpec serviceSpec) {
     return new ServiceBuilder()
@@ -138,6 +154,16 @@ public class SparkClusterResourceSpec {
         .build();
   }
 
+  /**
+   * Builds a Kubernetes Service for the Spark workers.
+   *
+   * @param name The name of the cluster.
+   * @param namespace The namespace of the cluster.
+   * @param version The Spark version.
+   * @param metadata The ObjectMeta for the service.
+   * @param serviceSpec The ServiceSpec for the service.
+   * @return A Service object for the workers.
+   */
   private static Service buildWorkerService(
       String name, String namespace, String version, ObjectMeta metadata, ServiceSpec serviceSpec) {
     return new ServiceBuilder()
@@ -160,6 +186,19 @@ public class SparkClusterResourceSpec {
         .build();
   }
 
+  /**
+   * Builds a Kubernetes StatefulSet for the Spark master.
+   *
+   * @param scheduler The scheduler name.
+   * @param name The name of the cluster.
+   * @param namespace The namespace of the cluster.
+   * @param version The Spark version.
+   * @param image The container image.
+   * @param options Spark options string.
+   * @param objectMeta The ObjectMeta for the StatefulSet.
+   * @param statefulSetSpec The StatefulSetSpec for the StatefulSet.
+   * @return A StatefulSet object for the master.
+   */
   private static StatefulSet buildMasterStatefulSet(
       String scheduler,
       String name,
@@ -225,6 +264,20 @@ public class SparkClusterResourceSpec {
         .build();
   }
 
+  /**
+   * Builds a Kubernetes StatefulSet for the Spark workers.
+   *
+   * @param scheduler The scheduler name.
+   * @param name The name of the cluster.
+   * @param namespace The namespace of the cluster.
+   * @param version The Spark version.
+   * @param image The container image.
+   * @param initWorkers The initial number of workers.
+   * @param options Spark options string.
+   * @param metadata The ObjectMeta for the StatefulSet.
+   * @param statefulSetSpec The StatefulSetSpec for the StatefulSet.
+   * @return A StatefulSet object for the workers.
+   */
   private static StatefulSet buildWorkerStatefulSet(
       String scheduler,
       String name,
@@ -293,6 +346,14 @@ public class SparkClusterResourceSpec {
         .build();
   }
 
+  /**
+   * Builds a Kubernetes HorizontalPodAutoscaler for the Spark workers.
+   *
+   * @param clusterName The name of the cluster.
+   * @param namespace The namespace of the cluster.
+   * @param spec The ClusterSpec for the cluster.
+   * @return An Optional containing a HorizontalPodAutoscaler object, or empty if HPA is disabled.
+   */
   private static Optional<HorizontalPodAutoscaler> buildHorizontalPodAutoscaler(
       String clusterName, String namespace, ClusterSpec spec) {
     var instanceConfig = spec.getClusterTolerations().getInstanceConfig();

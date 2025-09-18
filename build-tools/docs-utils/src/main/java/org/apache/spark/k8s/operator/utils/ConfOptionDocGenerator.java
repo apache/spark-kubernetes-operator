@@ -30,6 +30,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.spark.k8s.operator.config.ConfigOption;
 import org.apache.spark.k8s.operator.config.SparkOperatorConf;
 
+/** Generates documentation for configuration options. */
 @Slf4j
 public class ConfOptionDocGenerator {
   public static final String CONF_FILE_NAME = "config_properties.md";

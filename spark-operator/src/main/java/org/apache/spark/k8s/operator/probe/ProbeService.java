@@ -40,6 +40,13 @@ public class ProbeService {
   public static final String READYZ = "/readyz";
   @Getter private final HttpServer server;
 
+  /**
+   * Constructs a new ProbeService.
+   *
+   * @param operators A list of Operator instances to monitor.
+   * @param sentinelManagers A list of SentinelManager instances to monitor.
+   * @param executor The Executor to use for the HTTP server.
+   */
   public ProbeService(
       List<Operator> operators, List<SentinelManager<?>> sentinelManagers, Executor executor) {
     try {
@@ -52,11 +59,13 @@ public class ProbeService {
     server.setExecutor(executor);
   }
 
+  /** Starts the probe service HTTP server. */
   public void start() {
     log.info("Probe service started at " + OPERATOR_PROBE_PORT.getValue());
     server.start();
   }
 
+  /** Stops the probe service HTTP server. */
   public void stop() {
     log.info("Probe service stopped");
     server.stop(0);

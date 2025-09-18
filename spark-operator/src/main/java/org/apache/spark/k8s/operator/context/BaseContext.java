@@ -29,7 +29,17 @@ import org.apache.spark.k8s.operator.BaseResource;
  * @param <CR> The type of the custom resource.
  */
 public abstract class BaseContext<CR extends BaseResource<?, ?, ?, ?, ?>> {
+  /**
+   * Returns the custom resource associated with this context.
+   *
+   * @return The custom resource.
+   */
   public abstract CR getResource();
 
+  /**
+   * Returns the Kubernetes client associated with this context.
+   *
+   * @return The Kubernetes client.
+   */
   public abstract KubernetesClient getClient();
 }

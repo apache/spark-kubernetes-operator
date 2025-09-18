@@ -58,6 +58,13 @@ public class StatusRecorder<
   protected final Class<CR> resourceClass;
   protected final ConcurrentHashMap<ResourceID, ObjectNode> statusCache;
 
+  /**
+   * Constructs a new StatusRecorder.
+   *
+   * @param statusListeners A list of status listeners.
+   * @param statusClass The Class object for the status type.
+   * @param resourceClass The Class object for the custom resource type.
+   */
   protected StatusRecorder(
       List<LISTENER> statusListeners, Class<STATUS> statusClass, Class<CR> resourceClass) {
     this.statusListeners = statusListeners;
@@ -72,7 +79,8 @@ public class StatusRecorder<
    * underlying resource spec was update in the meantime. This is necessary for the correct operator
    * behavior.
    *
-   * @param resource Resource for which status update should be performed
+   * @param resource Resource for which status update should be performed.
+   * @param client KubernetesClient instance.
    */
   @SneakyThrows
   private void patchAndStatusWithVersionLocked(CR resource, KubernetesClient client) {
@@ -114,6 +122,12 @@ public class StatusRecorder<
         });
   }
 
+  /**
+   * Persists the new status of the resource to the Kubernetes cluster.
+   *
+   * @param context The BaseContext containing the resource and client.
+   * @param newStatus The new status to persist.
+   */
   public void persistStatus(BaseContext<CR> context, STATUS newStatus) {
     context.getResource().setStatus(newStatus);
     patchAndStatusWithVersionLocked(context.getResource(), context.getClient());
@@ -127,7 +141,7 @@ public class StatusRecorder<
    * <p>If the cache doesn't have a status stored, we do no update. This happens when the operator
    * reconciles a resource for the first time after a restart.
    *
-   * @param resource Resource for which the status should be updated from the cache
+   * @param resource Resource for which the status should be updated from the cache.
    */
   public void updateStatusFromCache(CR resource) {
     ResourceID key = ResourceID.fromResource(resource);
@@ -140,7 +154,11 @@ public class StatusRecorder<
     }
   }
 
-  /** Remove cached status */
+  /**
+   * Removes the cached status for a given custom resource.
+   *
+   * @param resource The custom resource for which to remove the cached status.
+   */
   public void removeCachedStatus(CR resource) {
     statusCache.remove(ResourceID.fromResource(resource));
   }

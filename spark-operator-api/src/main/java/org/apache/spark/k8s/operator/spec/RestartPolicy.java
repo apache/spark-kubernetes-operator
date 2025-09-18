@@ -21,12 +21,21 @@ package org.apache.spark.k8s.operator.spec;
 
 import org.apache.spark.k8s.operator.status.BaseStateSummary;
 
+/** Defines the restart policy for a Spark application. */
 public enum RestartPolicy {
   Always,
   Never,
   OnFailure,
   OnInfrastructureFailure;
 
+  /**
+   * Determines if a restart should be attempted based on the restart policy and the current state
+   * summary.
+   *
+   * @param policy The RestartPolicy to evaluate.
+   * @param stateSummary The current BaseStateSummary of the application.
+   * @return True if a restart should be attempted, false otherwise.
+   */
   public static boolean attemptRestartOnState(
       final RestartPolicy policy, final BaseStateSummary stateSummary) {
     return switch (policy) {

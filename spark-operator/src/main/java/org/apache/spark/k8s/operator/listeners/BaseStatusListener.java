@@ -29,5 +29,12 @@ import org.apache.spark.k8s.operator.status.BaseStatus;
  */
 public abstract class BaseStatusListener<
     STATUS extends BaseStatus<?, ?, ?>, CR extends BaseResource<?, ?, ?, ?, STATUS>> {
+  /**
+   * Called when the status of a resource changes.
+   *
+   * @param resource The custom resource whose status has changed.
+   * @param prevStatus The previous status of the resource.
+   * @param updatedStatus The updated status of the resource.
+   */
   public abstract void listenStatus(CR resource, STATUS prevStatus, STATUS updatedStatus);
 }
