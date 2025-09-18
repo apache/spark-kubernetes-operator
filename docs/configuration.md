@@ -122,7 +122,7 @@ sink.PrometheusPullModelSink
 * Install Spark Operator
 
 ```bash
-helm install spark-kubernetes-operator -f build-tools/helm/spark-kubernetes-operator/values.yaml build-tools/helm/spark-kubernetes-operator/
+helm install spark -f build-tools/helm/spark-kubernetes-operator/values.yaml build-tools/helm/spark-kubernetes-operator/
 ```
 
 * Install Prometheus via Helm Chart

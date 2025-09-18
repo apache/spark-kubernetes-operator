@@ -50,7 +50,7 @@ You can also provide multiple custom values file by using the `-f` flag, the lat
 higher precedence:
 
 ```bash
-helm install spark-kubernetes-operator \
+helm install spark \
    -f build-tools/helm/spark-kubernetes-operator/values.yaml \
    -f my_values.yaml \
    build-tools/helm/spark-kubernetes-operator/
