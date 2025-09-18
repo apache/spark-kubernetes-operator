@@ -76,7 +76,7 @@ spec:
       - script:
           content: |
             echo "Installing another spark operator in default-2 namespaces, watching on namespace: spark-3"
-            helm install spark-kubernetes-operator -n default-2 --create-namespace -f \
+            helm install spark -n default-2 --create-namespace -f \
             ../../../build-tools/helm/spark-kubernetes-operator/values.yaml -f \
             ../helm/dynamic-config-values-2.yaml \
             ../../../build-tools/helm/spark-kubernetes-operator/
