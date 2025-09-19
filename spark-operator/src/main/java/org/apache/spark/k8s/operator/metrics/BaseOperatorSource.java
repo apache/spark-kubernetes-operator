@@ -29,6 +29,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
 import lombok.RequiredArgsConstructor;
 
+/** Base class for operator metric sources. */
 @RequiredArgsConstructor
 public class BaseOperatorSource {
   protected final MetricRegistry metricRegistry;
@@ -37,6 +38,13 @@ public class BaseOperatorSource {
   protected final Map<String, Gauge<?>> gauges = new ConcurrentHashMap<>();
   protected final Map<String, Timer> timers = new ConcurrentHashMap<>();
 
+  /**
+   * Retrieves or creates a Histogram metric.
+   *
+   * @param metricNamePrefix The prefix for the metric name.
+   * @param names Additional names to form the full metric name.
+   * @return A Histogram instance.
+   */
   protected Histogram getHistogram(String metricNamePrefix, String... names) {
     Histogram histogram;
     String metricName = MetricRegistry.name(metricNamePrefix, names).toLowerCase();
@@ -49,6 +57,13 @@ public class BaseOperatorSource {
     return histogram;
   }
 
+  /**
+   * Retrieves or creates a Counter metric.
+   *
+   * @param metricNamePrefix The prefix for the metric name.
+   * @param names Additional names to form the full metric name.
+   * @return A Counter instance.
+   */
   protected Counter getCounter(String metricNamePrefix, String... names) {
     Counter counter;
     String metricName = MetricRegistry.name(metricNamePrefix, names).toLowerCase();
@@ -61,6 +76,14 @@ public class BaseOperatorSource {
     return counter;
   }
 
+  /**
+   * Retrieves or creates a Gauge metric.
+   *
+   * @param defaultGauge The default gauge to use if one doesn't exist.
+   * @param metricNamePrefix The prefix for the metric name.
+   * @param names Additional names to form the full metric name.
+   * @return A Gauge instance.
+   */
   protected Gauge<?> getGauge(Gauge<?> defaultGauge, String metricNamePrefix, String... names) {
     Gauge<?> gauge;
     String metricName = MetricRegistry.name(metricNamePrefix, names).toLowerCase();
@@ -73,6 +96,13 @@ public class BaseOperatorSource {
     return gauge;
   }
 
+  /**
+   * Retrieves or creates a Timer metric.
+   *
+   * @param metricNamePrefix The prefix for the metric name.
+   * @param names Additional names to form the full metric name.
+   * @return A Timer instance.
+   */
   protected Timer getTimer(String metricNamePrefix, String... names) {
     Timer timer;
     String metricName = MetricRegistry.name(metricNamePrefix, names).toLowerCase();
@@ -85,6 +115,12 @@ public class BaseOperatorSource {
     return timer;
   }
 
+  /**
+   * Returns the simple class name as the metric name prefix.
+   *
+   * @param klass The class to get the simple name from.
+   * @return The simple class name.
+   */
   protected String getMetricNamePrefix(Class<?> klass) {
     return klass.getSimpleName();
   }

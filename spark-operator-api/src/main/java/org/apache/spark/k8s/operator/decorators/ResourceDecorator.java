@@ -21,6 +21,14 @@ package org.apache.spark.k8s.operator.decorators;
 
 import io.fabric8.kubernetes.api.model.HasMetadata;
 
+/** Interface for decorating Kubernetes resources. */
 public interface ResourceDecorator {
+  /**
+   * Decorates a Kubernetes resource.
+   *
+   * @param resource The resource to decorate.
+   * @param <T> The type of the resource, extending HasMetadata.
+   * @return The decorated resource.
+   */
   <T extends HasMetadata> T decorate(T resource);
 }

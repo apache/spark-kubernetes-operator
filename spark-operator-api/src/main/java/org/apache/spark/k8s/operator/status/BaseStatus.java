@@ -46,6 +46,12 @@ public class BaseStatus<S, STATE extends BaseState<S>, AS extends BaseAttemptSum
   @Getter final AS previousAttemptSummary;
   @Getter final AS currentAttemptSummary;
 
+  /**
+   * Constructs a new BaseStatus with an initial state and current attempt summary.
+   *
+   * @param initState The initial state of the resource.
+   * @param currentAttemptSummary The summary of the current attempt.
+   */
   public BaseStatus(STATE initState, AS currentAttemptSummary) {
     this.currentState = initState;
     this.stateTransitionHistory = new TreeMap<>();
@@ -54,6 +60,15 @@ public class BaseStatus<S, STATE extends BaseState<S>, AS extends BaseAttemptSum
     this.currentAttemptSummary = currentAttemptSummary;
   }
 
+  /**
+   * Constructs a new BaseStatus with a given current state, state transition history, and attempt
+   * summaries.
+   *
+   * @param currentState The current state of the resource.
+   * @param stateTransitionHistory The history of state transitions.
+   * @param previousAttemptSummary The summary of the previous attempt.
+   * @param currentAttemptSummary The summary of the current attempt.
+   */
   public BaseStatus(
       STATE currentState,
       Map<Long, STATE> stateTransitionHistory,
@@ -65,6 +80,11 @@ public class BaseStatus<S, STATE extends BaseState<S>, AS extends BaseAttemptSum
     this.currentAttemptSummary = currentAttemptSummary;
   }
 
+  /**
+   * Returns the ID of the current state in the state transition history.
+   *
+   * @return The ID of the current state.
+   */
   protected long getCurrentStateId() {
     return stateTransitionHistory.lastKey();
   }

@@ -35,10 +35,19 @@ import lombok.ToString;
 public class ClusterStatus
     extends BaseStatus<ClusterStateSummary, ClusterState, ClusterAttemptSummary> {
 
+  /** Constructs a new, empty ClusterStatus. */
   public ClusterStatus() {
     super(new ClusterState(), new ClusterAttemptSummary());
   }
 
+  /**
+   * Constructs a new ClusterStatus with the given state and history.
+   *
+   * @param currentState The current state of the cluster.
+   * @param stateTransitionHistory The history of state transitions.
+   * @param previousAttemptSummary Summary of the previous cluster attempt.
+   * @param currentAttemptSummary Summary of the current cluster attempt.
+   */
   public ClusterStatus(
       ClusterState currentState,
       Map<Long, ClusterState> stateTransitionHistory,
@@ -47,7 +56,12 @@ public class ClusterStatus
     super(currentState, stateTransitionHistory, previousAttemptSummary, currentAttemptSummary);
   }
 
-  /** Create a new ClusterStatus, set the given latest state as current and update state history */
+  /**
+   * Appends a new state to the cluster's status history and sets it as the current state.
+   *
+   * @param state The new ClusterState to append.
+   * @return A new ClusterStatus object with the updated state.
+   */
   public ClusterStatus appendNewState(ClusterState state) {
     return new ClusterStatus(
         state,
@@ -56,6 +70,12 @@ public class ClusterStatus
         currentAttemptSummary);
   }
 
+  /**
+   * Creates an updated state transition history with a new state appended.
+   *
+   * @param state The new ClusterState to append.
+   * @return A Map representing the updated state transition history.
+   */
   private Map<Long, ClusterState> createUpdatedHistoryWithNewState(ClusterState state) {
     TreeMap<Long, ClusterState> updatedHistory = new TreeMap<>(stateTransitionHistory);
     updatedHistory.put(updatedHistory.lastKey() + 1L, state);

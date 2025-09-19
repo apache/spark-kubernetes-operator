@@ -42,10 +42,19 @@ import org.apache.spark.k8s.operator.spec.RestartPolicy;
 public class ApplicationStatus
     extends BaseStatus<ApplicationStateSummary, ApplicationState, ApplicationAttemptSummary> {
 
+  /** Constructs a new, empty ApplicationStatus. */
   public ApplicationStatus() {
     super(new ApplicationState(), new ApplicationAttemptSummary());
   }
 
+  /**
+   * Constructs a new ApplicationStatus with the given state and history.
+   *
+   * @param currentState The current state of the application.
+   * @param stateTransitionHistory The history of state transitions.
+   * @param previousAttemptSummary Summary of the previous application attempt.
+   * @param currentAttemptSummary Summary of the current application attempt.
+   */
   public ApplicationStatus(
       ApplicationState currentState,
       Map<Long, ApplicationState> stateTransitionHistory,
@@ -55,7 +64,10 @@ public class ApplicationStatus
   }
 
   /**
-   * Create a new ApplicationStatus, set the given latest state as current and update state history
+   * Appends a new state to the application's status history and sets it as the current state.
+   *
+   * @param state The new ApplicationState to append.
+   * @return A new ApplicationStatus object with the updated state.
    */
   public ApplicationStatus appendNewState(ApplicationState state) {
     return new ApplicationStatus(
@@ -66,15 +78,13 @@ public class ApplicationStatus
   }
 
   /**
-   * Create ApplicationStatus to be updated upon termination of current attempt, with respect to
-   * current state and restart config.
+   * Creates an updated ApplicationStatus based on the termination or restart logic.
    *
-   * @param restartConfig restart config for the app
-   * @param resourceRetainPolicy resourceRetainPolicy for the app
-   * @param stateMessageOverride state message to be applied
-   * @param trimStateTransitionHistory if enabled, operator would trim the state history, keeping
-   *     only previous and current attempt.
-   * @return updated ApplicationStatus
+   * @param restartConfig The restart configuration for the application.
+   * @param resourceRetainPolicy The resource retention policy for the application.
+   * @param stateMessageOverride An optional message to override the default state message.
+   * @param trimStateTransitionHistory If true, the state transition history will be trimmed.
+   * @return An updated ApplicationStatus object.
    */
   public ApplicationStatus terminateOrRestart(
       final RestartConfig restartConfig,
@@ -154,6 +164,13 @@ public class ApplicationStatus
     }
   }
 
+  /**
+   * Creates an ApplicationState indicating that the application is terminated without releasing
+   * resources.
+   *
+   * @param stateMessageOverride An optional message to override the default state message.
+   * @return An ApplicationState object for termination without resource release.
+   */
   private ApplicationState terminateAppWithoutReleaseResource(String stateMessageOverride) {
     String stateMessage =
         "Application is terminated without releasing resources as configured."
@@ -162,6 +179,12 @@ public class ApplicationStatus
         ApplicationStateSummary.TerminatedWithoutReleaseResources, stateMessage);
   }
 
+  /**
+   * Creates an updated state transition history with a new state appended.
+   *
+   * @param state The new ApplicationState to append.
+   * @return A Map representing the updated state transition history.
+   */
   private Map<Long, ApplicationState> createUpdatedHistoryWithNewState(ApplicationState state) {
     TreeMap<Long, ApplicationState> updatedHistory = new TreeMap<>(stateTransitionHistory);
     updatedHistory.put(updatedHistory.lastKey() + 1L, state);

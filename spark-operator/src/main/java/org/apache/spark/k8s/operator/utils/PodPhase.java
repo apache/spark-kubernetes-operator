@@ -41,6 +41,12 @@ public enum PodPhase {
     this.description = description;
   }
 
+  /**
+   * Returns the PodPhase for a given Pod.
+   *
+   * @param pod The Pod object.
+   * @return The corresponding PodPhase, or UNKNOWN if the phase cannot be determined.
+   */
   public static PodPhase getPhase(final Pod pod) {
     if (pod == null || pod.getStatus() == null) {
       return UNKNOWN;

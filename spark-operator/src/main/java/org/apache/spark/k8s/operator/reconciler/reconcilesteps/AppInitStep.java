@@ -47,6 +47,13 @@ import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 /** Request all driver and its resources when starting an attempt. */
 @Slf4j
 public class AppInitStep extends AppReconcileStep {
+  /**
+   * Reconciles the application initialization step, creating driver and associated resources.
+   *
+   * @param context The SparkAppContext for the application.
+   * @param statusRecorder The SparkAppStatusRecorder for recording status updates.
+   * @return The ReconcileProgress indicating the next step.
+   */
   @Override
   public ReconcileProgress reconcile(
       SparkAppContext context, SparkAppStatusRecorder statusRecorder) {
@@ -122,6 +129,12 @@ public class AppInitStep extends AppReconcileStep {
     }
   }
 
+  /**
+   * Creates an ApplicationState indicating a scheduling failure due to resource creation failure.
+   *
+   * @param failedResource The resource that failed to be created.
+   * @return An ApplicationState object representing the creation failure.
+   */
   private ApplicationState creationFailureState(HasMetadata failedResource) {
     return new ApplicationState(
         ApplicationStateSummary.SchedulingFailure,

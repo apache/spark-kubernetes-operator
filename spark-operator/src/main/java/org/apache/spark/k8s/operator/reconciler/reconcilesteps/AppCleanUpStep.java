@@ -59,6 +59,12 @@ public class AppCleanUpStep extends AppReconcileStep {
   private Supplier<ApplicationState> onDemandCleanUpReason;
   private String stateUpdateMessage;
 
+  /**
+   * Constructs an AppCleanUpStep with a specific reason for on-demand cleanup.
+   *
+   * @param onDemandCleanUpReason A Supplier that provides the ApplicationState for on-demand
+   *     cleanup.
+   */
   public AppCleanUpStep(Supplier<ApplicationState> onDemandCleanUpReason) {
     super();
     this.onDemandCleanUpReason = onDemandCleanUpReason;
@@ -83,9 +89,9 @@ public class AppCleanUpStep extends AppReconcileStep {
    * when even the reconciler decides to proceed with clean up, sub-resources may still be retained
    * based on tolerations.
    *
-   * @param context context for the app
-   * @param statusRecorder recorder for status updates in this reconcile
-   * @return the reconcile progress
+   * @param context The SparkAppContext for the application.
+   * @param statusRecorder The SparkAppStatusRecorder for recording status updates.
+   * @return The ReconcileProgress indicating the next step.
    */
   @Override
   public ReconcileProgress reconcile(
@@ -185,6 +191,13 @@ public class AppCleanUpStep extends AppReconcileStep {
     }
   }
 
+  /**
+   * Clears the status cache and indicates that reconciliation for the application is complete.
+   *
+   * @param application The SparkApplication to clear cache for.
+   * @param statusRecorder The SparkAppStatusRecorder.
+   * @return An Optional containing a ReconcileProgress to complete and not re-queue.
+   */
   protected Optional<ReconcileProgress> clearCacheAndFinishReconcileForApplication(
       final SparkApplication application, final SparkAppStatusRecorder statusRecorder) {
     log.debug("Cleaning up status cache and stop reconciling for application.");
@@ -192,6 +205,16 @@ public class AppCleanUpStep extends AppReconcileStep {
     return Optional.of(ReconcileProgress.completeAndNoRequeue());
   }
 
+  /**
+   * Checks if an early exit from reconciliation is possible for a terminated application, based on
+   * resource retention policies and TTL settings.
+   *
+   * @param client The KubernetesClient.
+   * @param application The SparkApplication.
+   * @param statusRecorder The SparkAppStatusRecorder.
+   * @return An Optional containing a ReconcileProgress if an early exit is determined, otherwise
+   *     empty.
+   */
   protected Optional<ReconcileProgress> checkEarlyExitForTerminatedApp(
       final KubernetesClient client,
       final SparkApplication application,
@@ -254,14 +277,20 @@ public class AppCleanUpStep extends AppReconcileStep {
     return Optional.empty();
   }
 
+  /**
+   * Checks if an on-demand cleanup has been requested.
+   *
+   * @return True if on-demand cleanup is requested, false otherwise.
+   */
   protected boolean isOnDemandCleanup() {
     return onDemandCleanUpReason != null;
   }
 
   /**
-   * @param status status of the application
-   * @return The last observed state before termination if the app has terminated. If the app has
-   *     not terminated, return the last observed state
+   * Returns the last observed state of the application before it terminated.
+   *
+   * @param status The current ApplicationStatus.
+   * @return The ApplicationState before termination, or the current state if not terminated.
    */
   protected ApplicationState getLastObservedStateBeforeTermination(final ApplicationStatus status) {
     ApplicationState lastObservedState = status.getCurrentState();
@@ -274,6 +303,12 @@ public class AppCleanUpStep extends AppReconcileStep {
     return lastObservedState;
   }
 
+  /**
+   * Determines if resources should be released due to a scheduling failure attempt.
+   *
+   * @param status The current ApplicationStatus.
+   * @return True if resources should be released due to scheduling failure, false otherwise.
+   */
   protected boolean isReleasingResourcesForSchedulingFailureAttempt(
       final ApplicationStatus status) {
     ApplicationState lastObservedState = getLastObservedStateBeforeTermination(status);
@@ -281,6 +316,14 @@ public class AppCleanUpStep extends AppReconcileStep {
         lastObservedState.getCurrentStateSummary());
   }
 
+  /**
+   * Determines whether to retain or release resources based on the resource retention policy and
+   * current application state.
+   *
+   * @param resourceRetainPolicy The ResourceRetainPolicy configured for the application.
+   * @param currentState The current ApplicationState.
+   * @return True if resources should be retained, false if they should be released.
+   */
   protected boolean retainReleaseResourceForPolicyAndState(
       ResourceRetainPolicy resourceRetainPolicy, ApplicationState currentState) {
     return switch (resourceRetainPolicy) {
@@ -290,6 +333,12 @@ public class AppCleanUpStep extends AppReconcileStep {
     };
   }
 
+  /**
+   * Determines if force deletion should be enabled for the given SparkApplication.
+   *
+   * @param app The SparkApplication to check.
+   * @return True if force deletion is enabled, false otherwise.
+   */
   protected boolean enableForceDelete(SparkApplication app) {
     long timeoutThreshold =
         app.getSpec()

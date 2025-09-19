@@ -45,24 +45,55 @@ public final class ReconcileProgress {
     this.requeueAfterDuration = requeueAfterDuration;
   }
 
+  /**
+   * Creates a ReconcileProgress indicating that reconciliation should proceed and be re-queued
+   * after the default interval.
+   *
+   * @return A ReconcileProgress instance.
+   */
   public static ReconcileProgress proceed() {
     return new ReconcileProgress(
         false, true, Duration.ofSeconds(RECONCILER_INTERVAL_SECONDS.getValue()));
   }
 
+  /**
+   * Creates a ReconcileProgress indicating that reconciliation is complete and should be re-queued
+   * after the default interval.
+   *
+   * @return A ReconcileProgress instance.
+   */
   public static ReconcileProgress completeAndDefaultRequeue() {
     return new ReconcileProgress(
         true, true, Duration.ofSeconds(RECONCILER_INTERVAL_SECONDS.getValue()));
   }
 
+  /**
+   * Creates a ReconcileProgress indicating that reconciliation is complete and should be re-queued
+   * after a specified duration.
+   *
+   * @param requeueAfterDuration The duration after which to re-queue the reconciliation.
+   * @return A ReconcileProgress instance.
+   */
   public static ReconcileProgress completeAndRequeueAfter(Duration requeueAfterDuration) {
     return new ReconcileProgress(true, true, requeueAfterDuration);
   }
 
+  /**
+   * Creates a ReconcileProgress indicating that reconciliation is complete and should be re-queued
+   * immediately.
+   *
+   * @return A ReconcileProgress instance.
+   */
   public static ReconcileProgress completeAndImmediateRequeue() {
     return new ReconcileProgress(true, true, Duration.ZERO);
   }
 
+  /**
+   * Creates a ReconcileProgress indicating that reconciliation is complete and should not be
+   * re-queued.
+   *
+   * @return A ReconcileProgress instance.
+   */
   public static ReconcileProgress completeAndNoRequeue() {
     return new ReconcileProgress(true, false, Duration.ZERO);
   }

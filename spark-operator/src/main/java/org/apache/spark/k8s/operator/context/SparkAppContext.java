@@ -53,6 +53,11 @@ public class SparkAppContext extends BaseContext<SparkApplication> {
   /** secondaryResourceSpec is initialized in a lazy fashion - built upon the first attempt */
   private SparkAppResourceSpec secondaryResourceSpec;
 
+  /**
+   * Returns the driver pod for the Spark application, if present.
+   *
+   * @return An Optional containing the driver Pod, or empty if not found.
+   */
   public Optional<Pod> getDriverPod() {
     return josdkContext
         .getSecondaryResourcesAsStream(Pod.class)
@@ -65,6 +70,11 @@ public class SparkAppContext extends BaseContext<SparkApplication> {
         .findAny();
   }
 
+  /**
+   * Returns a set of executor pods for the Spark application.
+   *
+   * @return A Set of Pods representing the executors.
+   */
   public Set<Pod> getExecutorsForApplication() {
     return josdkContext
         .getSecondaryResourcesAsStream(Pod.class)
@@ -88,24 +98,49 @@ public class SparkAppContext extends BaseContext<SparkApplication> {
     }
   }
 
+  /**
+   * Returns the SparkApplication resource associated with this context.
+   *
+   * @return The SparkApplication resource.
+   */
   @Override
   public SparkApplication getResource() {
     return sparkApplication;
   }
 
+  /**
+   * Returns the Kubernetes client from the JOSDK context.
+   *
+   * @return The KubernetesClient instance.
+   */
   @Override
   public KubernetesClient getClient() {
     return josdkContext.getClient();
   }
 
+  /**
+   * Returns a list of pre-driver resources specifications.
+   *
+   * @return A List of HasMetadata objects representing pre-driver resources.
+   */
   public List<HasMetadata> getDriverPreResourcesSpec() {
     return getSecondaryResourceSpec().getDriverPreResources();
   }
 
+  /**
+   * Returns the driver pod specification.
+   *
+   * @return The Pod object representing the driver pod specification.
+   */
   public Pod getDriverPodSpec() {
     return getSecondaryResourceSpec().getConfiguredPod();
   }
 
+  /**
+   * Returns a list of driver resources specifications.
+   *
+   * @return A List of HasMetadata objects representing driver resources.
+   */
   public List<HasMetadata> getDriverResourcesSpec() {
     return getSecondaryResourceSpec().getDriverResources();
   }

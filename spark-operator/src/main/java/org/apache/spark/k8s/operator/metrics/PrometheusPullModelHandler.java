@@ -54,6 +54,12 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
   @Getter private final boolean enablePrometheusTextBasedFormat;
   @Getter private final boolean enableSanitizePrometheusMetricsName;
 
+  /**
+   * Constructs a new PrometheusPullModelHandler.
+   *
+   * @param properties Configuration properties.
+   * @param registry The MetricRegistry to pull metrics from.
+   */
   public PrometheusPullModelHandler(Properties properties, MetricRegistry registry) {
     super(properties, registry);
     this.registry = registry;
@@ -63,16 +69,24 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
         SparkOperatorConf.SANITIZE_PROMETHEUS_METRICS_NAME_ENABLED.getValue();
   }
 
+  /** Starts the Prometheus pull model handler. */
   @Override
   public void start() {
     log.info("PrometheusPullModelHandler started");
   }
 
+  /** Stops the Prometheus pull model handler. */
   @Override
   public void stop() {
     log.info("PrometheusPullModelHandler stopped");
   }
 
+  /**
+   * Handles HTTP requests for Prometheus metrics.
+   *
+   * @param exchange The HttpExchange object.
+   * @throws IOException if an I/O error occurs.
+   */
   @Override
   public void handle(HttpExchange exchange) throws IOException {
     if (enablePrometheusTextBasedFormat) {
@@ -92,6 +106,12 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
     }
   }
 
+  /**
+   * Filters out empty metric records from a Prometheus metrics snapshot string.
+   *
+   * @param metricsSnapshot The raw metrics snapshot string.
+   * @return A List of strings containing only non-empty metric records.
+   */
   protected List<String> filterNonEmptyRecords(String metricsSnapshot) {
     // filter out empty records which could cause Prometheus invalid syntax exception, e.g:
     // metrics_jvm_threadStates_deadlocks_Number{type="gauges"} []
@@ -108,6 +128,11 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
     return filteredRecords;
   }
 
+  /**
+   * Formats the current metrics snapshot into a Prometheus text-based format.
+   *
+   * @return A String containing the formatted metrics.
+   */
   protected String formatMetricsSnapshot() {
     Map<String, Gauge> gauges = registry.getGauges();
     Map<String, Counter> counters = registry.getCounters();
@@ -145,12 +170,25 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
     return stringBuilder.toString();
   }
 
+  /**
+   * Appends a string value to a StringBuilder if the value is not empty.
+   *
+   * @param stringBuilder The StringBuilder to append to.
+   * @param value The string value to append.
+   */
   protected void appendIfNotEmpty(StringBuilder stringBuilder, String value) {
     if (StringUtils.isNotEmpty(value)) {
       stringBuilder.append(value);
     }
   }
 
+  /**
+   * Formats a Gauge metric into a Prometheus-compatible string.
+   *
+   * @param name The name of the gauge.
+   * @param gauge The Gauge object.
+   * @return A formatted string for the gauge, or null if the gauge is invalid.
+   */
   protected String formatGauge(String name, Gauge gauge) {
     if (gauge != null
         && gauge.getValue() != null
@@ -171,6 +209,13 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
     return null;
   }
 
+  /**
+   * Formats a Counter metric into a Prometheus-compatible string.
+   *
+   * @param name The name of the counter.
+   * @param counter The Counter object.
+   * @return A formatted string for the counter, or null if the counter is invalid.
+   */
   protected String formatCounter(String name, Counter counter) {
     if (counter != null) {
       String formattedName = sanitize(name);
@@ -188,6 +233,13 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
     return null;
   }
 
+  /**
+   * Formats a Histogram metric into a Prometheus-compatible string.
+   *
+   * @param name The name of the histogram.
+   * @param histogram The Histogram object.
+   * @return A formatted string for the histogram, or null if the histogram is invalid.
+   */
   protected String formatHistogram(String name, Histogram histogram) {
     if (histogram != null && histogram.getSnapshot() != null) {
       String baseName = sanitize(name);
@@ -242,6 +294,13 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
     return null;
   }
 
+  /**
+   * Formats a Meter metric into a Prometheus-compatible string.
+   *
+   * @param name The name of the meter.
+   * @param meter The Meter object.
+   * @return A formatted string for the meter, or null if the meter is invalid.
+   */
   protected String formatMeter(String name, Meter meter) {
     if (meter != null) {
       String baseName = sanitize(name);
@@ -272,6 +331,13 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
     return null;
   }
 
+  /**
+   * Formats a Timer metric into a Prometheus-compatible string.
+   *
+   * @param name The name of the timer.
+   * @param timer The Timer object.
+   * @return A formatted string for the timer, or null if the timer is invalid.
+   */
   protected String formatTimer(String name, Timer timer) {
     if (timer != null && timer.getSnapshot() != null) {
       String baseName = sanitize(name);
@@ -343,10 +409,22 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
     return null;
   }
 
+  /**
+   * Converts nanoseconds to seconds.
+   *
+   * @param nanos The value in nanoseconds.
+   * @return The value in seconds.
+   */
   protected double nanosToSeconds(double nanos) {
     return nanos / 1_000_000_000.0;
   }
 
+  /**
+   * Sanitizes a metric name to be Prometheus-compatible.
+   *
+   * @param name The original metric name.
+   * @return The sanitized metric name.
+   */
   protected String sanitize(String name) {
     if (enableSanitizePrometheusMetricsName) {
       return name.replaceAll("[^a-zA-Z0-9_]", "_").toLowerCase();
@@ -354,6 +432,12 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
     return name;
   }
 
+  /**
+   * Converts a metric name containing "_nanos" to "_seconds".
+   *
+   * @param name The original metric name.
+   * @return The converted metric name.
+   */
   protected String nanosMetricsNameToSeconds(String name) {
     return name.replaceAll("_nanos", "_seconds");
   }

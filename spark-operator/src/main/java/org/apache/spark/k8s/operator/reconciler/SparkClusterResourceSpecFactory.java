@@ -35,6 +35,13 @@ public final class SparkClusterResourceSpecFactory {
 
   private SparkClusterResourceSpecFactory() {}
 
+  /**
+   * Builds a SparkClusterResourceSpec for the given SparkCluster.
+   *
+   * @param cluster The SparkCluster.
+   * @param worker The SparkClusterSubmissionWorker.
+   * @return A SparkClusterResourceSpec containing the configured resources.
+   */
   public static SparkClusterResourceSpec buildResourceSpec(
       final SparkCluster cluster, final SparkClusterSubmissionWorker worker) {
     Map<String, String> confOverrides = new HashMap<>();

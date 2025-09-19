@@ -27,6 +27,14 @@ import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
 
 /** Observes whether cluster is already terminated. If so, end the reconcile. */
 public class ClusterTerminatedStep extends ClusterReconcileStep {
+  /**
+   * Reconciles the cluster when it is in a terminated state, ending the reconciliation process.
+   *
+   * @param context The SparkClusterContext for the cluster.
+   * @param statusRecorder The SparkClusterStatusRecorder for recording status updates.
+   * @return The ReconcileProgress indicating that reconciliation is complete and should not be
+   *     re-queued.
+   */
   @Override
   public ReconcileProgress reconcile(
       SparkClusterContext context, SparkClusterStatusRecorder statusRecorder) {

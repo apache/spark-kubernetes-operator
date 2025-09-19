@@ -38,7 +38,13 @@ public class DriverDecorator implements ResourceDecorator {
 
   private final SparkApplication app;
 
-  /** Add labels and owner references to the app for all secondary resources */
+  /**
+   * Decorates a Kubernetes resource with owner references and labels from the SparkApplication.
+   *
+   * @param resource The resource to decorate.
+   * @param <T> The type of the resource, extending HasMetadata.
+   * @return The decorated resource.
+   */
   @Override
   public <T extends HasMetadata> T decorate(T resource) {
     ObjectMeta metaData =

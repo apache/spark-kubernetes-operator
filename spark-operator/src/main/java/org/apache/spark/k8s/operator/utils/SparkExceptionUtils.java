@@ -30,6 +30,12 @@ public final class SparkExceptionUtils {
 
   private SparkExceptionUtils() {}
 
+  /**
+   * Checks if a KubernetesClientException is a conflict due to an already existing resource.
+   *
+   * @param e The KubernetesClientException to check.
+   * @return True if it's a conflict for an existing resource, false otherwise.
+   */
   public static boolean isConflictForExistingResource(KubernetesClientException e) {
     return e != null
         && e.getCode() == HTTP_CONFLICT
@@ -38,6 +44,12 @@ public final class SparkExceptionUtils {
         && e.getStatus().toString().toLowerCase().contains("alreadyexists");
   }
 
+  /**
+   * Builds a general error message from an Exception, including its stack trace.
+   *
+   * @param e The Exception to build the message from.
+   * @return A string containing the stack trace of the exception.
+   */
   public static String buildGeneralErrorMessage(Exception e) {
     return ExceptionUtils.getStackTrace(e);
   }

@@ -56,31 +56,66 @@ public class SparkClusterContext extends BaseContext<SparkCluster> {
     }
   }
 
+  /**
+   * Returns the SparkCluster resource associated with this context.
+   *
+   * @return The SparkCluster resource.
+   */
   @Override
   public SparkCluster getResource() {
     return sparkCluster;
   }
 
+  /**
+   * Returns the specification for the master service.
+   *
+   * @return The Service object for the master.
+   */
   public Service getMasterServiceSpec() {
     return getSecondaryResourceSpec().getMasterService();
   }
 
+  /**
+   * Returns the specification for the worker service.
+   *
+   * @return The Service object for the workers.
+   */
   public Service getWorkerServiceSpec() {
     return getSecondaryResourceSpec().getWorkerService();
   }
 
+  /**
+   * Returns the specification for the master StatefulSet.
+   *
+   * @return The StatefulSet object for the master.
+   */
   public StatefulSet getMasterStatefulSetSpec() {
     return getSecondaryResourceSpec().getMasterStatefulSet();
   }
 
+  /**
+   * Returns the specification for the worker StatefulSet.
+   *
+   * @return The StatefulSet object for the workers.
+   */
   public StatefulSet getWorkerStatefulSetSpec() {
     return getSecondaryResourceSpec().getWorkerStatefulSet();
   }
 
+  /**
+   * Returns the specification for the HorizontalPodAutoscaler, if present.
+   *
+   * @return An Optional containing the HorizontalPodAutoscaler object.
+   */
   public Optional<HorizontalPodAutoscaler> getHorizontalPodAutoscalerSpec() {
     return getSecondaryResourceSpec().getHorizontalPodAutoscaler();
   }
 
+  /**
+   * Returns the Kubernetes client from the JOSDK context.
+   *
+   * @return The KubernetesClient instance.
+   */
   @Override
   public KubernetesClient getClient() {
     return josdkContext.getClient();

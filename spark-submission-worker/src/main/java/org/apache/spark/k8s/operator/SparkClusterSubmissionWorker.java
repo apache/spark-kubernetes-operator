@@ -27,6 +27,13 @@ import org.apache.spark.SparkConf;
 
 /** Worker for submitting Spark clusters. */
 public class SparkClusterSubmissionWorker {
+  /**
+   * Builds a SparkClusterResourceSpec for the given SparkCluster.
+   *
+   * @param cluster The SparkCluster object.
+   * @param confOverrides Configuration overrides for the cluster.
+   * @return A SparkClusterResourceSpec instance.
+   */
   public SparkClusterResourceSpec getResourceSpec(
       SparkCluster cluster, Map<String, String> confOverrides) {
     SparkConf effectiveSparkConf = new SparkConf();

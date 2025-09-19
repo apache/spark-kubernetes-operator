@@ -62,6 +62,7 @@ public class KubernetesMetricsInterceptor implements Interceptor, Source {
   private final Meter responseRateMeter;
   private final Map<String, Meter> namespacedResourceMethodMeters = new ConcurrentHashMap<>();
 
+  /** Constructs a new KubernetesMetricsInterceptor, initializing metric registries. */
   public KubernetesMetricsInterceptor() {
     metricRegistry = new MetricRegistry();
 
@@ -88,6 +89,13 @@ public class KubernetesMetricsInterceptor implements Interceptor, Source {
     }
   }
 
+  /**
+   * Intercepts an HTTP request and updates Kubernetes client metrics.
+   *
+   * @param chain The Interceptor.Chain for the current request.
+   * @return The Response from the intercepted request.
+   * @throws IOException if an I/O error occurs during the request.
+   */
   @NotNull
   @Override
   public Response intercept(@NotNull Chain chain) throws IOException {
@@ -103,11 +111,21 @@ public class KubernetesMetricsInterceptor implements Interceptor, Source {
     }
   }
 
+  /**
+   * Returns the name of this metrics source.
+   *
+   * @return The source name.
+   */
   @Override
   public String sourceName() {
     return "kubernetes.client";
   }
 
+  /**
+   * Returns the MetricRegistry used by this interceptor.
+   *
+   * @return The MetricRegistry instance.
+   */
   @Override
   public MetricRegistry metricRegistry() {
     return this.metricRegistry;
@@ -160,6 +178,12 @@ public class KubernetesMetricsInterceptor implements Interceptor, Source {
             metricRegistry.meter(MetricRegistry.name(HTTP_RESPONSE_GROUP, String.valueOf(code))));
   }
 
+  /**
+   * Parses the given path to extract namespace-scoped resource information.
+   *
+   * @param path The request path.
+   * @return An Optional containing a Pair of namespace and resource name, or empty if not found.
+   */
   public Optional<Pair<String, String>> parseNamespaceScopedResource(String path) {
     if (path.contains(NAMESPACES)) {
       int index = path.indexOf(NAMESPACES) + NAMESPACES.length();

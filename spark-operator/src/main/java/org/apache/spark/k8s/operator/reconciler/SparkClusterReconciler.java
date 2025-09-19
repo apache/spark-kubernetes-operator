@@ -63,6 +63,14 @@ public class SparkClusterReconciler implements Reconciler<SparkCluster>, Cleaner
   private final SparkClusterStatusRecorder sparkClusterStatusRecorder;
   private final SentinelManager<SparkCluster> sentinelManager;
 
+  /**
+   * Reconciles the state of a SparkCluster resource.
+   *
+   * @param sparkCluster The SparkCluster resource to reconcile.
+   * @param context The reconciliation context.
+   * @return An UpdateControl object indicating the result of the reconciliation.
+   * @throws Exception if an error occurs during reconciliation.
+   */
   @Override
   public UpdateControl<SparkCluster> reconcile(
       SparkCluster sparkCluster, Context<SparkCluster> context) throws Exception {
@@ -88,6 +96,14 @@ public class SparkClusterReconciler implements Reconciler<SparkCluster>, Cleaner
     }
   }
 
+  /**
+   * Updates the error status of a SparkCluster resource.
+   *
+   * @param sparkCluster The SparkCluster resource.
+   * @param context The reconciliation context.
+   * @param e The exception that occurred.
+   * @return An ErrorStatusUpdateControl indicating no status update.
+   */
   @Override
   public ErrorStatusUpdateControl<SparkCluster> updateErrorStatus(
       SparkCluster sparkCluster, Context<SparkCluster> context, Exception e) {
@@ -110,6 +126,12 @@ public class SparkClusterReconciler implements Reconciler<SparkCluster>, Cleaner
     }
   }
 
+  /**
+   * Prepares the event sources for the SparkCluster reconciler.
+   *
+   * @param context The EventSourceContext.
+   * @return A List of EventSource objects.
+   */
   @Override
   public List<EventSource<?, SparkCluster>> prepareEventSources(
       EventSourceContext<SparkCluster> context) {
@@ -124,6 +146,12 @@ public class SparkClusterReconciler implements Reconciler<SparkCluster>, Cleaner
     return List.of(podEventSource);
   }
 
+  /**
+   * Returns a list of reconciliation steps based on the current state of the SparkCluster.
+   *
+   * @param cluster The SparkCluster resource.
+   * @return A List of ClusterReconcileStep objects.
+   */
   protected List<ClusterReconcileStep> getReconcileSteps(final SparkCluster cluster) {
     List<ClusterReconcileStep> steps = new ArrayList<>();
     steps.add(new ClusterValidateStep());
@@ -139,11 +167,12 @@ public class SparkClusterReconciler implements Reconciler<SparkCluster>, Cleaner
   }
 
   /**
-   * Best-effort graceful termination upon delete.
+   * Performs cleanup operations for a SparkCluster resource when it is marked for deletion. This is
+   * a Best-effort graceful termination upon delete.
    *
-   * @param sparkCluster the resource that is marked for deletion
-   * @param context the context with which the operation is executed
-   * @return DeleteControl, with requeue if needed
+   * @param sparkCluster The SparkCluster resource that is marked for deletion.
+   * @param context The context with which the operation is executed.
+   * @return A DeleteControl object, with requeue if needed.
    */
   @Override
   public DeleteControl cleanup(SparkCluster sparkCluster, Context<SparkCluster> context) {

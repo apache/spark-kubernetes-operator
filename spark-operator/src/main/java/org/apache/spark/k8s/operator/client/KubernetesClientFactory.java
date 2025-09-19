@@ -32,10 +32,23 @@ public final class KubernetesClientFactory {
 
   private KubernetesClientFactory() {}
 
+  /**
+   * Builds a KubernetesClient with the given interceptors.
+   *
+   * @param interceptors A list of OkHttp interceptors to add to the client.
+   * @return A new KubernetesClient instance.
+   */
   public static KubernetesClient buildKubernetesClient(final List<Interceptor> interceptors) {
     return buildKubernetesClient(interceptors, null);
   }
 
+  /**
+   * Builds a KubernetesClient with the given interceptors and configuration.
+   *
+   * @param interceptors A list of OkHttp interceptors to add to the client.
+   * @param kubernetesClientConfig The Kubernetes client configuration.
+   * @return A new KubernetesClient instance.
+   */
   public static KubernetesClient buildKubernetesClient(
       final List<Interceptor> interceptors, final Config kubernetesClientConfig) {
     return new KubernetesClientBuilder()

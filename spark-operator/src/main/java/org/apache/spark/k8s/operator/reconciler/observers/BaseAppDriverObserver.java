@@ -70,11 +70,11 @@ public abstract class BaseAppDriverObserver
    *   <li>2. The container(s) has exited 0 after SparkContext / SparkSession initialization
    * </ul>
    *
-   * @param driverPod the driverPod
-   * @param driverReady whether SparkContext / SparkSession has ever been initialized for this pod
-   * @param spec the application spec
-   * @return the ApplicationState to be updated if pod is terminated. Returning empty if pod is
-   *     still running
+   * @param driverPod The driver Pod object.
+   * @param driverReady A boolean indicating if the SparkContext/SparkSession was initialized.
+   * @param spec The ApplicationSpec of the Spark application.
+   * @return An Optional containing the new ApplicationState if the driver is terminated, otherwise
+   *     empty.
    */
   protected Optional<ApplicationState> observeDriverTermination(
       final Pod driverPod, final boolean driverReady, final ApplicationSpec spec) {

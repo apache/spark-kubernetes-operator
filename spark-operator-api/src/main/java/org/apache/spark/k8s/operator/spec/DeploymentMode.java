@@ -19,6 +19,7 @@
 
 package org.apache.spark.k8s.operator.spec;
 
+/** Represents the deployment mode for a Spark application. */
 public enum DeploymentMode {
   ClusterMode,
   ClientMode

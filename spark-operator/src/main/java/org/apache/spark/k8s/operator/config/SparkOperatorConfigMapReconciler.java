@@ -43,6 +43,14 @@ public class SparkOperatorConfigMapReconciler implements Reconciler<ConfigMap> {
   private final Function<Set<String>, Boolean> namespaceUpdater;
   private final Function<Void, Set<String>> watchedNamespacesGetter;
 
+  /**
+   * Updates the error status of the ConfigMap reconciliation.
+   *
+   * @param resource The ConfigMap resource.
+   * @param context The reconciliation context.
+   * @param e The exception that occurred.
+   * @return An ErrorStatusUpdateControl indicating no status update.
+   */
   @Override
   public ErrorStatusUpdateControl<ConfigMap> updateErrorStatus(
       ConfigMap resource, Context<ConfigMap> context, Exception e) {
@@ -50,6 +58,14 @@ public class SparkOperatorConfigMapReconciler implements Reconciler<ConfigMap> {
     return ErrorStatusUpdateControl.noStatusUpdate();
   }
 
+  /**
+   * Reconciles the ConfigMap resource, refreshing the Spark Operator configuration.
+   *
+   * @param resource The ConfigMap resource to reconcile.
+   * @param context The reconciliation context.
+   * @return An UpdateControl indicating no update.
+   * @throws Exception if an error occurs during reconciliation.
+   */
   @Override
   public UpdateControl<ConfigMap> reconcile(ConfigMap resource, Context<ConfigMap> context)
       throws Exception {

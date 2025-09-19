@@ -51,6 +51,12 @@ public class HealthProbe implements HttpHandler {
   private final List<Operator> operators;
   private final List<SentinelManager<?>> sentinelManagers;
 
+  /**
+   * Checks the overall health of the operator, including all registered operators and sentinel
+   * managers.
+   *
+   * @return True if the operator is healthy, false otherwise.
+   */
   public boolean isHealthy() {
     Optional<Boolean> operatorsAreReady = areOperatorsStarted(operators);
     if (operatorsAreReady.isEmpty() || !operatorsAreReady.get()) {
@@ -76,6 +82,12 @@ public class HealthProbe implements HttpHandler {
     return true;
   }
 
+  /**
+   * Handles HTTP requests for the health probe endpoint.
+   *
+   * @param exchange The HttpExchange object.
+   * @throws IOException if an I/O error occurs.
+   */
   @Override
   public void handle(HttpExchange exchange) throws IOException {
     if (isHealthy()) {

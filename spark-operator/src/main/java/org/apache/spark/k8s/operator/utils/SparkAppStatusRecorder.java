@@ -33,12 +33,25 @@ public class SparkAppStatusRecorder
     extends StatusRecorder<ApplicationStatus, SparkApplication, SparkAppStatusListener> {
   protected final SparkAppStatusRecorderSource recorderSource;
 
+  /**
+   * Constructs a new SparkAppStatusRecorder.
+   *
+   * @param statusListeners A list of SparkAppStatusListener instances.
+   * @param recorderSource The SparkAppStatusRecorderSource for metrics.
+   */
   public SparkAppStatusRecorder(
       List<SparkAppStatusListener> statusListeners, SparkAppStatusRecorderSource recorderSource) {
     super(statusListeners, ApplicationStatus.class, SparkApplication.class);
     this.recorderSource = recorderSource;
   }
 
+  /**
+   * Appends a new state to the application status, records latency, and persists the updated
+   * status.
+   *
+   * @param context The SparkAppContext for the application.
+   * @param newState The new ApplicationState to append.
+   */
   public void appendNewStateAndPersist(SparkAppContext context, ApplicationState newState) {
     ApplicationStatus appStatus = context.getResource().getStatus();
     recorderSource.recordStatusUpdateLatency(appStatus, newState);

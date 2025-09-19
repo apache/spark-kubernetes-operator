@@ -28,6 +28,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 
+/** Represents a table for documentation generation. */
 @Data
 @RequiredArgsConstructor
 @Builder

@@ -30,6 +30,13 @@ import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
 /** Validates the submitted cluster. This can be re-factored into webhook in the future. */
 @Slf4j
 public class ClusterValidateStep extends ClusterReconcileStep {
+  /**
+   * Reconciles the cluster by validating its configuration and status.
+   *
+   * @param context The SparkClusterContext for the cluster.
+   * @param statusRecorder The SparkClusterStatusRecorder for recording status updates.
+   * @return The ReconcileProgress indicating the next step.
+   */
   @Override
   public ReconcileProgress reconcile(
       SparkClusterContext context, SparkClusterStatusRecorder statusRecorder) {

@@ -29,9 +29,25 @@ import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
 
 /** Basic reconcile step for cluster. */
 public abstract class ClusterReconcileStep {
+  /**
+   * Reconciles a specific step for a Spark cluster.
+   *
+   * @param context The SparkClusterContext for the cluster.
+   * @param statusRecorder The SparkClusterStatusRecorder for recording status updates.
+   * @return The ReconcileProgress indicating the next step.
+   */
   public abstract ReconcileProgress reconcile(
       SparkClusterContext context, SparkClusterStatusRecorder statusRecorder);
 
+  /**
+   * Updates the cluster status and re-queues the reconciliation after a specified duration.
+   *
+   * @param context The SparkClusterContext for the cluster.
+   * @param statusRecorder The SparkClusterStatusRecorder for recording status updates.
+   * @param updatedStatus The updated ClusterStatus.
+   * @param requeueAfter The duration after which to re-queue.
+   * @return The ReconcileProgress indicating the re-queue.
+   */
   protected ReconcileProgress updateStatusAndRequeueAfter(
       SparkClusterContext context,
       SparkClusterStatusRecorder statusRecorder,
@@ -41,6 +57,16 @@ public abstract class ClusterReconcileStep {
     return ReconcileProgress.completeAndRequeueAfter(requeueAfter);
   }
 
+  /**
+   * Appends a new state to the cluster status, persists it, and re-queues the reconciliation after
+   * a specified duration.
+   *
+   * @param context The SparkClusterContext for the cluster.
+   * @param statusRecorder The SparkClusterStatusRecorder for recording status updates.
+   * @param newState The new ClusterState to append.
+   * @param requeueAfter The duration after which to re-queue.
+   * @return The ReconcileProgress indicating the re-queue.
+   */
   protected ReconcileProgress appendStateAndRequeueAfter(
       SparkClusterContext context,
       SparkClusterStatusRecorder statusRecorder,
@@ -50,6 +76,15 @@ public abstract class ClusterReconcileStep {
     return ReconcileProgress.completeAndRequeueAfter(requeueAfter);
   }
 
+  /**
+   * Appends a new state to the cluster status, persists it, and immediately re-queues the
+   * reconciliation.
+   *
+   * @param context The SparkClusterContext for the cluster.
+   * @param statusRecorder The SparkClusterStatusRecorder for recording status updates.
+   * @param newState The new ClusterState to append.
+   * @return The ReconcileProgress indicating an immediate re-queue.
+   */
   protected ReconcileProgress appendStateAndImmediateRequeue(
       SparkClusterContext context,
       SparkClusterStatusRecorder statusRecorder,

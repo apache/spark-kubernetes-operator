@@ -32,6 +32,13 @@ import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 
 /** Abnormal state handler. */
 public class AppUnknownStateStep extends AppReconcileStep {
+  /**
+   * Reconciles the application when it is in an unknown state, marking it as failed.
+   *
+   * @param context The SparkAppContext for the application.
+   * @param statusRecorder The SparkAppStatusRecorder for recording status updates.
+   * @return The ReconcileProgress indicating an immediate re-queue.
+   */
   @Override
   public ReconcileProgress reconcile(
       SparkAppContext context, SparkAppStatusRecorder statusRecorder) {

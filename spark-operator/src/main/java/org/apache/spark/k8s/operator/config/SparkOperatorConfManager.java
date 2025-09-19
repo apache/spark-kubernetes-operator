@@ -59,6 +59,12 @@ public class SparkOperatorConfManager {
     initialize();
   }
 
+  /**
+   * Returns the current value for a given configuration key, considering dynamic overrides.
+   *
+   * @param key The configuration key.
+   * @return The resolved configuration value.
+   */
   public String getValue(String key) {
     synchronized (this) {
       String currentValue = configOverrides.getProperty(key);
@@ -66,10 +72,21 @@ public class SparkOperatorConfManager {
     }
   }
 
+  /**
+   * Returns the initial value for a given configuration key, without considering dynamic overrides.
+   *
+   * @param key The configuration key.
+   * @return The initial configuration value.
+   */
   public String getInitialValue(String key) {
     return initialConfig.getProperty(key);
   }
 
+  /**
+   * Refreshes the configuration overrides with new values from a map.
+   *
+   * @param updatedConfig A map containing the updated configuration properties.
+   */
   public void refresh(Map<String, String> updatedConfig) {
     synchronized (this) {
       this.configOverrides = new Properties();
@@ -77,6 +94,11 @@ public class SparkOperatorConfManager {
     }
   }
 
+  /**
+   * Returns the properties related to metrics configuration.
+   *
+   * @return A Properties object containing metrics configuration.
+   */
   public Properties getMetricsProperties() {
     return metricsConfig;
   }

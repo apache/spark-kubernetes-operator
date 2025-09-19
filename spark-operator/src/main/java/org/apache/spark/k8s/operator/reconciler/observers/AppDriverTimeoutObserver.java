@@ -35,8 +35,9 @@ import org.apache.spark.k8s.operator.utils.SparkAppStatusUtils;
 public class AppDriverTimeoutObserver extends BaseAppDriverObserver {
 
   /**
+   * Observes the driver status and applies timeouts as configured in the application specification.
    * Operator may proactively terminate application if it has stay in certain state for a while.
-   * This helps to avoid resource deadlock when app cannot proceed. Such states include:
+   * This helps to avoid resource deadlock when app cannot proceed. For example,
    *
    * <ul>
    *   <li>DriverRequested goes to DriverStartTimedOut if driver pod cannot be scheduled or cannot
@@ -50,6 +51,12 @@ public class AppDriverTimeoutObserver extends BaseAppDriverObserver {
    * lose them. User may build additional layers to alert and act on such scenario. Timeout check
    * would be performed at the end of reconcile - and it would be performed only if there's no other
    * updates to be performed in the same reconcile action
+   *
+   * @param driver The driver Pod object.
+   * @param spec The ApplicationSpec of the Spark application.
+   * @param status The current ApplicationStatus of the Spark application.
+   * @return An Optional containing the new ApplicationState if a timeout has occurred, otherwise
+   *     empty.
    */
   @Override
   public Optional<ApplicationState> observe(

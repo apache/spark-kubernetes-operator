@@ -39,7 +39,13 @@ import org.apache.spark.k8s.operator.spec.DriverServiceIngressSpec;
 public final class DriverServiceIngressUtils {
   private DriverServiceIngressUtils() {}
 
-  /** Build the full spec for ingress and service. */
+  /**
+   * Builds the full specification for ingress and service resources for a driver.
+   *
+   * @param spec The DriverServiceIngressSpec.
+   * @param driverPodMetaData The ObjectMeta of the driver pod.
+   * @return A List of HasMetadata objects representing the ingress and service.
+   */
   public static List<HasMetadata> buildIngressService(
       DriverServiceIngressSpec spec, ObjectMeta driverPodMetaData) {
     List<HasMetadata> resources = new ArrayList<>(2);
@@ -49,6 +55,14 @@ public final class DriverServiceIngressUtils {
     return resources;
   }
 
+  /**
+   * Builds a Kubernetes Service object based on the provided specifications.
+   *
+   * @param spec The DriverServiceIngressSpec.
+   * @param driverPodMetaData The ObjectMeta of the driver pod, used for namespace and default
+   *     selectors.
+   * @return A Service object.
+   */
   private static Service buildService(DriverServiceIngressSpec spec, ObjectMeta driverPodMetaData) {
     ObjectMeta serviceMeta = new ObjectMetaBuilder(spec.getServiceMetadata()).build();
     serviceMeta.setNamespace(driverPodMetaData.getNamespace());
@@ -64,6 +78,13 @@ public final class DriverServiceIngressUtils {
         .build();
   }
 
+  /**
+   * Builds a Kubernetes Ingress object based on the provided specifications and associated Service.
+   *
+   * @param spec The DriverServiceIngressSpec.
+   * @param service The Service object that the Ingress will route to.
+   * @return An Ingress object.
+   */
   private static Ingress buildIngress(DriverServiceIngressSpec spec, Service service) {
     ObjectMeta metadata = new ObjectMetaBuilder(spec.getIngressMetadata()).build();
     IngressSpec ingressSpec = new IngressSpecBuilder(spec.getIngressSpec()).build();

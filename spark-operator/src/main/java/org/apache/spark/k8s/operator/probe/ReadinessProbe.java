@@ -37,10 +37,21 @@ import lombok.extern.slf4j.Slf4j;
 public class ReadinessProbe implements HttpHandler {
   private final List<Operator> operators;
 
+  /**
+   * Constructs a new ReadinessProbe.
+   *
+   * @param operators A list of Operator instances to check for readiness.
+   */
   public ReadinessProbe(List<Operator> operators) {
     this.operators = operators;
   }
 
+  /**
+   * Handles HTTP requests for the readiness probe endpoint.
+   *
+   * @param httpExchange The HttpExchange object.
+   * @throws IOException if an I/O error occurs.
+   */
   @Override
   public void handle(HttpExchange httpExchange) throws IOException {
     Optional<Boolean> operatorsAreReady = areOperatorsStarted(operators);
@@ -56,6 +67,11 @@ public class ReadinessProbe implements HttpHandler {
     sendMessage(httpExchange, HTTP_OK, "started");
   }
 
+  /**
+   * Checks if RBAC requirements are met. Currently always returns true.
+   *
+   * @return True if RBAC check passes, false otherwise.
+   */
   public boolean passRbacCheck() {
     return true;
   }

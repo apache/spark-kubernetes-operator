@@ -68,27 +68,49 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
 
   private final Clock clock;
 
+  /** Constructs a new OperatorJosdkMetrics instance. */
   public OperatorJosdkMetrics() {
     super(new MetricRegistry());
     this.clock = new SystemClock();
   }
 
+  /**
+   * Returns the name of this metrics source.
+   *
+   * @return The source name.
+   */
   @Override
   public String sourceName() {
     return PREFIX;
   }
 
+  /**
+   * Returns the MetricRegistry used by this metrics source.
+   *
+   * @return The MetricRegistry instance.
+   */
   @Override
   public MetricRegistry metricRegistry() {
     return metricRegistry;
   }
 
+  /**
+   * Called when a controller is registered.
+   *
+   * @param controller The registered controller.
+   */
   @Override
   public void controllerRegistered(Controller<? extends HasMetadata> controller) {
     // no-op
     log.debug("Controller has been registered");
   }
 
+  /**
+   * Records metrics when an event is received.
+   *
+   * @param event The received event.
+   * @param metadata Additional metadata associated with the event.
+   */
   @Override
   public void receivedEvent(Event event, Map<String, Object> metadata) {
     log.debug("received event {}, metadata {}", event, metadata);
@@ -113,6 +135,14 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
     }
   }
 
+  /**
+   * Times the execution of a controller operation and records success or failure metrics.
+   *
+   * @param execution The ControllerExecution to time.
+   * @param <T> The return type of the execution.
+   * @return The result of the execution.
+   * @throws Exception if the execution throws an exception.
+   */
   @Override
   public <T> T timeControllerExecution(ControllerExecution<T> execution) throws Exception {
     log.debug("Time controller execution");
@@ -166,6 +196,13 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
     }
   }
 
+  /**
+   * Records metrics related to custom resource reconciliation, including retry information.
+   *
+   * @param resource The custom resource being reconciled.
+   * @param retryInfo Information about retries, if any.
+   * @param metadata Additional metadata.
+   */
   @Override
   public void reconcileCustomResource(
       HasMetadata resource, RetryInfo retryInfo, Map<String, Object> metadata) {
@@ -184,6 +221,13 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
         .inc();
   }
 
+  /**
+   * Records metrics when a reconciliation fails.
+   *
+   * @param resource The custom resource for which reconciliation failed.
+   * @param exception The exception that caused the failure.
+   * @param metadata Additional metadata.
+   */
   @Override
   public void failedReconciliation(
       HasMetadata resource, Exception exception, Map<String, Object> metadata) {
@@ -194,6 +238,12 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
     getCounter(metricsPrefix, resource.getMetadata().getNamespace(), RECONCILIATION, FAILED).inc();
   }
 
+  /**
+   * Records metrics when a reconciliation finishes successfully.
+   *
+   * @param resource The custom resource for which reconciliation finished.
+   * @param metadata Additional metadata.
+   */
   @Override
   public void finishedReconciliation(HasMetadata resource, Map<String, Object> metadata) {
     log.debug("Finished reconciliation for resource {} with metadata {}", resource, metadata);
@@ -202,6 +252,12 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
     getCounter(metricsPrefix, resource.getMetadata().getNamespace(), RECONCILIATION, FINISHED);
   }
 
+  /**
+   * Records metrics when cleanup is done for a resource.
+   *
+   * @param resourceID The ID of the resource that was cleaned up.
+   * @param metadata Additional metadata.
+   */
   @Override
   public void cleanupDoneFor(ResourceID resourceID, Map<String, Object> metadata) {
     log.debug("Cleanup Done for resource {} with metadata {}", resourceID, metadata);
@@ -212,6 +268,14 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
         .ifPresent(ns -> getCounter(metricsPrefix, ns, RECONCILIATION, CLEANUP).inc());
   }
 
+  /**
+   * Monitors the size of a map and exposes it as a Gauge metric.
+   *
+   * @param map The map to monitor.
+   * @param name The name of the metric.
+   * @param <T> The type of the map.
+   * @return The monitored map.
+   */
   @Override
   public <T extends Map<?, ?>> T monitorSizeOf(T map, String name) {
     log.debug("Monitor size for {}", name);
@@ -226,6 +290,12 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
     return map;
   }
 
+  /**
+   * Records metrics when a reconciliation execution starts.
+   *
+   * @param resource The custom resource for which reconciliation started.
+   * @param metadata Additional metadata.
+   */
   @Override
   public void reconciliationExecutionStarted(HasMetadata resource, Map<String, Object> metadata) {
     log.debug("Reconciliation execution started");
@@ -241,6 +311,12 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
         .inc();
   }
 
+  /**
+   * Records metrics when a reconciliation execution finishes.
+   *
+   * @param resource The custom resource for which reconciliation finished.
+   * @param metadata Additional metadata.
+   */
   @Override
   public void reconciliationExecutionFinished(HasMetadata resource, Map<String, Object> metadata) {
     log.debug("Reconciliation execution finished");

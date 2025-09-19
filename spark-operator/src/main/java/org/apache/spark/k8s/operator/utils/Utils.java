@@ -54,6 +54,13 @@ public final class Utils {
 
   private Utils() {}
 
+  /**
+   * Sanitizes a comma-separated string into a Set of trimmed, non-blank strings. If the input is
+   * "*", an empty set is returned.
+   *
+   * @param str The comma-separated string.
+   * @return A Set of sanitized strings.
+   */
   public static Set<String> sanitizeCommaSeparatedStrAsSet(String str) {
     if (StringUtils.isBlank(str)) {
       return Collections.emptySet();
@@ -67,52 +74,103 @@ public final class Utils {
         .collect(Collectors.toSet());
   }
 
+  /**
+   * Converts a Map of labels to a comma-separated string of key=value pairs.
+   *
+   * @param labels The Map of labels.
+   * @return A string representation of the labels.
+   */
   public static String labelsAsStr(Map<String, String> labels) {
     return labels.entrySet().stream()
         .map(e -> String.join("=", e.getKey(), e.getValue()))
         .collect(Collectors.joining(","));
   }
 
+  /**
+   * Returns a Map of common labels for operator resources.
+   *
+   * @return A Map of common operator resource labels.
+   */
   public static Map<String, String> commonOperatorResourceLabels() {
     Map<String, String> labels = new HashMap<>();
     labels.put(LABEL_RESOURCE_NAME, OPERATOR_APP_NAME.getValue());
     return labels;
   }
 
+  /**
+   * Returns a Map of default labels for operator configuration resources.
+   *
+   * @return A Map of default operator configuration labels.
+   */
   public static Map<String, String> defaultOperatorConfigLabels() {
     Map<String, String> labels = new HashMap<>(commonOperatorResourceLabels());
     labels.put("app.kubernetes.io/component", "operator-dynamic-config-overrides");
     return labels;
   }
 
+  /**
+   * Returns a Map of common labels for resources managed by the operator.
+   *
+   * @return A Map of common managed resource labels.
+   */
   public static Map<String, String> commonManagedResourceLabels() {
     Map<String, String> labels = new HashMap<>();
     labels.put(LABEL_SPARK_OPERATOR_NAME, OPERATOR_APP_NAME.getValue());
     return labels;
   }
 
+  /**
+   * Returns a Map of labels for a SparkApplication resource.
+   *
+   * @param app The SparkApplication object.
+   * @return A Map of labels for the SparkApplication.
+   */
   public static Map<String, String> sparkAppResourceLabels(final SparkApplication app) {
     return sparkAppResourceLabels(app.getMetadata().getName());
   }
 
+  /**
+   * Returns a Map of labels for a SparkApplication resource given its name.
+   *
+   * @param appName The name of the SparkApplication.
+   * @return A Map of labels for the SparkApplication.
+   */
   public static Map<String, String> sparkAppResourceLabels(final String appName) {
     Map<String, String> labels = commonManagedResourceLabels();
     labels.put(Constants.LABEL_SPARK_APPLICATION_NAME, appName);
     return labels;
   }
 
+  /**
+   * Returns a Map of labels for the driver pod of a SparkApplication.
+   *
+   * @param app The SparkApplication object.
+   * @return A Map of labels for the driver pod.
+   */
   public static Map<String, String> driverLabels(final SparkApplication app) {
     Map<String, String> labels = sparkAppResourceLabels(app);
     labels.put(Constants.LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_DRIVER_VALUE);
     return labels;
   }
 
+  /**
+   * Returns a Map of labels for executor pods of a SparkApplication.
+   *
+   * @param app The SparkApplication object.
+   * @return A Map of labels for executor pods.
+   */
   public static Map<String, String> executorLabels(final SparkApplication app) {
     Map<String, String> labels = sparkAppResourceLabels(app);
     labels.put(Constants.LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_EXECUTOR_VALUE);
     return labels;
   }
 
+  /**
+   * Returns a Map of labels for a SparkCluster resource.
+   *
+   * @param cluster The SparkCluster object.
+   * @return A Map of labels for the SparkCluster.
+   */
   public static Map<String, String> sparkClusterResourceLabels(final SparkCluster cluster) {
     Map<String, String> labels = commonManagedResourceLabels();
     labels.put(Constants.LABEL_SPARK_CLUSTER_NAME, cluster.getMetadata().getName());
@@ -120,35 +178,64 @@ public final class Utils {
     return labels;
   }
 
+  /**
+   * Returns a Map of labels for a SparkCluster's components.
+   *
+   * @param cluster The SparkCluster object.
+   * @return A Map of labels for the SparkCluster's components.
+   */
   public static Map<String, String> clusterLabels(final SparkCluster cluster) {
     Map<String, String> labels = sparkClusterResourceLabels(cluster);
     labels.put(Constants.LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_CLUSTER_VALUE);
     return labels;
   }
 
+  /**
+   * Returns the set of namespaces that the operator is configured to watch.
+   *
+   * @return A Set of namespace names.
+   */
   public static Set<String> getWatchedNamespaces() {
     return sanitizeCommaSeparatedStrAsSet(OPERATOR_WATCHED_NAMESPACES.getValue());
   }
 
+  /**
+   * Retrieves a list of SparkAppStatusListener instances based on configuration.
+   *
+   * @return A List of SparkAppStatusListener objects.
+   */
   public static List<SparkAppStatusListener> getAppStatusListener() {
     return ClassLoadingUtils.getStatusListener(
         SparkAppStatusListener.class, SPARK_APP_STATUS_LISTENER_CLASS_NAMES.getValue());
   }
 
+  /**
+   * Retrieves a list of SparkClusterStatusListener instances based on configuration.
+   *
+   * @return A List of SparkClusterStatusListener objects.
+   */
   public static List<SparkClusterStatusListener> getClusterStatusListener() {
     return ClassLoadingUtils.getStatusListener(
         SparkClusterStatusListener.class, SPARK_CLUSTER_STATUS_LISTENER_CLASS_NAMES.getValue());
   }
 
   /**
-   * Labels to be applied to all created resources, as a comma-separated string
+   * Returns a comma-separated string of common labels to be applied to all created resources.
    *
-   * @return labels string
+   * @return A string of common resource labels.
    */
   public static String commonResourceLabelsStr() {
     return labelsAsStr(commonManagedResourceLabels());
   }
 
+  /**
+   * Creates a SecondaryToPrimaryMapper that maps secondary resources to their primary resources
+   * based on a common label.
+   *
+   * @param nameKey The label key used to identify the primary resource's name.
+   * @param <T> The type of the secondary resource, extending HasMetadata.
+   * @return A SecondaryToPrimaryMapper instance.
+   */
   public static <T extends HasMetadata>
       SecondaryToPrimaryMapper<T> basicLabelSecondaryToPrimaryMapper(String nameKey) {
     return resource -> {

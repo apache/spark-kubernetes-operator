@@ -75,6 +75,14 @@ public class SparkAppReconciler implements Reconciler<SparkApplication>, Cleaner
   private final SparkAppStatusRecorder sparkAppStatusRecorder;
   private final SentinelManager<SparkApplication> sentinelManager;
 
+  /**
+   * Reconciles the state of a SparkApplication resource.
+   *
+   * @param sparkApplication The SparkApplication resource to reconcile.
+   * @param context The reconciliation context.
+   * @return An UpdateControl object indicating the result of the reconciliation.
+   * @throws Exception if an error occurs during reconciliation.
+   */
   @Override
   public UpdateControl<SparkApplication> reconcile(
       SparkApplication sparkApplication, Context<SparkApplication> context) throws Exception {
@@ -103,6 +111,14 @@ public class SparkAppReconciler implements Reconciler<SparkApplication>, Cleaner
     }
   }
 
+  /**
+   * Updates the error status of a SparkApplication resource.
+   *
+   * @param sparkApplication The SparkApplication resource.
+   * @param context The reconciliation context.
+   * @param e The exception that occurred.
+   * @return An ErrorStatusUpdateControl indicating no status update.
+   */
   @Override
   public ErrorStatusUpdateControl<SparkApplication> updateErrorStatus(
       SparkApplication sparkApplication, Context<SparkApplication> context, Exception e) {
@@ -126,6 +142,12 @@ public class SparkAppReconciler implements Reconciler<SparkApplication>, Cleaner
     }
   }
 
+  /**
+   * Prepares the event sources for the SparkApplication reconciler.
+   *
+   * @param context The EventSourceContext.
+   * @return A List of EventSource objects.
+   */
   @Override
   public List<EventSource<?, SparkApplication>> prepareEventSources(
       EventSourceContext<SparkApplication> context) {
@@ -140,6 +162,12 @@ public class SparkAppReconciler implements Reconciler<SparkApplication>, Cleaner
     return List.of(podEventSource);
   }
 
+  /**
+   * Returns a list of reconciliation steps based on the current state of the SparkApplication.
+   *
+   * @param app The SparkApplication resource.
+   * @return A List of AppReconcileStep objects.
+   */
   protected List<AppReconcileStep> getReconcileSteps(final SparkApplication app) {
     List<AppReconcileStep> steps = new ArrayList<>();
     steps.add(new AppValidateStep());
@@ -171,11 +199,11 @@ public class SparkAppReconciler implements Reconciler<SparkApplication>, Cleaner
   }
 
   /**
-   * Best-effort graceful termination upon delete.
+   * Performs cleanup operations for a SparkApplication resource when it is marked for deletion.
    *
-   * @param sparkApplication the resource that is marked for deletion
-   * @param context the context with which the operation is executed
-   * @return DeleteControl, with requeue if needed
+   * @param sparkApplication The SparkApplication resource that is marked for deletion.
+   * @param context The context with which the operation is executed.
+   * @return A DeleteControl object, with requeue if needed.
    */
   @Override
   public DeleteControl cleanup(

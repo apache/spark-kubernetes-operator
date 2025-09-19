@@ -65,6 +65,14 @@ public class SparkAppResourceSpec {
   @Getter private final List<HasMetadata> driverResources;
   private final SparkAppDriverConf kubernetesDriverConf;
 
+  /**
+   * Constructs a new SparkAppResourceSpec.
+   *
+   * @param kubernetesDriverConf The KubernetesDriverConf for the application.
+   * @param kubernetesDriverSpec The KubernetesDriverSpec for the application.
+   * @param driverServiceIngressList A list of DriverServiceIngressSpec for the driver service.
+   * @param configMapSpecs A list of ConfigMapSpec for additional config maps.
+   */
   public SparkAppResourceSpec(
       SparkAppDriverConf kubernetesDriverConf,
       KubernetesDriverSpec kubernetesDriverSpec,
@@ -102,6 +110,12 @@ public class SparkAppResourceSpec {
     this.driverResources.forEach(r -> setNamespaceIfMissing(r, namespace));
   }
 
+  /**
+   * Sets the namespace for a given resource if it's not already set.
+   *
+   * @param resource The resource to set the namespace for.
+   * @param namespace The namespace to set.
+   */
   private void setNamespaceIfMissing(HasMetadata resource, String namespace) {
     if (StringUtils.isNotEmpty(resource.getMetadata().getNamespace())) {
       return;
@@ -109,6 +123,13 @@ public class SparkAppResourceSpec {
     resource.getMetadata().setNamespace(namespace);
   }
 
+  /**
+   * Adds a ConfigMap volume and mount to the SparkPod.
+   *
+   * @param pod The SparkPod to modify.
+   * @param confFilesMap The map of configuration files.
+   * @return The modified SparkPod.
+   */
   private SparkPod addConfigMap(SparkPod pod, Map<String, String> confFilesMap) {
     Container containerWithConfigMapVolume =
         new ContainerBuilder(pod.container())
@@ -139,6 +160,13 @@ public class SparkAppResourceSpec {
     return new SparkPod(podWithConfigMapVolume, containerWithConfigMapVolume);
   }
 
+  /**
+   * Configures driver service ingress resources.
+   *
+   * @param pod The SparkPod for the driver.
+   * @param driverServiceIngressList A list of DriverServiceIngressSpec.
+   * @return A List of HasMetadata objects representing the ingress resources.
+   */
   private List<HasMetadata> configureDriverServerIngress(
       SparkPod pod, List<DriverServiceIngressSpec> driverServiceIngressList) {
     if (driverServiceIngressList == null || driverServiceIngressList.isEmpty()) {

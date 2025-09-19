@@ -46,5 +46,13 @@ public abstract class BaseSecondaryResourceObserver<
     SPEC extends BaseSpec,
     STATUS extends BaseStatus<S, STATE, AS>,
     SR extends HasMetadata> {
+  /**
+   * Observes a secondary resource and returns an updated state if applicable.
+   *
+   * @param secondaryResource The secondary resource to observe.
+   * @param spec The specification of the primary resource.
+   * @param currentStatus The current status of the primary resource.
+   * @return An Optional containing the updated state, or empty if no update is needed.
+   */
   public abstract Optional<STATE> observe(SR secondaryResource, SPEC spec, STATUS currentStatus);
 }

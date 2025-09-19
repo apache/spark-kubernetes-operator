@@ -47,6 +47,7 @@ public class JVMMetricSet implements MetricSet {
   private final MemoryUsageGaugeSet memoryUsageGaugeSet;
   private final ThreadStatesGaugeSet threadStatesGaugeSet;
 
+  /** Constructs a new JVMMetricSet, initializing all underlying JVM metric sets. */
   public JVMMetricSet() {
     bufferPoolMetricSet = new BufferPoolMetricSet(ManagementFactory.getPlatformMBeanServer());
     fileDescriptorRatioGauge = new FileDescriptorRatioGauge();
@@ -55,6 +56,11 @@ public class JVMMetricSet implements MetricSet {
     threadStatesGaugeSet = new ThreadStatesGaugeSet();
   }
 
+  /**
+   * Returns a map of all JVM metrics collected by this MetricSet.
+   *
+   * @return A Map where keys are metric names and values are Metric objects.
+   */
   @Override
   public Map<String, Metric> getMetrics() {
     final Map<String, Metric> jvmMetrics = new HashMap<>();

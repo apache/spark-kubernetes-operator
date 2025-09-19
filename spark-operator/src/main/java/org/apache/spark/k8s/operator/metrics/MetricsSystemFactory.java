@@ -36,12 +36,23 @@ public final class MetricsSystemFactory {
 
   private MetricsSystemFactory() {}
 
+  /**
+   * Creates a MetricsSystem instance using properties from SparkOperatorConfManager.
+   *
+   * @return A new MetricsSystem instance.
+   */
   public static MetricsSystem createMetricsSystem() {
     Properties properties =
         parseMetricsProperties(SparkOperatorConfManager.INSTANCE.getMetricsProperties());
     return new MetricsSystem(properties);
   }
 
+  /**
+   * Creates a MetricsSystem instance with the given properties.
+   *
+   * @param properties The properties to configure the metrics system.
+   * @return A new MetricsSystem instance.
+   */
   public static MetricsSystem createMetricsSystem(Properties properties) {
     return new MetricsSystem(properties);
   }
@@ -58,6 +69,12 @@ public final class MetricsSystemFactory {
     return properties;
   }
 
+  /**
+   * Parses the given properties to extract sink-related configurations.
+   *
+   * @param metricsProperties The properties containing metrics configurations.
+   * @return A Map where keys are sink short names and values are SinkProperties objects.
+   */
   public static Map<String, MetricsSystem.SinkProperties> parseSinkProperties(
       Properties metricsProperties) {
     Map<String, MetricsSystem.SinkProperties> propertiesMap = new HashMap<>();
