@@ -16,10 +16,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-rootProject.name = 'apache-spark-kubernetes-operator'
-include 'spark-operator-api'
-include 'spark-operator-api-fabric8'
-include 'spark-submission-worker'
-include 'spark-operator'
-include "build-tools-docs-utils"
-project(':build-tools-docs-utils').projectDir = file('build-tools/docs-utils')
+
+plugins {
+    id 'java-library'
+}
+
+dependencies {
+    api project(":spark-operator-api")
+    // fabric8
+    api(libs.kubernetes.client) {
+        exclude group: 'com.squareup.okhttp3'
+    }
+}
