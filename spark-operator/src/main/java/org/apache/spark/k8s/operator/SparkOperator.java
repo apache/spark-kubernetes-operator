@@ -33,12 +33,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.http.Interceptor;
 import io.javaoperatorsdk.operator.Operator;
 import io.javaoperatorsdk.operator.RegisteredController;
 import io.javaoperatorsdk.operator.api.config.ConfigurationServiceOverrider;
 import io.javaoperatorsdk.operator.api.config.ControllerConfigurationOverrider;
 import lombok.extern.slf4j.Slf4j;
-import okhttp3.Interceptor;
 
 import org.apache.spark.k8s.operator.client.KubernetesClientFactory;
 import org.apache.spark.k8s.operator.config.SparkOperatorConf;
@@ -249,8 +249,8 @@ public class SparkOperator {
   }
 
   /**
-   * Returns a list of OkHttp interceptors for the Kubernetes client, including metrics interceptors
-   * if enabled.
+   * Returns a list of interceptors for the Kubernetes client, including metrics interceptors if
+   * enabled.
    *
    * @param metricsSystem The MetricsSystem to register interceptors with.
    * @return A List of Interceptor objects.

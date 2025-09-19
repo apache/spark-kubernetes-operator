@@ -23,9 +23,11 @@ import java.util.List;
 import io.fabric8.kubernetes.client.Config;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientBuilder;
-import io.fabric8.kubernetes.client.okhttp.OkHttpClientFactory;
-import okhttp3.Interceptor;
-import okhttp3.OkHttpClient;
+import io.fabric8.kubernetes.client.http.HttpClient;
+import io.fabric8.kubernetes.client.http.Interceptor;
+import io.fabric8.kubernetes.client.utils.HttpClientUtils;
+import io.fabric8.kubernetes.client.vertx.VertxHttpClientBuilder;
+import io.fabric8.kubernetes.client.vertx.VertxHttpClientFactory;
 
 /** Factory for building Kubernetes clients with metrics configured. */
 public final class KubernetesClientFactory {
@@ -35,7 +37,7 @@ public final class KubernetesClientFactory {
   /**
    * Builds a KubernetesClient with the given interceptors.
    *
-   * @param interceptors A list of OkHttp interceptors to add to the client.
+   * @param interceptors A list of interceptors to add to the client.
    * @return A new KubernetesClient instance.
    */
   public static KubernetesClient buildKubernetesClient(final List<Interceptor> interceptors) {
@@ -45,7 +47,7 @@ public final class KubernetesClientFactory {
   /**
    * Builds a KubernetesClient with the given interceptors and configuration.
    *
-   * @param interceptors A list of OkHttp interceptors to add to the client.
+   * @param interceptors A list of interceptors to add to the client.
    * @param kubernetesClientConfig The Kubernetes client configuration.
    * @return A new KubernetesClient instance.
    */
@@ -54,12 +56,15 @@ public final class KubernetesClientFactory {
     return new KubernetesClientBuilder()
         .withConfig(kubernetesClientConfig)
         .withHttpClientFactory(
-            new OkHttpClientFactory() {
+            new VertxHttpClientFactory() {
               @Override
-              protected void additionalConfig(OkHttpClient.Builder builder) {
+              public HttpClient.Builder newBuilder(Config config) {
+                VertxHttpClientBuilder builder = super.newBuilder();
+                HttpClientUtils.applyCommonConfiguration(config, builder, this);
                 for (Interceptor interceptor : interceptors) {
-                  builder.addInterceptor(interceptor);
+                  builder.addOrReplaceInterceptor(interceptor.getClass().getName(), interceptor);
                 }
+                return builder;
               }
             })
         .build();
