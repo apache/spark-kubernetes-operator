@@ -18,9 +18,7 @@
  */
 dependencies {
   // fabric8
-  implementation(libs.kubernetes.client) {
-    exclude group: 'com.squareup.okhttp3'
-  }
+  implementation(libs.kubernetes.client)
   compileOnly(libs.crd.generator.apt)
   annotationProcessor(libs.crd.generator.apt)
 
