@@ -18,7 +18,6 @@
 fabric8 = "7.4.0"
 lombok = "1.18.38"
 operator-sdk = "5.1.2"
-okhttp = "4.12.0"
 dropwizard-metrics = "4.2.30"
 spark = "4.0.1"
 log4j = "2.24.3"
@@ -27,6 +26,7 @@ log4j = "2.24.3"
 junit = "5.13.1"
 jacoco = "0.8.13"
 mockito = "5.18.0"
+okhttp = "4.12.0"
 
 # Build Analysis
 checkstyle = "10.23.1"
@@ -44,7 +44,6 @@ kubernetes-httpclient-vertx = { group = "io.fabric8", name = "kubernetes-httpcli
 kubernetes-server-mock = { group = "io.fabric8", name = "kubernetes-server-mock", version.ref = "fabric8" }
 kube-api-test-client-inject = {group = "io.fabric8", name = "kube-api-test-client-inject", version.ref = "fabric8"}
 crd-generator-apt = { group = "io.fabric8", name = "crd-generator-apt", version.ref = "fabric8" }
-okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttp" }
 lombok = { group = "org.projectlombok", name = "lombok", version.ref = "lombok" }
 log4j-api = { group = "org.apache.logging.log4j", name = "log4j-api", version.ref = "log4j" }
