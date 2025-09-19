@@ -46,7 +46,6 @@ kube-api-test-client-inject = {group = "io.fabric8", name = "kube-api-test-clien
 crd-generator-apt = { group = "io.fabric8", name = "crd-generator-apt", version.ref = "fabric8" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttp" }
-logging-interceptor = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp" }
 lombok = { group = "org.projectlombok", name = "lombok", version.ref = "lombok" }
 log4j-api = { group = "org.apache.logging.log4j", name = "log4j-api", version.ref = "log4j" }
 log4j-core = { group = "org.apache.logging.log4j", name = "log4j-core", version.ref = "log4j" }

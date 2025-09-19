@@ -30,7 +30,6 @@ dependencies {
     exclude group: 'com.squareup.okhttp3'
   }
   implementation(libs.okhttp)
-  implementation(libs.logging.interceptor)
   implementation(libs.spotbugs.annotations)
   // logging
   implementation(libs.log4j.api)
