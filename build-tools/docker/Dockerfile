@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM gradle:9.0.0-jdk17-noble AS builder
+FROM gradle:9.1.0-jdk17-noble AS builder
 
 WORKDIR /app
 
