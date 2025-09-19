@@ -97,6 +97,7 @@ class KubernetesMetricsInterceptorTest {
                 Meter metric = (Meter) metrics2.get(name);
                 Assertions.assertEquals(metric.getCount(), 1);
               });
+      Assertions.assertEquals(((Meter) metrics2.get("http.request")).getCount(), 2);
       client.resource(sparkApplication).delete();
     }
   }
@@ -122,6 +123,7 @@ class KubernetesMetricsInterceptorTest {
       Assertions.assertEquals(12, map.size());
       Meter metric = (Meter) map.get("failed");
       Assertions.assertEquals(metric.getCount(), retry + 1);
+      Assertions.assertEquals(((Meter) map.get("http.request")).getCount(), retry + 1);
     }
   }
 
