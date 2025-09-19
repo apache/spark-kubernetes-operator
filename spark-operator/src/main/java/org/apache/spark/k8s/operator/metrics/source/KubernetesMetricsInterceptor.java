@@ -21,22 +21,20 @@ package org.apache.spark.k8s.operator.metrics.source;
 
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.KUBERNETES_CLIENT_METRICS_GROUP_BY_RESPONSE_CODE_GROUP_ENABLED;
 
-import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
+import io.fabric8.kubernetes.client.http.*;
 import lombok.extern.slf4j.Slf4j;
-import okhttp3.Interceptor;
-import okhttp3.Request;
-import okhttp3.Response;
 import org.apache.commons.lang3.tuple.Pair;
-import org.jetbrains.annotations.NotNull;
 
 import org.apache.spark.metrics.source.Source;
 
@@ -90,25 +88,62 @@ public class KubernetesMetricsInterceptor implements Interceptor, Source {
   }
 
   /**
-   * Intercepts an HTTP request and updates Kubernetes client metrics.
+   * Called before a request to allow for the manipulation of the request
    *
-   * @param chain The Interceptor.Chain for the current request.
-   * @return The Response from the intercepted request.
-   * @throws IOException if an I/O error occurs during the request.
+   * @param builder used to modify the request
+   * @param request the current request
    */
-  @NotNull
   @Override
-  public Response intercept(@NotNull Chain chain) throws IOException {
-    Request request = chain.request();
+  public void before(BasicBuilder builder, HttpRequest request, RequestTags tags) {
     updateRequestMetrics(request);
-    Response response = null;
-    final long startTime = System.nanoTime();
-    try {
-      response = chain.proceed(request);
-      return response;
-    } finally {
-      updateResponseMetrics(response, startTime);
-    }
+  }
+
+  /**
+   * Called after a non-WebSocket HTTP response is received. The body might or might not be already
+   * consumed.
+   *
+   * <p>Should be used to analyze response codes and headers, original response shouldn't be
+   * altered.
+   *
+   * @param request the original request sent to the server.
+   * @param response the response received from the server.
+   */
+  @Override
+  public void after(
+      HttpRequest request,
+      HttpResponse<?> response,
+      AsyncBody.Consumer<List<ByteBuffer>> consumer) {
+    updateResponseMetrics(response, System.nanoTime());
+  }
+
+  /**
+   * Called after a websocket failure or by default from a normal request.
+   *
+   * <p>Failure is determined by HTTP status code and will be invoked in addition to {@link
+   * Interceptor#after(HttpRequest, HttpResponse, AsyncBody.Consumer)}
+   *
+   * @param builder used to modify the request
+   * @param response the failed response
+   * @return true if the builder should be used to execute a new request
+   */
+  @Override
+  public CompletableFuture<Boolean> afterFailure(
+      BasicBuilder builder, HttpResponse<?> response, RequestTags tags) {
+    updateResponseMetrics(null, System.nanoTime());
+    return CompletableFuture.completedFuture(false);
+  }
+
+  /**
+   * Called after a connection attempt fails.
+   *
+   * <p>This method will be invoked on each failed connection attempt.
+   *
+   * @param request the HTTP request.
+   * @param failure the Java exception that caused the failure.
+   */
+  @Override
+  public void afterConnectionFailure(HttpRequest request, Throwable failure) {
+    updateResponseMetrics(null, System.nanoTime());
   }
 
   /**
@@ -131,11 +166,11 @@ public class KubernetesMetricsInterceptor implements Interceptor, Source {
     return this.metricRegistry;
   }
 
-  private void updateRequestMetrics(Request request) {
+  private void updateRequestMetrics(HttpRequest request) {
     this.requestRateMeter.mark();
     getMeterByRequestMethod(request.method()).mark();
     Optional<Pair<String, String>> resourceNamePairOptional =
-        parseNamespaceScopedResource(request.url().uri().getPath());
+        parseNamespaceScopedResource(request.uri().getPath());
     resourceNamePairOptional.ifPresent(
         pair -> {
           getMeterByRequestMethodAndResourceName(pair.getValue(), request.method()).mark();
@@ -145,7 +180,7 @@ public class KubernetesMetricsInterceptor implements Interceptor, Source {
         });
   }
 
-  private void updateResponseMetrics(Response response, long startTimeNanos) {
+  private void updateResponseMetrics(HttpResponse response, long startTimeNanos) {
     final long latency = System.nanoTime() - startTimeNanos;
     if (response != null) {
       this.responseRateMeter.mark();

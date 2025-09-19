@@ -377,7 +377,7 @@ public final class SparkOperatorConf {
 
   /**
    * Enable KubernetesClient metrics for measuring the HTTP traffic to the Kubernetes API Server.
-   * Since the metrics is collected via Okhttp interceptors, can be disabled when opt in customized
+   * Since the metrics is collected via interceptors, can be disabled when opt in customized
    * interceptors.
    */
   public static final ConfigOption<Boolean> KUBERNETES_CLIENT_METRICS_ENABLED =
@@ -387,7 +387,7 @@ public final class SparkOperatorConf {
           .description(
               "Enable KubernetesClient metrics for measuring the HTTP traffic to "
                   + "the Kubernetes API Server. Since the metrics is collected "
-                  + "via Okhttp interceptors, can be disabled when opt in "
+                  + "via interceptors, can be disabled when opt in "
                   + "customized interceptors.")
           .typeParameterClass(Boolean.class)
           .defaultValue(true)

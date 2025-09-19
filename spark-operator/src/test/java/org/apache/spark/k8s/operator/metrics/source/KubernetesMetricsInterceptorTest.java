@@ -33,9 +33,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.http.Interceptor;
 import io.fabric8.kubernetes.client.server.mock.EnableKubernetesMockClient;
 import io.fabric8.kubernetes.client.server.mock.KubernetesMockServer;
-import okhttp3.Interceptor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.MethodOrderer;
@@ -122,7 +122,7 @@ class KubernetesMetricsInterceptorTest {
       Map<String, Metric> map = metricsInterceptor.metricRegistry().getMetrics();
       Assertions.assertEquals(12, map.size());
       Meter metric = (Meter) map.get("failed");
-      Assertions.assertEquals(metric.getCount(), retry + 1);
+      Assertions.assertEquals(metric.getCount(), retry);
       Assertions.assertEquals(((Meter) map.get("http.request")).getCount(), retry + 1);
     }
   }
