@@ -25,6 +25,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -129,7 +130,7 @@ public class KubernetesMetricsInterceptor implements Interceptor, Source {
   @Override
   public CompletableFuture<Boolean> afterFailure(
       BasicBuilder builder, HttpResponse<?> response, RequestTags tags) {
-    updateResponseMetrics(null, System.nanoTime());
+    requestFailedRateMeter.mark();
     return CompletableFuture.completedFuture(false);
   }
 
@@ -143,7 +144,7 @@ public class KubernetesMetricsInterceptor implements Interceptor, Source {
    */
   @Override
   public void afterConnectionFailure(HttpRequest request, Throwable failure) {
-    updateResponseMetrics(null, System.nanoTime());
+    requestFailedRateMeter.mark();
   }
 
   /**
@@ -181,16 +182,13 @@ public class KubernetesMetricsInterceptor implements Interceptor, Source {
   }
 
   private void updateResponseMetrics(HttpResponse response, long startTimeNanos) {
+    Objects.requireNonNull(response);
     final long latency = System.nanoTime() - startTimeNanos;
-    if (response != null) {
-      this.responseRateMeter.mark();
-      this.responseLatency.update(latency);
-      getMeterByResponseCode(response.code()).mark();
-      if (KUBERNETES_CLIENT_METRICS_GROUP_BY_RESPONSE_CODE_GROUP_ENABLED.getValue()) {
-        responseCodeGroupMeters.get(response.code() / 100 - 1).mark();
-      }
-    } else {
-      this.requestFailedRateMeter.mark();
+    responseRateMeter.mark();
+    responseLatency.update(latency);
+    getMeterByResponseCode(response.code()).mark();
+    if (KUBERNETES_CLIENT_METRICS_GROUP_BY_RESPONSE_CODE_GROUP_ENABLED.getValue()) {
+      responseCodeGroupMeters.get(response.code() / 100 - 1).mark();
     }
   }
 
