@@ -36,6 +36,7 @@ spotbugs-plugin = "6.4.2"
 spotless-plugin = "6.25.0"
 
 # Packaging
+cyclonedx = "2.4.1"
 shadow-jar-plugin = "8.3.6"
 
 [libraries]
@@ -65,3 +66,4 @@ junit-platform-launcher = { group = "org.junit.platform", name = "junit-platform
 spotbugs-gradle-plugin = { group = "com.github.spotbugs.snom", name = "spotbugs-gradle-plugin", version.ref = "spotbugs-plugin" }
 spotless-plugin-gradle = { group = "com.diffplug.spotless", name = "spotless-plugin-gradle", version.ref = "spotless-plugin" }
 shadow = { group = "com.gradleup.shadow", name = "shadow-gradle-plugin", version.ref = "shadow-jar-plugin"}
+cyclonedx-bom = { group = "org.cyclonedx.bom", name = "org.cyclonedx.bom.gradle.plugin", version.ref = "cyclonedx" }
