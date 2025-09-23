@@ -120,7 +120,7 @@ public final class SparkOperatorConf {
           .key("spark.kubernetes.operator.reconciler.foregroundRequestTimeoutSeconds")
           .enableDynamicOverride(true)
           .description(
-              "Timeout (in seconds) to for requests made to API server. This "
+              "Timeout (in seconds) for requests made to API server. This "
                   + "applies only to foreground requests.")
           .typeParameterClass(Long.class)
           .defaultValue(30L)

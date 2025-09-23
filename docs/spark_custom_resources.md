@@ -225,9 +225,9 @@ sample restart config snippet:
 
 ``` yaml
 restartConfig:
-  # accptable values are 'Never', 'Always', 'OnFailure' and 'OnInfrastructureFailure'
+  # acceptable values are 'Never', 'Always', 'OnFailure' and 'OnInfrastructureFailure'
   restartPolicy: Never
-  # operator would retry the application if configured. All resources from current attepmt
+  # operator would retry the application if configured. All resources from current attempt
   # would be deleted before starting next attempt
   maxRestartAttempts: 3
   # backoff time (in millis) that operator would wait before next attempt
@@ -239,7 +239,7 @@ restartConfig:
 It's possible to configure applications to be proactively terminated and resubmitted in particular
 cases to avoid resource deadlock.
 
-| Field                                                                                   | Type    | Default Value | Descritpion                                                                                                        |
+| Field                                                                                   | Type    | Default Value | Description                                                                                                        |
 |-----------------------------------------------------------------------------------------|---------|---------------|--------------------------------------------------------------------------------------------------------------------|
 | .spec.applicationTolerations.applicationTimeoutConfig.driverStartTimeoutMillis          | integer | 300000        | Time to wait for driver reaches running state after requested driver.                                              |
 | .spec.applicationTolerations.applicationTimeoutConfig.executorStartTimeoutMillis        | integer | 300000        | Time to wait for driver to acquire minimal number of running executors.                                            |
@@ -270,7 +270,7 @@ sparkConf:
 Spark would try to bring up 10 executors as defined in SparkConf. In addition, from
 operator perspective,
 
-* If Spark app acquires less than 5 executors in given tine window (.spec.
+* If Spark app acquires less than 5 executors in given time window (.spec.
   applicationTolerations.applicationTimeoutConfig.executorStartTimeoutMillis) after
   submitted, it would be shut down proactively in order to avoid resource deadlock.
 * Spark app would be marked as 'RunningWithBelowThresholdExecutors' if it loses executors after

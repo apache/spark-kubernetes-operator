@@ -41,7 +41,7 @@ in `values.yaml`) for the Helm chart.
 To override single parameters you can use `--set`, for example:
 
 ```bash
-helm install --set image.repository=<my_registory>/spark-kubernetes-operator \
+helm install --set image.repository=<my_registry>/spark-kubernetes-operator \
    -f build-tools/helm/spark-kubernetes-operator/values.yaml \
   build-tools/helm/spark-kubernetes-operator/
 ```
@@ -80,7 +80,7 @@ following table:
 | operatorDeployment.operatorPod.operatorContainer.env             | Custom env to be added to the operator container.                                                                                                                              |                                                                                                         |
 | operatorDeployment.operatorPod.operatorContainer.envFrom         | Custom envFrom to be added to the operator container, e.g. for downward API.                                                                                                   |                                                                                                         |
 | operatorDeployment.operatorPod.operatorContainer.probes          | Probe config for the operator container.                                                                                                                                       |                                                                                                         |
-| operatorDeployment.operatorPod.operatorContainer.securityContext | Security context overrides for the operator container.                                                                                                                         | run as non root for baseline secuirty standard compliance                                               |
+| operatorDeployment.operatorPod.operatorContainer.securityContext | Security context overrides for the operator container.                                                                                                                         | run as non root for baseline security standard compliance                                               |
 | operatorDeployment.operatorPod.operatorContainer.resources       | Resources for the operator container.                                                                                                                                          | memory 2Gi, ephemeral storage 2Gi and 1 cpu                                                             |
 | operatorDeployment.additionalContainers                          | Additional containers to be added to the operator pod, e.g. sidecar.                                                                                                           |                                                                                                         |
 | operatorRbac.serviceAccount.create                               | Whether to create service account for operator to use.                                                                                                                         | true                                                                                                    |
@@ -125,7 +125,7 @@ following table:
 For more information check the [Helm documentation](https://helm.sh/docs/helm/helm_install/).
 
 __Notice__: The pod resources should be set as your workload in different environments to
-archive a matched K8s pod QoS. See
+achieve a matched K8s pod QoS. See
 also [Pod Quality of Service Classes](https://kubernetes.io/docs/concepts/workloads/pods/pod-qos/#quality-of-service-classes).
 
 ## Operator Health(Liveness) Probe with Sentinel Resource
