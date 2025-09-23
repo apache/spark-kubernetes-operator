@@ -26,6 +26,7 @@ buildscript {
     classpath "${libs.spotbugs.gradle.plugin.get()}"
     classpath "${libs.spotless.plugin.gradle.get()}"
     classpath "${libs.shadow.get()}"
+    classpath "${libs.cyclonedx.bom.get()}"
   }
 }
 

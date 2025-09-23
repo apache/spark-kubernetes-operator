@@ -22,6 +22,7 @@ if (project.hasProperty('release') && JavaVersion.current().getMajorVersion().to
 }
 
 subprojects {
+  apply plugin: 'org.cyclonedx.bom'
   apply plugin: 'maven-publish'
   apply plugin: 'signing'
   afterEvaluate {
@@ -68,6 +69,11 @@ subprojects {
           artifact sourceJar
           artifact javadocJar
           artifact testJar
+          artifact("$buildDir/reports/bom.xml") {
+            classifier 'cyclonedx'
+            extension 'xml'
+            builtBy tasks.named('cyclonedxBom')
+          }
 
           versionMapping {
             allVariants {
