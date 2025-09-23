@@ -45,7 +45,7 @@ To enable hot properties loading, update the **helm chart values file** with
 ```yaml
 operatorConfiguration:
   spark-operator.properties: |+
-    spark.operator.dynamic.config.enabled=true
+    spark.kubernetes.operator.dynamicConfig.enabled=true
     # ... all other config overides...
   dynamicConfig:
     create: true

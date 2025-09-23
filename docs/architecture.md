@@ -74,7 +74,7 @@ launching Spark deployments and submitting jobs under the hood. It also uses
 
 ## Cluster State Transition
 
-[![Cluster State Transition](resources/application_state_machine.png)](resources/application_state_machine.png)
+[![Cluster State Transition](resources/cluster_state_machine.png)](resources/cluster_state_machine.png)
 
 * Spark clusters are expected to be always running after submitted.
 * Similar to Spark applications, K8s resources created for a cluster would be deleted as the final
