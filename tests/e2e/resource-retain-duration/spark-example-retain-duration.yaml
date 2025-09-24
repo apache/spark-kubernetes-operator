@@ -29,7 +29,7 @@ spec:
     ttlAfterStopMillis: 30000
   sparkConf:
     spark.executor.instances: "1"
-    spark.kubernetes.container.image: "apache/spark:4.0.0-java21-scala"
+    spark.kubernetes.container.image: "apache/spark:4.0.1-java21-scala"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
   runtimeVersions:
-    sparkVersion: 4.0.0
+    sparkVersion: 4.0.1

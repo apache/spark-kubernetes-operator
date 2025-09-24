@@ -19,14 +19,14 @@ metadata:
   namespace: default
 spec:
   runtimeVersions:
-    sparkVersion: "4.0.0"
+    sparkVersion: "4.0.1"
   clusterTolerations:
     instanceConfig:
       initWorkers: 1
       minWorkers: 1
       maxWorkers: 1
   sparkConf:
-    spark.kubernetes.container.image: "apache/spark:4.0.0"
+    spark.kubernetes.container.image: "apache/spark:4.0.1"
     spark.master.ui.title: "Spark Cluster E2E Test"
     spark.master.rest.enabled: "true"
     spark.master.rest.host: "0.0.0.0"
