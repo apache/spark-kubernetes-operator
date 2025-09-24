@@ -47,5 +47,5 @@ your classpath when you depend on our library. It's recommended if you want to c
 Spark Operator API using Fabric8 types (for example, embedding a Fabric8 PodTemplateSpec into
 Spark Operator CRD).
 
-Do not depend on both `spark-operator-api` and `spark-operator-api-fabric8` at the same time. 
+Do not depend on both `spark-operator-api` and `spark-operator-api-fabric8` at the same time.
 Choose one based on your use case.
