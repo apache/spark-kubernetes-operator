@@ -52,10 +52,10 @@ class SparkAppDriverConfTest {
             + "but different values are detected");
     assertTrue(
         sparkAppDriverConf.configMapNameDriver().contains(resourcePrefix),
-        "ConfigMap name" + " should include secondary resource prefix");
+        "ConfigMap name should include secondary resource prefix");
     assertTrue(
         sparkAppDriverConf.driverServiceName().contains(resourcePrefix),
-        "Driver service " + "name should include secondary resource prefix");
+        "Driver service name should include secondary resource prefix");
   }
 
   @Test

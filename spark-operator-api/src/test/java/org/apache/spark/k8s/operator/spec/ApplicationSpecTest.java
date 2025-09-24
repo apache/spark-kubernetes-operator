@@ -58,7 +58,7 @@ class ApplicationSpecTest {
     InputStream inputStream =
         getClass()
             .getClassLoader()
-            .getResourceAsStream("spark-job-with-driver-service" + "-ingress.json");
+            .getResourceAsStream("spark-job-with-driver-service-ingress.json");
     ApplicationSpec spec = objectMapper.readValue(inputStream, ApplicationSpec.class);
     assertNotNull(spec.getDriverServiceIngressList());
     assertEquals(1, spec.getDriverServiceIngressList().size());
