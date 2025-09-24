@@ -16,6 +16,13 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+toolchainManagement {
+  jvm {
+    toolchainRepositories {
+      foojay()
+    }
+  }
+}
 rootProject.name = 'apache-spark-kubernetes-operator'
 include 'spark-operator-api'
 include 'spark-submission-worker'
