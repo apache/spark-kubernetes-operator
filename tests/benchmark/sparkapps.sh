@@ -43,9 +43,9 @@ spec:
     spark.kubernetes.driver.request.cores: "100m"
     spark.kubernetes.driver.master: "local[1]"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
-    spark.kubernetes.container.image: "apache/spark:4.0.0-java21-scala"
+    spark.kubernetes.container.image: "apache/spark:4.0.1-java21-scala"
   runtimeVersions:
-    sparkVersion: "4.0.0"
+    sparkVersion: "4.0.1"
 ---
 EOF
 done
