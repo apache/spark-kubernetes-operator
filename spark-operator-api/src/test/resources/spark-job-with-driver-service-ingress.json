@@ -1,15 +1,6 @@
 {
-  "mainClass": "org.apache.spark.examples.SparkPi",
-  "jars": "local:///opt/spark/examples/jars/spark-examples.jar",
-  "sparkConf": {
-    "spark.kubernetes.driver.master": "local[10]",
-    "spark.kubernetes.driver.request.cores": "5",
-    "spark.kubernetes.driver.limit.cores": "5",
-    "spark.kubernetes.authenticate.driver.serviceAccountName": "spark",
-    "spark.kubernetes.container.image": "apache/spark:4.0.0"
-  },
   "runtimeVersions": {
-    "sparkVersion": "4.0.0"
+    "sparkVersion": "test"
   },
   "driverServiceIngressList": [
     {
