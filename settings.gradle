@@ -16,6 +16,9 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+plugins {
+  id "org.gradle.toolchains.foojay-resolver-convention" version "1.0.0"
+}
 rootProject.name = 'apache-spark-kubernetes-operator'
 include 'spark-operator-api'
 include 'spark-submission-worker'
