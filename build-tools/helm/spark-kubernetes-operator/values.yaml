@@ -159,6 +159,16 @@ workloadResources:
       # When enabled, a sentinel resource of type SparkApp will be deployed to namespace(s) provided
       # Note that sentinelNamespaces list should be a subset of {workloadResources.namespaces.data}
       # - "default"
+  sparkClusterSentinel:
+    create: false
+    name: "spark-cluster-sentinel"
+    sentinelNamespaces:
+      data:
+      #  - "spark-1"
+      #  - "spark-2"
+      # When enabled, a sentinel resource of type SparkCluster will be deployed to namespace(s) provided
+      # Note that sentinelNamespaces list should be a subset of {workloadResources.namespaces.data}
+      # - "default"
   # workload resources are by default annotated to avoid workload abort due to operator upgrade
   annotations:
     "helm.sh/resource-policy": keep

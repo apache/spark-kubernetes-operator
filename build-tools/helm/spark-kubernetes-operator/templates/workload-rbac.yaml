@@ -177,3 +177,26 @@ spec:
 {{- end }}
 ---
 {{- end }}
+{{- if $workloadResources.sparkClusterSentinel.create }}
+{{- range $sentinelNs := .Values.workloadResources.sparkClusterSentinel.sentinelNamespaces.data }}
+apiVersion: spark.apache.org/v1
+kind: SparkCluster
+metadata:
+  name: {{ $workloadResources.sparkClusterSentinel.name }}
+  namespace: {{ $sentinelNs }}
+  labels:
+    "spark.operator/sentinel": "true"
+    {{- template "spark-operator.workloadLabels" $ }}
+  annotations:
+    {{- template "spark-operator.workloadAnnotations" $ }}
+spec:
+  runtimeVersions:
+    sparkVersion: "dummy"
+  clusterTolerations:
+    instanceConfig:
+      initWorkers: 0
+      minWorkers: 0
+      maxWorkers: 0
+{{- end }}
+---
+{{- end }}
