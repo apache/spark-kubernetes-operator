@@ -19,7 +19,6 @@
 
 package org.apache.spark.k8s.operator.reconciler.reconcilesteps;
 
-import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.completeAndDefaultRequeue;
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.completeAndImmediateRequeue;
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.proceed;
 import static org.apache.spark.k8s.operator.utils.SparkAppStatusUtils.driverUnexpectedRemoved;
@@ -81,7 +80,7 @@ public abstract class AppReconcileStep {
           currentStatus = currentStatus.appendNewState(state);
         }
         return attemptStatusUpdate(
-            context, statusRecorder, currentStatus, completeAndDefaultRequeue());
+            context, statusRecorder, currentStatus, completeAndImmediateRequeue());
       }
     } else {
       ApplicationStatus updatedStatus = currentStatus.appendNewState(driverUnexpectedRemoved());
