@@ -23,7 +23,7 @@ spark = "4.0.1"
 log4j = "2.24.3"
 
 # Test
-junit = "5.13.1"
+junit = "5.13.4"
 jacoco = "0.8.13"
 mockito = "5.18.0"
 okhttp = "4.12.0"
