@@ -173,8 +173,7 @@ metadata:
     {{- template "spark-operator.workloadAnnotations" $ }}
 spec:
   runtimeVersions:
-    sparkVersion: 4.0.0
-    scalaVersion: "2.13"
+    sparkVersion: "dummy"
 {{- end }}
 ---
 {{- end }}
