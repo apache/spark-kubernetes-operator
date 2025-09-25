@@ -33,7 +33,6 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.server.mock.EnableKubernetesMockClient;
 import io.fabric8.kubernetes.client.server.mock.KubernetesMockServer;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
 import org.apache.spark.k8s.operator.SparkApplication;
@@ -86,7 +85,6 @@ class StatusRecorderTest {
             any());
   }
 
-  @NotNull
   private static SparkApplication getSparkApplication(String resourceVersion) {
     var updated = TestUtils.createMockApp(DEFAULT_NS);
     updated.getMetadata().setResourceVersion(resourceVersion);
