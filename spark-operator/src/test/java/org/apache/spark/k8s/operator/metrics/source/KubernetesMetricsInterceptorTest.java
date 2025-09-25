@@ -19,7 +19,7 @@
 
 package org.apache.spark.k8s.operator.metrics.source;
 
-import static org.junit.Assert.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Arrays;
 import java.util.Collections;

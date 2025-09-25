@@ -20,7 +20,7 @@
 package org.apache.spark.k8s.operator.metrics;
 
 import static org.apache.spark.k8s.operator.metrics.MetricsSystemFactory.parseSinkProperties;
-import static org.junit.Assert.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Properties;
 
