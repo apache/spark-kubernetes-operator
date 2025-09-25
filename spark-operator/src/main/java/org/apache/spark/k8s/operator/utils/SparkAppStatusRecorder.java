@@ -51,11 +51,15 @@ public class SparkAppStatusRecorder
    *
    * @param context The SparkAppContext for the application.
    * @param newState The new ApplicationState to append.
+   * @return true if the status is successfully patched
    */
-  public void appendNewStateAndPersist(SparkAppContext context, ApplicationState newState) {
+  public boolean appendNewStateAndPersist(SparkAppContext context, ApplicationState newState) {
     ApplicationStatus appStatus = context.getResource().getStatus();
-    recorderSource.recordStatusUpdateLatency(appStatus, newState);
     ApplicationStatus updatedStatus = appStatus.appendNewState(newState);
-    persistStatus(context, updatedStatus);
+    boolean statusPersisted = persistStatus(context, updatedStatus);
+    if (statusPersisted) {
+      recorderSource.recordStatusUpdateLatency(appStatus, newState);
+    }
+    return statusPersisted;
   }
 }

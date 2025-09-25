@@ -46,7 +46,10 @@ public class AppUnknownStateStep extends AppReconcileStep {
         new ApplicationState(ApplicationStateSummary.Failed, Constants.UNKNOWN_STATE_MESSAGE);
     Optional<Pod> driver = context.getDriverPod();
     driver.ifPresent(pod -> state.setLastObservedDriverStatus(pod.getStatus()));
-    statusRecorder.persistStatus(context, context.getResource().getStatus().appendNewState(state));
-    return ReconcileProgress.completeAndImmediateRequeue();
+    return attemptStatusUpdate(
+        context,
+        statusRecorder,
+        context.getResource().getStatus().appendNewState(state),
+        ReconcileProgress.completeAndImmediateRequeue());
   }
 }

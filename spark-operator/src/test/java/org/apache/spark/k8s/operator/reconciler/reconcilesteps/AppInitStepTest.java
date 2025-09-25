@@ -19,6 +19,7 @@
 
 package org.apache.spark.k8s.operator.reconciler.reconcilesteps;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -49,6 +50,7 @@ import org.mockito.ArgumentCaptor;
 
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.context.SparkAppContext;
+import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 
 @EnableKubernetesMockClient(crud = true)
@@ -106,7 +108,10 @@ class AppInitStepTest {
     when(mocksparkAppContext.getDriverResourcesSpec())
         .thenReturn(Collections.singletonList(resourceConfigMapSpec));
     when(mocksparkAppContext.getClient()).thenReturn(kubernetesClient);
-    appInitStep.reconcile(mocksparkAppContext, recorder);
+    when(recorder.appendNewStateAndPersist(any(), any())).thenReturn(true);
+    when(recorder.persistStatus(any(), any())).thenReturn(true);
+    ReconcileProgress reconcileProgress = appInitStep.reconcile(mocksparkAppContext, recorder);
+    Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), reconcileProgress);
     Pod createdPod = kubernetesClient.pods().inNamespace("default").withName("driver-pod").get();
     ConfigMap createCM =
         kubernetesClient.configMaps().inNamespace("default").withName("resource-configmap").get();
@@ -135,6 +140,8 @@ class AppInitStepTest {
         .thenReturn(Collections.singletonList(preResourceConfigMapSpec));
     when(mocksparkAppContext.getDriverPodSpec()).thenReturn(driverPodSpec);
     when(mocksparkAppContext.getDriverResourcesSpec()).thenReturn(Collections.emptyList());
+    when(recorder.appendNewStateAndPersist(any(), any())).thenReturn(true);
+    when(recorder.persistStatus(any(), any())).thenReturn(true);
 
     KubernetesClient mockClient = mock(KubernetesClient.class);
     when(mocksparkAppContext.getClient()).thenReturn(mockClient);
@@ -166,8 +173,9 @@ class AppInitStepTest {
     when(mockClient.resourceList(anyList())).thenReturn(mockList);
     when(mockList.forceConflicts()).thenReturn(mockServerSideApplicable);
 
-    appInitStep.reconcile(mocksparkAppContext, recorder);
+    ReconcileProgress reconcileProgress = appInitStep.reconcile(mocksparkAppContext, recorder);
 
+    Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), reconcileProgress);
     ArgumentCaptor<List<ConfigMap>> argument = ArgumentCaptor.forClass(List.class);
     verify(mockClient).resourceList(argument.capture());
     Assertions.assertEquals(1, argument.getValue().size());
@@ -183,5 +191,40 @@ class AppInitStepTest {
         createdPod.getKind(),
         decoratedConfigMap.getMetadata().getOwnerReferences().get(0).getKind());
     Assertions.assertTrue(decoratedConfigMap.getMetadata().getManagedFields().isEmpty());
+  }
+
+  @Test
+  void appInitStepShouldBeIdempotentWhenStatusUpdateFails() {
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mocksparkAppContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(applicationMetadata);
+    when(mocksparkAppContext.getResource()).thenReturn(application);
+    when(mocksparkAppContext.getDriverPreResourcesSpec()).thenReturn(Collections.emptyList());
+    when(mocksparkAppContext.getDriverPodSpec()).thenReturn(driverPodSpec);
+    when(mocksparkAppContext.getDriverResourcesSpec())
+        .thenReturn(Collections.singletonList(resourceConfigMapSpec));
+    when(mocksparkAppContext.getClient()).thenReturn(kubernetesClient);
+    when(recorder.appendNewStateAndPersist(any(), any())).thenReturn(false, true);
+    when(recorder.persistStatus(any(), any())).thenReturn(false, true);
+
+    // If the first reconcile manages to create everything but fails to update status
+    ReconcileProgress reconcileProgress1 = appInitStep.reconcile(mocksparkAppContext, recorder);
+    Assertions.assertEquals(ReconcileProgress.completeAndImmediateRequeue(), reconcileProgress1);
+    Pod createdPod = kubernetesClient.pods().inNamespace("default").withName("driver-pod").get();
+    ConfigMap createCM =
+        kubernetesClient.configMaps().inNamespace("default").withName("resource-configmap").get();
+    Assertions.assertNotNull(createCM);
+    Assertions.assertNotNull(createdPod);
+
+    // The second reconcile shall update the status without re-creating everything
+    ReconcileProgress reconcileProgress2 = appInitStep.reconcile(mocksparkAppContext, recorder);
+    Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), reconcileProgress2);
+    createdPod = kubernetesClient.pods().inNamespace("default").withName("driver-pod").get();
+    createCM =
+        kubernetesClient.configMaps().inNamespace("default").withName("resource-configmap").get();
+    Assertions.assertNotNull(createCM);
+    Assertions.assertNotNull(createdPod);
   }
 }

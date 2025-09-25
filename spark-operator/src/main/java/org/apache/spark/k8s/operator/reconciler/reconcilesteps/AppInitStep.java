@@ -103,30 +103,29 @@ public class AppInitStep extends AppReconcileStep {
           }
         }
       }
-      ApplicationStatus updatedStatus =
-          context
-              .getResource()
-              .getStatus()
-              .appendNewState(
-                  new ApplicationState(
-                      ApplicationStateSummary.DriverRequested, Constants.DRIVER_REQUESTED_MESSAGE));
-      statusRecorder.persistStatus(context, updatedStatus);
-      return completeAndDefaultRequeue();
     } catch (Exception e) {
       if (log.isErrorEnabled()) {
         log.error("Failed to request driver resource.", e);
       }
       String errorMessage =
           Constants.SCHEDULE_FAILURE_MESSAGE + " StackTrace: " + buildGeneralErrorMessage(e);
-      statusRecorder.persistStatus(
-          context,
+      ApplicationStatus updatedStatus =
           context
               .getResource()
               .getStatus()
               .appendNewState(
-                  new ApplicationState(ApplicationStateSummary.SchedulingFailure, errorMessage)));
-      return completeAndImmediateRequeue();
+                  new ApplicationState(ApplicationStateSummary.SchedulingFailure, errorMessage));
+      return attemptStatusUpdate(
+          context, statusRecorder, updatedStatus, completeAndImmediateRequeue());
     }
+    ApplicationStatus updatedStatus =
+        context
+            .getResource()
+            .getStatus()
+            .appendNewState(
+                new ApplicationState(
+                    ApplicationStateSummary.DriverRequested, Constants.DRIVER_REQUESTED_MESSAGE));
+    return attemptStatusUpdate(context, statusRecorder, updatedStatus, completeAndDefaultRequeue());
   }
 
   /**

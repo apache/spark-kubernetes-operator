@@ -48,14 +48,16 @@ public class AppValidateStep extends AppReconcileStep {
       SparkAppContext context, SparkAppStatusRecorder statusRecorder) {
     if (!isValidApplicationStatus(context.getResource())) {
       log.warn("Spark application found with empty status. Resetting to initial state.");
-      statusRecorder.persistStatus(context, new ApplicationStatus());
+      return attemptStatusUpdate(context, statusRecorder, new ApplicationStatus(), proceed());
     }
     if (ClientMode.equals(context.getResource().getSpec())) {
       ApplicationState failure =
           new ApplicationState(ApplicationStateSummary.Failed, "Client mode is not supported yet.");
-      statusRecorder.persistStatus(
-          context, context.getResource().getStatus().appendNewState(failure));
-      return completeAndImmediateRequeue();
+      return attemptStatusUpdate(
+          context,
+          statusRecorder,
+          context.getResource().getStatus().appendNewState(failure),
+          completeAndImmediateRequeue());
     }
     return proceed();
   }

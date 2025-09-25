@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Optional;
 
 import io.fabric8.kubernetes.api.model.Pod;
+import lombok.extern.log4j.Log4j2;
 
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.context.SparkAppContext;
@@ -38,6 +39,7 @@ import org.apache.spark.k8s.operator.status.ApplicationStatus;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 
 /** Basic reconcile step for application. */
+@Log4j2
 public abstract class AppReconcileStep {
   /**
    * Reconciles a specific step for a Spark application.
@@ -77,18 +79,45 @@ public abstract class AppReconcileStep {
         for (ApplicationState state : stateUpdates) {
           currentStatus = currentStatus.appendNewState(state);
         }
-        statusRecorder.persistStatus(context, currentStatus);
-        return completeAndImmediateRequeue();
+        return attemptStatusUpdate(
+            context, statusRecorder, currentStatus, completeAndImmediateRequeue());
       }
     } else {
       ApplicationStatus updatedStatus = currentStatus.appendNewState(driverUnexpectedRemoved());
-      statusRecorder.persistStatus(context, updatedStatus);
+      return attemptStatusUpdate(
+          context, statusRecorder, updatedStatus, completeAndImmediateRequeue());
+    }
+  }
+
+  /**
+   * Updates the application status - if the status is successfully persisted, proceed with the
+   * given progress. Otherwise, completes current reconcile loop immediately and requeue. Latest
+   * application status would be fetched from cache in next reconcile attempt.
+   *
+   * @param context The SparkAppContext for the application.
+   * @param statusRecorder The SparkAppStatusRecorder for recording status updates.
+   * @param updatedStatus The updated ApplicationStatus.
+   * @param progressUponSuccessStatusUpdate The ReconcileProgress if the status update has been
+   *     persisted successfully.
+   * @return The ReconcileProgress for next steps.
+   */
+  protected ReconcileProgress attemptStatusUpdate(
+      final SparkAppContext context,
+      final SparkAppStatusRecorder statusRecorder,
+      final ApplicationStatus updatedStatus,
+      final ReconcileProgress progressUponSuccessStatusUpdate) {
+
+    if (statusRecorder.persistStatus(context, updatedStatus)) {
+      return progressUponSuccessStatusUpdate;
+    } else {
+      log.warn("Failed to persist status, will retry status update in next reconcile attempt");
       return completeAndImmediateRequeue();
     }
   }
 
   /**
-   * Updates the application status and re-queues the reconciliation after a specified duration.
+   * Updates the application status and re-queues the reconciliation after a specified duration. If
+   * the status update fails, trigger an immediate requeue.
    *
    * @param context The SparkAppContext for the application.
    * @param statusRecorder The SparkAppStatusRecorder for recording status updates.
@@ -101,13 +130,16 @@ public abstract class AppReconcileStep {
       SparkAppStatusRecorder statusRecorder,
       ApplicationStatus updatedStatus,
       Duration requeueAfter) {
-    statusRecorder.persistStatus(context, updatedStatus);
-    return ReconcileProgress.completeAndRequeueAfter(requeueAfter);
+    return attemptStatusUpdate(
+        context,
+        statusRecorder,
+        updatedStatus,
+        ReconcileProgress.completeAndRequeueAfter(requeueAfter));
   }
 
   /**
    * Appends a new state to the application status, persists it, and re-queues the reconciliation
-   * after a specified duration.
+   * after a specified duration. If the status update fails, trigger an immediate requeue.
    *
    * @param context The SparkAppContext for the application.
    * @param statusRecorder The SparkAppStatusRecorder for recording status updates.
@@ -120,7 +152,10 @@ public abstract class AppReconcileStep {
       SparkAppStatusRecorder statusRecorder,
       ApplicationState newState,
       Duration requeueAfter) {
-    statusRecorder.appendNewStateAndPersist(context, newState);
+    if (!statusRecorder.appendNewStateAndPersist(context, newState)) {
+      log.warn("Status is not persisted successfully, will retry in next reconcile attempt");
+      return completeAndImmediateRequeue();
+    }
     return ReconcileProgress.completeAndRequeueAfter(requeueAfter);
   }
 
