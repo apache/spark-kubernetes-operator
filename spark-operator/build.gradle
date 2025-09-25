@@ -65,7 +65,9 @@ dependencies {
     exclude group: "org.apache.logging.log4j"
     exclude group: "org.slf4j"
   }
-  testImplementation(libs.mockwebserver)
+  testImplementation(libs.mockwebserver) {
+    exclude group: 'junit'
+  }
   testImplementation platform(libs.junit.bom)
   testImplementation(libs.junit.jupiter)
   testRuntimeOnly(libs.junit.platform.launcher)
