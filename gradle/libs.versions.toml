@@ -26,7 +26,6 @@ log4j = "2.24.3"
 junit = "5.13.4"
 jacoco = "0.8.13"
 mockito = "5.18.0"
-okhttp = "4.12.0"
 
 # Build Analysis
 checkstyle = "10.23.1"
@@ -45,7 +44,6 @@ kubernetes-httpclient-vertx = { group = "io.fabric8", name = "kubernetes-httpcli
 kubernetes-server-mock = { group = "io.fabric8", name = "kubernetes-server-mock", version.ref = "fabric8" }
 kube-api-test-client-inject = {group = "io.fabric8", name = "kube-api-test-client-inject", version.ref = "fabric8"}
 crd-generator-apt = { group = "io.fabric8", name = "crd-generator-apt", version.ref = "fabric8" }
-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttp" }
 lombok = { group = "org.projectlombok", name = "lombok", version.ref = "lombok" }
 log4j-api = { group = "org.apache.logging.log4j", name = "log4j-api", version.ref = "log4j" }
 log4j-core = { group = "org.apache.logging.log4j", name = "log4j-core", version.ref = "log4j" }
