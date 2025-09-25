@@ -33,6 +33,7 @@ import org.apache.spark.k8s.operator.reconciler.observers.AppDriverRunningObserv
 import org.apache.spark.k8s.operator.spec.ExecutorInstanceConfig;
 import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
+import org.apache.spark.k8s.operator.status.ApplicationStatus;
 import org.apache.spark.k8s.operator.utils.PodUtils;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 
@@ -87,13 +88,13 @@ public class AppRunningStep extends AppReconcileStep {
       return observeDriver(
           context, statusRecorder, Collections.singletonList(new AppDriverRunningObserver()));
     } else {
-      statusRecorder.persistStatus(
-          context,
+      ApplicationStatus updatedStatus =
           context
               .getResource()
               .getStatus()
-              .appendNewState(new ApplicationState(proposedStateSummary, stateMessage)));
-      return completeAndDefaultRequeue();
+              .appendNewState(new ApplicationState(proposedStateSummary, stateMessage));
+      return attemptStatusUpdate(
+          context, statusRecorder, updatedStatus, completeAndDefaultRequeue());
     }
   }
 }

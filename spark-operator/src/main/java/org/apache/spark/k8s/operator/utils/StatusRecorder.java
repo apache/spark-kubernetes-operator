@@ -127,10 +127,17 @@ public class StatusRecorder<
    *
    * @param context The BaseContext containing the resource and client.
    * @param newStatus The new status to persist.
+   * @return true if the status is successfully patched.
    */
-  public void persistStatus(BaseContext<CR> context, STATUS newStatus) {
-    context.getResource().setStatus(newStatus);
-    patchAndStatusWithVersionLocked(context.getResource(), context.getClient());
+  public boolean persistStatus(BaseContext<CR> context, STATUS newStatus) {
+    try {
+      context.getResource().setStatus(newStatus);
+      patchAndStatusWithVersionLocked(context.getResource(), context.getClient());
+      return true;
+    } catch (KubernetesClientException e) {
+      log.error("Error while persisting status to {}", newStatus, e);
+      return false;
+    }
   }
 
   /**

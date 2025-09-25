@@ -21,6 +21,7 @@ package org.apache.spark.k8s.operator.reconciler.reconcilesteps;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -171,6 +172,8 @@ class AppCleanUpStepTest {
         when(mockAppContext.getDriverPod()).thenReturn(Optional.of(driverPod));
         when(mockAppContext.getDriverPreResourcesSpec()).thenReturn(Collections.emptyList());
         when(mockAppContext.getDriverResourcesSpec()).thenReturn(Collections.emptyList());
+        when(mockRecorder.persistStatus(eq(mockAppContext), any())).thenReturn(true);
+        when(mockRecorder.appendNewStateAndPersist(eq(mockAppContext), any())).thenReturn(true);
 
         try (MockedStatic<ReconcilerUtils> utils = Mockito.mockStatic(ReconcilerUtils.class)) {
           ReconcileProgress progress = cleanUpWithReason.reconcile(mockAppContext, mockRecorder);
@@ -259,6 +262,8 @@ class AppCleanUpStepTest {
     when(mockAppContext.getDriverPod()).thenReturn(Optional.of(driverPod));
     when(mockAppContext.getDriverPreResourcesSpec()).thenReturn(Collections.emptyList());
     when(mockAppContext.getDriverResourcesSpec()).thenReturn(Collections.emptyList());
+    when(mockRecorder.persistStatus(eq(mockAppContext), any())).thenReturn(true);
+    when(mockRecorder.appendNewStateAndPersist(eq(mockAppContext), any())).thenReturn(true);
 
     try (MockedStatic<ReconcilerUtils> utils = Mockito.mockStatic(ReconcilerUtils.class)) {
       ReconcileProgress progress = cleanUpWithReason.reconcile(mockAppContext, mockRecorder);
@@ -317,6 +322,8 @@ class AppCleanUpStepTest {
     when(mockAppContext2.getDriverPreResourcesSpec())
         .thenReturn(Collections.singletonList(resource1));
     when(mockAppContext2.getDriverResourcesSpec()).thenReturn(Collections.singletonList(resource2));
+    when(mockRecorder.persistStatus(any(), any())).thenReturn(true);
+    when(mockRecorder.appendNewStateAndPersist(any(), any())).thenReturn(true);
 
     try (MockedStatic<ReconcilerUtils> utils = Mockito.mockStatic(ReconcilerUtils.class)) {
       ReconcileProgress progress1 = cleanUpWithReason.reconcile(mockAppContext1, mockRecorder);
