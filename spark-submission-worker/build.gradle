@@ -18,8 +18,10 @@
  */
 dependencies {
   implementation project(":spark-operator-api")
+  implementation(libs.kubernetes.client)
 
   implementation(libs.spark.kubernetes) {
+    exclude group: "io.fabric8"
     exclude group: "com.github.luben"
     exclude group: "io.netty", module: "netty-tcnative-boringssl-static"
     exclude group: "io.netty", module: "netty-tcnative-classes"
