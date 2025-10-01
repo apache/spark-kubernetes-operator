@@ -31,9 +31,12 @@ dependencies {
   // logging
   implementation(libs.log4j.api)
   implementation(libs.log4j.core)
-  implementation(libs.log4j.slf4j.impl)
+  implementation(libs.log4j.slf4j.impl) {
+    exclude group: 'org.slf4j'
+  }
   implementation(libs.log4j.api12)
   implementation(libs.log4j.layout.template.json)
+  implementation(libs.slf4j.api)
 
   // metrics
   implementation(libs.metrics.core)
