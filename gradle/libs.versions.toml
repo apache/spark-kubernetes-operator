@@ -16,7 +16,7 @@
 # under the License.
 [versions]
 fabric8 = "7.4.0"
-lombok = "1.18.38"
+lombok = "1.18.42"
 operator-sdk = "5.1.3"
 dropwizard-metrics = "4.2.33"
 spark = "4.0.1"
