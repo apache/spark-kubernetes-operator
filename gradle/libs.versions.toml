@@ -48,8 +48,7 @@ crd-generator-apt = { group = "io.fabric8", name = "crd-generator-apt", version.
 lombok = { group = "org.projectlombok", name = "lombok", version.ref = "lombok" }
 log4j-api = { group = "org.apache.logging.log4j", name = "log4j-api", version.ref = "log4j" }
 log4j-core = { group = "org.apache.logging.log4j", name = "log4j-core", version.ref = "log4j" }
-log4j-slf4j-impl = { group = "org.apache.logging.log4j", name = "log4j-slf4j-impl", version.ref = "log4j" }
-log4j-api12 = { group = "org.apache.logging.log4j", name = "log4j-1.2-api", version.ref = "log4j" }
+log4j-slf4j2-impl = { group = "org.apache.logging.log4j", name = "log4j-slf4j2-impl", version.ref = "log4j" }
 log4j-layout-template-json = { group = "org.apache.logging.log4j", name = "log4j-layout-template-json", version.ref = "log4j" }
 slf4j-api = { group = "org.slf4j", name = "slf4j-api", version.ref = "slf4j" }
 operator-framework = { group = "io.javaoperatorsdk", name = "operator-framework", version.ref = "operator-sdk"}
