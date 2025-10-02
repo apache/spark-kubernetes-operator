@@ -40,6 +40,7 @@ dependencies {
   implementation(libs.metrics.jvm)
   compileOnly(libs.spark.core) {
     exclude group: "com.github.luben"
+    exclude group: "commons-collections", module: "commons-collections"
     exclude group: "io.netty", module: "netty-tcnative-boringssl-static"
     exclude group: "io.netty", module: "netty-tcnative-classes"
     exclude group: "org.apache.logging.log4j"

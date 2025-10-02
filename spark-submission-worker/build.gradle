@@ -19,17 +19,23 @@
 dependencies {
   implementation project(":spark-operator-api")
   implementation(libs.kubernetes.client)
+  implementation(libs.log4j.api)
+  implementation(libs.log4j.core)
+  implementation(libs.log4j.slf4j2.impl)
+  implementation(libs.slf4j.api)
 
   implementation(libs.spark.kubernetes) {
-    exclude group: "io.fabric8"
     exclude group: "com.github.luben"
+    exclude group: "commons-collections", module: "commons-collections"
+    exclude group: "io.fabric8"
     exclude group: "io.netty", module: "netty-tcnative-boringssl-static"
     exclude group: "io.netty", module: "netty-tcnative-classes"
+    exclude group: "org.apache.logging.log4j"
     exclude group: "org.fusesource.leveldbjni"
     exclude group: "org.lz4"
     exclude group: "org.rocksdb"
+    exclude group: "org.slf4j"
     exclude group: "org.xerial.snappy"
-    exclude group: 'commons-collections', module: 'commons-collections'
   }
 
   compileOnly(libs.lombok)
