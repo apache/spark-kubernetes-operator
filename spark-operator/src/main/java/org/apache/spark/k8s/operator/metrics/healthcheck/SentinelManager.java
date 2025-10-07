@@ -34,7 +34,6 @@ import io.javaoperatorsdk.operator.processing.event.ResourceID;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.builder.ToStringBuilder;
 
 import org.apache.spark.k8s.operator.BaseResource;
 import org.apache.spark.k8s.operator.Constants;
@@ -240,11 +239,13 @@ public class SentinelManager<CR extends BaseResource<?, ?, ?, ?, ?>> {
      */
     @Override
     public String toString() {
-      return new ToStringBuilder(this)
-          .append("resource", resource)
-          .append("previousGeneration", previousGeneration)
-          .append("isHealthy", isHealthy)
-          .toString();
+      return "SentinelResourceState[resource="
+          + resource
+          + ",previousGeneration="
+          + previousGeneration
+          + ",isHealthy="
+          + isHealthy
+          + "]";
     }
   }
 
