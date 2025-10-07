@@ -22,8 +22,6 @@ package org.apache.spark.k8s.operator.utils;
 import static java.net.HttpURLConnection.HTTP_CONFLICT;
 
 import io.fabric8.kubernetes.client.KubernetesClientException;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.exception.ExceptionUtils;
 
 /** Utility class for Spark exceptions. */
 public final class SparkExceptionUtils {
@@ -51,6 +49,6 @@ public final class SparkExceptionUtils {
    * @return A string containing the stack trace of the exception.
    */
   public static String buildGeneralErrorMessage(Exception e) {
-    return ExceptionUtils.getStackTrace(e);
+    return StringUtils.getStackTrace(e);
   }
 }

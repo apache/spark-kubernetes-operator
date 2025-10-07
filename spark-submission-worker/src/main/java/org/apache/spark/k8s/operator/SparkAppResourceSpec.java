@@ -35,7 +35,6 @@ import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
 import lombok.Getter;
-import org.apache.commons.lang3.StringUtils;
 
 import org.apache.spark.deploy.k8s.Config;
 import org.apache.spark.deploy.k8s.Constants;
@@ -46,6 +45,7 @@ import org.apache.spark.k8s.operator.spec.ConfigMapSpec;
 import org.apache.spark.k8s.operator.spec.DriverServiceIngressSpec;
 import org.apache.spark.k8s.operator.utils.ConfigMapSpecUtils;
 import org.apache.spark.k8s.operator.utils.DriverServiceIngressUtils;
+import org.apache.spark.k8s.operator.utils.StringUtils;
 
 /**
  * Resembles resources that would be directly launched by operator. Based on resolved

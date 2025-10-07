@@ -40,9 +40,9 @@ import com.sun.net.httpserver.HttpHandler;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 
 import org.apache.spark.k8s.operator.config.SparkOperatorConf;
+import org.apache.spark.k8s.operator.utils.StringUtils;
 import org.apache.spark.metrics.sink.PrometheusServlet;
 
 /** Serves as simple Prometheus sink (pull model), presenting metrics snapshot as HttpHandler. */

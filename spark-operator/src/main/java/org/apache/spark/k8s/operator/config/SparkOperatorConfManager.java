@@ -27,7 +27,8 @@ import java.util.Map;
 import java.util.Properties;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
+
+import org.apache.spark.k8s.operator.utils.StringUtils;
 
 /**
  * Loads ConfigOption from properties file. In addition, loads hot properties override from config
