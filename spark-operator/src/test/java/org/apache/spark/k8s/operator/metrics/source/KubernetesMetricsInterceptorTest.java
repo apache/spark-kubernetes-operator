@@ -22,7 +22,6 @@ package org.apache.spark.k8s.operator.metrics.source;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -66,7 +65,7 @@ class KubernetesMetricsInterceptorTest {
   @Order(1)
   void testMetricsEnabled() {
     KubernetesMetricsInterceptor metricsInterceptor = new KubernetesMetricsInterceptor();
-    List<Interceptor> interceptors = Collections.singletonList(metricsInterceptor);
+    List<Interceptor> interceptors = List.of(metricsInterceptor);
     try (KubernetesClient client =
         KubernetesClientFactory.buildKubernetesClient(
             interceptors, kubernetesClient.getConfiguration())) {
@@ -106,7 +105,7 @@ class KubernetesMetricsInterceptorTest {
   @Order(2)
   void testWhenKubernetesServerNotWorking() {
     KubernetesMetricsInterceptor metricsInterceptor = new KubernetesMetricsInterceptor();
-    List<Interceptor> interceptors = Collections.singletonList(metricsInterceptor);
+    List<Interceptor> interceptors = List.of(metricsInterceptor);
     try (KubernetesClient client =
         KubernetesClientFactory.buildKubernetesClient(
             interceptors, kubernetesClient.getConfiguration())) {

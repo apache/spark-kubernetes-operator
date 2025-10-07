@@ -25,7 +25,6 @@ import static org.apache.spark.k8s.operator.utils.Utils.basicLabelSecondaryToPri
 import static org.apache.spark.k8s.operator.utils.Utils.commonResourceLabelsStr;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 import io.fabric8.kubernetes.api.model.Pod;
@@ -178,20 +177,16 @@ public class SparkAppReconciler implements Reconciler<SparkApplication>, Cleaner
         steps.add(
             new AppResourceObserveStep(
                 List.of(new AppDriverStartObserver(), new AppDriverReadyObserver())));
-        steps.add(
-            new AppResourceObserveStep(Collections.singletonList(new AppDriverRunningObserver())));
-        steps.add(
-            new AppResourceObserveStep(Collections.singletonList(new AppDriverTimeoutObserver())));
+        steps.add(new AppResourceObserveStep(List.of(new AppDriverRunningObserver())));
+        steps.add(new AppResourceObserveStep(List.of(new AppDriverTimeoutObserver())));
       }
       case DriverReady,
           InitializedBelowThresholdExecutors,
           RunningHealthy,
           RunningWithBelowThresholdExecutors -> {
         steps.add(new AppRunningStep());
-        steps.add(
-            new AppResourceObserveStep(Collections.singletonList(new AppDriverRunningObserver())));
-        steps.add(
-            new AppResourceObserveStep(Collections.singletonList(new AppDriverTimeoutObserver())));
+        steps.add(new AppResourceObserveStep(List.of(new AppDriverRunningObserver())));
+        steps.add(new AppResourceObserveStep(List.of(new AppDriverTimeoutObserver())));
       }
       default -> steps.add(new AppUnknownStateStep());
     }

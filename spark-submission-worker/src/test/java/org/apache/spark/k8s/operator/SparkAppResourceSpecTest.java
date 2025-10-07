@@ -22,7 +22,6 @@ package org.apache.spark.k8s.operator;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.util.Collections;
 import java.util.List;
 
 import scala.collection.immutable.HashMap;
@@ -60,8 +59,8 @@ class SparkAppResourceSpecTest {
     // Add some mock resources and pre-resources
     Pod pod1 = buildBasicPod("pod-1");
     Pod pod2 = buildBasicPod("pod-2");
-    List<HasMetadata> preResourceList = Collections.singletonList(pod1);
-    List<HasMetadata> resourceList = Collections.singletonList(pod2);
+    List<HasMetadata> preResourceList = List.of(pod1);
+    List<HasMetadata> resourceList = List.of(pod2);
     Seq<HasMetadata> preResourceSeq = CollectionConverters.asScala(preResourceList).toList();
     Seq<HasMetadata> resourceSeq = CollectionConverters.asScala(resourceList).toList();
     when(mockSpec.driverKubernetesResources()).thenReturn(resourceSeq);
@@ -70,8 +69,7 @@ class SparkAppResourceSpecTest {
     when(mockSpec.systemProperties()).thenReturn(new HashMap<>());
 
     SparkAppResourceSpec appResourceSpec =
-        new SparkAppResourceSpec(
-            mockConf, mockSpec, Collections.emptyList(), Collections.emptyList());
+        new SparkAppResourceSpec(mockConf, mockSpec, List.of(), List.of());
 
     Assertions.assertEquals(2, appResourceSpec.getDriverResources().size());
     Assertions.assertEquals(1, appResourceSpec.getDriverPreResources().size());

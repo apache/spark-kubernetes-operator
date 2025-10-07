@@ -25,7 +25,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -108,7 +107,7 @@ class HealthProbeTest {
 
   @Test
   void testHealthProbeWithInformerHealthWithMultiOperators() {
-    HealthProbe healthyProbe = new HealthProbe(operators, Collections.emptyList());
+    HealthProbe healthyProbe = new HealthProbe(operators, List.of());
     isRunning.set(true);
     assertFalse(
         healthyProbe.isHealthy(),
@@ -128,8 +127,7 @@ class HealthProbeTest {
 
   @Test
   void testHealthProbeWithInformerHealthWithSingleOperator() {
-    HealthProbe healthyProbe =
-        new HealthProbe(Collections.singletonList(operator), Collections.emptyList());
+    HealthProbe healthyProbe = new HealthProbe(List.of(operator), List.of());
     assertFalse(healthyProbe.isHealthy(), "Health Probe should fail when operator is not running");
     isRunning.set(true);
     unhealthyEventSources.put(
@@ -143,8 +141,7 @@ class HealthProbeTest {
   @Test
   void testHealthProbeWithSentinelHealthWithMultiOperators() {
     var sentinelManager = mock(SentinelManager.class);
-    HealthProbe healthyProbe =
-        new HealthProbe(operators, Collections.singletonList(sentinelManager));
+    HealthProbe healthyProbe = new HealthProbe(operators, List.of(sentinelManager));
     isRunning.set(true);
     isRunning2.set(true);
     when(sentinelManager.allSentinelsAreHealthy()).thenReturn(false);
