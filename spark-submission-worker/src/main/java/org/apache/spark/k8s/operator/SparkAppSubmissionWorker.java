@@ -27,7 +27,6 @@ import scala.Option;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.collections4.MapUtils;
 
 import org.apache.spark.SparkConf;
 import org.apache.spark.deploy.k8s.KubernetesDriverSpec;
@@ -111,12 +110,12 @@ public class SparkAppSubmissionWorker {
       SparkApplication app, Map<String, String> confOverrides) {
     ApplicationSpec applicationSpec = app.getSpec();
     SparkConf effectiveSparkConf = new SparkConf();
-    if (MapUtils.isNotEmpty(applicationSpec.getSparkConf())) {
+    if (!applicationSpec.getSparkConf().isEmpty()) {
       for (String confKey : applicationSpec.getSparkConf().keySet()) {
         effectiveSparkConf.set(confKey, applicationSpec.getSparkConf().get(confKey));
       }
     }
-    if (MapUtils.isNotEmpty(confOverrides)) {
+    if (!confOverrides.isEmpty()) {
       for (Map.Entry<String, String> entry : confOverrides.entrySet()) {
         effectiveSparkConf.set(entry.getKey(), entry.getValue());
       }

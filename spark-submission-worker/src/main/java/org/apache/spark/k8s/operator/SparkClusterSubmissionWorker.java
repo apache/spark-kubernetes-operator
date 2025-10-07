@@ -21,8 +21,6 @@ package org.apache.spark.k8s.operator;
 
 import java.util.Map;
 
-import org.apache.commons.collections4.MapUtils;
-
 import org.apache.spark.SparkConf;
 
 /** Worker for submitting Spark clusters. */
@@ -39,13 +37,13 @@ public class SparkClusterSubmissionWorker {
     SparkConf effectiveSparkConf = new SparkConf();
 
     Map<String, String> confFromSpec = cluster.getSpec().getSparkConf();
-    if (MapUtils.isNotEmpty(confFromSpec)) {
+    if (!confFromSpec.isEmpty()) {
       for (Map.Entry<String, String> entry : confFromSpec.entrySet()) {
         effectiveSparkConf.set(entry.getKey(), entry.getValue());
       }
     }
 
-    if (MapUtils.isNotEmpty(confOverrides)) {
+    if (!confOverrides.isEmpty()) {
       for (Map.Entry<String, String> entry : confOverrides.entrySet()) {
         effectiveSparkConf.set(entry.getKey(), entry.getValue());
       }
