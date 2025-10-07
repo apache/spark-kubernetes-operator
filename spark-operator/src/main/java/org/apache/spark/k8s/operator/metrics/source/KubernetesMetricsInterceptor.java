@@ -35,9 +35,9 @@ import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import io.fabric8.kubernetes.client.http.*;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.tuple.Pair;
 
 import org.apache.spark.metrics.source.Source;
+import org.apache.spark.util.Pair;
 
 /** Interceptor for Kubernetes client to collect metrics. */
 @Slf4j
@@ -174,9 +174,9 @@ public class KubernetesMetricsInterceptor implements Interceptor, Source {
         parseNamespaceScopedResource(request.uri().getPath());
     resourceNamePairOptional.ifPresent(
         pair -> {
-          getMeterByRequestMethodAndResourceName(pair.getValue(), request.method()).mark();
+          getMeterByRequestMethodAndResourceName(pair.getRight(), request.method()).mark();
           getMeterByRequestMethodAndResourceName(
-                  pair.getKey() + "." + pair.getValue(), request.method())
+                  pair.getLeft() + "." + pair.getRight(), request.method())
               .mark();
         });
   }
