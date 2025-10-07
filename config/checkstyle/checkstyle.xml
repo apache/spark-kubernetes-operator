@@ -201,8 +201,10 @@
                 value="Please use the `assertThrows` method to test for exceptions."/>
     </module>
     <module name="IllegalImport">
+      <property name="illegalPkgs" value="org.apache.commons.codec"/>
       <property name="illegalPkgs" value="org.apache.commons.collections"/>
       <property name="illegalPkgs" value="org.apache.commons.collections4" />
+      <property name="illegalPkgs" value="org.apache.commons.compress" />
       <property name="illegalPkgs" value="org.apache.commons.lang"/>
       <property name="illegalPkgs" value="org.apache.commons.lang3" />
       <property name="illegalPkgs" value="org.apache.log4j"/>
