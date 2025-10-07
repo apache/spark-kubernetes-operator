@@ -19,14 +19,17 @@
 
 package org.apache.spark.k8s.operator;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.math.BigInteger;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.Map;
 
 import scala.Option;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
-import org.apache.commons.codec.digest.DigestUtils;
 
 import org.apache.spark.SparkConf;
 import org.apache.spark.deploy.k8s.KubernetesDriverSpec;
@@ -66,6 +69,17 @@ public class SparkAppSubmissionWorker {
 
   /** Property name for the Spark master URL prefix. */
   public static final String MASTER_URL_PREFIX_PROPS_NAME = "spark.master.url.prefix";
+
+  /** SHA256 Message Digest when generating hash-based identifier. */
+  private static final ThreadLocal<MessageDigest> SHA_256_THREAD_LOCAL =
+      ThreadLocal.withInitial(
+          () -> {
+            try {
+              return MessageDigest.getInstance("SHA-256");
+            } catch (NoSuchAlgorithmException e) {
+              throw new UnsupportedOperationException(e);
+            }
+          });
 
   /**
    * Build secondary resource spec for given app with Spark developer API, with defaults / overrides
@@ -201,8 +215,9 @@ public class SparkAppSubmissionWorker {
    * @return The generated hash-based ID.
    */
   public static String generateHashBasedId(final String prefix, final String... identifiers) {
+    final MessageDigest sha256 = SHA_256_THREAD_LOCAL.get();
     String sha256Hash =
-        new BigInteger(1, DigestUtils.sha256(String.join("/", identifiers)))
+        new BigInteger(1, sha256.digest(String.join("/", identifiers).getBytes(UTF_8)))
             .toString(DEFAULT_ENCODE_BASE);
     String truncatedIdentifiersHash =
         sha256Hash.substring(0, DEFAULT_HASH_BASED_IDENTIFIER_LENGTH_LIMIT);
