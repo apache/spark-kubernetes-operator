@@ -27,9 +27,9 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 
 import org.apache.spark.k8s.operator.utils.ModelUtils;
+import org.apache.spark.k8s.operator.utils.StringUtils;
 
 /**
  * Config options for Spark Operator. Supports primitive and serialized JSON.

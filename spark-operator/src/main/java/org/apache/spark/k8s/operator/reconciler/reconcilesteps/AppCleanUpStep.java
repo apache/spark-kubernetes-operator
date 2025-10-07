@@ -33,7 +33,6 @@ import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.config.SparkOperatorConf;
@@ -48,6 +47,7 @@ import org.apache.spark.k8s.operator.status.ApplicationStatus;
 import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusUtils;
+import org.apache.spark.k8s.operator.utils.StringUtils;
 
 /**
  * Cleanup all secondary resources when application is deleted, or at the end of each attempt.

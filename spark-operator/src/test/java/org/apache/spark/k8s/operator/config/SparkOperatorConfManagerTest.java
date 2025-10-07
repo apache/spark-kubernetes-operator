@@ -22,9 +22,10 @@ package org.apache.spark.k8s.operator.config;
 import java.io.IOException;
 import java.util.Collections;
 
-import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import org.apache.spark.k8s.operator.utils.StringUtils;
 
 class SparkOperatorConfManagerTest {
   @Test

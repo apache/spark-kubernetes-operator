@@ -28,7 +28,6 @@ import scala.Option;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.collections4.MapUtils;
-import org.apache.commons.lang3.StringUtils;
 
 import org.apache.spark.SparkConf;
 import org.apache.spark.deploy.k8s.KubernetesDriverSpec;
@@ -41,6 +40,7 @@ import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 import org.apache.spark.k8s.operator.spec.ConfigMapSpec;
 import org.apache.spark.k8s.operator.spec.DriverServiceIngressSpec;
 import org.apache.spark.k8s.operator.utils.ModelUtils;
+import org.apache.spark.k8s.operator.utils.StringUtils;
 
 /**
  * Similar to org.apache.spark.deploy.k8s.submit.KubernetesClientApplication. This reads args from
