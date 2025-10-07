@@ -23,10 +23,10 @@ import static org.apache.spark.k8s.operator.Constants.API_GROUP;
 import static org.apache.spark.k8s.operator.Constants.API_VERSION;
 
 import java.io.File;
+import java.lang.reflect.Field;
 import java.util.Map;
 
 import io.fabric8.kubernetes.api.model.ObjectMeta;
-import org.apache.commons.lang3.reflect.FieldUtils;
 
 import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.SparkApplication;
@@ -66,9 +66,15 @@ public final class TestUtils {
     return System.currentTimeMillis() - startTime;
   }
 
+  @SuppressWarnings("PMD.AvoidAccessibilityAlteration")
   public static <T> void setConfigKey(ConfigOption<T> configKey, T newValue) {
     try {
-      FieldUtils.writeField(configKey, "defaultValue", newValue, true);
+      Class<?> targetClass = configKey.getClass();
+      Field field = targetClass.getDeclaredField("defaultValue");
+      field.setAccessible(true);
+      field.set(configKey, newValue);
+    } catch (NoSuchFieldException e) {
+      throw new IllegalStateException(e);
     } catch (IllegalAccessException e) {
       throw new UnsupportedOperationException(e);
     }

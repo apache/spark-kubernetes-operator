@@ -36,7 +36,6 @@ import java.util.Map;
 
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
-import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedConstruction;
 
@@ -209,8 +208,8 @@ class SparkAppSubmissionWorkerTest {
 
   @Test
   void generatedSparkAppIdShouldComplyLengthLimit() {
-    String namespaceName = RandomStringUtils.randomAlphabetic(253);
-    String appName = RandomStringUtils.randomAlphabetic(253);
+    String namespaceName = "n".repeat(253);
+    String appName = "a".repeat(253);
 
     SparkApplication mockApp = mock(SparkApplication.class);
     ObjectMeta appMeta =

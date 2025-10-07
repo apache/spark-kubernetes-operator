@@ -27,7 +27,6 @@ import java.util.UUID;
 
 import scala.Option;
 
-import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.Test;
 
 import org.apache.spark.SparkConf;
@@ -63,7 +62,7 @@ class SparkAppDriverConfTest {
     SparkConf sparkConf = new SparkConf();
     sparkConf.set("foo", "bar");
     sparkConf.set("spark.executor.instances", "1");
-    String appId = RandomStringUtils.randomAlphabetic(1000);
+    String appId = "a".repeat(1000);
     SparkAppDriverConf sparkAppDriverConf =
         SparkAppDriverConf.create(
             sparkConf, appId, mock(JavaMainAppResource.class), "foo", null, Option.empty());
