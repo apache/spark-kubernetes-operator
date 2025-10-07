@@ -31,7 +31,6 @@ import static org.mockito.Mockito.when;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -170,8 +169,8 @@ class AppCleanUpStepTest {
         when(mockAppContext.getClient()).thenReturn(mockClient);
         Pod driverPod = mock(Pod.class);
         when(mockAppContext.getDriverPod()).thenReturn(Optional.of(driverPod));
-        when(mockAppContext.getDriverPreResourcesSpec()).thenReturn(Collections.emptyList());
-        when(mockAppContext.getDriverResourcesSpec()).thenReturn(Collections.emptyList());
+        when(mockAppContext.getDriverPreResourcesSpec()).thenReturn(List.of());
+        when(mockAppContext.getDriverResourcesSpec()).thenReturn(List.of());
         when(mockRecorder.persistStatus(eq(mockAppContext), any())).thenReturn(true);
         when(mockRecorder.appendNewStateAndPersist(eq(mockAppContext), any())).thenReturn(true);
 
@@ -260,8 +259,8 @@ class AppCleanUpStepTest {
     when(mockAppContext.getClient()).thenReturn(mockClient);
     Pod driverPod = mock(Pod.class);
     when(mockAppContext.getDriverPod()).thenReturn(Optional.of(driverPod));
-    when(mockAppContext.getDriverPreResourcesSpec()).thenReturn(Collections.emptyList());
-    when(mockAppContext.getDriverResourcesSpec()).thenReturn(Collections.emptyList());
+    when(mockAppContext.getDriverPreResourcesSpec()).thenReturn(List.of());
+    when(mockAppContext.getDriverResourcesSpec()).thenReturn(List.of());
     when(mockRecorder.persistStatus(eq(mockAppContext), any())).thenReturn(true);
     when(mockRecorder.appendNewStateAndPersist(eq(mockAppContext), any())).thenReturn(true);
 
@@ -314,14 +313,12 @@ class AppCleanUpStepTest {
     ConfigMap resource2 = mock(ConfigMap.class);
     when(mockAppContext1.getDriverPod()).thenReturn(Optional.of(driverPod));
     when(mockAppContext1.getDriverPodSpec()).thenReturn(driverPodSpec);
-    when(mockAppContext1.getDriverPreResourcesSpec())
-        .thenReturn(Collections.singletonList(resource1));
-    when(mockAppContext1.getDriverResourcesSpec()).thenReturn(Collections.singletonList(resource2));
+    when(mockAppContext1.getDriverPreResourcesSpec()).thenReturn(List.of(resource1));
+    when(mockAppContext1.getDriverResourcesSpec()).thenReturn(List.of(resource2));
     when(mockAppContext2.getDriverPod()).thenReturn(Optional.of(driverPod));
     when(mockAppContext2.getDriverPodSpec()).thenReturn(driverPodSpec);
-    when(mockAppContext2.getDriverPreResourcesSpec())
-        .thenReturn(Collections.singletonList(resource1));
-    when(mockAppContext2.getDriverResourcesSpec()).thenReturn(Collections.singletonList(resource2));
+    when(mockAppContext2.getDriverPreResourcesSpec()).thenReturn(List.of(resource1));
+    when(mockAppContext2.getDriverResourcesSpec()).thenReturn(List.of(resource2));
     when(mockRecorder.persistStatus(any(), any())).thenReturn(true);
     when(mockRecorder.appendNewStateAndPersist(any(), any())).thenReturn(true);
 

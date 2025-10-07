@@ -29,7 +29,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.when;
 
-import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 import io.fabric8.kubernetes.api.model.Pod;
@@ -96,8 +96,8 @@ class SparkAppReconcilerTest {
                   when(mock.getClient()).thenReturn(mockClient);
                   when(mock.getDriverPod()).thenReturn(Optional.of(mockDriver));
                   when(mock.getDriverPodSpec()).thenReturn(mockDriver);
-                  when(mock.getDriverPreResourcesSpec()).thenReturn(Collections.emptyList());
-                  when(mock.getDriverResourcesSpec()).thenReturn(Collections.emptyList());
+                  when(mock.getDriverPreResourcesSpec()).thenReturn(List.of());
+                  when(mock.getDriverResourcesSpec()).thenReturn(List.of());
                 });
         MockedStatic<ReconcilerUtils> utils = Mockito.mockStatic(ReconcilerUtils.class)) {
       // delete running app
@@ -128,8 +128,8 @@ class SparkAppReconcilerTest {
                   when(mock.getClient()).thenReturn(mockClient);
                   when(mock.getDriverPod()).thenReturn(Optional.of(mockDriver));
                   when(mock.getDriverPodSpec()).thenReturn(mockDriver);
-                  when(mock.getDriverPreResourcesSpec()).thenReturn(Collections.emptyList());
-                  when(mock.getDriverResourcesSpec()).thenReturn(Collections.emptyList());
+                  when(mock.getDriverPreResourcesSpec()).thenReturn(List.of());
+                  when(mock.getDriverResourcesSpec()).thenReturn(List.of());
                 });
         MockedStatic<ReconcilerUtils> utils = Mockito.mockStatic(ReconcilerUtils.class)) {
       // delete app
@@ -160,8 +160,8 @@ class SparkAppReconcilerTest {
                 (mock, context) -> {
                   when(mock.getResource()).thenReturn(app);
                   when(mock.getClient()).thenReturn(mockClient);
-                  when(mock.getDriverPreResourcesSpec()).thenReturn(Collections.emptyList());
-                  when(mock.getDriverResourcesSpec()).thenReturn(Collections.emptyList());
+                  when(mock.getDriverPreResourcesSpec()).thenReturn(List.of());
+                  when(mock.getDriverResourcesSpec()).thenReturn(List.of());
                 });
         MockedStatic<ReconcilerUtils> utils = Mockito.mockStatic(ReconcilerUtils.class)) {
       // delete app

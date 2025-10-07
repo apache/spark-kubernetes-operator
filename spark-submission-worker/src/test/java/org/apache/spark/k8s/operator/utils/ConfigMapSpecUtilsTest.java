@@ -21,7 +21,6 @@ package org.apache.spark.k8s.operator.utils;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,9 +35,8 @@ class ConfigMapSpecUtilsTest {
   @Test
   void buildConfigMaps() {
 
-    assertEquals(Collections.emptyList(), ConfigMapSpecUtils.buildConfigMaps(null));
-    assertEquals(
-        Collections.emptyList(), ConfigMapSpecUtils.buildConfigMaps(Collections.emptyList()));
+    assertEquals(List.of(), ConfigMapSpecUtils.buildConfigMaps(null));
+    assertEquals(List.of(), ConfigMapSpecUtils.buildConfigMaps(List.of()));
 
     Map<String, String> labels = Map.of("foo-label-key", "foo-label-value");
     Map<String, String> annotations = Map.of("foo-annotation-key", "foo-annotation-value");
@@ -57,8 +55,7 @@ class ConfigMapSpecUtilsTest {
             .annotations(annotations)
             .data(configMapData)
             .build();
-    List<ConfigMap> configMaps =
-        ConfigMapSpecUtils.buildConfigMaps(Collections.singletonList(mount));
+    List<ConfigMap> configMaps = ConfigMapSpecUtils.buildConfigMaps(List.of(mount));
     assertEquals(1, configMaps.size());
     ConfigMap configMap = configMaps.get(0);
     assertEquals("test-config-map", configMap.getMetadata().getName());

@@ -25,7 +25,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -103,10 +102,9 @@ class AppInitStepTest {
     SparkApplication application = new SparkApplication();
     application.setMetadata(applicationMetadata);
     when(mocksparkAppContext.getResource()).thenReturn(application);
-    when(mocksparkAppContext.getDriverPreResourcesSpec()).thenReturn(Collections.emptyList());
+    when(mocksparkAppContext.getDriverPreResourcesSpec()).thenReturn(List.of());
     when(mocksparkAppContext.getDriverPodSpec()).thenReturn(driverPodSpec);
-    when(mocksparkAppContext.getDriverResourcesSpec())
-        .thenReturn(Collections.singletonList(resourceConfigMapSpec));
+    when(mocksparkAppContext.getDriverResourcesSpec()).thenReturn(List.of(resourceConfigMapSpec));
     when(mocksparkAppContext.getClient()).thenReturn(kubernetesClient);
     when(recorder.appendNewStateAndPersist(any(), any())).thenReturn(true);
     when(recorder.persistStatus(any(), any())).thenReturn(true);
@@ -137,9 +135,9 @@ class AppInitStepTest {
     application.setMetadata(applicationMetadata);
     when(mocksparkAppContext.getResource()).thenReturn(application);
     when(mocksparkAppContext.getDriverPreResourcesSpec())
-        .thenReturn(Collections.singletonList(preResourceConfigMapSpec));
+        .thenReturn(List.of(preResourceConfigMapSpec));
     when(mocksparkAppContext.getDriverPodSpec()).thenReturn(driverPodSpec);
-    when(mocksparkAppContext.getDriverResourcesSpec()).thenReturn(Collections.emptyList());
+    when(mocksparkAppContext.getDriverResourcesSpec()).thenReturn(List.of());
     when(recorder.appendNewStateAndPersist(any(), any())).thenReturn(true);
     when(recorder.persistStatus(any(), any())).thenReturn(true);
 
@@ -201,10 +199,9 @@ class AppInitStepTest {
     SparkApplication application = new SparkApplication();
     application.setMetadata(applicationMetadata);
     when(mocksparkAppContext.getResource()).thenReturn(application);
-    when(mocksparkAppContext.getDriverPreResourcesSpec()).thenReturn(Collections.emptyList());
+    when(mocksparkAppContext.getDriverPreResourcesSpec()).thenReturn(List.of());
     when(mocksparkAppContext.getDriverPodSpec()).thenReturn(driverPodSpec);
-    when(mocksparkAppContext.getDriverResourcesSpec())
-        .thenReturn(Collections.singletonList(resourceConfigMapSpec));
+    when(mocksparkAppContext.getDriverResourcesSpec()).thenReturn(List.of(resourceConfigMapSpec));
     when(mocksparkAppContext.getClient()).thenReturn(kubernetesClient);
     when(recorder.appendNewStateAndPersist(any(), any())).thenReturn(false, true);
     when(recorder.persistStatus(any(), any())).thenReturn(false, true);

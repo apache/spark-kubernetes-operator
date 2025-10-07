@@ -22,7 +22,7 @@ package org.apache.spark.k8s.operator.reconciler.reconcilesteps;
 import static org.apache.spark.k8s.operator.Constants.*;
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.completeAndDefaultRequeue;
 
-import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 
 import io.fabric8.kubernetes.api.model.Pod;
@@ -85,8 +85,7 @@ public class AppRunningStep extends AppReconcileStep {
       }
     }
     if (proposedStateSummary.equals(prevStateSummary)) {
-      return observeDriver(
-          context, statusRecorder, Collections.singletonList(new AppDriverRunningObserver()));
+      return observeDriver(context, statusRecorder, List.of(new AppDriverRunningObserver()));
     } else {
       ApplicationStatus updatedStatus =
           context

@@ -19,7 +19,6 @@
 
 package org.apache.spark.k8s.operator.utils;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -40,7 +39,7 @@ public final class ConfigMapSpecUtils {
    */
   public static List<ConfigMap> buildConfigMaps(List<ConfigMapSpec> configMapMountList) {
     if (configMapMountList == null || configMapMountList.isEmpty()) {
-      return Collections.emptyList();
+      return List.of();
     }
     return configMapMountList.stream()
         .map(

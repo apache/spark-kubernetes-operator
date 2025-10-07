@@ -21,7 +21,6 @@ package org.apache.spark.k8s.operator;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -170,7 +169,7 @@ public class SparkAppResourceSpec {
   private List<HasMetadata> configureDriverServerIngress(
       SparkPod pod, List<DriverServiceIngressSpec> driverServiceIngressList) {
     if (driverServiceIngressList == null || driverServiceIngressList.isEmpty()) {
-      return Collections.emptyList();
+      return List.of();
     }
     return driverServiceIngressList.stream()
         .map(spec -> DriverServiceIngressUtils.buildIngressService(spec, pod.pod().getMetadata()))

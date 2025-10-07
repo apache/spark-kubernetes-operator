@@ -31,7 +31,6 @@ import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 
@@ -56,9 +55,7 @@ class ProbeServiceTest {
     when(runtimeInfo.unhealthyInformerWrappingEventSourceHealthIndicator())
         .thenReturn(new HashMap<>());
     when(sentinelManager.allSentinelsAreHealthy()).thenReturn(true);
-    ProbeService probeService =
-        new ProbeService(
-            Collections.singletonList(operator), Collections.singletonList(sentinelManager), null);
+    ProbeService probeService = new ProbeService(List.of(operator), List.of(sentinelManager), null);
     probeService.start();
     hitHealthyEndpoint();
     probeService.stop();
@@ -83,8 +80,7 @@ class ProbeServiceTest {
         .thenReturn(new HashMap<>());
     when(sentinelManager.allSentinelsAreHealthy()).thenReturn(true);
     ProbeService probeService =
-        new ProbeService(
-            List.of(operator, operator1), Collections.singletonList(sentinelManager), null);
+        new ProbeService(List.of(operator, operator1), List.of(sentinelManager), null);
     probeService.start();
     hitHealthyEndpoint();
     probeService.stop();
@@ -110,8 +106,7 @@ class ProbeServiceTest {
         .thenReturn(new HashMap<>());
     when(operator1.getKubernetesClient()).thenReturn(client);
     ProbeService probeService =
-        new ProbeService(
-            List.of(operator, operator1), Collections.singletonList(sentinelManager), null);
+        new ProbeService(List.of(operator, operator1), List.of(sentinelManager), null);
     probeService.start();
     hitStartedUpEndpoint();
     probeService.stop();

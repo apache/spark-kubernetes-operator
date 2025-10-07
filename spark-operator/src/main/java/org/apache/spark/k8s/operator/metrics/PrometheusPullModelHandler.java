@@ -24,7 +24,6 @@ import static org.apache.spark.k8s.operator.utils.ProbeUtil.sendMessage;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -94,7 +93,7 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
           exchange,
           HTTP_OK,
           formatMetricsSnapshot(),
-          Map.of("Content-Type", Collections.singletonList("text/plain;version=0.0.4")));
+          Map.of("Content-Type", List.of("text/plain;version=0.0.4")));
     } else {
       HttpServletRequest httpServletRequest = null;
       String value = getMetricsSnapshot(httpServletRequest);
@@ -102,7 +101,7 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
           exchange,
           HTTP_OK,
           String.join("\n", filterNonEmptyRecords(value)),
-          Map.of("Content-Type", Collections.singletonList("text/plain;version=0.0.4")));
+          Map.of("Content-Type", List.of("text/plain;version=0.0.4")));
     }
   }
 
