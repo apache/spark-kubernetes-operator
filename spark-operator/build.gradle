@@ -93,6 +93,7 @@ shadowJar {
   zip64 = true
   mergeServiceFiles()
   transform(com.github.jengelman.gradle.plugins.shadow.transformers.Log4j2PluginsCacheFileTransformer)
+  exclude("org/apache/spark/ui/static/**")
 }
 
 base {
