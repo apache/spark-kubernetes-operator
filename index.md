@@ -73,7 +73,7 @@ Pi is roughly 3.1426151426151425
 ## Run Spark Cluster
 
 ```bash
-$ kubectl apply -f https://raw.githubusercontent.com/apache/spark-kubernetes-operator/refs/tags/0.5.0/examples/prod-cluster-with-three-workers.yaml
+$ kubectl apply -f https://apache.github.io/spark-kubernetes-operator/prod-cluster-with-three-workers.yaml
 sparkcluster.spark.apache.org/prod created
 
 $ kubectl get sparkcluster
