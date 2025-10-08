@@ -26,10 +26,13 @@ dependencies {
 
   implementation(libs.spark.kubernetes) {
     exclude group: "com.github.luben"
+    exclude group: "com.ibm.icu"
+    exclude group: "commons-codec"
     exclude group: "commons-collections", module: "commons-collections"
     exclude group: "io.fabric8"
     exclude group: "io.netty", module: "netty-tcnative-boringssl-static"
     exclude group: "io.netty", module: "netty-tcnative-classes"
+    exclude group: "org.apache.commons", module: "commons-compress"
     exclude group: "org.apache.logging.log4j"
     exclude group: "org.fusesource.leveldbjni"
     exclude group: "org.lz4"
