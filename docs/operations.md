@@ -155,3 +155,38 @@ metadata:
   labels:
     "spark.operator/sentinel": "true"
 ```
+
+## Example
+
+Install HelmChart at `us-west-1` and `us-west-2` namespaces.
+
+```bash
+helm install us-west-1 spark/spark-kubernetes-operator --create-namespace --namespace us-west-1 --set operatorRbac.clusterRole.name=spark-operator-clusterrole-us-west-1 --set operatorRbac.clusterRoleBinding.name=spark-operator-clusterrolebinding-us-west-1 --set workloadResources.clusterRole.name=spark-workload-clusterrole-us-west-1
+```
+
+```bash
+helm install us-west-2 spark/spark-kubernetes-operator --create-namespace --namespace us-west-2 --set operatorRbac.clusterRole.name=spark-operator-clusterrole-us-west-2 --set operatorRbac.clusterRoleBinding.name=spark-operator-clusterrolebinding-us-west-2 --set workloadResources.clusterRole.name=spark-workload-clusterrole-us-west-2
+```
+
+Check installation.
+
+```bash
+$ helm list -A
+NAME      NAMESPACE REVISION UPDATED                              STATUS   CHART                           APP VERSION
+us-west-1 us-west-1 1        2025-10-08 22:04:45.530136 -0700 PDT deployed spark-kubernetes-operator-1.3.0 0.5.0
+us-west-2 us-west-2 1        2025-10-08 22:04:48.747434 -0700 PDT deployed spark-kubernetes-operator-1.3.0 0.5.0
+```
+
+Launch `pi.yaml` at `us-west-1` and `us-west-2` namespaces.
+
+```bash
+kubectl apply -f https://apache.github.io/spark-kubernetes-operator/pi.yaml -n us-west-1
+kubectl apply -f https://apache.github.io/spark-kubernetes-operator/pi.yaml -n us-west-2
+```
+
+```bash
+$ kubectl get sparkapp -A
+NAMESPACE   NAME   CURRENT STATE    AGE
+us-west-1   pi     RunningHealthy   8s
+us-west-2   pi     RunningHealthy   3s
+```
