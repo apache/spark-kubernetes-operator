@@ -117,7 +117,7 @@ class ProbeServiceTest {
     HttpURLConnection connection = (HttpURLConnection) u.openConnection();
     connection.setConnectTimeout(100000);
     connection.connect();
-    assertEquals(connection.getResponseCode(), HTTP_OK, "Health Probe should return HTTP_OK");
+    assertEquals(HTTP_OK, connection.getResponseCode(), "Health Probe should return HTTP_OK");
   }
 
   private void hitStartedUpEndpoint() throws IOException, MalformedURLException {
@@ -125,6 +125,6 @@ class ProbeServiceTest {
     HttpURLConnection connection = (HttpURLConnection) u.openConnection();
     connection.setConnectTimeout(100000);
     connection.connect();
-    assertEquals(connection.getResponseCode(), HTTP_OK, "operators are not ready");
+    assertEquals(HTTP_OK, connection.getResponseCode(), "operators are not ready");
   }
 }

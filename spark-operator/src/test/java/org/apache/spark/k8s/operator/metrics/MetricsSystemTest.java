@@ -63,8 +63,8 @@ class MetricsSystemTest {
     Sink mockSink = mockSinkOptional.get();
     metricsSystem.stop();
     MockSink sink = (MockSink) mockSink;
-    assertEquals(sink.getPollPeriod(), 10);
-    assertEquals(sink.getTimeUnit(), TimeUnit.SECONDS);
+    assertEquals(10, sink.getPollPeriod());
+    assertEquals(TimeUnit.SECONDS, sink.getTimeUnit());
   }
 
   @Test

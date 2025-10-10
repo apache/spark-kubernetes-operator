@@ -76,7 +76,7 @@ class OperatorJosdkMetricsTest {
     try {
       operatorMetrics.timeControllerExecution(failedExecution);
     } catch (Exception e) {
-      assertEquals(e.getMessage(), "Foo exception");
+      assertEquals("Foo exception", e.getMessage());
       assertEquals(8, metrics.size());
       assertTrue(metrics.containsKey("sparkapplication.test-controller.reconcile.failure"));
       assertTrue(

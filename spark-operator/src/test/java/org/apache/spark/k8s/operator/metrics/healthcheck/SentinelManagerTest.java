@@ -109,7 +109,7 @@ class SentinelManagerTest {
         kubernetesClient.resources(SparkApplication.class).inNamespace(DEFAULT).list();
     SparkApplication sparkApplication = crList.getItems().get(0);
     Long generation = sparkApplication.getMetadata().getGeneration();
-    assertEquals(generation, 1L);
+    assertEquals(1L, generation);
 
     // Spark Reconciler Handle Sentinel Resources at the first time
     var sentinelManager = new SentinelManager<SparkApplication>();
@@ -120,12 +120,12 @@ class SentinelManagerTest {
     Map<String, String> sparkConf2 = new HashMap<>(sparkApplication2.getSpec().getSparkConf());
     long generation2 = sparkApplication2.getMetadata().getGeneration();
 
-    assertEquals(sparkConf2.get(Constants.SENTINEL_RESOURCE_DUMMY_FIELD), "1");
-    assertEquals(generation2, 2L);
+    assertEquals("1", sparkConf2.get(Constants.SENTINEL_RESOURCE_DUMMY_FIELD));
+    assertEquals(2L, generation2);
     var state2 = sentinelManager.getSentinelResources().get(ResourceID.fromResource(mockApp));
     long previousGeneration2 = state2.previousGeneration;
     assertTrue(sentinelManager.allSentinelsAreHealthy());
-    assertEquals(previousGeneration2, 1L);
+    assertEquals(1L, previousGeneration2);
 
     Thread.sleep(Duration.ofSeconds(SENTINEL_RESOURCE_RECONCILIATION_DELAY_SECONDS * 2).toMillis());
     List<SparkApplication> crList3 =
@@ -194,8 +194,8 @@ class SentinelManagerTest {
       sentinelManager.handleSentinelResourceReconciliation(sparkApplication1, kubernetesClient);
       sentinelManager.handleSentinelResourceReconciliation(sparkApplication2, kubernetesClient);
       assertEquals(
-          sentinelManager.getSentinelResources().size(),
           2,
+          sentinelManager.getSentinelResources().size(),
           "Sentinel Manager should watch on resources in two namespaces");
       assertTrue(
           sentinelManager.allSentinelsAreHealthy(), "Sentinel Manager should report healthy");
@@ -206,8 +206,8 @@ class SentinelManagerTest {
           "Sentinel Manager should report healthy after one namespace is "
               + "removed from the watch");
       assertEquals(
-          sentinelManager.getSentinelResources().size(),
           1,
+          sentinelManager.getSentinelResources().size(),
           "Sentinel Manager should only watch on one namespace");
     }
   }

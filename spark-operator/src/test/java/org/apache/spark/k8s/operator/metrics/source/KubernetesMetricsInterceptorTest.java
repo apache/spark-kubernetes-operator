@@ -94,9 +94,9 @@ class KubernetesMetricsInterceptorTest {
           .forEach(
               name -> {
                 Meter metric = (Meter) metrics2.get(name);
-                Assertions.assertEquals(metric.getCount(), 1);
+                Assertions.assertEquals(1, metric.getCount());
               });
-      Assertions.assertEquals(((Meter) metrics2.get("http.request")).getCount(), 2);
+      Assertions.assertEquals(2, ((Meter) metrics2.get("http.request")).getCount());
       client.resource(sparkApplication).delete();
     }
   }
