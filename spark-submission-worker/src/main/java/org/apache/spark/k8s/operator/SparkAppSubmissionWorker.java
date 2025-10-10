@@ -139,6 +139,12 @@ public class SparkAppSubmissionWorker {
     if (StringUtils.isNotEmpty(applicationSpec.getJars())) {
       primaryResource = new JavaMainAppResource(Option.apply(applicationSpec.getJars()));
       effectiveSparkConf.setIfMissing("spark.jars", applicationSpec.getJars());
+    } else if ("org.apache.spark.deploy.PythonRunner".equals(applicationSpec.getMainClass())) {
+      String[] files = applicationSpec.getPyFiles().split(",", 2);
+      primaryResource = new PythonMainAppResource(files[0]);
+      if (files.length > 1 && !files[1].isBlank()) {
+        effectiveSparkConf.setIfMissing("spark.submit.pyFiles", files[1]);
+      }
     } else if (StringUtils.isNotEmpty(applicationSpec.getPyFiles())) {
       primaryResource = new PythonMainAppResource(applicationSpec.getPyFiles());
       effectiveSparkConf.setIfMissing("spark.submit.pyFiles", applicationSpec.getPyFiles());
