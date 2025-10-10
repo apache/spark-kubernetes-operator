@@ -130,6 +130,34 @@ class SparkAppSubmissionWorkerTest {
   }
 
   @Test
+  void handlePyFiles() {
+    Map<SparkAppDriverConf, List<Object>> constructorArgs = new HashMap<>();
+    try (MockedConstruction<SparkAppDriverConf> mocked =
+        mockConstruction(
+            SparkAppDriverConf.class,
+            (mock, context) -> constructorArgs.put(mock, new ArrayList<>(context.arguments())))) {
+      SparkApplication mockApp = mock(SparkApplication.class);
+      ApplicationSpec mockSpec = mock(ApplicationSpec.class);
+      ObjectMeta appMeta = new ObjectMetaBuilder().withName("app1").withNamespace("ns1").build();
+      when(mockApp.getSpec()).thenReturn(mockSpec);
+      when(mockApp.getMetadata()).thenReturn(appMeta);
+      when(mockSpec.getMainClass()).thenReturn("org.apache.spark.deploy.PythonRunner");
+      when(mockSpec.getPyFiles()).thenReturn("main.py,lib.py");
+
+      SparkAppSubmissionWorker submissionWorker = new SparkAppSubmissionWorker();
+      SparkAppDriverConf conf = submissionWorker.buildDriverConf(mockApp, Collections.emptyMap());
+      assertEquals(6, constructorArgs.get(conf).size());
+      assertEquals(
+          "lib.py", ((SparkConf) constructorArgs.get(conf).get(0)).get("spark.submit.pyFiles"));
+
+      // validate main resources
+      assertInstanceOf(PythonMainAppResource.class, constructorArgs.get(conf).get(2));
+      PythonMainAppResource mainResource = (PythonMainAppResource) constructorArgs.get(conf).get(2);
+      assertEquals("main.py", mainResource.primaryResource());
+    }
+  }
+
+  @Test
   void buildDriverConfForRApp() {
     Map<SparkAppDriverConf, List<Object>> constructorArgs = new HashMap<>();
     try (MockedConstruction<SparkAppDriverConf> mocked =
