@@ -24,7 +24,7 @@ log4j = "2.24.3"
 slf4j = "2.0.17"
 
 # Test
-junit = "5.13.4"
+junit = "6.0.0"
 jacoco = "0.8.13"
 mockito = "5.20.0"
 
