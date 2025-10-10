@@ -17,10 +17,6 @@
  * under the License.
  */
 
-if (project.hasProperty('release') && JavaVersion.current().getMajorVersion().toString() != '17') {
-  throw new GradleException("Releases must be built with Java 17")
-}
-
 subprojects {
   apply plugin: 'org.cyclonedx.bom'
   apply plugin: 'maven-publish'
