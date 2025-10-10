@@ -79,7 +79,7 @@ class SparkAppSubmissionWorkerTest {
       assertEquals(6, constructorArgs.get(conf).size());
 
       // validate SparkConf with override
-      assertTrue(constructorArgs.get(conf).get(0) instanceof SparkConf);
+      assertInstanceOf(SparkConf.class, constructorArgs.get(conf).get(0));
       SparkConf createdConf = (SparkConf) constructorArgs.get(conf).get(0);
       assertEquals("bar", createdConf.get("foo"));
       assertEquals("5", createdConf.get("spark.executor.instances"));
@@ -90,13 +90,13 @@ class SparkAppSubmissionWorkerTest {
           "namespace from CR takes highest precedence");
 
       // validate main resources
-      assertTrue(constructorArgs.get(conf).get(2) instanceof JavaMainAppResource);
+      assertInstanceOf(JavaMainAppResource.class, constructorArgs.get(conf).get(2));
       JavaMainAppResource mainResource = (JavaMainAppResource) constructorArgs.get(conf).get(2);
       assertTrue(mainResource.primaryResource().isEmpty());
 
       assertEquals("foo-class", constructorArgs.get(conf).get(3));
 
-      assertTrue(constructorArgs.get(conf).get(4) instanceof String[]);
+      assertInstanceOf(String[].class, constructorArgs.get(conf).get(4));
       String[] capturedArgs = (String[]) constructorArgs.get(conf).get(4);
       assertEquals(2, capturedArgs.length);
       assertEquals("a", capturedArgs[0]);
