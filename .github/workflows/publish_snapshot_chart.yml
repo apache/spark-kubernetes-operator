@@ -20,7 +20,7 @@ jobs:
       fail-fast: false
       matrix:
         # keep in sync with default value of workflow_dispatch input 'branch'
-        branch: ${{ fromJSON( inputs.branch || '["main", "branch-0.4"]' ) }}
+        branch: ${{ fromJSON( inputs.branch || '["main"]' ) }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v5
