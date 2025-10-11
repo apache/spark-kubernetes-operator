@@ -76,7 +76,7 @@ class SparkAppSubmissionWorkerTest {
 
       SparkAppSubmissionWorker submissionWorker = new SparkAppSubmissionWorker();
       SparkAppDriverConf conf = submissionWorker.buildDriverConf(mockApp, overrides);
-      assertEquals(6, constructorArgs.get(conf).size());
+      assertEquals(7, constructorArgs.get(conf).size());
 
       // validate SparkConf with override
       assertInstanceOf(SparkConf.class, constructorArgs.get(conf).get(0));
@@ -90,14 +90,14 @@ class SparkAppSubmissionWorkerTest {
           "namespace from CR takes highest precedence");
 
       // validate main resources
-      assertInstanceOf(JavaMainAppResource.class, constructorArgs.get(conf).get(2));
-      JavaMainAppResource mainResource = (JavaMainAppResource) constructorArgs.get(conf).get(2);
+      assertInstanceOf(JavaMainAppResource.class, constructorArgs.get(conf).get(3));
+      JavaMainAppResource mainResource = (JavaMainAppResource) constructorArgs.get(conf).get(3);
       assertTrue(mainResource.primaryResource().isEmpty());
 
-      assertEquals("foo-class", constructorArgs.get(conf).get(3));
+      assertEquals("foo-class", constructorArgs.get(conf).get(4));
 
-      assertInstanceOf(String[].class, constructorArgs.get(conf).get(4));
-      String[] capturedArgs = (String[]) constructorArgs.get(conf).get(4);
+      assertInstanceOf(String[].class, constructorArgs.get(conf).get(5));
+      String[] capturedArgs = (String[]) constructorArgs.get(conf).get(5);
       assertEquals(2, capturedArgs.length);
       assertEquals("a", capturedArgs[0]);
       assertEquals("b", capturedArgs[1]);
@@ -120,11 +120,11 @@ class SparkAppSubmissionWorkerTest {
 
       SparkAppSubmissionWorker submissionWorker = new SparkAppSubmissionWorker();
       SparkAppDriverConf conf = submissionWorker.buildDriverConf(mockApp, Collections.emptyMap());
-      assertEquals(6, constructorArgs.get(conf).size());
+      assertEquals(7, constructorArgs.get(conf).size());
 
       // validate main resources
-      assertInstanceOf(PythonMainAppResource.class, constructorArgs.get(conf).get(2));
-      PythonMainAppResource mainResource = (PythonMainAppResource) constructorArgs.get(conf).get(2);
+      assertInstanceOf(PythonMainAppResource.class, constructorArgs.get(conf).get(3));
+      PythonMainAppResource mainResource = (PythonMainAppResource) constructorArgs.get(conf).get(3);
       assertEquals("foo", mainResource.primaryResource());
     }
   }
@@ -146,13 +146,13 @@ class SparkAppSubmissionWorkerTest {
 
       SparkAppSubmissionWorker submissionWorker = new SparkAppSubmissionWorker();
       SparkAppDriverConf conf = submissionWorker.buildDriverConf(mockApp, Collections.emptyMap());
-      assertEquals(6, constructorArgs.get(conf).size());
+      assertEquals(7, constructorArgs.get(conf).size());
       assertEquals(
           "lib.py", ((SparkConf) constructorArgs.get(conf).get(0)).get("spark.submit.pyFiles"));
 
       // validate main resources
-      assertInstanceOf(PythonMainAppResource.class, constructorArgs.get(conf).get(2));
-      PythonMainAppResource mainResource = (PythonMainAppResource) constructorArgs.get(conf).get(2);
+      assertInstanceOf(PythonMainAppResource.class, constructorArgs.get(conf).get(3));
+      PythonMainAppResource mainResource = (PythonMainAppResource) constructorArgs.get(conf).get(3);
       assertEquals("main.py", mainResource.primaryResource());
     }
   }
@@ -173,11 +173,11 @@ class SparkAppSubmissionWorkerTest {
 
       SparkAppSubmissionWorker submissionWorker = new SparkAppSubmissionWorker();
       SparkAppDriverConf conf = submissionWorker.buildDriverConf(mockApp, Collections.emptyMap());
-      assertEquals(6, constructorArgs.get(conf).size());
+      assertEquals(7, constructorArgs.get(conf).size());
 
       // validate main resources
-      assertInstanceOf(RMainAppResource.class, constructorArgs.get(conf).get(2));
-      RMainAppResource mainResource = (RMainAppResource) constructorArgs.get(conf).get(2);
+      assertInstanceOf(RMainAppResource.class, constructorArgs.get(conf).get(3));
+      RMainAppResource mainResource = (RMainAppResource) constructorArgs.get(conf).get(3);
       assertEquals("foo", mainResource.primaryResource());
     }
   }

@@ -19,6 +19,8 @@
 
 package org.apache.spark.k8s.operator;
 
+import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_VERSION_NAME;
+
 import scala.Option;
 
 import org.apache.spark.SparkConf;
@@ -30,14 +32,18 @@ import org.apache.spark.deploy.k8s.submit.MainAppResource;
 
 /** Spark application driver configuration. */
 public final class SparkAppDriverConf extends KubernetesDriverConf {
+  private final String sparkVersion;
+
   private SparkAppDriverConf(
       SparkConf sparkConf,
+      String sparkVersion,
       String appId,
       MainAppResource mainAppResource,
       String mainClass,
       String[] appArgs,
       Option<String> proxyUser) {
     super(sparkConf, appId, mainAppResource, mainClass, appArgs, proxyUser, null);
+    this.sparkVersion = sparkVersion;
   }
 
   /**
@@ -53,6 +59,7 @@ public final class SparkAppDriverConf extends KubernetesDriverConf {
    */
   public static SparkAppDriverConf create(
       SparkConf sparkConf,
+      String sparkVersion,
       String appId,
       MainAppResource mainAppResource,
       String mainClass,
@@ -61,7 +68,8 @@ public final class SparkAppDriverConf extends KubernetesDriverConf {
     // pre-create check only
     KubernetesVolumeUtils.parseVolumesWithPrefix(
         sparkConf, Config.KUBERNETES_EXECUTOR_VOLUMES_PREFIX());
-    return new SparkAppDriverConf(sparkConf, appId, mainAppResource, mainClass, appArgs, proxyUser);
+    return new SparkAppDriverConf(
+        sparkConf, sparkVersion, appId, mainAppResource, mainClass, appArgs, proxyUser);
   }
 
   /**
@@ -72,6 +80,16 @@ public final class SparkAppDriverConf extends KubernetesDriverConf {
   @Override
   public String resourceNamePrefix() {
     return appId();
+  }
+
+  /**
+   * Returns the driver label key and value map.
+   *
+   * @return The label key-value pair map.
+   */
+  @Override
+  public scala.collection.immutable.Map<String, String> labels() {
+    return super.labels().updated(LABEL_SPARK_VERSION_NAME, sparkVersion);
   }
 
   /**

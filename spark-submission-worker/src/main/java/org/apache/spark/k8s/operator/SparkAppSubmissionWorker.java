@@ -41,6 +41,7 @@ import org.apache.spark.deploy.k8s.submit.RMainAppResource;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 import org.apache.spark.k8s.operator.spec.ConfigMapSpec;
 import org.apache.spark.k8s.operator.spec.DriverServiceIngressSpec;
+import org.apache.spark.k8s.operator.spec.RuntimeVersions;
 import org.apache.spark.k8s.operator.utils.ModelUtils;
 import org.apache.spark.k8s.operator.utils.StringUtils;
 
@@ -158,8 +159,11 @@ public class SparkAppSubmissionWorker {
         sparkMasterUrlPrefix + "https://$KUBERNETES_SERVICE_HOST:$KUBERNETES_SERVICE_PORT");
     String appId = generateSparkAppId(app);
     effectiveSparkConf.setIfMissing("spark.app.id", appId);
+    RuntimeVersions versions = applicationSpec.getRuntimeVersions();
+    String sparkVersion = (versions != null) ? versions.getSparkVersion() : "UNKNOWN";
     return SparkAppDriverConf.create(
         effectiveSparkConf,
+        sparkVersion,
         effectiveSparkConf.getAppId(),
         primaryResource,
         applicationSpec.getMainClass(),

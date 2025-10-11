@@ -33,6 +33,8 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.deploy.k8s.submit.JavaMainAppResource;
 
 class SparkAppDriverConfTest {
+  static final String VERSION = "dev";
+
   @Test
   void testResourceNamePrefix() {
     // Resource prefix shall be deterministic per SparkApp per attempt
@@ -42,7 +44,13 @@ class SparkAppDriverConfTest {
     String appId = UUID.randomUUID().toString();
     SparkAppDriverConf sparkAppDriverConf =
         SparkAppDriverConf.create(
-            sparkConf, appId, mock(JavaMainAppResource.class), "foo", null, Option.empty());
+            sparkConf,
+            VERSION,
+            appId,
+            mock(JavaMainAppResource.class),
+            "foo",
+            null,
+            Option.empty());
     String resourcePrefix = sparkAppDriverConf.resourceNamePrefix();
     assertEquals(
         resourcePrefix,
@@ -65,10 +73,34 @@ class SparkAppDriverConfTest {
     String appId = "a".repeat(1000);
     SparkAppDriverConf sparkAppDriverConf =
         SparkAppDriverConf.create(
-            sparkConf, appId, mock(JavaMainAppResource.class), "foo", null, Option.empty());
+            sparkConf,
+            VERSION,
+            appId,
+            mock(JavaMainAppResource.class),
+            "foo",
+            null,
+            Option.empty());
     String configMapNameDriver = sparkAppDriverConf.configMapNameDriver();
     assertTrue(
         configMapNameDriver.length() <= 253,
         "config map name length should always comply k8s DNS subdomain length");
+  }
+
+  @Test
+  void testLabels() {
+    SparkConf sparkConf = new SparkConf();
+    sparkConf.set("foo", "bar");
+    sparkConf.set("spark.executor.instances", "1");
+    String appId = "a".repeat(1000);
+    SparkAppDriverConf sparkAppDriverConf =
+        SparkAppDriverConf.create(
+            sparkConf,
+            VERSION,
+            appId,
+            mock(JavaMainAppResource.class),
+            "foo",
+            null,
+            Option.empty());
+    assertEquals(VERSION, sparkAppDriverConf.labels().get("spark-version").get());
   }
 }
