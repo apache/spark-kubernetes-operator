@@ -115,8 +115,7 @@ to [Prometheus](https://prometheus.io).
 
 ```properties
 metrics.properties:|+
-  spark.metrics.conf.operator.sink.prometheus.class=org.apache.spark.kubernetes.operator.metrics.
-sink.PrometheusPullModelSink
+  spark.metrics.conf.operator.sink.prometheus.class=org.apache.spark.k8s.operator.metrics.PrometheusPullModelHandler
 ```
 
 * Install Spark Operator
