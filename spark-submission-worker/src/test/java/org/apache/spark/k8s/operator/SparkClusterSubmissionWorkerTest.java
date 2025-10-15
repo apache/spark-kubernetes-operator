@@ -23,6 +23,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,7 +43,7 @@ class SparkClusterSubmissionWorkerTest {
   ClusterTolerations clusterTolerations = new ClusterTolerations();
   MasterSpec masterSpec;
   WorkerSpec workerSpec;
-  RuntimeVersions runtimeVersions = new RuntimeVersions();
+  RuntimeVersions runtimeVersions;
 
   @BeforeEach
   void setUp() {
@@ -50,6 +52,7 @@ class SparkClusterSubmissionWorkerTest {
     clusterSpec = mock(ClusterSpec.class);
     masterSpec = mock(MasterSpec.class);
     workerSpec = mock(WorkerSpec.class);
+    runtimeVersions = mock(RuntimeVersions.class);
     when(cluster.getMetadata()).thenReturn(objectMeta);
     when(cluster.getSpec()).thenReturn(clusterSpec);
     when(objectMeta.getNamespace()).thenReturn("my-namespace");
@@ -58,6 +61,10 @@ class SparkClusterSubmissionWorkerTest {
     when(clusterSpec.getMasterSpec()).thenReturn(masterSpec);
     when(clusterSpec.getWorkerSpec()).thenReturn(workerSpec);
     when(clusterSpec.getRuntimeVersions()).thenReturn(runtimeVersions);
+    when(runtimeVersions.getSparkVersion()).thenReturn("dev");
+    Map<String, String> sparkConf = new HashMap<>();
+    sparkConf.put("spark.kubernetes.container.image", "apache/spark:{{SPARK_VERSION}}");
+    when(clusterSpec.getSparkConf()).thenReturn(sparkConf);
   }
 
   @Test
@@ -69,5 +76,20 @@ class SparkClusterSubmissionWorkerTest {
     assertNotNull(spec.getMasterStatefulSet());
     assertNotNull(spec.getWorkerStatefulSet());
     assertNotNull(spec.getHorizontalPodAutoscaler());
+  }
+
+  @Test
+  void supportSparkVersionPlaceHolder() {
+    SparkClusterSubmissionWorker worker = new SparkClusterSubmissionWorker();
+    SparkClusterResourceSpec spec = worker.getResourceSpec(cluster, Collections.emptyMap());
+    assertEquals(
+        "apache/spark:dev",
+        spec.getMasterStatefulSet()
+            .getSpec()
+            .getTemplate()
+            .getSpec()
+            .getContainers()
+            .get(0)
+            .getImage());
   }
 }

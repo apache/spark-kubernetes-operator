@@ -22,6 +22,7 @@ package org.apache.spark.k8s.operator;
 import java.util.Map;
 
 import org.apache.spark.SparkConf;
+import org.apache.spark.k8s.operator.spec.RuntimeVersions;
 
 /** Worker for submitting Spark clusters. */
 public class SparkClusterSubmissionWorker {
@@ -34,12 +35,19 @@ public class SparkClusterSubmissionWorker {
    */
   public SparkClusterResourceSpec getResourceSpec(
       SparkCluster cluster, Map<String, String> confOverrides) {
+    RuntimeVersions versions = cluster.getSpec().getRuntimeVersions();
+    String sparkVersion = (versions != null) ? versions.getSparkVersion() : "UNKNOWN";
     SparkConf effectiveSparkConf = new SparkConf();
 
     Map<String, String> confFromSpec = cluster.getSpec().getSparkConf();
     if (!confFromSpec.isEmpty()) {
       for (Map.Entry<String, String> entry : confFromSpec.entrySet()) {
         effectiveSparkConf.set(entry.getKey(), entry.getValue());
+        String value = entry.getValue();
+        if ("spark.kubernetes.container.image".equals(entry.getKey())) {
+          value = value.replace("{{SPARK_VERSION}}", sparkVersion);
+        }
+        effectiveSparkConf.set(entry.getKey(), value);
       }
     }
 
