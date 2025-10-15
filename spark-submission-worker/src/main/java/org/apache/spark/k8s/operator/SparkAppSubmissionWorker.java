@@ -124,10 +124,16 @@ public class SparkAppSubmissionWorker {
   protected SparkAppDriverConf buildDriverConf(
       SparkApplication app, Map<String, String> confOverrides) {
     ApplicationSpec applicationSpec = app.getSpec();
+    RuntimeVersions versions = applicationSpec.getRuntimeVersions();
+    String sparkVersion = (versions != null) ? versions.getSparkVersion() : "UNKNOWN";
     SparkConf effectiveSparkConf = new SparkConf();
     if (!applicationSpec.getSparkConf().isEmpty()) {
       for (String confKey : applicationSpec.getSparkConf().keySet()) {
-        effectiveSparkConf.set(confKey, applicationSpec.getSparkConf().get(confKey));
+        String value = applicationSpec.getSparkConf().get(confKey);
+        if (confKey.startsWith("spark.kubernetes.") && confKey.endsWith("container.image")) {
+          value = value.replace("{{SPARK_VERSION}}", sparkVersion);
+        }
+        effectiveSparkConf.set(confKey, value);
       }
     }
     if (!confOverrides.isEmpty()) {
@@ -159,8 +165,6 @@ public class SparkAppSubmissionWorker {
         sparkMasterUrlPrefix + "https://$KUBERNETES_SERVICE_HOST:$KUBERNETES_SERVICE_PORT");
     String appId = generateSparkAppId(app);
     effectiveSparkConf.setIfMissing("spark.app.id", appId);
-    RuntimeVersions versions = applicationSpec.getRuntimeVersions();
-    String sparkVersion = (versions != null) ? versions.getSparkVersion() : "UNKNOWN";
     return SparkAppDriverConf.create(
         effectiveSparkConf,
         sparkVersion,

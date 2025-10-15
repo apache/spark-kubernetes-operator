@@ -44,6 +44,7 @@ import org.apache.spark.deploy.k8s.submit.JavaMainAppResource;
 import org.apache.spark.deploy.k8s.submit.PythonMainAppResource;
 import org.apache.spark.deploy.k8s.submit.RMainAppResource;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
+import org.apache.spark.k8s.operator.spec.RuntimeVersions;
 import org.apache.spark.k8s.operator.status.ApplicationAttemptSummary;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
 import org.apache.spark.k8s.operator.status.AttemptInfo;
@@ -260,6 +261,31 @@ class SparkAppSubmissionWorkerTest {
 
     SparkAppSubmissionWorker submissionWorker = new SparkAppSubmissionWorker();
     SparkAppDriverConf conf = submissionWorker.buildDriverConf(mockApp, Collections.emptyMap());
-    assertEquals(conf.appId(), "foo");
+    assertEquals("foo", conf.appId());
+  }
+
+  @Test
+  void supportSparkVersionPlaceHolder() {
+    SparkApplication mockApp = mock(SparkApplication.class);
+    ApplicationSpec mockSpec = mock(ApplicationSpec.class);
+    RuntimeVersions mockRuntimeVersions = mock(RuntimeVersions.class);
+    Map<String, String> appProps = new HashMap<>();
+    appProps.put("spark.kubernetes.container.image", "apache/spark:{{SPARK_VERSION}}");
+    appProps.put("spark.kubernetes.driver.container.image", "apache/spark:{{SPARK_VERSION}}");
+    appProps.put("spark.kubernetes.executor.container.image", "apache/spark:{{SPARK_VERSION}}");
+    appProps.put("spark.kubernetes.key", "apache/spark:{{SPARK_VERSION}}");
+    ObjectMeta appMeta = new ObjectMetaBuilder().withName("app1").withNamespace("ns1").build();
+    when(mockSpec.getSparkConf()).thenReturn(appProps);
+    when(mockApp.getSpec()).thenReturn(mockSpec);
+    when(mockApp.getMetadata()).thenReturn(appMeta);
+    when(mockSpec.getRuntimeVersions()).thenReturn(mockRuntimeVersions);
+    when(mockRuntimeVersions.getSparkVersion()).thenReturn("dev");
+
+    SparkAppSubmissionWorker submissionWorker = new SparkAppSubmissionWorker();
+    SparkAppDriverConf conf = submissionWorker.buildDriverConf(mockApp, Collections.emptyMap());
+    assertEquals("apache/spark:dev", conf.get("spark.kubernetes.container.image"));
+    assertEquals("apache/spark:dev", conf.get("spark.kubernetes.driver.container.image"));
+    assertEquals("apache/spark:dev", conf.get("spark.kubernetes.executor.container.image"));
+    assertEquals("apache/spark:{{SPARK_VERSION}}", conf.get("spark.kubernetes.key"));
   }
 }
