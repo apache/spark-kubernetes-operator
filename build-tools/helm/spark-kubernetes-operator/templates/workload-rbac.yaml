@@ -27,6 +27,12 @@ rules:
       - persistentvolumeclaims
     verbs:
       - '*'
+  - apiGroups:
+      - "apps"
+    resources:
+      - statefulsets
+    verbs:
+      - '*'
 {{- end }}
 
 {{/*
