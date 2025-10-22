@@ -61,6 +61,21 @@ public class SparkOperatorConfManager {
   }
 
   /**
+   * Returns all properties.
+   *
+   * @return a Properties instance contains all properties.
+   */
+  public Properties getAll() {
+    synchronized (this) {
+      Properties properties = new Properties();
+      properties.putAll(initialConfig);
+      properties.putAll(metricsConfig);
+      properties.putAll(configOverrides);
+      return properties;
+    }
+  }
+
+  /**
    * Returns the current value for a given configuration key, considering dynamic overrides.
    *
    * @param key The configuration key.
