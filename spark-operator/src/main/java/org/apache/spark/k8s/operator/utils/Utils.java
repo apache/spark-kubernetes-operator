@@ -31,7 +31,6 @@ import static org.apache.spark.k8s.operator.config.SparkOperatorConf.SPARK_APP_S
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.SPARK_CLUSTER_STATUS_LISTENER_CLASS_NAMES;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -62,10 +61,10 @@ public final class Utils {
    */
   public static Set<String> sanitizeCommaSeparatedStrAsSet(String str) {
     if (StringUtils.isBlank(str)) {
-      return Collections.emptySet();
+      return Set.of();
     }
     if ("*".equals(str)) {
-      return Collections.emptySet();
+      return Set.of();
     }
     return Arrays.stream(str.split(","))
         .map(String::trim)
@@ -240,15 +239,15 @@ public final class Utils {
     return resource -> {
       final var metadata = resource.getMetadata();
       if (metadata == null) {
-        return Collections.emptySet();
+        return Set.of();
       } else {
         final var map = metadata.getLabels();
         if (map == null) {
-          return Collections.emptySet();
+          return Set.of();
         }
         var name = map.get(nameKey);
         if (name == null) {
-          return Collections.emptySet();
+          return Set.of();
         }
         var namespace = resource.getMetadata().getNamespace();
         return Set.of(new ResourceID(name, namespace));

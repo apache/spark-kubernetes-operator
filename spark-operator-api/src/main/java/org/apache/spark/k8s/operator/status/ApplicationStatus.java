@@ -21,7 +21,6 @@ package org.apache.spark.k8s.operator.status;
 
 import static org.apache.spark.k8s.operator.Constants.EXCEED_MAX_RETRY_ATTEMPT_MESSAGE;
 
-import java.util.Collections;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -151,7 +150,7 @@ public class ApplicationStatus
               currentAttemptSummary.getAttemptInfo(), stateTransitionHistory);
       return new ApplicationStatus(
           state,
-          Collections.singletonMap(getCurrentStateId() + 1, state),
+          Map.of(getCurrentStateId() + 1, state),
           newPrevSummary,
           nextAttemptSummary);
     } else {

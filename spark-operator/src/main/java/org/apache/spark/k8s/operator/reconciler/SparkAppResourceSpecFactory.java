@@ -29,7 +29,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -172,10 +171,10 @@ public final class SparkAppResourceSpecFactory {
             createLocalFileForPodTemplateSpec(
                 app.getSpec().getDriverSpec().getPodTemplateSpec(),
                 app.getMetadata().getUid() + "-driver-");
-        return Collections.singletonMap(DRIVER_SPARK_TEMPLATE_FILE_PROP_KEY, filePath);
+        return Map.of(DRIVER_SPARK_TEMPLATE_FILE_PROP_KEY, filePath);
       }
     }
-    return Collections.emptyMap();
+    return Map.of();
   }
 
   /**
@@ -196,10 +195,10 @@ public final class SparkAppResourceSpecFactory {
             createLocalFileForPodTemplateSpec(
                 app.getSpec().getExecutorSpec().getPodTemplateSpec(),
                 app.getMetadata().getUid() + "-executor-");
-        return Collections.singletonMap(EXECUTOR_SPARK_TEMPLATE_FILE_PROP_KEY, filePath);
+        return Map.of(EXECUTOR_SPARK_TEMPLATE_FILE_PROP_KEY, filePath);
       }
     }
-    return Collections.emptyMap();
+    return Map.of();
   }
 
   /**

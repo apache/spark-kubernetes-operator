@@ -29,7 +29,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
-import java.util.Collections;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -84,7 +83,7 @@ class SparkOperatorTest {
       mockKubernetesClientFactory
           .when(() -> KubernetesClientFactory.buildKubernetesClient(any()))
           .thenReturn(mockClient);
-      mockUtils.when(Utils::getWatchedNamespaces).thenReturn(Collections.singleton("namespace-1"));
+      mockUtils.when(Utils::getWatchedNamespaces).thenReturn(Set.of("namespace-1"));
 
       SparkOperator sparkOperator = new SparkOperator();
       Assertions.assertEquals(1, sparkOperator.registeredSparkControllers.size());
@@ -182,7 +181,7 @@ class SparkOperatorTest {
       mockKubernetesClientFactory
           .when(() -> KubernetesClientFactory.buildKubernetesClient(any()))
           .thenReturn(mockClient);
-      mockUtils.when(Utils::getWatchedNamespaces).thenReturn(Collections.singleton("namespace-1"));
+      mockUtils.when(Utils::getWatchedNamespaces).thenReturn(Set.of("namespace-1"));
       SparkOperator sparkOperator = new SparkOperator();
       Set<String> updatedNamespaces = Set.of("namespace-1", "namespace-2");
       Assertions.assertTrue(sparkOperator.updateWatchingNamespaces(updatedNamespaces));
