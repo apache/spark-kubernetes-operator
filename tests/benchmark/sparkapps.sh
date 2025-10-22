@@ -40,10 +40,11 @@ spec:
   sparkConf:
     spark.driver.memory: "256m"
     spark.driver.memoryOverhead: "0m"
-    spark.kubernetes.driver.request.cores: "100m"
-    spark.kubernetes.driver.master: "local[1]"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
     spark.kubernetes.container.image: "apache/spark:4.0.1-java21-scala"
+    spark.kubernetes.driver.master: "local[1]"
+    spark.kubernetes.driver.pod.excludedFeatureSteps: "org.apache.spark.deploy.k8s.features.KerberosConfDriverFeatureStep"
+    spark.kubernetes.driver.request.cores: "100m"
   runtimeVersions:
     sparkVersion: "4.0.1"
 ---
