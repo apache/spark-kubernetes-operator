@@ -123,7 +123,7 @@ public final class SparkOperatorConf {
               "Timeout (in seconds) for requests made to API server. This "
                   + "applies only to foreground requests.")
           .typeParameterClass(Long.class)
-          .defaultValue(30L)
+          .defaultValue(60L)
           .build();
 
   /**
