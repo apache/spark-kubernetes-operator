@@ -29,7 +29,6 @@ import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -120,7 +119,7 @@ class SparkAppSubmissionWorkerTest {
       when(mockSpec.getPyFiles()).thenReturn("foo");
 
       SparkAppSubmissionWorker submissionWorker = new SparkAppSubmissionWorker();
-      SparkAppDriverConf conf = submissionWorker.buildDriverConf(mockApp, Collections.emptyMap());
+      SparkAppDriverConf conf = submissionWorker.buildDriverConf(mockApp, Map.of());
       assertEquals(7, constructorArgs.get(conf).size());
 
       // validate main resources
@@ -146,7 +145,7 @@ class SparkAppSubmissionWorkerTest {
       when(mockSpec.getPyFiles()).thenReturn("main.py,lib.py");
 
       SparkAppSubmissionWorker submissionWorker = new SparkAppSubmissionWorker();
-      SparkAppDriverConf conf = submissionWorker.buildDriverConf(mockApp, Collections.emptyMap());
+      SparkAppDriverConf conf = submissionWorker.buildDriverConf(mockApp, Map.of());
       assertEquals(7, constructorArgs.get(conf).size());
       assertEquals(
           "lib.py", ((SparkConf) constructorArgs.get(conf).get(0)).get("spark.submit.pyFiles"));
@@ -173,7 +172,7 @@ class SparkAppSubmissionWorkerTest {
       when(mockSpec.getSparkRFiles()).thenReturn("foo");
 
       SparkAppSubmissionWorker submissionWorker = new SparkAppSubmissionWorker();
-      SparkAppDriverConf conf = submissionWorker.buildDriverConf(mockApp, Collections.emptyMap());
+      SparkAppDriverConf conf = submissionWorker.buildDriverConf(mockApp, Map.of());
       assertEquals(7, constructorArgs.get(conf).size());
 
       // validate main resources
@@ -260,7 +259,7 @@ class SparkAppSubmissionWorkerTest {
     when(mockApp.getMetadata()).thenReturn(appMeta);
 
     SparkAppSubmissionWorker submissionWorker = new SparkAppSubmissionWorker();
-    SparkAppDriverConf conf = submissionWorker.buildDriverConf(mockApp, Collections.emptyMap());
+    SparkAppDriverConf conf = submissionWorker.buildDriverConf(mockApp, Map.of());
     assertEquals("foo", conf.appId());
   }
 
@@ -282,7 +281,7 @@ class SparkAppSubmissionWorkerTest {
     when(mockRuntimeVersions.getSparkVersion()).thenReturn("dev");
 
     SparkAppSubmissionWorker submissionWorker = new SparkAppSubmissionWorker();
-    SparkAppDriverConf conf = submissionWorker.buildDriverConf(mockApp, Collections.emptyMap());
+    SparkAppDriverConf conf = submissionWorker.buildDriverConf(mockApp, Map.of());
     assertEquals("apache/spark:dev", conf.get("spark.kubernetes.container.image"));
     assertEquals("apache/spark:dev", conf.get("spark.kubernetes.driver.container.image"));
     assertEquals("apache/spark:dev", conf.get("spark.kubernetes.executor.container.image"));

@@ -20,7 +20,7 @@
 package org.apache.spark.k8s.operator.config;
 
 import java.io.IOException;
-import java.util.Collections;
+import java.util.Map;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -58,11 +58,11 @@ class SparkOperatorConfManagerTest {
       Assertions.assertEquals("bar", confManager.getInitialValue("spark.kubernetes.operator.foo"));
       Assertions.assertEquals("bar", confManager.getValue("spark.kubernetes.operator.foo"));
 
-      confManager.refresh(Collections.singletonMap("spark.kubernetes.operator.foo", "barbar"));
+      confManager.refresh(Map.of("spark.kubernetes.operator.foo", "barbar"));
       Assertions.assertEquals("bar", confManager.getInitialValue("spark.kubernetes.operator.foo"));
       Assertions.assertEquals("barbar", confManager.getValue("spark.kubernetes.operator.foo"));
 
-      confManager.refresh(Collections.singletonMap("spark.kubernetes.operator.foo", "barbarbar"));
+      confManager.refresh(Map.of("spark.kubernetes.operator.foo", "barbarbar"));
       Assertions.assertEquals("bar", confManager.getInitialValue("spark.kubernetes.operator.foo"));
       Assertions.assertEquals("barbarbar", confManager.getValue("spark.kubernetes.operator.foo"));
 

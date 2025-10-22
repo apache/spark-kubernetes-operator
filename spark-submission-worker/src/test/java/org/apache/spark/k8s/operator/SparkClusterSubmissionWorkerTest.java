@@ -22,7 +22,6 @@ package org.apache.spark.k8s.operator;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -70,7 +69,7 @@ class SparkClusterSubmissionWorkerTest {
   @Test
   void testGetResourceSpec() {
     SparkClusterSubmissionWorker worker = new SparkClusterSubmissionWorker();
-    SparkClusterResourceSpec spec = worker.getResourceSpec(cluster, Collections.emptyMap());
+    SparkClusterResourceSpec spec = worker.getResourceSpec(cluster, Map.of());
     // SparkClusterResourceSpecTest will cover the detail information of easy resources
     assertNotNull(spec.getMasterService());
     assertNotNull(spec.getMasterStatefulSet());
@@ -81,7 +80,7 @@ class SparkClusterSubmissionWorkerTest {
   @Test
   void supportSparkVersionPlaceHolder() {
     SparkClusterSubmissionWorker worker = new SparkClusterSubmissionWorker();
-    SparkClusterResourceSpec spec = worker.getResourceSpec(cluster, Collections.emptyMap());
+    SparkClusterResourceSpec spec = worker.getResourceSpec(cluster, Map.of());
     assertEquals(
         "apache/spark:dev",
         spec.getMasterStatefulSet()

@@ -28,7 +28,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mockStatic;
 
 import java.time.Duration;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -73,7 +72,7 @@ class SentinelManagerTest {
   @BeforeAll
   static void beforeAll() {
     Map<String, String> overrideValue =
-        Collections.singletonMap(
+        Map.of(
             SparkOperatorConf.SENTINEL_RESOURCE_RECONCILIATION_DELAY.getKey(),
             Duration.ofSeconds(SENTINEL_RESOURCE_RECONCILIATION_DELAY_SECONDS).toString());
     SparkOperatorConfManager.INSTANCE.refresh(overrideValue);
@@ -99,7 +98,7 @@ class SentinelManagerTest {
   void testHandleSentinelResourceReconciliation() throws InterruptedException {
     // Reduce the SENTINEL_RESOURCE_RECONCILIATION_DELAY time to 0
     SparkOperatorConfManager.INSTANCE.refresh(
-        Collections.singletonMap(
+        Map.of(
             SparkOperatorConf.SENTINEL_RESOURCE_RECONCILIATION_DELAY.getKey(), "10"));
 
     // Before Spark Reconciler Started
