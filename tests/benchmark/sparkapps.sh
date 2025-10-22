@@ -29,7 +29,7 @@ filename=$(mktemp)
 
 for i in $(seq -f "%05g" 1 $NUM); do
   cat << EOF >> $filename
-apiVersion: spark.apache.org/v1beta1
+apiVersion: spark.apache.org/v1
 kind: SparkApplication
 metadata:
   name: test-${i}
