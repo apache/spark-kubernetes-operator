@@ -32,6 +32,13 @@ import org.apache.spark.k8s.operator.utils.Utils;
 /** Spark Operator Configuration options. */
 @Slf4j
 public final class SparkOperatorConf {
+  public static final ConfigOption<Boolean> LOG_CONF =
+      ConfigOption.<Boolean>builder()
+          .key("spark.logConf")
+          .description("When enabled, operator will print configurations")
+          .typeParameterClass(Boolean.class)
+          .defaultValue(false)
+          .build();
 
   /** Name of the operator. */
   public static final ConfigOption<String> OPERATOR_APP_NAME =
