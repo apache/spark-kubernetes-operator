@@ -74,4 +74,41 @@ class SparkOperatorConfManagerTest {
       }
     }
   }
+
+  @Test
+  void testGetAll() {
+    String propBackUp = System.getProperty("spark.kubernetes.operator.foo");
+    System.setProperty("spark.kubernetes.operator.foo", "bar");
+    try {
+      SparkOperatorConfManager confManager = new SparkOperatorConfManager();
+
+      // Check initial configurations.
+      int initialSize = confManager.getAll().size();
+      Assertions.assertEquals(initialSize, confManager.initialConfig.size());
+      Assertions.assertEquals(0, confManager.configOverrides.size());
+      Assertions.assertEquals(0, confManager.metricsConfig.size());
+      Assertions.assertEquals(initialSize, confManager.getAll().size());
+
+      // Override existing config
+      confManager.refresh(Map.of("spark.kubernetes.operator.foo", "barbar"));
+      Assertions.assertEquals(initialSize, confManager.initialConfig.size());
+      Assertions.assertEquals(1, confManager.configOverrides.size());
+      Assertions.assertEquals(0, confManager.metricsConfig.size());
+      Assertions.assertEquals(initialSize, confManager.getAll().size());
+
+      // Override new configs and metrics
+      confManager.refresh(Map.of("k1", "v1", "k2", "v2"));
+      confManager.metricsConfig.put("m", "v");
+      Assertions.assertEquals(initialSize, confManager.initialConfig.size());
+      Assertions.assertEquals(2, confManager.configOverrides.size());
+      Assertions.assertEquals(1, confManager.metricsConfig.size());
+      Assertions.assertEquals(initialSize + 3, confManager.getAll().size());
+    } finally {
+      if (StringUtils.isNotEmpty(propBackUp)) {
+        System.setProperty("spark.kubernetes.operator.foo", propBackUp);
+      } else {
+        System.clearProperty("spark.kubernetes.operator.foo");
+      }
+    }
+  }
 }
