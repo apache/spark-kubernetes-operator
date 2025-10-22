@@ -42,6 +42,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import org.apache.spark.k8s.operator.client.KubernetesClientFactory;
 import org.apache.spark.k8s.operator.config.SparkOperatorConf;
+import org.apache.spark.k8s.operator.config.SparkOperatorConfManager;
 import org.apache.spark.k8s.operator.config.SparkOperatorConfigMapReconciler;
 import org.apache.spark.k8s.operator.metrics.MetricsService;
 import org.apache.spark.k8s.operator.metrics.MetricsSystem;
@@ -96,6 +97,11 @@ public class SparkOperator {
     this.sparkClusterSentinelManager = new SentinelManager<>();
     this.registeredOperators = new ArrayList<>();
     this.registeredOperators.add(registerSparkOperator());
+    if (SparkOperatorConf.LOG_CONF.getValue()) {
+      for (var entry : SparkOperatorConfManager.INSTANCE.getAll().entrySet()) {
+        log.info("{} = {}", entry.getKey(), entry.getValue());
+      }
+    }
     if (SparkOperatorConf.DYNAMIC_CONFIG_ENABLED.getValue()) {
       this.registeredOperators.add(registerSparkOperatorConfMonitor());
     }
