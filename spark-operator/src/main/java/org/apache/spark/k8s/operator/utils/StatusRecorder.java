@@ -96,14 +96,14 @@ public class StatusRecorder<
     Exception err = null;
     long maxRetry = API_STATUS_PATCH_MAX_ATTEMPTS.getValue();
     for (long i = 0; i < maxRetry; i++) {
-      // We retry the status update 3 times to avoid some intermittent connectivity errors
+      // We retry the status update maxRetry times to avoid some intermittent connectivity errors
       try {
         CR updated = client.resource(resource).lockResourceVersion().updateStatus();
         resource.getMetadata().setResourceVersion(updated.getMetadata().getResourceVersion());
         err = null;
         break;
       } catch (KubernetesClientException e) {
-        log.warn("Error while patching status, retrying {}/{}...", i + 1, maxRetry, e);
+        log.debug("Error while patching status, retrying {}/{}...", i + 1, maxRetry, e);
         Thread.sleep(TimeUnit.SECONDS.toMillis(API_RETRY_ATTEMPT_AFTER_SECONDS.getValue()));
         err = e;
       }
