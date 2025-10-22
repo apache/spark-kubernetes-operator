@@ -19,7 +19,7 @@
 
 # 1. Clear the existing CRDs before staring the benchmark
 echo "CLEAN UP NAMESPACE FOR BENCHMARK"
-kubectl get sparkapplications.spark.apache.org -o name | xargs kubectl delete
+kubectl delete sparkapplications.spark.apache.org --all
 
 NUM="${1:-1000}"
 echo "START BENCHMARK WITH $NUM JOBS"
@@ -62,7 +62,7 @@ echo "FINISHED $NUM JOBS IN $completionTime SECONDS."
 
 # 3. Deletion Benchmark
 start=`date +%s`
-kubectl get sparkapplications.spark.apache.org -o name | xargs kubectl delete > /dev/null
+kubectl delete sparkapplications.spark.apache.org --all > /dev/null
 end=`date +%s`
 deletionTime=$((end - start))
 echo "DELETED $NUM JOBS IN $deletionTime SECONDS."
