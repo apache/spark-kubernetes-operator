@@ -21,6 +21,10 @@ package org.apache.spark.k8s.operator.status;
 
 import static org.apache.spark.k8s.operator.Constants.EXCEED_MAX_RETRY_ATTEMPT_MESSAGE;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -115,7 +119,18 @@ public class ApplicationStatus
           currentAttemptSummary);
     }
 
-    if (currentAttemptSummary.getAttemptInfo().getId() >= restartConfig.getMaxRestartAttempts()) {
+    boolean resetRestartCounter = false;
+    if (restartConfig.getRestartCounterResetMillis() >= 0L) {
+      resetRestartCounter =
+          calculateCurrentAttemptDuration()
+                  .compareTo(Duration.ofMillis(restartConfig.getRestartCounterResetMillis()))
+              >= 0;
+    }
+
+    long effectiveAttemptId =
+        resetRestartCounter ? 0L : currentAttemptSummary.getAttemptInfo().getRestartCounter();
+
+    if (effectiveAttemptId >= restartConfig.getMaxRestartAttempts()) {
       String stateMessage =
           String.format(EXCEED_MAX_RETRY_ATTEMPT_MESSAGE, restartConfig.getMaxRestartAttempts());
       if (stateMessageOverride != null && !stateMessageOverride.isEmpty()) {
@@ -138,7 +153,9 @@ public class ApplicationStatus
           currentAttemptSummary);
     }
 
-    AttemptInfo nextAttemptInfo = currentAttemptSummary.getAttemptInfo().createNextAttemptInfo();
+    AttemptInfo nextAttemptInfo =
+        currentAttemptSummary.getAttemptInfo().createNextAttemptInfo(resetRestartCounter);
+
     ApplicationAttemptSummary nextAttemptSummary = new ApplicationAttemptSummary(nextAttemptInfo);
     ApplicationState state =
         new ApplicationState(ApplicationStateSummary.ScheduledToRestart, stateMessageOverride);
@@ -161,6 +178,44 @@ public class ApplicationStatus
           currentAttemptSummary,
           nextAttemptSummary);
     }
+  }
+
+  /**
+   * Finds the first state of the current application attempt.
+   *
+   * <p>This method traverses the state transition history in reverse order to find the most recent
+   * initializing state (e.g., Submitted or ScheduledToRestart), which marks the beginning of the
+   * current attempt. If no initializing state is found, it returns the first entry in the history.
+   *
+   * @return The ApplicationState representing the start of the current attempt.
+   */
+  protected ApplicationState findFirstStateOfCurrentAttempt() {
+    List<Map.Entry<Long, ApplicationState>> entries =
+        new ArrayList<>(stateTransitionHistory.entrySet());
+    for (int k = entries.size() - 1; k >= 0; k--) {
+      Map.Entry<Long, ApplicationState> entry = entries.get(k);
+      if (entry.getValue().getCurrentStateSummary().isInitializing()) {
+        return entry.getValue();
+      }
+    }
+    return entries.get(0).getValue();
+  }
+
+  /**
+   * Calculates the duration of the current application attempt.
+   *
+   * <p>The duration is calculated as the time between the first state of the current attempt (as
+   * determined by {@link #findFirstStateOfCurrentAttempt()}) and the current state's last
+   * transition time. This is particularly useful for determining whether the restart counter should
+   * be reset based on the configured {@code restartCounterResetMillis}.
+   *
+   * @return A Duration representing the time elapsed since the start of the current attempt.
+   */
+  protected Duration calculateCurrentAttemptDuration() {
+    ApplicationState firstStateOfCurrentAttempt = findFirstStateOfCurrentAttempt();
+    return Duration.between(
+        Instant.parse(firstStateOfCurrentAttempt.getLastTransitionTime()),
+        Instant.parse(currentState.getLastTransitionTime()));
   }
 
   /**

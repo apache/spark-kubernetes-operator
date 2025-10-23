@@ -21,6 +21,7 @@ package org.apache.spark.k8s.operator.spec;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import io.fabric8.generator.annotation.Default;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -37,4 +38,8 @@ public class RestartConfig {
   @Builder.Default protected RestartPolicy restartPolicy = RestartPolicy.Never;
   @Builder.Default protected Long maxRestartAttempts = 3L;
   @Builder.Default protected Long restartBackoffMillis = 30000L;
+
+  @Default("-1")
+  @Builder.Default
+  protected Long restartCounterResetMillis = -1L;
 }
