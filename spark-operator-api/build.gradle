@@ -89,8 +89,31 @@ tasks.register("assertGeneratedCRDMatchesHelmChart") {
         "${stagedCRDFileBase}sparkclusters.spark.apache.org-v1.yaml"
     ].execute().text.trim()
     if (generatedAppCRD != stagedAppCRD || generatedClusterCRD != stagedClusterCRD) {
-      throw new GradleException("Generated CRD yaml does not match the staged version in " +
-          "Helm Chart, please keep the chart updated.")
+      def errorMessage = new StringBuilder("Generated CRD yaml does not match the staged " +
+          "version in Helm Chart, please keep the chart updated.\n\n")
+
+      if (generatedAppCRD != stagedAppCRD) {
+        errorMessage.append("=== SparkApplication CRD Differences ===\n")
+        def appDiff = ["bash", "-c",
+          "diff -u <(echo '${generatedAppCRD.replace("'", "'\\''")}' " +
+              "| yq -P 'sort_keys(..)') <(echo '${stagedAppCRD.replace("'", "'\\''")}' " +
+              "| yq -P 'sort_keys(..)')"]
+          .execute().text
+        errorMessage.append(appDiff ?: "Unable to generate diff\n")
+        errorMessage.append("\n")
+      }
+
+      if (generatedClusterCRD != stagedClusterCRD) {
+        errorMessage.append("=== SparkCluster CRD Differences ===\n")
+        def clusterDiff = ["bash", "-c",
+          "diff -u <(echo '${generatedClusterCRD.replace("'", "'\\''")}' " +
+              "| yq -P 'sort_keys(..)') <(echo '${stagedClusterCRD.replace("'", "'\\''")}' " +
+              "| yq -P 'sort_keys(..)')"]
+          .execute().text
+        errorMessage.append(clusterDiff ?: "Unable to generate diff\n")
+      }
+
+      throw new GradleException(errorMessage.toString())
     }
   }
 }

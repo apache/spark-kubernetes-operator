@@ -21802,6 +21802,8 @@ spec:
                       properties:
                         id:
                           type: integer
+                        restartCounter:
+                          type: integer
                       type: object
                     stateTransitionHistory:
                       additionalProperties:
@@ -21841,6 +21843,8 @@ spec:
                     attemptInfo:
                       properties:
                         id:
+                          type: integer
+                        restartCounter:
                           type: integer
                       type: object
                     stateTransitionHistory:

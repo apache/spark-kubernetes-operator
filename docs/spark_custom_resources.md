@@ -234,6 +234,31 @@ restartConfig:
   restartBackoffMillis: 30000
 ```
 
+### Restart Counter reset
+
+The restartCounterResetMillis field controls automatic restart counter resets for long-running
+application attempts. When set to a non-negative value (in milliseconds), the operator will reset
+the restart counter if an application attempt runs successfully for at least the specified duration
+before failing. This feature enables user to allow maximal x attempts if an app fails really
+fast (which could indicate some underlying issue other than the app itself) while allowing
+indefinite restarts when the app can survive given threshold.
+
+For example, setting
+
+```yaml
+
+restartConfig:
+  ## 1hr
+  restartCounterResetMillis: 3600000
+  maxRestartAttempts: 3
+
+```
+
+means the application can fail and restart up to 3 times, but if any attempt runs for more than
+1 hour, the counter resets to zero, allowing another 3 restart attempts.
+
+The default value is -1, which disables automatic counter resets.
+
 ### Timeouts
 
 It's possible to configure applications to be proactively terminated and resubmitted in particular
