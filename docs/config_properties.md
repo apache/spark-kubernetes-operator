@@ -2,6 +2,7 @@
 # Spark Operator Config Properties
  | Key | Type | Default Value | Allow Hot Reloading | Description | 
  | --- | --- | --- | --- | --- | 
+ | spark.logConf | Boolean | false | true | When enabled, operator will print configurations | 
  | spark.kubernetes.operator.name | String | spark-kubernetes-operator | false | Name of the operator. | 
  | spark.kubernetes.operator.namespace | String | default | false | Namespace that operator is deployed within. | 
  | spark.kubernetes.operator.watchedNamespaces | String | default | true | Comma-separated list of namespaces that the operator would be watching for Spark resources. If set to '*', operator would watch all namespaces. | 
