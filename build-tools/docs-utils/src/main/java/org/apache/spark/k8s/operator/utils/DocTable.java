@@ -22,6 +22,7 @@ package org.apache.spark.k8s.operator.utils;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 import lombok.Builder;
@@ -43,6 +44,10 @@ public class DocTable {
 
   public void addRow(List<String> row) {
     rows.add(row);
+  }
+
+  public void sort() {
+    rows.sort(Comparator.comparing(list -> list.get(0)));
   }
 
   public void flush(PrintWriter writer) {

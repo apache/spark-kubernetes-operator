@@ -68,6 +68,7 @@ public class ConfOptionDocGenerator {
                 conf.getDescription()));
       }
     }
+    table.sort();
     table.flush(printWriter);
     printWriter.close();
   }
