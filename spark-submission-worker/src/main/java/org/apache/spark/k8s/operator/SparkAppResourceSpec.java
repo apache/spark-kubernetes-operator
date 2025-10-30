@@ -19,15 +19,10 @@
 
 package org.apache.spark.k8s.operator;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.stream.Collectors;
+import static scala.jdk.javaapi.CollectionConverters.asJava;
 
-import scala.Tuple2;
-import scala.collection.immutable.HashMap;
-import scala.collection.immutable.Map;
-import scala.jdk.CollectionConverters;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerBuilder;
@@ -79,12 +74,13 @@ public class SparkAppResourceSpec {
       List<ConfigMapSpec> configMapSpecs) {
     this.kubernetesDriverConf = kubernetesDriverConf;
     String namespace = kubernetesDriverConf.sparkConf().get(Config.KUBERNETES_NAMESPACE().key());
-    Map<String, String> confFilesMap =
-        KubernetesClientUtils.buildSparkConfDirFilesMap(
+    Map<String, String> originalConfFilesMap =
+        KubernetesClientUtils.buildSparkConfDirFilesMapJava(
                 kubernetesDriverConf.configMapNameDriver(),
                 kubernetesDriverConf.sparkConf(),
-                kubernetesDriverSpec.systemProperties())
-            .$plus(new Tuple2<>(Config.KUBERNETES_NAMESPACE().key(), namespace));
+                asJava(kubernetesDriverSpec.systemProperties()));
+    Map<String, String> confFilesMap = new HashMap<>(originalConfFilesMap);
+    confFilesMap.put(Config.KUBERNETES_NAMESPACE().key(), namespace);
     SparkPod sparkPod = addConfigMap(kubernetesDriverSpec.pod(), confFilesMap);
     this.configuredPod =
         new PodBuilder(sparkPod.pod())
@@ -93,16 +89,12 @@ public class SparkAppResourceSpec {
             .endSpec()
             .build();
     this.driverPreResources =
-        new ArrayList<>(
-            CollectionConverters.SeqHasAsJava(kubernetesDriverSpec.driverPreKubernetesResources())
-                .asJava());
+        new ArrayList<>(asJava(kubernetesDriverSpec.driverPreKubernetesResources()));
     this.driverResources =
-        new ArrayList<>(
-            CollectionConverters.SeqHasAsJava(kubernetesDriverSpec.driverKubernetesResources())
-                .asJava());
+        new ArrayList<>(asJava(kubernetesDriverSpec.driverKubernetesResources()));
     this.driverResources.add(
-        KubernetesClientUtils.buildConfigMap(
-            kubernetesDriverConf.configMapNameDriver(), confFilesMap, new HashMap<>()));
+        KubernetesClientUtils.buildConfigMapJava(
+            kubernetesDriverConf.configMapNameDriver(), confFilesMap, Map.of()));
     this.driverPreResources.addAll(ConfigMapSpecUtils.buildConfigMaps(configMapSpecs));
     this.driverResources.addAll(configureDriverServerIngress(sparkPod, driverServiceIngressList));
     this.driverPreResources.forEach(r -> setNamespaceIfMissing(r, namespace));
@@ -147,10 +139,7 @@ public class SparkAppResourceSpec {
             .addNewVolume()
             .withName(Constants.SPARK_CONF_VOLUME_DRIVER())
             .withNewConfigMap()
-            .withItems(
-                CollectionConverters.SeqHasAsJava(
-                        KubernetesClientUtils.buildKeyToPathObjects(confFilesMap))
-                    .asJava())
+            .withItems(KubernetesClientUtils.buildKeyToPathObjectsJava(confFilesMap))
             .withName(kubernetesDriverConf.configMapNameDriver())
             .endConfigMap()
             .endVolume()
