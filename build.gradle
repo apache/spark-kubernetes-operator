@@ -61,6 +61,10 @@ subprojects {
     options.compilerArgs.add("-proc:full")
   }
 
+  tasks.withType(JavaExec).configureEach {
+    jvmArgs '--sun-misc-unsafe-memory-access=allow'
+  }
+
   repositories {
     // Google Mirror of Maven Central, placed first so that it's used instead of flaky Maven Central.
     // See https://storage-download.googleapis.com/maven-central/index.html
