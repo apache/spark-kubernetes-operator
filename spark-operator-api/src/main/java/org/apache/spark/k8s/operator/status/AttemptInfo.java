@@ -26,6 +26,7 @@ import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import lombok.ToString;
 
 /** Information about an attempt. */
@@ -38,13 +39,14 @@ import lombok.ToString;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class AttemptInfo {
   @Getter @Builder.Default protected final long id = 0L;
+  @Getter @Setter protected long restartCounter;
 
   /**
    * Creates a new AttemptInfo object representing the next attempt.
    *
    * @return A new AttemptInfo with an incremented ID.
    */
-  public AttemptInfo createNextAttemptInfo() {
-    return new AttemptInfo(id + 1L);
+  public AttemptInfo createNextAttemptInfo(boolean resetRestartCounter) {
+    return new AttemptInfo(id + 1L, resetRestartCounter ? 1L : restartCounter + 1);
   }
 }

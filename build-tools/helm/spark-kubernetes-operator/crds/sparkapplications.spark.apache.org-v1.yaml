@@ -17426,6 +17426,9 @@ spec:
                           type: integer
                         restartBackoffMillis:
                           type: integer
+                        restartCounterResetMillis:
+                          default: -1
+                          type: integer
                         restartPolicy:
                           enum:
                             - Always
@@ -23735,6 +23738,8 @@ spec:
                       properties:
                         id:
                           type: integer
+                        restartCounter:
+                          type: integer
                       type: object
                     stateTransitionHistory:
                       additionalProperties:
@@ -24894,6 +24899,8 @@ spec:
                     attemptInfo:
                       properties:
                         id:
+                          type: integer
+                        restartCounter:
                           type: integer
                       type: object
                     stateTransitionHistory:
