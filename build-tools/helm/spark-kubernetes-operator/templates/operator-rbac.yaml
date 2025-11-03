@@ -52,6 +52,14 @@ rules:
       - ingresses
     verbs:
       - '*'
+{{- if gt (int .Values.operatorDeployment.replicas) 1 }}
+  - apiGroups:
+      - "coordination.k8s.io"
+    resources:
+      - leases
+    verbs:
+      - '*'
+{{- end }}
 {{- end }}
 
 {{/*
