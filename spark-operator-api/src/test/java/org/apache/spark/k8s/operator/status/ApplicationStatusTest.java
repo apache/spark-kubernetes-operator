@@ -25,6 +25,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Map;
+import java.util.TreeMap;
+
 import org.junit.jupiter.api.Test;
 
 import org.apache.spark.k8s.operator.spec.ResourceRetainPolicy;
@@ -169,5 +174,223 @@ class ApplicationStatusTest {
         maxRestartExceededRetainResource.getCurrentState().getMessage().contains(messageOverride));
     assertEquals(
         1L, maxRestartExceededRetainResource.getCurrentAttemptSummary().getAttemptInfo().getId());
+  }
+
+  @Test
+  void testTerminateOrRestartWithRestartCounterReset() throws Exception {
+    RestartConfig restartConfigWithCounter = new RestartConfig();
+    restartConfigWithCounter.setRestartPolicy(RestartPolicy.Always);
+    restartConfigWithCounter.setMaxRestartAttempts(1L);
+    restartConfigWithCounter.setRestartCounterResetMillis(300000L); // 5 minutes
+    String messageOverride = "restart counter test";
+
+    // Create a status with states spanning more than 5 minutes
+    Instant now = Instant.now();
+    Instant tenMinutesAgo = now.minus(Duration.ofMinutes(10));
+
+    ApplicationStatus status = createInitialStatusWithSubmittedTime(tenMinutesAgo);
+
+    status =
+        status
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverReady, ""))
+            .appendNewState(new ApplicationState(ApplicationStateSummary.RunningHealthy, ""))
+            .appendNewState(new ApplicationState(Succeeded, ""));
+
+    // Test restart with counter reset (duration > restartCounterResetMillis)
+    ApplicationStatus restartWithReset =
+        status.terminateOrRestart(
+            restartConfigWithCounter, ResourceRetainPolicy.Never, messageOverride, false);
+
+    assertEquals(
+        ApplicationStateSummary.ScheduledToRestart,
+        restartWithReset.getCurrentState().getCurrentStateSummary());
+    assertTrue(restartWithReset.getCurrentState().getMessage().contains(messageOverride));
+    // Counter should be reset in current attempt therefore it's 1 in the new attempt, next attempt
+    // ID is also 1
+    assertEquals(1L, restartWithReset.getCurrentAttemptSummary().getAttemptInfo().getId());
+    assertEquals(
+        1L, restartWithReset.getCurrentAttemptSummary().getAttemptInfo().getRestartCounter());
+
+    // Test reset restart counter with previous attempt in history
+    Instant tenMinutesLater = now.plus(Duration.ofMinutes(10));
+    ApplicationState secondAttemptStoppingState = new ApplicationState(Succeeded, "");
+    secondAttemptStoppingState.setLastTransitionTime(tenMinutesLater.toString());
+    status =
+        restartWithReset
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverReady, ""))
+            .appendNewState(new ApplicationState(ApplicationStateSummary.RunningHealthy, ""))
+            .appendNewState(secondAttemptStoppingState);
+
+    ApplicationStatus secondAttemptRestart =
+        status.terminateOrRestart(
+            restartConfigWithCounter, ResourceRetainPolicy.Never, messageOverride, false);
+    assertEquals(
+        ApplicationStateSummary.ScheduledToRestart,
+        secondAttemptRestart.getCurrentState().getCurrentStateSummary());
+    // Counter should be reset in current attempt therefore it's again 1 in the new attempt, next
+    // attempt ID is incremented to 2
+    assertEquals(2L, secondAttemptRestart.getCurrentAttemptSummary().getAttemptInfo().getId());
+    assertEquals(
+        1L, secondAttemptRestart.getCurrentAttemptSummary().getAttemptInfo().getRestartCounter());
+
+    // validate status with history trimmed
+    ApplicationStatus secondAttemptRestartTrimmed =
+        status.terminateOrRestart(
+            restartConfigWithCounter, ResourceRetainPolicy.Never, messageOverride, true);
+    assertEquals(
+        ApplicationStateSummary.ScheduledToRestart,
+        secondAttemptRestartTrimmed.getCurrentState().getCurrentStateSummary());
+    assertTrue(
+        secondAttemptRestartTrimmed.getCurrentState().getMessage().contains(messageOverride));
+    assertEquals(
+        2L, secondAttemptRestartTrimmed.getCurrentAttemptSummary().getAttemptInfo().getId());
+    assertEquals(
+        1L,
+        secondAttemptRestartTrimmed
+            .getCurrentAttemptSummary()
+            .getAttemptInfo()
+            .getRestartCounter());
+
+    // Test restart without counter reset (duration < restartCounterResetMillis)
+    Instant twoMinutesLater = now.plus(Duration.ofMinutes(2));
+    ApplicationState thirdAttemptEnd = new ApplicationState(Succeeded, "recent");
+    thirdAttemptEnd.setLastTransitionTime(twoMinutesLater.toString());
+
+    status =
+        secondAttemptRestart
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
+            .appendNewState(thirdAttemptEnd);
+    ApplicationStatus thirdAttemptTerminate =
+        status.terminateOrRestart(
+            restartConfigWithCounter, ResourceRetainPolicy.Never, messageOverride, false);
+    assertEquals(
+        ApplicationStateSummary.ResourceReleased,
+        thirdAttemptTerminate.getCurrentState().getCurrentStateSummary());
+    // Counter should not be reset in current attempt
+    assertEquals(2L, thirdAttemptTerminate.getCurrentAttemptSummary().getAttemptInfo().getId());
+    assertEquals(
+        1L, thirdAttemptTerminate.getCurrentAttemptSummary().getAttemptInfo().getRestartCounter());
+
+    // Test restart without counter reset in a trimmed status
+    status =
+        secondAttemptRestartTrimmed
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
+            .appendNewState(thirdAttemptEnd);
+    ApplicationStatus thirdAttemptTerminateTrimmed =
+        status.terminateOrRestart(
+            restartConfigWithCounter, ResourceRetainPolicy.Never, messageOverride, true);
+    assertEquals(
+        ApplicationStateSummary.ResourceReleased,
+        thirdAttemptTerminateTrimmed.getCurrentState().getCurrentStateSummary());
+    assertTrue(restartWithReset.getCurrentState().getMessage().contains(messageOverride));
+    // Counter should not be reset in current attempt
+    assertEquals(
+        2L, thirdAttemptTerminateTrimmed.getCurrentAttemptSummary().getAttemptInfo().getId());
+    assertEquals(
+        1L,
+        thirdAttemptTerminateTrimmed
+            .getCurrentAttemptSummary()
+            .getAttemptInfo()
+            .getRestartCounter());
+  }
+
+  @Test
+  void testFindFirstStateOfCurrentAttempt() throws Exception {
+    // Test with single state (Submitted)
+    ApplicationStatus status = new ApplicationStatus();
+    ApplicationState firstState = status.findFirstStateOfCurrentAttempt();
+    assertEquals(Submitted, firstState.getCurrentStateSummary());
+
+    // Test with multiple states including initializing state
+    ApplicationStatus statusWithRestart =
+        new ApplicationStatus()
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
+            .appendNewState(new ApplicationState(ApplicationStateSummary.RunningHealthy, ""))
+            .appendNewState(new ApplicationState(ApplicationStateSummary.Failed, ""))
+            .appendNewState(new ApplicationState(ApplicationStateSummary.ScheduledToRestart, ""));
+
+    ApplicationState firstStateAfterRestart = statusWithRestart.findFirstStateOfCurrentAttempt();
+    assertEquals(
+        ApplicationStateSummary.ScheduledToRestart,
+        firstStateAfterRestart.getCurrentStateSummary());
+
+    // Test with states but no initializing state (should return first entry)
+    Map<Long, ApplicationState> history = new TreeMap<>();
+    history.put(0L, new ApplicationState(ApplicationStateSummary.DriverRequested, ""));
+    history.put(1L, new ApplicationState(ApplicationStateSummary.RunningHealthy, ""));
+    history.put(2L, new ApplicationState(Succeeded, ""));
+    ApplicationStatus statusNoInitializing =
+        new ApplicationStatus(
+            new ApplicationState(Succeeded, ""),
+            history,
+            new ApplicationAttemptSummary(),
+            new ApplicationAttemptSummary());
+
+    ApplicationState firstStateNoInit = statusNoInitializing.findFirstStateOfCurrentAttempt();
+    assertEquals(
+        ApplicationStateSummary.DriverRequested, firstStateNoInit.getCurrentStateSummary());
+  }
+
+  @Test
+  void testCalculateCurrentAttemptDuration() throws Exception {
+    // Test with barely empty status
+    ApplicationStatus status = new ApplicationStatus();
+    Duration duration = status.calculateCurrentAttemptDuration();
+    assertNotNull(duration);
+    assertTrue(duration.toMillis() >= 0);
+
+    // Test with multiple states
+    ApplicationStatus statusWithStates =
+        new ApplicationStatus()
+            .appendNewState(new ApplicationState(Submitted, ""))
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
+            .appendNewState(new ApplicationState(ApplicationStateSummary.RunningHealthy, ""));
+
+    Duration durationMultipleStates = statusWithStates.calculateCurrentAttemptDuration();
+    assertNotNull(durationMultipleStates);
+    assertTrue(durationMultipleStates.toMillis() >= 0);
+
+    // Test with restart scenario - duration should be calculated from ScheduledToRestart state
+    // Create states with explicit timestamps
+    Instant now = Instant.now();
+    Instant oneHourAgo = now.minus(Duration.ofHours(1));
+    Instant tenMinutesAgo = now.minus(Duration.ofMinutes(10));
+
+    ApplicationState expectedSecondAttemptStart =
+        new ApplicationState(ApplicationStateSummary.ScheduledToRestart, "");
+    expectedSecondAttemptStart.setLastTransitionTime(tenMinutesAgo.toString());
+    ApplicationState expectedSecondAttemptEnd =
+        new ApplicationState(ApplicationStateSummary.Failed, "");
+
+    ApplicationStatus statusWithRestarts =
+        createInitialStatusWithSubmittedTime(oneHourAgo)
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
+            .appendNewState(new ApplicationState(ApplicationStateSummary.RunningHealthy, ""))
+            .appendNewState(new ApplicationState(ApplicationStateSummary.Failed, ""))
+            .appendNewState(expectedSecondAttemptStart)
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
+            .appendNewState(expectedSecondAttemptEnd);
+
+    // Verify it finds ScheduledToRestart as the first state of current attempt
+    ApplicationState firstState = statusWithRestarts.findFirstStateOfCurrentAttempt();
+    assertEquals(expectedSecondAttemptStart, firstState);
+
+    // Verify duration is calculated from ScheduledToRestart state (10 minutes ago)
+    Duration durationAfterRestart = statusWithRestarts.calculateCurrentAttemptDuration();
+    assertNotNull(durationAfterRestart);
+
+    Duration expectedDuration =
+        Duration.between(
+            tenMinutesAgo, Instant.parse(expectedSecondAttemptEnd.getLastTransitionTime()));
+    assertEquals(expectedDuration, durationAfterRestart);
+  }
+
+  private ApplicationStatus createInitialStatusWithSubmittedTime(Instant submittedTime) {
+    ApplicationStatus status = new ApplicationStatus();
+    ApplicationState submittedState = status.getStateTransitionHistory().get(0L);
+    submittedState.setLastTransitionTime(submittedTime.toString());
+    return status;
   }
 }
