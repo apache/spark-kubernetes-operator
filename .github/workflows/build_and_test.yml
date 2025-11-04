@@ -3,10 +3,10 @@ name: Build and test
 on:
   push:
     branches:
-    - main
+    - branch-0.6
   pull_request:
     branches:
-    - main
+    - branch-0.6
 
 # Cancel previous PR build and test
 concurrency:
