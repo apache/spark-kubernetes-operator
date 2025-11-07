@@ -9,6 +9,7 @@ aims to extend K8s resource manager to manage Apache Spark applications and clus
 
 ## Releases
 
+- [0.6.0 (2025-11-07)](https://github.com/apache/spark-kubernetes-operator/releases/tag/0.6.0)
 - [0.5.0 (2025-10-02)](https://github.com/apache/spark-kubernetes-operator/releases/tag/0.5.0)
 - [0.4.0 (2025-07-03)](https://github.com/apache/spark-kubernetes-operator/releases/tag/0.4.0)
 - [0.3.0 (2025-06-04)](https://github.com/apache/spark-kubernetes-operator/releases/tag/0.3.0)
@@ -29,7 +30,7 @@ $ helm repo update
 $ helm install spark spark/spark-kubernetes-operator
 $ helm list
 NAME  NAMESPACE REVISION UPDATED                             STATUS   CHART                           APP VERSION
-spark default  	1        2025-10-02 08:42:35.12753 -0700 PDT deployed spark-kubernetes-operator-1.3.0 0.5.0
+spark default  	1        2025-11-07 10:42:35.12753 -0700 PDT deployed spark-kubernetes-operator-1.4.0 0.6.0
 ```
 
 ## Run Spark Pi App
