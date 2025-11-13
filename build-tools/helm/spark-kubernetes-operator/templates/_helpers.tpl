@@ -125,10 +125,13 @@ spark.kubernetes.operator.watchedNamespaces={{ include "spark-operator.workloadN
 Readiness Probe properties overrides
 */}}
 {{- define "spark-operator.readinessProbe.failureThreshold" -}}
-{{- default 30 .Values.operatorDeployment.operatorPod.operatorContainer.probes.startupProbe.failureThreshold }}
+{{- default 30 .Values.operatorDeployment.operatorPod.operatorContainer.probes.readinessProbe.failureThreshold }}
 {{- end }}
 {{- define "spark-operator.readinessProbe.periodSeconds" -}}
-{{- default 10 .Values.operatorDeployment.operatorPod.operatorContainer.probes.startupProbe.periodSeconds }}
+{{- default 10 .Values.operatorDeployment.operatorPod.operatorContainer.probes.readinessProbe.periodSeconds }}
+{{- end }}
+{{- define "spark-operator.readinessProbe.timeoutSeconds" -}}
+{{- default 1 .Values.operatorDeployment.operatorPod.operatorContainer.probes.readinessProbe.timeoutSeconds }}
 {{- end }}
 
 {{/*
@@ -139,6 +142,28 @@ Liveness Probe properties override
 {{- end }}
 {{- define "spark-operator.livenessProbe.periodSeconds" -}}
 {{- default 10 .Values.operatorDeployment.operatorPod.operatorContainer.probes.livenessProbe.periodSeconds }}
+{{- end }}
+{{- define "spark-operator.livenessProbe.failureThreshold" -}}
+{{- default 1 .Values.operatorDeployment.operatorPod.operatorContainer.probes.livenessProbe.failureThreshold }}
+{{- end }}
+{{- define "spark-operator.livenessProbe.timeoutSeconds" -}}
+{{- default 1 .Values.operatorDeployment.operatorPod.operatorContainer.probes.livenessProbe.timeoutSeconds }}
+{{- end }}
+
+{{/*
+Startup Probe properties override
+*/}}
+{{- define "spark-operator.startupProbe.initialDelaySeconds" -}}
+{{- default 0 .Values.operatorDeployment.operatorPod.operatorContainer.probes.startupProbe.initialDelaySeconds }}
+{{- end }}
+{{- define "spark-operator.startupProbe.failureThreshold" -}}
+{{- default 30 .Values.operatorDeployment.operatorPod.operatorContainer.probes.startupProbe.failureThreshold }}
+{{- end }}
+{{- define "spark-operator.startupProbe.periodSeconds" -}}
+{{- default 10 .Values.operatorDeployment.operatorPod.operatorContainer.probes.startupProbe.periodSeconds }}
+{{- end }}
+{{- define "spark-operator.startupProbe.timeoutSeconds" -}}
+{{- default 1 .Values.operatorDeployment.operatorPod.operatorContainer.probes.startupProbe.timeoutSeconds }}
 {{- end }}
 
 {{/*
