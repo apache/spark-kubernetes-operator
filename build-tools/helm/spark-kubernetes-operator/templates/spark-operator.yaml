@@ -116,18 +116,29 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          startupProbe:
+            httpGet:
+              port: probe-port
+              path: /healthz
+            initialDelaySeconds: {{ include "spark-operator.startupProbe.initialDelaySeconds" . }}
+            failureThreshold: {{ include "spark-operator.startupProbe.failureThreshold" . }}
+            periodSeconds: {{ include "spark-operator.startupProbe.periodSeconds" . }}
+            timeoutSeconds: {{ include "spark-operator.startupProbe.timeoutSeconds" . }}
           readinessProbe:
             httpGet:
               port: probe-port
               path: /readyz
             failureThreshold: {{ include "spark-operator.readinessProbe.failureThreshold" . }}
             periodSeconds: {{ include "spark-operator.readinessProbe.periodSeconds" . }}
+            timeoutSeconds: {{ include "spark-operator.readinessProbe.timeoutSeconds" . }}
           livenessProbe:
             httpGet:
               port: probe-port
               path: /healthz
             initialDelaySeconds: {{ include "spark-operator.livenessProbe.initialDelaySeconds" . }}
             periodSeconds: {{ include "spark-operator.livenessProbe.periodSeconds" . }}
+            failureThreshold: {{ include "spark-operator.livenessProbe.failureThreshold" . }}
+            timeoutSeconds: {{ include "spark-operator.livenessProbe.timeoutSeconds" . }}
           {{- with .Values.operatorDeployment.operatorPod.operatorContainer.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}

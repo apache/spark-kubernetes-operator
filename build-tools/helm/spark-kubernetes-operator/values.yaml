@@ -61,8 +61,13 @@ operatorDeployment:
         livenessProbe:
           periodSeconds: 10
           initialDelaySeconds: 30
+          failureThreshold: 1
+          timeoutSeconds: 1
         startupProbe:
           failureThreshold: 30
+          periodSeconds: 10
+        readinessProbe:
+          failureThreshold: 1
           periodSeconds: 10
       metrics:
         port: 19090
