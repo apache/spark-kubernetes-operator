@@ -18,7 +18,7 @@ metadata:
   name: cluster-preview
 spec:
   runtimeVersions:
-    sparkVersion: "4.1.0-preview3"
+    sparkVersion: "4.1.0-preview4"
   clusterTolerations:
     instanceConfig:
       initWorkers: 3
