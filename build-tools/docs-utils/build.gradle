@@ -19,7 +19,9 @@
 
 ext {
     javaMainClass = "org.apache.spark.k8s.operator.utils.ConfOptionDocGenerator"
-    docsPath = System.getProperty("user.dir") + "/docs"
+    defaultDocsPath = "${project.rootDir}/docs"
+    docOutputPath = project.hasProperty("overwrite") ? defaultDocsPath : "build"
+    generatedDocFileName = "config_properties.md"
 }
 
 dependencies {
@@ -36,7 +38,29 @@ test {
 
 tasks.register('generateConfPropsDoc', Exec) {
     description = "Generate config properties doc for operator"
-    commandLine "java", "-classpath", sourceSets.main.runtimeClasspath.getAsPath(), javaMainClass, docsPath
+    dependsOn jar
+    commandLine "java", "-classpath", sourceSets.main.runtimeClasspath.getAsPath(), javaMainClass, docOutputPath
+    println("Doc generated at $docOutputPath/$generatedDocFileName")
 }
 
-build.finalizedBy(generateConfPropsDoc)
+tasks.register('validateConfPropsDocUpToDate') {
+    description = "Validate the generate config properties doc is up to date"
+    dependsOn 'generateConfPropsDoc'
+
+    doLast {
+      File generated = file("$docOutputPath/$generatedDocFileName")
+      File staged = file("$defaultDocsPath/$generatedDocFileName")
+      if (!staged.exists()) {
+        throw new GradleException("Staged properties doc file does not exist.")
+      }
+      String generatedText = generated.text.trim()
+      String stagedText = staged.text.trim()
+      if (generatedText != stagedText) {
+        throw new GradleException("Doc $defaultDocsPath/$generatedDocFileName out of date: " +
+          "if operator conf properties have been updated, please re-generate properties docs " +
+          "by running ./gradlew build-tools-docs-utils:generateConfPropsDoc -Poverwrite")
+      }
+    }
+}
+
+build.finalizedBy(validateConfPropsDocUpToDate)
