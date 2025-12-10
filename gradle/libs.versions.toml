@@ -31,8 +31,8 @@ mockito = "5.21.0"
 # Build Analysis
 checkstyle = "10.23.1"
 pmd = "7.17.0"
-spotbugs-tool = "4.9.6"
-spotbugs-plugin = "6.4.2"
+spotbugs-tool = "4.9.8"
+spotbugs-plugin = "6.4.7"
 spotless-plugin = "8.0.0"
 
 # Packaging
