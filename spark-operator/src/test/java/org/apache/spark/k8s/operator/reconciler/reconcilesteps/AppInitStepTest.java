@@ -50,6 +50,7 @@ import org.mockito.ArgumentCaptor;
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.context.SparkAppContext;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
+import org.apache.spark.k8s.operator.spec.DeploymentMode;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 
 @EnableKubernetesMockClient(crud = true)
@@ -223,5 +224,20 @@ class AppInitStepTest {
         kubernetesClient.configMaps().inNamespace("default").withName("resource-configmap").get();
     Assertions.assertNotNull(createCM);
     Assertions.assertNotNull(createdPod);
+  }
+
+  @Test
+  void banClientMode() {
+    AppValidateStep appValidateStep = new AppValidateStep();
+    SparkAppContext mocksparkAppContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(applicationMetadata);
+    application.getSpec().setDeploymentMode(DeploymentMode.ClientMode);
+    when(mocksparkAppContext.getResource()).thenReturn(application);
+
+    appValidateStep.reconcile(mocksparkAppContext, recorder);
+    ReconcileProgress progress = appValidateStep.reconcile(mocksparkAppContext, recorder);
+    Assertions.assertEquals(ReconcileProgress.completeAndImmediateRequeue(), progress);
   }
 }
