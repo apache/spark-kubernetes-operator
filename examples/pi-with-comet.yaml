@@ -20,20 +20,22 @@ spec:
   mainClass: "org.apache.spark.examples.SparkPi"
   jars: "local:///opt/spark/examples/jars/spark-examples.jar"
   sparkConf:
-    spark.executor.extraClassPath: "local:///comet/comet.jar"
-    spark.driver.extraClassPath: "local:///comet/comet.jar"
-    spark.plugins: "org.apache.spark.CometPlugin"
     spark.comet.enabled: "true"
     spark.comet.exec.enabled: "true"
     spark.comet.exec.shuffle.enabled: "true"
     spark.comet.exec.shuffle.mode: "auto"
-    spark.shuffle.manager": "org.apache.spark.sql.comet.execution.shuffle.CometShuffleManager"
+    spark.driver.extraClassPath: "local:///comet/comet.jar"
     spark.dynamicAllocation.enabled: "true"
-    spark.dynamicAllocation.shuffleTracking.enabled: "true"
     spark.dynamicAllocation.maxExecutors: "3"
+    spark.dynamicAllocation.shuffleTracking.enabled: "true"
+    spark.executor.extraClassPath: "local:///comet/comet.jar"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
     spark.kubernetes.container.image: "apache/spark:3.5.7-java17"
     spark.kubernetes.driver.pod.excludedFeatureSteps: "org.apache.spark.deploy.k8s.features.KerberosConfDriverFeatureStep"
+    spark.memory.offHeap.enabled: "true"
+    spark.memory.offHeap.size: "1g"
+    spark.plugins: "org.apache.spark.CometPlugin"
+    spark.shuffle.manager": "org.apache.spark.sql.comet.execution.shuffle.CometShuffleManager"
   applicationTolerations:
     resourceRetainPolicy: OnFailure
   driverSpec:
