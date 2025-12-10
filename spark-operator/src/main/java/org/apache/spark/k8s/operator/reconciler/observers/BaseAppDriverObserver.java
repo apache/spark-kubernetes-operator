@@ -86,7 +86,7 @@ public abstract class BaseAppDriverObserver
       return Optional.empty();
     }
 
-    if (PodPhase.FAILED.equals(PodPhase.getPhase(driverPod))) {
+    if (PodPhase.FAILED == PodPhase.getPhase(driverPod)) {
       ApplicationState state = new ApplicationState(Failed, DRIVER_FAILED_MESSAGE);
       if ("Evicted".equalsIgnoreCase(status.getReason())) {
         state = new ApplicationState(ApplicationStateSummary.DriverEvicted, DRIVER_FAILED_MESSAGE);
@@ -95,7 +95,7 @@ public abstract class BaseAppDriverObserver
       return Optional.of(state);
     }
 
-    if (PodPhase.SUCCEEDED.equals(PodPhase.getPhase(driverPod))) {
+    if (PodPhase.SUCCEEDED == PodPhase.getPhase(driverPod)) {
       ApplicationState state;
       if (driverReady) {
         state = new ApplicationState(Succeeded, DRIVER_COMPLETED_MESSAGE);

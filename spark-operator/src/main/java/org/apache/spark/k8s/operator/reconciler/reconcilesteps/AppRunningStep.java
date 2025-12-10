@@ -84,7 +84,7 @@ public class AppRunningStep extends AppReconcileStep {
         }
       }
     }
-    if (proposedStateSummary.equals(prevStateSummary)) {
+    if (proposedStateSummary == prevStateSummary) {
       return observeDriver(context, statusRecorder, List.of(new AppDriverRunningObserver()));
     } else {
       ApplicationStatus updatedStatus =

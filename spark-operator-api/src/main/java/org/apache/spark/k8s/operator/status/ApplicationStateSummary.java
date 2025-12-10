@@ -117,7 +117,7 @@ public enum ApplicationStateSummary implements BaseStateSummary {
    * @return True if the state is Submitted or ScheduledToRestart, false otherwise.
    */
   public boolean isInitializing() {
-    return Submitted.equals(this) || ScheduledToRestart.equals(this);
+    return this == Submitted || this == ScheduledToRestart;
   }
 
   /**
@@ -139,7 +139,7 @@ public enum ApplicationStateSummary implements BaseStateSummary {
    *     TerminatedWithoutReleaseResources), false otherwise.
    */
   public boolean isTerminated() {
-    return ResourceReleased.equals(this) || TerminatedWithoutReleaseResources.equals(this);
+    return this == ResourceReleased || this == TerminatedWithoutReleaseResources;
   }
 
   /**

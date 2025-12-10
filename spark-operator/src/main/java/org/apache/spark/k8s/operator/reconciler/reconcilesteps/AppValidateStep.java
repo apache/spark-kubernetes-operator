@@ -50,7 +50,7 @@ public class AppValidateStep extends AppReconcileStep {
       log.warn("Spark application found with empty status. Resetting to initial state.");
       return attemptStatusUpdate(context, statusRecorder, new ApplicationStatus(), proceed());
     }
-    if (ClientMode.equals(context.getResource().getSpec().getDeploymentMode())) {
+    if (ClientMode == context.getResource().getSpec().getDeploymentMode()) {
       ApplicationState failure =
           new ApplicationState(ApplicationStateSummary.Failed, "Client mode is not supported yet.");
       return attemptStatusUpdate(

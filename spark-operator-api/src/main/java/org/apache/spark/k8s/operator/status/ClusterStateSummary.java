@@ -41,7 +41,7 @@ public enum ClusterStateSummary implements BaseStateSummary {
    * @return True if the state is Submitted, false otherwise.
    */
   public boolean isInitializing() {
-    return Submitted.equals(this);
+    return this == Submitted;
   }
 
   /**
@@ -60,7 +60,7 @@ public enum ClusterStateSummary implements BaseStateSummary {
    *     otherwise.
    */
   public boolean isTerminated() {
-    return ResourceReleased.equals(this);
+    return this == ResourceReleased;
   }
 
   /**
@@ -70,7 +70,7 @@ public enum ClusterStateSummary implements BaseStateSummary {
    */
   @Override
   public boolean isFailure() {
-    return SchedulingFailure.equals(this) || Failed.equals(this);
+    return this == SchedulingFailure || this == Failed;
   }
 
   /**
@@ -80,6 +80,6 @@ public enum ClusterStateSummary implements BaseStateSummary {
    */
   @Override
   public boolean isInfrastructureFailure() {
-    return SchedulingFailure.equals(this);
+    return this == SchedulingFailure;
   }
 }

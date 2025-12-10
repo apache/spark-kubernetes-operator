@@ -112,7 +112,7 @@ public class AppCleanUpStep extends AppReconcileStep {
       if (retainReleaseResourceForPolicyAndState(
           tolerations.getResourceRetainPolicy(), currentState)) {
         if (tolerations.getRestartConfig() != null
-            && !RestartPolicy.Never.equals(tolerations.getRestartConfig().getRestartPolicy())) {
+            && RestartPolicy.Never != tolerations.getRestartConfig().getRestartPolicy()) {
           stateUpdateMessage =
               "Application is configured to restart, resources created in current "
                   + "attempt would be force released.";
@@ -182,8 +182,8 @@ public class AppCleanUpStep extends AppReconcileStep {
               SparkOperatorConf.TRIM_ATTEMPT_STATE_TRANSITION_HISTORY.getValue());
       long requeueAfterMillis =
           tolerations.getApplicationTimeoutConfig().getTerminationRequeuePeriodMillis();
-      if (ApplicationStateSummary.ScheduledToRestart.equals(
-          updatedStatus.getCurrentState().getCurrentStateSummary())) {
+      if (ApplicationStateSummary.ScheduledToRestart ==
+          updatedStatus.getCurrentState().getCurrentStateSummary()) {
         requeueAfterMillis = tolerations.getRestartConfig().getRestartBackoffMillis();
       }
       return updateStatusAndRequeueAfter(
@@ -223,7 +223,7 @@ public class AppCleanUpStep extends AppReconcileStep {
     ApplicationState currentState = currentStatus.getCurrentState();
     ApplicationTolerations tolerations = application.getSpec().getApplicationTolerations();
     Instant now = Instant.now();
-    if (ApplicationStateSummary.ResourceReleased.equals(currentState.getCurrentStateSummary())) {
+    if (ApplicationStateSummary.ResourceReleased == currentState.getCurrentStateSummary()) {
       // Perform TTL check after removing all secondary resources, if enabled
       if (isOnDemandCleanup() || !tolerations.isTTLEnabled()) {
         // all secondary resources have been released, no more reconciliations needed
@@ -251,8 +251,8 @@ public class AppCleanUpStep extends AppReconcileStep {
     if (isOnDemandCleanup()) {
       return Optional.empty();
     }
-    if (ApplicationStateSummary.TerminatedWithoutReleaseResources.equals(
-        currentState.getCurrentStateSummary())) {
+    if (ApplicationStateSummary.TerminatedWithoutReleaseResources ==
+        currentState.getCurrentStateSummary()) {
       if (tolerations.isRetainDurationEnabled()) {
         if (tolerations.exceedRetainDurationAtInstant(currentState, now)) {
           log.info("Garbage collecting secondary resources for application");
@@ -312,8 +312,7 @@ public class AppCleanUpStep extends AppReconcileStep {
   protected boolean isReleasingResourcesForSchedulingFailureAttempt(
       final ApplicationStatus status) {
     ApplicationState lastObservedState = getLastObservedStateBeforeTermination(status);
-    return ApplicationStateSummary.SchedulingFailure.equals(
-        lastObservedState.getCurrentStateSummary());
+    return ApplicationStateSummary.SchedulingFailure == lastObservedState.getCurrentStateSummary();
   }
 
   /**
