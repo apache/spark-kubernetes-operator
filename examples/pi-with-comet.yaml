@@ -1,0 +1,86 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+apiVersion: spark.apache.org/v1
+kind: SparkApplication
+metadata:
+  name: pi-with-comet
+spec:
+  mainClass: "org.apache.spark.examples.SparkPi"
+  jars: "local:///opt/spark/examples/jars/spark-examples.jar"
+  sparkConf:
+    spark.comet.enabled: "true"
+    spark.comet.exec.enabled: "true"
+    spark.comet.exec.shuffle.enabled: "true"
+    spark.comet.exec.shuffle.mode: "auto"
+    spark.driver.extraClassPath: "local:///comet/comet.jar"
+    spark.dynamicAllocation.enabled: "true"
+    spark.dynamicAllocation.maxExecutors: "3"
+    spark.dynamicAllocation.shuffleTracking.enabled: "true"
+    spark.executor.extraClassPath: "local:///comet/comet.jar"
+    spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
+    spark.kubernetes.container.image: "apache/spark:3.5.7-java17"
+    spark.kubernetes.driver.pod.excludedFeatureSteps: "org.apache.spark.deploy.k8s.features.KerberosConfDriverFeatureStep"
+    spark.memory.offHeap.enabled: "true"
+    spark.memory.offHeap.size: "1g"
+    spark.plugins: "org.apache.spark.CometPlugin"
+    spark.shuffle.manager": "org.apache.spark.sql.comet.execution.shuffle.CometShuffleManager"
+  applicationTolerations:
+    resourceRetainPolicy: OnFailure
+  driverSpec:
+    podTemplateSpec:
+      spec:
+        initContainers:
+        - name: download-comet
+          image: busybox
+          command: ["sh", "-c"]
+          args:
+          - |
+            wget -O /comet/comet.jar "https://repo1.maven.org/maven2/org/apache/datafusion/comet-spark-spark3.5_2.12/0.12.0/comet-spark-spark3.5_2.12-0.12.0.jar"
+          volumeMounts:
+          - name: comet
+            mountPath: /comet
+        containers:
+        - name: spark-kubernetes-driver
+          volumeMounts:
+          - name: comet
+            mountPath: /comet
+        volumes:
+        - name: comet
+          emptyDir:
+            sizeLimit: 100Mi
+  executorSpec:
+    podTemplateSpec:
+      spec:
+        initContainers:
+        - name: download-comet
+          image: busybox
+          command: ["sh", "-c"]
+          args:
+          - |
+            wget -O /comet/comet.jar "https://repo1.maven.org/maven2/org/apache/datafusion/comet-spark-spark3.5_2.12/0.12.0/comet-spark-spark3.5_2.12-0.12.0.jar"
+          volumeMounts:
+          - name: comet
+            mountPath: /comet
+        containers:
+        - name: spark-kubernetes-executor
+          volumeMounts:
+          - name: comet
+            mountPath: /comet
+        volumes:
+        - name: comet
+          emptyDir:
+            sizeLimit: 100Mi
+  runtimeVersions:
+    sparkVersion: "3.5.7"
