@@ -107,8 +107,8 @@ public class ApplicationStatus
       // no restart configured
       ApplicationState state =
           new ApplicationState(ApplicationStateSummary.ResourceReleased, stateMessageOverride);
-      if (ResourceRetainPolicy.Always.equals(resourceRetainPolicy)
-          || ResourceRetainPolicy.OnFailure.equals(resourceRetainPolicy)
+      if (ResourceRetainPolicy.Always == resourceRetainPolicy
+          || ResourceRetainPolicy.OnFailure == resourceRetainPolicy
               && currentState.currentStateSummary.isFailure()) {
         state = terminateAppWithoutReleaseResource(stateMessageOverride);
       }
@@ -139,8 +139,8 @@ public class ApplicationStatus
       // max number of restart attempt reached
       ApplicationState state =
           new ApplicationState(ApplicationStateSummary.ResourceReleased, stateMessage);
-      if (ResourceRetainPolicy.Always.equals(resourceRetainPolicy)
-          || ResourceRetainPolicy.OnFailure.equals(resourceRetainPolicy)
+      if (ResourceRetainPolicy.Always == resourceRetainPolicy
+          || ResourceRetainPolicy.OnFailure == resourceRetainPolicy
               && currentState.currentStateSummary.isFailure()) {
         state = terminateAppWithoutReleaseResource(stateMessage);
       }

@@ -42,7 +42,7 @@ public final class PodUtils {
    * @return True if the pod is running and ready, false otherwise.
    */
   public static boolean isPodReady(final Pod pod) {
-    if (!PodPhase.RUNNING.equals(PodPhase.getPhase(pod))) {
+    if (PodPhase.RUNNING != PodPhase.getPhase(pod)) {
       return false;
     }
     if (pod == null
