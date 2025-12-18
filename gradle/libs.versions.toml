@@ -19,7 +19,7 @@ fabric8 = "7.4.0"
 lombok = "1.18.42"
 operator-sdk = "5.2.1"
 dropwizard-metrics = "4.2.33"
-spark = "4.1.0-preview4"
+spark = "4.1.0"
 log4j = "2.24.3"
 slf4j = "2.0.17"
 
