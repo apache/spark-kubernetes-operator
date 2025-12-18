@@ -24,8 +24,11 @@ spec:
     spark.dynamicAllocation.minExecutors: "3"
     spark.dynamicAllocation.maxExecutors: "3"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
-    spark.kubernetes.container.image: "apache/spark:4.0.1"
+    spark.kubernetes.container.image: "apache/spark:{{SPARK_VERSION}}"
+    spark.kubernetes.driver.pod.excludedFeatureSteps: "org.apache.spark.deploy.k8s.features.KerberosConfDriverFeatureStep"
+    spark.kubernetes.executor.podNamePrefix: "spark-connect-server"
+    spark.scheduler.mode: "FAIR"
   applicationTolerations:
     resourceRetainPolicy: OnFailure
   runtimeVersions:
-    sparkVersion: "4.0.1"
+    sparkVersion: "4.1.0"

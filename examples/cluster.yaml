@@ -13,22 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 apiVersion: spark.apache.org/v1
-kind: SparkApplication
+kind: SparkCluster
 metadata:
-  name: spark-connect-server-preview
+  name: cluster
 spec:
-  mainClass: "org.apache.spark.sql.connect.service.SparkConnectServer"
-  sparkConf:
-    spark.dynamicAllocation.enabled: "true"
-    spark.dynamicAllocation.shuffleTracking.enabled: "true"
-    spark.dynamicAllocation.minExecutors: "3"
-    spark.dynamicAllocation.maxExecutors: "3"
-    spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
-    spark.kubernetes.container.image: "apache/spark:{{SPARK_VERSION}}-java21-scala"
-    spark.kubernetes.driver.pod.excludedFeatureSteps: "org.apache.spark.deploy.k8s.features.KerberosConfDriverFeatureStep"
-    spark.kubernetes.executor.podNamePrefix: "spark-connect-server-preview"
-    spark.scheduler.mode: "FAIR"
-  applicationTolerations:
-    resourceRetainPolicy: OnFailure
   runtimeVersions:
-    sparkVersion: "4.1.0-preview4"
+    sparkVersion: "4.1.0"
+  clusterTolerations:
+    instanceConfig:
+      initWorkers: 3
+      minWorkers: 3
+      maxWorkers: 3
+  sparkConf:
+    spark.kubernetes.container.image: "apache/spark:{{SPARK_VERSION}}"
+    spark.master.ui.title: "Prod Spark Cluster"
+    spark.master.rest.enabled: "true"
+    spark.master.rest.host: "0.0.0.0"
+    spark.ui.reverseProxy: "true"
