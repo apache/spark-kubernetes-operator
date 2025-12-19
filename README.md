@@ -75,21 +75,21 @@ $ kubectl port-forward prod-master-0 6066 &
 $ ./examples/submit-pi-to-prod.sh
 {
   "action" : "CreateSubmissionResponse",
-  "message" : "Driver successfully submitted as driver-20250628212324-0000",
-  "serverSparkVersion" : "4.0.0",
-  "submissionId" : "driver-20250628212324-0000",
+  "message" : "Driver successfully submitted as driver-20251219002524-0000",
+  "serverSparkVersion" : "4.1.0",
+  "submissionId" : "driver-20251219002524-0000",
   "success" : true
 }
 
-$ curl http://localhost:6066/v1/submissions/status/driver-20250628212324-0000/
+$ curl http://localhost:6066/v1/submissions/status/driver-20251219002524-0000/
 {
   "action" : "SubmissionStatusResponse",
   "driverState" : "FINISHED",
-  "serverSparkVersion" : "4.0.0",
-  "submissionId" : "driver-20250628212324-0000",
+  "serverSparkVersion" : "4.1.0",
+  "submissionId" : "driver-20251219002524-0000",
   "success" : true,
-  "workerHostPort" : "10.1.0.88:34643",
-  "workerId" : "worker-20250628212306-10.1.0.88-34643"
+  "workerHostPort" : "10.1.0.190:46501",
+  "workerId" : "worker-20251219002506-10.1.0.190-46501"
 }
 
 $ kubectl delete sparkcluster prod
@@ -119,16 +119,15 @@ $ kubectl describe pod pi-on-yunikorn-0-driver
 Events:
   Type    Reason             Age   From      Message
   ----    ------             ----  ----      -------
-  Normal  Scheduling         14s   yunikorn  default/pi-on-yunikorn-0-driver is queued and waiting for allocation
-  Normal  Scheduled          14s   yunikorn  Successfully assigned default/pi-on-yunikorn-0-driver to node docker-desktop
-  Normal  PodBindSuccessful  14s   yunikorn  Pod default/pi-on-yunikorn-0-driver is successfully bound to node docker-desktop
-  Normal  TaskCompleted      6s    yunikorn  Task default/pi-on-yunikorn-0-driver is completed
-  Normal  Pulled             13s   kubelet   Container image "apache/spark:4.0.0" already present on machine
-  Normal  Created            13s   kubelet   Created container spark-kubernetes-driver
-  Normal  Started            13s   kubelet   Started container spark-kubernetes-driver
+  Normal  Scheduling         1s    yunikorn  default/pi-on-yunikorn-0-driver is queued and waiting for allocation
+  Normal  Scheduled          1s    yunikorn  Successfully assigned default/pi-on-yunikorn-0-driver to node docker-desktop
+  Normal  PodBindSuccessful  1s    yunikorn  Pod default/pi-on-yunikorn-0-driver is successfully bound to node docker-desktop
+  Normal  Pulled             0s    kubelet   Container image "apache/spark:4.1.0-scala" already present on machine
+  Normal  Created            0s    kubelet   Created container: spark-kubernetes-driver
+  Normal  Started            0s    kubelet   Started container spark-kubernetes-driver
 
 $ kubectl delete sparkapp pi-on-yunikorn
-sparkapplication.spark.apache.org "pi-on-yunikorn" deleted
+sparkapplication.spark.apache.org "pi-on-yunikorn" deleted from default namespace
 ```
 
 ## Clean Up

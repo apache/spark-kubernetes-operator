@@ -24,7 +24,7 @@ spec:
     spark.dynamicAllocation.shuffleTracking.enabled: "true"
     spark.dynamicAllocation.maxExecutors: "3"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
-    spark.kubernetes.container.image: "apache/spark:4.0.1-scala"
+    spark.kubernetes.container.image: "apache/spark:{{SPARK_VERSION}}-scala"
   applicationTolerations:
     resourceRetainPolicy: OnFailure
   driverSpec:
@@ -38,4 +38,4 @@ spec:
         priorityClassName: system-cluster-critical
         terminationGracePeriodSeconds: 0
   runtimeVersions:
-    sparkVersion: "4.0.1"
+    sparkVersion: "4.1.0"
