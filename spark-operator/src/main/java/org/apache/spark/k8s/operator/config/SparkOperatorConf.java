@@ -76,6 +76,22 @@ public final class SparkOperatorConf {
           .build();
 
   /**
+   * Comma-separated label selector(s) that the operator would be reconciling for Spark resources.
+   * If not set or set to empty string, operator would reconcile all Spark Apps and Clusters.
+   */
+  public static final ConfigOption<String> OPERATOR_RECONCILIATION_SELECTORS =
+      ConfigOption.<String>builder()
+          .key("spark.kubernetes.operator.reconciliationSelectors")
+          .enableDynamicOverride(false)
+          .description(
+              "Comma-separated label selector(s) that the operator would be reconciling for " +
+                  "Spark resources. If not set or set to empty string, operator would reconcile " +
+                  "all watched Spark Apps and Clusters.")
+          .typeParameterClass(String.class)
+          .defaultValue("")
+          .build();
+
+  /**
    * Enable to indicate informer errors should stop operator startup. If disabled, operator startup
    * will ignore recoverable errors, caused for example by RBAC issues and will retry periodically.
    */

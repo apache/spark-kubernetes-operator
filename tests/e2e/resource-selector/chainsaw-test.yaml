@@ -1,0 +1,106 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: spark-operator-resource-selector-validation
+spec:
+  scenarios:
+    - bindings:
+        - name: APPLICATION_FILE_NAME
+          value: spark-example.yaml
+        - name: SPARK_APPLICATION_NAME
+          value: "spark-example-resource-selector"
+        - name: SPARK_VERSION
+          value: "4.1.0"
+        - name: JAVA_VERSION
+          value: "17"
+        - name: IMAGE
+          value: "apache/spark:4.1.0-scala-java17"
+  steps:
+    - name: install-spark-application-and-apply-label
+      try:
+        - apply:
+            bindings:
+              - name: V_SPARK_VERSION
+                value: (concat('v', replace_all(($SPARK_VERSION), '.', '_')))
+              - name: V_JAVA_VERSION
+                value: (concat('Java', ($JAVA_VERSION)))
+              - name: SPARK_APPLICATION_NAME
+                value: ($SPARK_APPLICATION_NAME)
+              - name: IMAGE
+                value: ($IMAGE)
+            file: spark-example.yaml
+        - sleep:
+            duration: 30s
+        - script:
+            env:
+              - name: SPARK_APPLICATION_NAME
+                value: ($SPARK_APPLICATION_NAME)
+            content:
+              kubectl get sparkapplication $SPARK_APPLICATION_NAME -o json -n default | jq ".status"
+            check:
+              (contains($stdout, 'null')): true
+        - script:
+            env:
+              - name: SPARK_APPLICATION_NAME
+                value: ($SPARK_APPLICATION_NAME)
+            content:
+              kubectl label sparkapplication $SPARK_APPLICATION_NAME -n default foo=placeholder
+        - sleep:
+            duration: 30s
+        - script:
+            env:
+              - name: SPARK_APPLICATION_NAME
+                value: ($SPARK_APPLICATION_NAME)
+            content:
+              kubectl get sparkapplication $SPARK_APPLICATION_NAME -o json -n default | jq ".status"
+            check:
+              (contains($stdout, 'null')): true
+        - script:
+            env:
+              - name: SPARK_APPLICATION_NAME
+                value: ($SPARK_APPLICATION_NAME)
+            content:
+              kubectl label sparkapplication $SPARK_APPLICATION_NAME -n default foo=bar --overwrite
+        - sleep:
+            duration: 30s
+        - script:
+            env:
+              - name: SPARK_APPLICATION_NAME
+                value: ($SPARK_APPLICATION_NAME)
+            content:
+              kubectl get sparkapplication $SPARK_APPLICATION_NAME -o json -n default | jq ".status"
+            check:
+              (contains($stdout, 'null')): false
+      catch:
+        - podLogs:
+            namespace: default
+            selector: app.kubernetes.io/component=operator-deployment,app.kubernetes.io/name=spark-kubernetes-operator
+        - describe:
+            apiVersion: spark.apache.org/v1
+            kind: SparkApplication
+            namespace: default
+      finally:
+        - script:
+            env:
+              - name: SPARK_APPLICATION_NAME
+                value: ($SPARK_APPLICATION_NAME)
+            timeout: 120s
+            content: |
+              kubectl delete sparkapplication $SPARK_APPLICATION_NAME --ignore-not-found=true

@@ -56,6 +56,7 @@ import org.apache.spark.k8s.operator.reconciler.SparkAppReconciler;
 import org.apache.spark.k8s.operator.reconciler.SparkClusterReconciler;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
+import org.apache.spark.k8s.operator.utils.StringUtils;
 
 /**
  * Entry point for Spark Operator. Bootstrap the operator app by starting watch and reconciler for
@@ -252,6 +253,11 @@ public class SparkOperator {
     overrider.settingNamespaces(watchedNamespaces);
     overrider.withRateLimiter(SparkOperatorConf.getOperatorRateLimiter());
     overrider.withRetry(SparkOperatorConf.getOperatorRetry());
+    if (StringUtils.isNotBlank(SparkOperatorConf.OPERATOR_RECONCILIATION_SELECTORS.getValue())) {
+      log.info("Configuring operator reconciliation selectors to {}.",
+          SparkOperatorConf.OPERATOR_RECONCILIATION_SELECTORS.getValue());
+      overrider.withLabelSelector(SparkOperatorConf.OPERATOR_RECONCILIATION_SELECTORS.getValue());
+    }
   }
 
   /**

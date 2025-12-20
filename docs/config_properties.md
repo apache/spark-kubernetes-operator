@@ -37,6 +37,7 @@
  | spark.kubernetes.operator.reconciler.retry.maxIntervalSeconds | Integer | -1 | false | Max interval(in seconds) of retries on unhandled controller errors. Set to non-positive for unlimited. | 
  | spark.kubernetes.operator.reconciler.terminationTimeoutSeconds | Integer | 30 | false | Grace period for operator shutdown before reconciliation threads are killed. | 
  | spark.kubernetes.operator.reconciler.trimStateTransitionHistoryEnabled | Boolean | true | true | When enabled, operator would trim state transition history when a new attempt starts, keeping previous attempt summary only. | 
+ | spark.kubernetes.operator.reconciliationSelectors | String |  | false | Comma-separated label selector(s) that the operator would be reconciling for Spark resources. If not set or set to empty string, operator would reconcile all watched Spark Apps and Clusters. | 
  | spark.kubernetes.operator.terminateOnInformerFailureEnabled | Boolean | false | false | Enable to indicate informer errors should stop operator startup. If disabled, operator startup will ignore recoverable errors, caused for example by RBAC issues and will retry periodically. | 
  | spark.kubernetes.operator.watchedNamespaces | String | default | true | Comma-separated list of namespaces that the operator would be watching for Spark resources. If set to '*', operator would watch all namespaces. | 
  | spark.logConf | Boolean | false | true | When enabled, operator will print configurations | 

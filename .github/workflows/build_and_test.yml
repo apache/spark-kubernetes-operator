@@ -78,11 +78,13 @@ jobs:
         mode:
           - dynamic
           - static
+          - selector
         test-group:
           - spark-versions
           - python
           - state-transition
           - resource-retain-duration
+          - resource-selector
           - watched-namespaces
         exclude:
           - mode: dynamic
@@ -93,7 +95,21 @@ jobs:
             test-group: state-transition
           - mode: dynamic
             test-group: resource-retain-duration
+          - mode: dynamic
+            test-group: resource-selector
           - mode: static
+            test-group: watched-namespaces
+          - mode: static
+            test-group: resource-selector
+          - mode: selector
+            test-group: spark-versions
+          - mode: selector
+            test-group: python
+          - mode: selector
+            test-group: state-transition
+          - mode: selector
+            test-group: resource-retain-duration
+          - mode: selector
             test-group: watched-namespaces
     steps:
       - name: Checkout repository
@@ -147,7 +163,20 @@ jobs:
         if: matrix.mode == 'dynamic'
         run: |
           chainsaw test --test-dir ./tests/e2e/${{ matrix.test-group }} --parallel 1
-
+      - name: Run Spark K8s Operator on K8S with Resource Selector Enabled
+        if: matrix.mode == 'selector'
+        run: |
+          eval $(minikube docker-env)
+          ./gradlew buildDockerImage
+          helm install spark --create-namespace -f \
+          build-tools/helm/spark-kubernetes-operator/values.yaml -f \
+          tests/e2e/helm/selector-config-values.yaml \
+          build-tools/helm/spark-kubernetes-operator/
+          minikube docker-env --unset
+      - name: Run E2E Test with Resource Selector Enabled
+        if: matrix.mode == 'selector'
+        run: |
+          chainsaw test --test-dir ./tests/e2e/${{ matrix.test-group }} --parallel 1
   lint:
     name: "Linter and documentation"
     runs-on: ubuntu-latest
