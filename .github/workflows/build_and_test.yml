@@ -109,8 +109,8 @@ jobs:
         with:
           cache: true
           kubernetes-version: ${{ matrix.kubernetes-version }}
-          cpus: 2
-          memory: 6144m
+          cpus: 3
+          memory: 10240m
       - name: Set Up Go
         uses: actions/setup-go@v5
       - name: Set Up Chainsaw
