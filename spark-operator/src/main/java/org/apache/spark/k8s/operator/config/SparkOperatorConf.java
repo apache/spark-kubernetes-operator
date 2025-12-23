@@ -76,17 +76,18 @@ public final class SparkOperatorConf {
           .build();
 
   /**
-   * Comma-separated label selector(s) that the operator would be reconciling for Spark resources.
-   * If not set or set to empty string, operator would reconcile all Spark Apps and Clusters.
+   * A label selector that identifies a set of Spark custom resources for the operator to
+   * reconcile. If not set or set to empty string, operator would reconcile all Spark Apps
+   * and Clusters.
    */
   public static final ConfigOption<String> OPERATOR_RECONCILER_LABEL_SELECTOR =
       ConfigOption.<String>builder()
           .key("spark.kubernetes.operator.reconciler.labelSelector")
           .enableDynamicOverride(false)
           .description(
-              "Comma-separated label selector(s) that the operator would be reconciling for " +
-                  "Spark resources. If not set or set to empty string, operator would reconcile " +
-                  "all watched Spark Apps and Clusters.")
+              "A label selector that identifies a set of Spark custom resources for the " +
+                  "operator to reconcile. If not set or set to empty string, operator would " +
+                  "reconcile all Spark Apps and Clusters.")
           .typeParameterClass(String.class)
           .defaultValue("")
           .build();
