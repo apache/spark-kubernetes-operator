@@ -79,7 +79,7 @@ public final class SparkOperatorConf {
    * Comma-separated label selector(s) that the operator would be reconciling for Spark resources.
    * If not set or set to empty string, operator would reconcile all Spark Apps and Clusters.
    */
-  public static final ConfigOption<String> OPERATOR_RECONCILIATION_SELECTORS =
+  public static final ConfigOption<String> OPERATOR_RECONCILER_SELECTORS =
       ConfigOption.<String>builder()
           .key("spark.kubernetes.operator.reconciler.selectors")
           .enableDynamicOverride(false)

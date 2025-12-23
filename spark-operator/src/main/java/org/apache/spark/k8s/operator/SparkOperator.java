@@ -253,10 +253,10 @@ public class SparkOperator {
     overrider.settingNamespaces(watchedNamespaces);
     overrider.withRateLimiter(SparkOperatorConf.getOperatorRateLimiter());
     overrider.withRetry(SparkOperatorConf.getOperatorRetry());
-    if (StringUtils.isNotBlank(SparkOperatorConf.OPERATOR_RECONCILIATION_SELECTORS.getValue())) {
+    if (StringUtils.isNotBlank(SparkOperatorConf.OPERATOR_RECONCILER_SELECTORS.getValue())) {
       log.info("Configuring operator reconciliation selectors to {}.",
-          SparkOperatorConf.OPERATOR_RECONCILIATION_SELECTORS.getValue());
-      overrider.withLabelSelector(SparkOperatorConf.OPERATOR_RECONCILIATION_SELECTORS.getValue());
+          SparkOperatorConf.OPERATOR_RECONCILER_SELECTORS.getValue());
+      overrider.withLabelSelector(SparkOperatorConf.OPERATOR_RECONCILER_SELECTORS.getValue());
     }
   }
 

@@ -225,9 +225,9 @@ public final class Utils {
    */
   public static String commonResourceLabelsStr() {
     String commonLabels = labelsAsStr(commonManagedResourceLabels());
-    if (StringUtils.isNotBlank(SparkOperatorConf.OPERATOR_RECONCILIATION_SELECTORS.getValue())) {
+    if (StringUtils.isNotBlank(SparkOperatorConf.OPERATOR_RECONCILER_SELECTORS.getValue())) {
       return String.join(",", commonLabels,
-          SparkOperatorConf.OPERATOR_RECONCILIATION_SELECTORS.getValue());
+          SparkOperatorConf.OPERATOR_RECONCILER_SELECTORS.getValue());
     }
     return commonLabels;
   }

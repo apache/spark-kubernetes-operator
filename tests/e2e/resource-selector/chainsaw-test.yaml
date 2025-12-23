@@ -57,6 +57,22 @@ spec:
               - name: SPARK_APPLICATION_NAME
                 value: ($SPARK_APPLICATION_NAME)
             content:
+              kubectl label sparkapplication $SPARK_APPLICATION_NAME -n default keyx=valuey
+        - sleep:
+            duration: 30s
+        - script:
+            env:
+              - name: SPARK_APPLICATION_NAME
+                value: ($SPARK_APPLICATION_NAME)
+            content:
+              kubectl get sparkapplication $SPARK_APPLICATION_NAME -o json -n default | jq ".status"
+            check:
+              (contains($stdout, 'null')): true
+        - script:
+            env:
+              - name: SPARK_APPLICATION_NAME
+                value: ($SPARK_APPLICATION_NAME)
+            content:
               kubectl label sparkapplication $SPARK_APPLICATION_NAME -n default foo=placeholder
         - sleep:
             duration: 30s
