@@ -132,7 +132,7 @@ jobs:
       - name: Run E2E Test with Dynamic Configuration Disabled
         if: matrix.mode == 'static'
         run: |
-          chainsaw test --test-dir ./tests/e2e/${{ matrix.test-group }} --parallel 2
+          chainsaw test --test-dir ./tests/e2e/${{ matrix.test-group }} --parallel 1
       - name: Run Spark K8s Operator on K8S with Dynamic Configuration Enabled
         if: matrix.mode == 'dynamic'
         run: |
@@ -146,7 +146,7 @@ jobs:
       - name: Run E2E Test with Dynamic Configuration Enabled
         if: matrix.mode == 'dynamic'
         run: |
-          chainsaw test --test-dir ./tests/e2e/${{ matrix.test-group }} --parallel 2
+          chainsaw test --test-dir ./tests/e2e/${{ matrix.test-group }} --parallel 1
 
   lint:
     name: "Linter and documentation"
