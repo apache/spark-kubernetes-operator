@@ -119,6 +119,9 @@ spark.kubernetes.operator.health.probePort={{ include "spark-operator.probePort"
 {{- if .Values.workloadResources.namespaces.overrideWatchedNamespaces }}
 spark.kubernetes.operator.watchedNamespaces={{ include "spark-operator.workloadNamespacesStr" . | trim }}
 {{- end }}
+{{- if gt (int .Values.operatorDeployment.replicas) 1 }}
+spark.kubernetes.operator.leaderElection.enabled=true
+{{- end }}
 {{- end }}
 
 {{/*
