@@ -15,4 +15,4 @@
 
 operatorConfiguration:
   spark-operator.properties: |+
-    spark.kubernetes.operator.reconciler.selectors=foo=bar,keyx=valuey
+    spark.kubernetes.operator.reconciler.labelSelector=foo=bar,keyx=valuey
