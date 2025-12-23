@@ -28,10 +28,8 @@ spec:
           value: "spark-example-resource-selector"
         - name: SPARK_VERSION
           value: "4.1.0"
-        - name: JAVA_VERSION
-          value: "17"
         - name: IMAGE
-          value: "apache/spark:4.1.0-scala-java17"
+          value: "apache/spark:4.1.0-scala"
   steps:
     - name: install-spark-application-and-apply-label
       try:
@@ -39,8 +37,6 @@ spec:
             bindings:
               - name: V_SPARK_VERSION
                 value: (concat('v', replace_all(($SPARK_VERSION), '.', '_')))
-              - name: V_JAVA_VERSION
-                value: (concat('Java', ($JAVA_VERSION)))
               - name: SPARK_APPLICATION_NAME
                 value: ($SPARK_APPLICATION_NAME)
               - name: IMAGE

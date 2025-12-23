@@ -81,7 +81,7 @@ public final class SparkOperatorConf {
    */
   public static final ConfigOption<String> OPERATOR_RECONCILIATION_SELECTORS =
       ConfigOption.<String>builder()
-          .key("spark.kubernetes.operator.reconciliationSelectors")
+          .key("spark.kubernetes.operator.reconciler.selectors")
           .enableDynamicOverride(false)
           .description(
               "Comma-separated label selector(s) that the operator would be reconciling for " +

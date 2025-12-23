@@ -31,4 +31,3 @@ spec:
     spark.kubernetes.executor.request.cores: "0.5"
   runtimeVersions:
     sparkVersion: ($V_SPARK_VERSION)
-    jdkVersion: ($V_JAVA_VERSION)
