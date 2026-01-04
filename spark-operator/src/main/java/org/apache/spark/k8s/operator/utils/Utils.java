@@ -44,6 +44,7 @@ import io.javaoperatorsdk.operator.processing.event.source.SecondaryToPrimaryMap
 import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.SparkCluster;
+import org.apache.spark.k8s.operator.config.SparkOperatorConf;
 import org.apache.spark.k8s.operator.listeners.SparkAppStatusListener;
 import org.apache.spark.k8s.operator.listeners.SparkClusterStatusListener;
 
@@ -223,7 +224,12 @@ public final class Utils {
    * @return A string of common resource labels.
    */
   public static String commonResourceLabelsStr() {
-    return labelsAsStr(commonManagedResourceLabels());
+    String commonLabels = labelsAsStr(commonManagedResourceLabels());
+    if (StringUtils.isNotBlank(SparkOperatorConf.OPERATOR_RECONCILER_LABEL_SELECTOR.getValue())) {
+      return String.join(",", commonLabels,
+          SparkOperatorConf.OPERATOR_RECONCILER_LABEL_SELECTOR.getValue());
+    }
+    return commonLabels;
   }
 
   /**

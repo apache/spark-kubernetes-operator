@@ -76,6 +76,23 @@ public final class SparkOperatorConf {
           .build();
 
   /**
+   * A label selector that identifies a set of Spark custom resources for the operator to
+   * reconcile. If not set or set to empty string, operator would reconcile all Spark Apps
+   * and Clusters.
+   */
+  public static final ConfigOption<String> OPERATOR_RECONCILER_LABEL_SELECTOR =
+      ConfigOption.<String>builder()
+          .key("spark.kubernetes.operator.reconciler.labelSelector")
+          .enableDynamicOverride(false)
+          .description(
+              "A label selector that identifies a set of Spark custom resources for the " +
+                  "operator to reconcile. If not set or set to empty string, operator would " +
+                  "reconcile all Spark Apps and Clusters.")
+          .typeParameterClass(String.class)
+          .defaultValue("")
+          .build();
+
+  /**
    * Enable to indicate informer errors should stop operator startup. If disabled, operator startup
    * will ignore recoverable errors, caused for example by RBAC issues and will retry periodically.
    */
