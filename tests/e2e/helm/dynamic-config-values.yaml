@@ -24,6 +24,13 @@ workloadResources:
   roleBinding:
     create: true
 
+operatorDeployment:
+  operatorPod:
+    operatorContainer:
+      resources:
+        requests:
+          cpu: "0.1"
+
 operatorConfiguration:
   dynamicConfig:
     enable: true
