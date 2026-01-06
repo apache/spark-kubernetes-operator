@@ -660,6 +660,26 @@
           "type": "boolean",
           "description": "Append configuration instead of replacing"
         },
+        "configMap": {
+          "type": "object",
+          "description": "Configuration for the operator config map",
+          "properties": {
+            "annotations": {
+              "type": ["object", "null"],
+              "description": "Annotations for the operator config map",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "labels": {
+              "type": ["object", "null"],
+              "description": "Labels for the operator config map",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          }
+        },
         "log4j2.properties": {
           "type": "string",
           "description": "Log4j2 properties"
@@ -690,8 +710,15 @@
               "type": "boolean",
               "description": "Create ConfigMap for dynamic configuration"
             },
+            "labels": {
+              "type": ["object", "null"],
+              "description": "Labels for dynamic config ConfigMap",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
             "annotations": {
-              "type": "object",
+              "type": ["object", "null"],
               "description": "Annotations for dynamic config ConfigMap",
               "additionalProperties": {
                 "type": "string"
