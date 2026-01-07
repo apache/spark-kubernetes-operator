@@ -54,6 +54,9 @@ public final class SparkClusterResourceSpecFactory {
     if (spec.getHorizontalPodAutoscaler().isPresent()) {
       decorator.decorate(spec.getHorizontalPodAutoscaler().get());
     }
+    if (spec.getPodDisruptionBudget().isPresent()) {
+      decorator.decorate(spec.getPodDisruptionBudget().get());
+    }
     return spec;
   }
 }

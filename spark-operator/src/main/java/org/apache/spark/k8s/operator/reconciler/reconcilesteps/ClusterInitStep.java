@@ -85,6 +85,16 @@ public class ClusterInitStep extends ClusterReconcileStep {
             .resource(horizontalPodAutoscaler.get())
             .create();
       }
+      var podDisruptionBudget = context.getPodDisruptionBudgetSpec();
+      if (podDisruptionBudget.isPresent()) {
+        context
+            .getClient()
+            .policy()
+            .v1()
+            .podDisruptionBudget()
+            .resource(podDisruptionBudget.get())
+            .create();
+      }
 
       ClusterStatus updatedStatus =
           context
