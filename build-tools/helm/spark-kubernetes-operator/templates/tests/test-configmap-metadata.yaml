@@ -1,0 +1,71 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+{{- if .Values.operatorConfiguration.configMap }}
+{{- if or (.Values.operatorConfiguration.configMap.labels) (.Values.operatorConfiguration.configMap.annotations) }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "spark-operator.name" . }}-test-configmap-metadata"
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "spark-operator.commonLabels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  containers:
+    - name: kubectl
+      image: bitnamisecure/kubectl:latest
+      command: ['bash', '-c']
+      args:
+        - |
+          set -e
+          echo "Testing ConfigMap labels and annotations..."
+
+          # Get the ConfigMap
+          CM_JSON=$(kubectl get configmap spark-kubernetes-operator-configuration -n {{ .Release.Namespace }} -o json)
+
+          {{- if .Values.operatorConfiguration.configMap.labels }}
+          # Validate custom labels
+          echo "Validating custom labels..."
+          {{- range $key, $value := .Values.operatorConfiguration.configMap.labels }}
+          LABEL_VALUE=$(echo "$CM_JSON" | jq -r '.metadata.labels["{{ $key }}"]')
+          if [ "$LABEL_VALUE" != "{{ $value }}" ]; then
+            echo "ERROR: Label {{ $key }} not found or has incorrect value. Expected: {{ $value }}, Got: $LABEL_VALUE"
+            exit 1
+          fi
+          echo "Label {{ $key }}={{ $value }} verified"
+          {{- end }}
+          {{- end }}
+
+          {{- if .Values.operatorConfiguration.configMap.annotations }}
+          # Validate custom annotations
+          echo "Validating custom annotations..."
+          {{- range $key, $value := .Values.operatorConfiguration.configMap.annotations }}
+          ANNOTATION_VALUE=$(echo "$CM_JSON" | jq -r '.metadata.annotations["{{ $key }}"]')
+          if [ "$ANNOTATION_VALUE" != "{{ $value }}" ]; then
+            echo "ERROR: Annotation {{ $key }} not found or has incorrect value. Expected: {{ $value }}, Got: $ANNOTATION_VALUE"
+            exit 1
+          fi
+          echo "Annotation {{ $key }}={{ $value }} verified"
+          {{- end }}
+          {{- end }}
+
+          echo "All ConfigMap metadata tests passed!"
+  restartPolicy: Never
+  serviceAccountName: {{ .Values.operatorRbac.serviceAccount.name }}
+{{- end }}
+{{- end }}

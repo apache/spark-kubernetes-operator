@@ -710,15 +710,8 @@
               "type": "boolean",
               "description": "Create ConfigMap for dynamic configuration"
             },
-            "labels": {
-              "type": ["object", "null"],
-              "description": "Labels for dynamic config ConfigMap",
-              "additionalProperties": {
-                "type": "string"
-              }
-            },
             "annotations": {
-              "type": ["object", "null"],
+              "type": "object",
               "description": "Annotations for dynamic config ConfigMap",
               "additionalProperties": {
                 "type": "string"

@@ -177,6 +177,47 @@ jobs:
         if: matrix.mode == 'selector'
         run: |
           chainsaw test --test-dir ./tests/e2e/${{ matrix.test-group }} --parallel 1
+  helm-tests:
+    name: "Helm Tests"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        kubernetes-version:
+          - "1.35.0"
+        test-group:
+          - configmap-metadata
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          java-version: 25
+          distribution: 'zulu'
+          cache: 'gradle'
+      - name: Set up Minikube
+        uses: medyagh/setup-minikube@v0.0.21
+        with:
+          cache: true
+          kubernetes-version: ${{ matrix.kubernetes-version }}
+          cpus: 3
+          memory: 10240m
+      - name: Print K8S pods and nodes info
+        run: |
+          kubectl get pods -A
+          kubectl describe node
+      - name: Run Spark K8s Operator Helm Tests
+        run: |
+          eval $(minikube docker-env)
+          ./gradlew buildDockerImage
+          helm install spark --create-namespace -f \
+          build-tools/helm/spark-kubernetes-operator/values.yaml -f \
+          tests/e2e/helm/helm-test-values/${{ matrix.test-group }}/values.yaml \
+          build-tools/helm/spark-kubernetes-operator/
+          minikube docker-env --unset
+          helm test spark
   lint:
     name: "Linter and documentation"
     runs-on: ubuntu-latest

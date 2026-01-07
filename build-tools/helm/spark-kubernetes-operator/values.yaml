@@ -208,7 +208,6 @@ operatorConfiguration:
     enable: false
     # Enable this to create a config map for hot property loading
     create: false
-    labels:
     annotations:
       "helm.sh/resource-policy": keep
     data:

@@ -185,7 +185,7 @@ metadata:
     {{- if index (.Values.operatorConfiguration.configMap) "labels" }}
       {{- toYaml .Values.operatorConfiguration.configMap.labels | nindent 4 }}
     {{- end }}
-  {{- if index (.Values.operatorConfiguration.configMap) "labels" }}
+  {{- if index (.Values.operatorConfiguration.configMap) "annotations" }}
   annotations:
     {{- toYaml .Values.operatorConfiguration.configMap.annotations | nindent 4 }}
   {{- end }}
@@ -219,9 +219,6 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "spark-operator.dynamicConfigLabels" . | nindent 4 }}
-    {{- if .Values.operatorConfiguration.dynamicConfig.labels }}
-      {{- toYaml .Values.operatorConfiguration.dynamicConfig.labels | nindent 4 }}
-    {{- end}}
   annotations:
     {{- toYaml .Values.operatorConfiguration.dynamicConfig.annotations | nindent 4 }}
 {{- with .Values.operatorConfiguration.dynamicConfig.data }}
