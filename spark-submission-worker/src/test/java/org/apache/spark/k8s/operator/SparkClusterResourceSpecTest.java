@@ -345,4 +345,42 @@ class SparkClusterResourceSpecTest {
     assertEquals(1, hpa.getSpec().getMetrics().size());
     assertEquals("worker", hpa.getSpec().getMetrics().get(0).getContainerResource().getContainer());
   }
+
+  @Test
+  void testPodDisruptionBudgetCreation() {
+    var instanceConfig = new WorkerInstanceConfig();
+    instanceConfig.setMinWorkers(1);
+    var clusterTolerations = new ClusterTolerations();
+    clusterTolerations.setInstanceConfig(instanceConfig);
+    when(clusterSpec.getClusterTolerations()).thenReturn(clusterTolerations);
+
+    SparkClusterResourceSpec spec = new SparkClusterResourceSpec(cluster, new SparkConf());
+    assertTrue(spec.getPodDisruptionBudget().isPresent());
+    var pdb = spec.getPodDisruptionBudget().get();
+    assertEquals("policy/v1", pdb.getApiVersion());
+    assertEquals("PodDisruptionBudget", pdb.getKind());
+    assertEquals("my-namespace", pdb.getMetadata().getNamespace());
+    assertEquals("cluster-name-worker-pdb", pdb.getMetadata().getName());
+    assertEquals(VERSION, pdb.getMetadata().getLabels().get(LABEL_SPARK_VERSION_NAME));
+    assertEquals(1, pdb.getSpec().getMinAvailable().getIntVal());
+    assertEquals(
+        Map.of(
+            LABEL_SPARK_CLUSTER_NAME,
+            "cluster-name",
+            LABEL_SPARK_ROLE_NAME,
+            LABEL_SPARK_ROLE_WORKER_VALUE),
+        pdb.getSpec().getSelector().getMatchLabels());
+  }
+
+  @Test
+  void testPodDisruptionBudgetAbsence() {
+    var instanceConfig = new WorkerInstanceConfig();
+    instanceConfig.setMinWorkers(0);
+    var clusterTolerations = new ClusterTolerations();
+    clusterTolerations.setInstanceConfig(instanceConfig);
+    when(clusterSpec.getClusterTolerations()).thenReturn(clusterTolerations);
+
+    SparkClusterResourceSpec spec = new SparkClusterResourceSpec(cluster, new SparkConf());
+    assertTrue(spec.getPodDisruptionBudget().isEmpty());
+  }
 }

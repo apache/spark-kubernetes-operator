@@ -52,6 +52,12 @@ rules:
       - ingresses
     verbs:
       - '*'
+  - apiGroups:
+      - "policy"
+    resources:
+      - poddisruptionbudgets
+    verbs:
+      - '*'
 {{- end }}
 
 {{/*

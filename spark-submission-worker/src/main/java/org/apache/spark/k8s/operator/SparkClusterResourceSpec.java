@@ -38,6 +38,8 @@ import io.fabric8.kubernetes.api.model.autoscaling.v2.HorizontalPodAutoscalerBui
 import io.fabric8.kubernetes.api.model.autoscaling.v2.HorizontalPodAutoscalerSpec;
 import io.fabric8.kubernetes.api.model.autoscaling.v2.HorizontalPodAutoscalerSpecBuilder;
 import io.fabric8.kubernetes.api.model.autoscaling.v2.MetricSpecBuilder;
+import io.fabric8.kubernetes.api.model.policy.v1.PodDisruptionBudget;
+import io.fabric8.kubernetes.api.model.policy.v1.PodDisruptionBudgetBuilder;
 import lombok.Getter;
 
 import org.apache.spark.SparkConf;
@@ -53,6 +55,7 @@ public class SparkClusterResourceSpec {
   @Getter private final StatefulSet masterStatefulSet;
   @Getter private final StatefulSet workerStatefulSet;
   @Getter private final Optional<HorizontalPodAutoscaler> horizontalPodAutoscaler;
+  @Getter private final Optional<PodDisruptionBudget> podDisruptionBudget;
 
   /**
    * Constructs a new SparkClusterResourceSpec.
@@ -110,6 +113,7 @@ public class SparkClusterResourceSpec {
             workerSpec.getStatefulSetMetadata(),
             workerSpec.getStatefulSetSpec());
     horizontalPodAutoscaler = buildHorizontalPodAutoscaler(clusterName, namespace, spec);
+    podDisruptionBudget = buildPodDisruptionBudget(clusterName, namespace, spec);
   }
 
   /**
@@ -415,6 +419,40 @@ public class SparkClusterResourceSpec {
             .endScaleTargetRef()
             .withMinReplicas(instanceConfig.getMinWorkers())
             .withMaxReplicas(instanceConfig.getMaxWorkers())
+            .endSpec()
+            .build());
+  }
+
+  /**
+   * Builds a PodDisruptionBudget for the Spark workers.
+   *
+   * @param clusterName The name of the cluster.
+   * @param namespace The namespace of the cluster.
+   * @param spec The ClusterSpec for the cluster.
+   * @return An Optional containing a PodDisruptionBudget object, or empty if minWorkers < 1.
+   */
+  private static Optional<PodDisruptionBudget> buildPodDisruptionBudget(
+      String clusterName, String namespace, ClusterSpec spec) {
+    if (spec.getClusterTolerations().getInstanceConfig().getMinWorkers() < 1) {
+      return Optional.empty();
+    }
+    return Optional.of(
+        new PodDisruptionBudgetBuilder()
+            .withNewMetadata()
+            .withName(clusterName + "-worker-pdb")
+            .withNamespace(namespace)
+            .addToLabels(LABEL_SPARK_VERSION_NAME, spec.getRuntimeVersions().getSparkVersion())
+            .endMetadata()
+            .withNewSpec()
+            .withNewMinAvailable(1)
+            .withNewSelector()
+            .addToMatchLabels(
+                Map.of(
+                    LABEL_SPARK_CLUSTER_NAME,
+                    clusterName,
+                    LABEL_SPARK_ROLE_NAME,
+                    LABEL_SPARK_ROLE_WORKER_VALUE))
+            .endSelector()
             .endSpec()
             .build());
   }

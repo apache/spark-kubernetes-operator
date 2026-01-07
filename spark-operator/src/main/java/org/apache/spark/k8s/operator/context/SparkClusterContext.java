@@ -24,6 +24,7 @@ import java.util.Optional;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.apps.StatefulSet;
 import io.fabric8.kubernetes.api.model.autoscaling.v2.HorizontalPodAutoscaler;
+import io.fabric8.kubernetes.api.model.policy.v1.PodDisruptionBudget;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
 import lombok.RequiredArgsConstructor;
@@ -109,6 +110,15 @@ public class SparkClusterContext extends BaseContext<SparkCluster> {
    */
   public Optional<HorizontalPodAutoscaler> getHorizontalPodAutoscalerSpec() {
     return getSecondaryResourceSpec().getHorizontalPodAutoscaler();
+  }
+
+  /**
+   * Returns the specification for the PodDisruptionBudget, if present.
+   *
+   * @return An Optional containing the PodDisruptionBudget object.
+   */
+  public Optional<PodDisruptionBudget> getPodDisruptionBudgetSpec() {
+    return getSecondaryResourceSpec().getPodDisruptionBudget();
   }
 
   /**
