@@ -25,5 +25,5 @@ spec:
   maxUnavailable: 1
   selector:
     matchLabels:
-      app: spark-apache-operator
+      app.kubernetes.io/name: spark-apache-operator
 {{- end }}
