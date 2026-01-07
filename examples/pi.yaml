@@ -28,5 +28,6 @@ spec:
     spark.kubernetes.driver.pod.excludedFeatureSteps: "org.apache.spark.deploy.k8s.features.KerberosConfDriverFeatureStep"
   applicationTolerations:
     resourceRetainPolicy: OnFailure
+    ttlAfterStopMillis: 10000
   runtimeVersions:
     sparkVersion: "4.1.0"
