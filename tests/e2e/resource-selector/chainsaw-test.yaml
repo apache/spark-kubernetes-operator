@@ -27,9 +27,9 @@ spec:
         - name: SPARK_APPLICATION_NAME
           value: "spark-example-resource-selector"
         - name: SPARK_VERSION
-          value: "4.1.0"
+          value: "4.1.1"
         - name: IMAGE
-          value: "apache/spark:4.1.0-scala"
+          value: "apache/spark:4.1.1-scala"
   steps:
     - name: install-spark-application-and-apply-label
       try:

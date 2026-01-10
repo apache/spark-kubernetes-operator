@@ -37,4 +37,4 @@ spec:
     spark.hadoop.fs.s3a.access.key: "test"
     spark.hadoop.fs.s3a.secret.key: "test"
   runtimeVersions:
-    sparkVersion: "4.1.0"
+    sparkVersion: "4.1.1"

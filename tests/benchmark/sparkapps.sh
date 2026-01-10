@@ -46,7 +46,7 @@ spec:
     spark.kubernetes.driver.pod.excludedFeatureSteps: "org.apache.spark.deploy.k8s.features.KerberosConfDriverFeatureStep"
     spark.kubernetes.driver.request.cores: "100m"
   runtimeVersions:
-    sparkVersion: "4.1.0"
+    sparkVersion: "4.1.1"
 ---
 EOF
 done

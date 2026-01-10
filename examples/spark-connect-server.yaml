@@ -31,4 +31,4 @@ spec:
   applicationTolerations:
     resourceRetainPolicy: OnFailure
   runtimeVersions:
-    sparkVersion: "4.1.0"
+    sparkVersion: "4.1.1"
