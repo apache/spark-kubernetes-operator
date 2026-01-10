@@ -68,7 +68,7 @@ public class SparkClusterResourceSpec {
     String clusterName = cluster.getMetadata().getName();
     String scheduler = conf.get(Config.KUBERNETES_SCHEDULER_NAME().key(), "default-scheduler");
     String namespace = conf.get(Config.KUBERNETES_NAMESPACE().key(), clusterNamespace);
-    String image = conf.get(Config.CONTAINER_IMAGE().key(), "apache/spark:4.1.0");
+    String image = conf.get(Config.CONTAINER_IMAGE().key(), "apache/spark:4.1.1");
     ClusterSpec spec = cluster.getSpec();
     String version = spec.getRuntimeVersions().getSparkVersion();
     StringBuilder options = new StringBuilder();
