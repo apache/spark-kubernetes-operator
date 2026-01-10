@@ -185,6 +185,10 @@ operatorConfiguration:
   # If set to true, below properties would be appended to default conf files under conf/
   # Otherwise, below would override default conf files
   append: true
+  # Labels and annotations for the operatorConfiguration config map
+  configMap:
+    annotations:
+    labels:
   log4j2.properties: |+
     # Logging Overrides
     rootLogger.level=INFO

@@ -181,6 +181,15 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "spark-operator.configLabels" . | nindent 4 }}
+  {{- if .Values.operatorConfiguration.configMap }}
+    {{- if index (.Values.operatorConfiguration.configMap) "labels" }}
+      {{- toYaml .Values.operatorConfiguration.configMap.labels | nindent 4 }}
+    {{- end }}
+  {{- if index (.Values.operatorConfiguration.configMap) "annotations" }}
+  annotations:
+    {{- toYaml .Values.operatorConfiguration.configMap.annotations | nindent 4 }}
+  {{- end }}
+  {{- end }}
 data:
   log4j2.properties: |+
 {{- if .Values.operatorConfiguration.append }}
