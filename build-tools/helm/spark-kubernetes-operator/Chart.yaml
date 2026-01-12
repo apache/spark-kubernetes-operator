@@ -14,8 +14,8 @@
 # limitations under the License.
 apiVersion: v2
 name: spark-kubernetes-operator
-version: 1.5.0-dev
-appVersion: 0.7.0-SNAPSHOT
+version: 1.5.0
+appVersion: 0.7.0
 description: The official Helm chart to deploy Apache Spark, an unified engine for large-scale data analytics
 type: application
 home: https://apache.github.io/spark-kubernetes-operator/
