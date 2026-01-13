@@ -18,7 +18,8 @@
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: spark-apache-operator
+  name: spark-kubernetes-operator-pdb-{{ $.Release.Name }}
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "spark-operator.commonLabels" . | nindent 4 }}
 spec:
