@@ -18227,6 +18227,17 @@ spec:
                                                 fieldPath:
                                                   type: string
                                               type: object
+                                            fileKeyRef:
+                                              properties:
+                                                key:
+                                                  type: string
+                                                optional:
+                                                  type: boolean
+                                                path:
+                                                  type: string
+                                                volumeName:
+                                                  type: string
+                                              type: object
                                             resourceFieldRef:
                                               properties:
                                                 containerName:
@@ -18555,6 +18566,22 @@ spec:
                                     type: object
                                   restartPolicy:
                                     type: string
+                                  restartPolicyRules:
+                                    items:
+                                      properties:
+                                        action:
+                                          type: string
+                                        exitCodes:
+                                          properties:
+                                            operator:
+                                              type: string
+                                            values:
+                                              items:
+                                                type: integer
+                                              type: array
+                                          type: object
+                                      type: object
+                                    type: array
                                   securityContext:
                                     properties:
                                       allowPrivilegeEscalation:
@@ -18783,6 +18810,17 @@ spec:
                                                 fieldPath:
                                                   type: string
                                               type: object
+                                            fileKeyRef:
+                                              properties:
+                                                key:
+                                                  type: string
+                                                optional:
+                                                  type: boolean
+                                                path:
+                                                  type: string
+                                                volumeName:
+                                                  type: string
+                                              type: object
                                             resourceFieldRef:
                                               properties:
                                                 containerName:
@@ -19111,6 +19149,22 @@ spec:
                                     type: object
                                   restartPolicy:
                                     type: string
+                                  restartPolicyRules:
+                                    items:
+                                      properties:
+                                        action:
+                                          type: string
+                                        exitCodes:
+                                          properties:
+                                            operator:
+                                              type: string
+                                            values:
+                                              items:
+                                                type: integer
+                                              type: array
+                                          type: object
+                                      type: object
+                                    type: array
                                   securityContext:
                                     properties:
                                       allowPrivilegeEscalation:
@@ -19302,6 +19356,8 @@ spec:
                               type: boolean
                             hostname:
                               type: string
+                            hostnameOverride:
+                              type: string
                             imagePullSecrets:
                               items:
                                 properties:
@@ -19343,6 +19399,17 @@ spec:
                                                 apiVersion:
                                                   type: string
                                                 fieldPath:
+                                                  type: string
+                                              type: object
+                                            fileKeyRef:
+                                              properties:
+                                                key:
+                                                  type: string
+                                                optional:
+                                                  type: boolean
+                                                path:
+                                                  type: string
+                                                volumeName:
                                                   type: string
                                               type: object
                                             resourceFieldRef:
@@ -19673,6 +19740,22 @@ spec:
                                     type: object
                                   restartPolicy:
                                     type: string
+                                  restartPolicyRules:
+                                    items:
+                                      properties:
+                                        action:
+                                          type: string
+                                        exitCodes:
+                                          properties:
+                                            operator:
+                                              type: string
+                                            values:
+                                              items:
+                                                type: integer
+                                              type: array
+                                          type: object
+                                      type: object
+                                    type: array
                                   securityContext:
                                     properties:
                                       allowPrivilegeEscalation:
@@ -20593,6 +20676,21 @@ spec:
                                                         type: object
                                                     type: object
                                                   type: array
+                                              type: object
+                                            podCertificate:
+                                              properties:
+                                                certificateChainPath:
+                                                  type: string
+                                                credentialBundlePath:
+                                                  type: string
+                                                keyPath:
+                                                  type: string
+                                                keyType:
+                                                  type: string
+                                                maxExpirationSeconds:
+                                                  type: integer
+                                                signerName:
+                                                  type: string
                                               type: object
                                             secret:
                                               properties:
@@ -21186,6 +21284,17 @@ spec:
                                                 fieldPath:
                                                   type: string
                                               type: object
+                                            fileKeyRef:
+                                              properties:
+                                                key:
+                                                  type: string
+                                                optional:
+                                                  type: boolean
+                                                path:
+                                                  type: string
+                                                volumeName:
+                                                  type: string
+                                              type: object
                                             resourceFieldRef:
                                               properties:
                                                 containerName:
@@ -21514,6 +21623,22 @@ spec:
                                     type: object
                                   restartPolicy:
                                     type: string
+                                  restartPolicyRules:
+                                    items:
+                                      properties:
+                                        action:
+                                          type: string
+                                        exitCodes:
+                                          properties:
+                                            operator:
+                                              type: string
+                                            values:
+                                              items:
+                                                type: integer
+                                              type: array
+                                          type: object
+                                      type: object
+                                    type: array
                                   securityContext:
                                     properties:
                                       allowPrivilegeEscalation:
@@ -21742,6 +21867,17 @@ spec:
                                                 fieldPath:
                                                   type: string
                                               type: object
+                                            fileKeyRef:
+                                              properties:
+                                                key:
+                                                  type: string
+                                                optional:
+                                                  type: boolean
+                                                path:
+                                                  type: string
+                                                volumeName:
+                                                  type: string
+                                              type: object
                                             resourceFieldRef:
                                               properties:
                                                 containerName:
@@ -22070,6 +22206,22 @@ spec:
                                     type: object
                                   restartPolicy:
                                     type: string
+                                  restartPolicyRules:
+                                    items:
+                                      properties:
+                                        action:
+                                          type: string
+                                        exitCodes:
+                                          properties:
+                                            operator:
+                                              type: string
+                                            values:
+                                              items:
+                                                type: integer
+                                              type: array
+                                          type: object
+                                      type: object
+                                    type: array
                                   securityContext:
                                     properties:
                                       allowPrivilegeEscalation:
@@ -22261,6 +22413,8 @@ spec:
                               type: boolean
                             hostname:
                               type: string
+                            hostnameOverride:
+                              type: string
                             imagePullSecrets:
                               items:
                                 properties:
@@ -22302,6 +22456,17 @@ spec:
                                                 apiVersion:
                                                   type: string
                                                 fieldPath:
+                                                  type: string
+                                              type: object
+                                            fileKeyRef:
+                                              properties:
+                                                key:
+                                                  type: string
+                                                optional:
+                                                  type: boolean
+                                                path:
+                                                  type: string
+                                                volumeName:
                                                   type: string
                                               type: object
                                             resourceFieldRef:
@@ -22632,6 +22797,22 @@ spec:
                                     type: object
                                   restartPolicy:
                                     type: string
+                                  restartPolicyRules:
+                                    items:
+                                      properties:
+                                        action:
+                                          type: string
+                                        exitCodes:
+                                          properties:
+                                            operator:
+                                              type: string
+                                            values:
+                                              items:
+                                                type: integer
+                                              type: array
+                                          type: object
+                                      type: object
+                                    type: array
                                   securityContext:
                                     properties:
                                       allowPrivilegeEscalation:
@@ -23553,6 +23734,21 @@ spec:
                                                     type: object
                                                   type: array
                                               type: object
+                                            podCertificate:
+                                              properties:
+                                                certificateChainPath:
+                                                  type: string
+                                                credentialBundlePath:
+                                                  type: string
+                                                keyPath:
+                                                  type: string
+                                                keyType:
+                                                  type: string
+                                                maxExpirationSeconds:
+                                                  type: integer
+                                                signerName:
+                                                  type: string
+                                              type: object
                                             secret:
                                               properties:
                                                 items:
@@ -24107,6 +24303,22 @@ spec:
                                       type: array
                                   type: object
                                 type: array
+                              extendedResourceClaimStatus:
+                                properties:
+                                  requestMappings:
+                                    items:
+                                      properties:
+                                        containerName:
+                                          type: string
+                                        requestName:
+                                          type: string
+                                        resourceName:
+                                          type: string
+                                      type: object
+                                    type: array
+                                  resourceClaimName:
+                                    type: string
+                                type: object
                               hostIP:
                                 type: string
                               hostIPs:
@@ -24684,6 +24896,22 @@ spec:
                                 type: array
                             type: object
                           type: array
+                        extendedResourceClaimStatus:
+                          properties:
+                            requestMappings:
+                              items:
+                                properties:
+                                  containerName:
+                                    type: string
+                                  requestName:
+                                    type: string
+                                  resourceName:
+                                    type: string
+                                type: object
+                              type: array
+                            resourceClaimName:
+                              type: string
+                          type: object
                         hostIP:
                           type: string
                         hostIPs:
@@ -25269,6 +25497,22 @@ spec:
                                       type: array
                                   type: object
                                 type: array
+                              extendedResourceClaimStatus:
+                                properties:
+                                  requestMappings:
+                                    items:
+                                      properties:
+                                        containerName:
+                                          type: string
+                                        requestName:
+                                          type: string
+                                        resourceName:
+                                          type: string
+                                      type: object
+                                    type: array
+                                  resourceClaimName:
+                                    type: string
+                                type: object
                               hostIP:
                                 type: string
                               hostIPs:
@@ -25847,6 +26091,22 @@ spec:
                                   type: array
                               type: object
                             type: array
+                          extendedResourceClaimStatus:
+                            properties:
+                              requestMappings:
+                                items:
+                                  properties:
+                                    containerName:
+                                      type: string
+                                    requestName:
+                                      type: string
+                                    resourceName:
+                                      type: string
+                                  type: object
+                                type: array
+                              resourceClaimName:
+                                type: string
+                            type: object
                           hostIP:
                             type: string
                           hostIPs:
