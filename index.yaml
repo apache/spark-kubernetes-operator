@@ -139,4 +139,27 @@ entries:
     urls:
     - https://github.com/apache/spark-kubernetes-operator/releases/download/0.6.0/spark-kubernetes-operator-1.4.0.tgz
     version: 1.4.0
-generated: "2025-11-07T10:32:36.825319-08:00"
+  - apiVersion: v2
+    appVersion: 0.7.0
+    created: "2026-01-16T10:43:31.273762+09:00"
+    description: The official Helm chart to deploy Apache Spark, an unified engine
+      for large-scale data analytics
+    digest: 5dd93c151cf9349854699617735b305ba7b66a7ce66c6b96e8c3cda9867161ee
+    home: https://apache.github.io/spark-kubernetes-operator/
+    icon: https://spark.apache.org/images/spark-logo.png
+    keywords:
+    - apache
+    - spark
+    - sparkapp
+    - sparkcluster
+    maintainers:
+    - email: dev@spark.apache.org
+      name: Apache Spark PMC
+    name: spark-kubernetes-operator
+    sources:
+    - https://github.com/apache/spark-kubernetes-operator/
+    type: application
+    urls:
+    - https://github.com/apache/spark-kubernetes-operator/releases/download/0.7.0/spark-kubernetes-operator-1.5.0.tgz
+    version: 1.5.0
+generated: "2026-01-16T10:43:31.269207+09:00"
