@@ -29,6 +29,8 @@ import io.fabric8.kubernetes.api.model.ContainerBuilder;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
+import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicy;
+import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicyBuilder;
 import lombok.Getter;
 
 import org.apache.spark.deploy.k8s.Config;
@@ -96,6 +98,7 @@ public class SparkAppResourceSpec {
         KubernetesClientUtils.buildConfigMapJava(
             kubernetesDriverConf.configMapNameDriver(), confFilesMap, Map.of()));
     this.driverPreResources.addAll(ConfigMapSpecUtils.buildConfigMaps(configMapSpecs));
+    this.driverPreResources.add(buildNetworkPolicy(kubernetesDriverConf.appId(), namespace));
     this.driverResources.addAll(configureDriverServerIngress(sparkPod, driverServiceIngressList));
     this.driverPreResources.forEach(r -> setNamespaceIfMissing(r, namespace));
     this.driverResources.forEach(r -> setNamespaceIfMissing(r, namespace));
@@ -164,5 +167,35 @@ public class SparkAppResourceSpec {
         .map(spec -> DriverServiceIngressUtils.buildIngressService(spec, pod.pod().getMetadata()))
         .flatMap(Collection::stream)
         .collect(Collectors.toList());
+  }
+
+  /**
+   * Builds the NetworkPolicy for the SparkApplication.
+   *
+   * @param appId     The application ID of the SparkApplication.
+   * @param namespace The namespace of the SparkApplication.
+   * @return A NetworkPolicy object.
+   */
+  private NetworkPolicy buildNetworkPolicy(String appId, String namespace) {
+    return new NetworkPolicyBuilder()
+        .withNewMetadata()
+        .withName(appId + "-network-policy")
+        .withNamespace(namespace)
+        .addToLabels(org.apache.spark.k8s.operator.Constants.LABEL_SPARK_APPLICATION_NAME, appId)
+        .endMetadata()
+        .withNewSpec()
+        .withNewPodSelector()
+        .addToMatchLabels(Constants.SPARK_ROLE_LABEL(), Constants.SPARK_POD_EXECUTOR_ROLE())
+        .addToMatchLabels(Constants.SPARK_APP_ID_LABEL(), appId)
+        .endPodSelector()
+        .addNewIngress()
+        .addNewFrom()
+        .withNewPodSelector()
+        .addToMatchLabels(Constants.SPARK_APP_ID_LABEL(), appId)
+        .endPodSelector()
+        .endFrom()
+        .endIngress()
+        .endSpec()
+        .build();
   }
 }
