@@ -283,6 +283,7 @@ public class SparkOperator {
    * @param args Command line arguments (not used).
    */
   public static void main(String[] args) {
+    log.info("Java Version: " + Runtime.version().toString());
     SparkOperator sparkOperator = new SparkOperator();
     for (Operator operator : sparkOperator.registeredOperators) {
       operator.start();
