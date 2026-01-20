@@ -36,6 +36,7 @@ import io.fabric8.kubernetes.api.model.ServiceSpecBuilder;
 import io.fabric8.kubernetes.api.model.apps.StatefulSet;
 import io.fabric8.kubernetes.api.model.apps.StatefulSetSpec;
 import io.fabric8.kubernetes.api.model.apps.StatefulSetSpecBuilder;
+import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -314,6 +315,22 @@ class SparkClusterResourceSpecTest {
             .getMetadata()
             .getLabels()
             .get(LABEL_SPARK_VERSION_NAME));
+  }
+
+  @Test
+  void testWorkerNetworkPolicy() {
+    SparkClusterResourceSpec spec = new SparkClusterResourceSpec(cluster, new SparkConf());
+    NetworkPolicy policy = spec.getWorkerNetworkPolicy();
+    assertEquals("my-namespace", policy.getMetadata().getNamespace());
+    assertEquals("cluster-name-worker", policy.getMetadata().getName());
+    var expected = Map.of(
+        LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_WORKER_VALUE,
+        LABEL_SPARK_CLUSTER_NAME, "cluster-name");
+    assertEquals(expected, policy.getSpec().getPodSelector().getMatchLabels());
+    assertTrue(policy.getSpec().getEgress().isEmpty());
+    assertEquals(1, policy.getSpec().getIngress().size());
+    assertEquals(Map.of(LABEL_SPARK_CLUSTER_NAME, "cluster-name"),
+        policy.getSpec().getIngress().get(0).getFrom().get(0).getPodSelector().getMatchLabels());
   }
 
   @Test

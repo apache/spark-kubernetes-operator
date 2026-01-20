@@ -24,6 +24,7 @@ import java.util.Optional;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.apps.StatefulSet;
 import io.fabric8.kubernetes.api.model.autoscaling.v2.HorizontalPodAutoscaler;
+import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicy;
 import io.fabric8.kubernetes.api.model.policy.v1.PodDisruptionBudget;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
@@ -101,6 +102,15 @@ public class SparkClusterContext extends BaseContext<SparkCluster> {
    */
   public StatefulSet getWorkerStatefulSetSpec() {
     return getSecondaryResourceSpec().getWorkerStatefulSet();
+  }
+
+  /**
+   * Returns the specification for the worker NetworkPolicy.
+   *
+   * @return The NetworkPolicy object for the workers.
+   */
+  public NetworkPolicy getWorkerNetworkPolicySpec() {
+    return getSecondaryResourceSpec().getWorkerNetworkPolicy();
   }
 
   /**
