@@ -104,6 +104,11 @@ public class SparkClusterContext extends BaseContext<SparkCluster> {
     return getSecondaryResourceSpec().getWorkerStatefulSet();
   }
 
+  /**
+   * Returns the specification for the worker NetworkPolicy.
+   *
+   * @return The NetworkPolicy object for the workers.
+   */
   public NetworkPolicy getWorkerNetworkPolicySpec() {
     return getSecondaryResourceSpec().getWorkerNetworkPolicy();
   }
