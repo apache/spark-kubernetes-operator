@@ -165,6 +165,7 @@ public class SparkAppSubmissionWorker {
         sparkMasterUrlPrefix + "https://$KUBERNETES_SERVICE_HOST:$KUBERNETES_SERVICE_PORT");
     String appId = generateSparkAppId(app);
     effectiveSparkConf.setIfMissing("spark.app.id", appId);
+    effectiveSparkConf.setIfMissing("spark.authenticate", "true");
     return SparkAppDriverConf.create(
         effectiveSparkConf,
         sparkVersion,
