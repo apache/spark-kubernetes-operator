@@ -166,6 +166,7 @@ public class SparkAppSubmissionWorker {
     String appId = generateSparkAppId(app);
     effectiveSparkConf.setIfMissing("spark.app.id", appId);
     effectiveSparkConf.setIfMissing("spark.authenticate", "true");
+    effectiveSparkConf.setIfMissing("spark.io.encryption.enabled", "true");
     return SparkAppDriverConf.create(
         effectiveSparkConf,
         sparkVersion,
