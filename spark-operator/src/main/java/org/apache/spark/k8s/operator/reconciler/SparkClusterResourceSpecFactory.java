@@ -51,6 +51,7 @@ public final class SparkClusterResourceSpecFactory {
     decorator.decorate(spec.getWorkerService());
     decorator.decorate(spec.getMasterStatefulSet());
     decorator.decorate(spec.getWorkerStatefulSet());
+    decorator.decorate(spec.getWorkerNetworkPolicy());
     if (spec.getHorizontalPodAutoscaler().isPresent()) {
       decorator.decorate(spec.getHorizontalPodAutoscaler().get());
     }

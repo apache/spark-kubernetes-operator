@@ -31,6 +31,7 @@ import java.time.Instant;
 
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.apps.StatefulSet;
+import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicy;
 import lombok.extern.slf4j.Slf4j;
 
 import org.apache.spark.k8s.operator.SparkCluster;
@@ -75,6 +76,8 @@ public class ClusterInitStep extends ClusterReconcileStep {
       context.getClient().apps().statefulSets().resource(masterStatefulSet).create();
       StatefulSet workerStatefulSet = context.getWorkerStatefulSetSpec();
       context.getClient().apps().statefulSets().resource(workerStatefulSet).create();
+      NetworkPolicy workerNetworkPolicy = context.getWorkerNetworkPolicySpec();
+      context.getClient().network().networkPolicies().resource(workerNetworkPolicy).create();
       var horizontalPodAutoscaler = context.getHorizontalPodAutoscalerSpec();
       if (horizontalPodAutoscaler.isPresent()) {
         context

@@ -38,6 +38,8 @@ import io.fabric8.kubernetes.api.model.autoscaling.v2.HorizontalPodAutoscalerBui
 import io.fabric8.kubernetes.api.model.autoscaling.v2.HorizontalPodAutoscalerSpec;
 import io.fabric8.kubernetes.api.model.autoscaling.v2.HorizontalPodAutoscalerSpecBuilder;
 import io.fabric8.kubernetes.api.model.autoscaling.v2.MetricSpecBuilder;
+import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicy;
+import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicyBuilder;
 import io.fabric8.kubernetes.api.model.policy.v1.PodDisruptionBudget;
 import io.fabric8.kubernetes.api.model.policy.v1.PodDisruptionBudgetBuilder;
 import lombok.Getter;
@@ -54,6 +56,7 @@ public class SparkClusterResourceSpec {
   @Getter private final Service workerService;
   @Getter private final StatefulSet masterStatefulSet;
   @Getter private final StatefulSet workerStatefulSet;
+  @Getter private final NetworkPolicy workerNetworkPolicy;
   @Getter private final Optional<HorizontalPodAutoscaler> horizontalPodAutoscaler;
   @Getter private final Optional<PodDisruptionBudget> podDisruptionBudget;
 
@@ -114,6 +117,7 @@ public class SparkClusterResourceSpec {
             workerSpec.getStatefulSetSpec());
     horizontalPodAutoscaler = buildHorizontalPodAutoscaler(clusterName, namespace, spec);
     podDisruptionBudget = buildPodDisruptionBudget(clusterName, namespace, spec);
+    workerNetworkPolicy = buildWorkerNetworkPolicy(clusterName, namespace);
   }
 
   /**
@@ -455,5 +459,35 @@ public class SparkClusterResourceSpec {
             .endSelector()
             .endSpec()
             .build());
+  }
+
+  /**
+   * Builds the NetworkPolicy for the SparkCluster.
+   *
+   * @param clusterName The name of the SparkCluster.
+   * @param namespace The namespace of the SparkApplication.
+   * @return A NetworkPolicy object.
+   */
+  private NetworkPolicy buildWorkerNetworkPolicy(String clusterName, String namespace) {
+    return new NetworkPolicyBuilder()
+        .withNewMetadata()
+        .withName(clusterName + "-worker")
+        .withNamespace(namespace)
+        .addToLabels(LABEL_SPARK_CLUSTER_NAME, clusterName)
+        .endMetadata()
+        .withNewSpec()
+        .withNewPodSelector()
+        .addToMatchLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_WORKER_VALUE)
+        .addToMatchLabels(LABEL_SPARK_CLUSTER_NAME, clusterName)
+        .endPodSelector()
+        .addNewIngress()
+        .addNewFrom()
+        .withNewPodSelector()
+        .addToMatchLabels(LABEL_SPARK_CLUSTER_NAME, clusterName)
+        .endPodSelector()
+        .endFrom()
+        .endIngress()
+        .endSpec()
+        .build();
   }
 }
