@@ -37,7 +37,7 @@ spotless-plugin = "8.1.0"
 
 # Packaging
 cyclonedx = "2.4.1"
-shadow-jar-plugin = "8.3.6"
+shadow-jar-plugin = "8.3.9"
 
 [libraries]
 kubernetes-client = { group = "io.fabric8", name = "kubernetes-client", version.ref = "fabric8" }
