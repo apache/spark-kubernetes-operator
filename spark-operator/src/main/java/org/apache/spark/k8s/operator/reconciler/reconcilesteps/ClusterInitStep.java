@@ -69,15 +69,33 @@ public class ClusterInitStep extends ClusterReconcileStep {
     }
     try {
       Service masterService = context.getMasterServiceSpec();
-      context.getClient().services().resource(masterService).create();
+      context.getClient().services().resource(masterService).forceConflicts().serverSideApply();
       Service workerService = context.getWorkerServiceSpec();
-      context.getClient().services().resource(workerService).create();
+      context.getClient().services().resource(workerService).forceConflicts().serverSideApply();
       StatefulSet masterStatefulSet = context.getMasterStatefulSetSpec();
-      context.getClient().apps().statefulSets().resource(masterStatefulSet).create();
+      context
+          .getClient()
+          .apps()
+          .statefulSets()
+          .resource(masterStatefulSet)
+          .forceConflicts()
+          .serverSideApply();
       StatefulSet workerStatefulSet = context.getWorkerStatefulSetSpec();
-      context.getClient().apps().statefulSets().resource(workerStatefulSet).create();
+      context
+          .getClient()
+          .apps()
+          .statefulSets()
+          .resource(workerStatefulSet)
+          .forceConflicts()
+          .serverSideApply();
       NetworkPolicy workerNetworkPolicy = context.getWorkerNetworkPolicySpec();
-      context.getClient().network().networkPolicies().resource(workerNetworkPolicy).create();
+      context
+          .getClient()
+          .network()
+          .networkPolicies()
+          .resource(workerNetworkPolicy)
+          .forceConflicts()
+          .serverSideApply();
       var horizontalPodAutoscaler = context.getHorizontalPodAutoscalerSpec();
       if (horizontalPodAutoscaler.isPresent()) {
         context
@@ -86,7 +104,8 @@ public class ClusterInitStep extends ClusterReconcileStep {
             .v2()
             .horizontalPodAutoscalers()
             .resource(horizontalPodAutoscaler.get())
-            .create();
+            .forceConflicts()
+            .serverSideApply();
       }
       var podDisruptionBudget = context.getPodDisruptionBudgetSpec();
       if (podDisruptionBudget.isPresent()) {
@@ -96,7 +115,8 @@ public class ClusterInitStep extends ClusterReconcileStep {
             .v1()
             .podDisruptionBudget()
             .resource(podDisruptionBudget.get())
-            .create();
+            .forceConflicts()
+            .serverSideApply();
       }
 
       ClusterStatus updatedStatus =
