@@ -19,7 +19,9 @@
 
 package org.apache.spark.k8s.operator.probe;
 
+import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.OPERATOR_PROBE_PORT;
+import static org.apache.spark.k8s.operator.utils.ProbeUtil.sendMessage;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -56,6 +58,12 @@ public class ProbeService {
     }
     server.createContext(READYZ, new ReadinessProbe(operators));
     server.createContext(HEALTHZ, new HealthProbe(operators, sentinelManagers));
+    server.createContext(
+        "/",
+        exchange -> {
+          sendMessage(exchange, HTTP_NOT_FOUND, "");
+          exchange.close();
+        });
     server.setExecutor(executor);
   }
 
