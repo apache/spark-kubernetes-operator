@@ -66,8 +66,14 @@ public final class ProbeUtil {
       throws IOException {
     try (OutputStream outputStream = httpExchange.getResponseBody()) {
       byte[] bytes = message.getBytes(StandardCharsets.UTF_8);
+      Headers responseHeaders = httpExchange.getResponseHeaders();
+      responseHeaders.set("Cache-Control", "no-cache, no-store, must-revalidate");
+      responseHeaders.set("Content-Security-Policy", "default-src 'none'");
+      responseHeaders.set("Content-Type", "text/plain; charset=utf-8");
+      responseHeaders.set("X-Content-Type-Options", "nosniff");
+      responseHeaders.set("X-Frame-Options", "DENY");
+      // Add any additional headers if provided
       if (headers != null && !headers.isEmpty()) {
-        Headers responseHeaders = httpExchange.getResponseHeaders();
         responseHeaders.putAll(headers);
       }
       httpExchange.sendResponseHeaders(code, bytes.length);

@@ -93,7 +93,7 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
           exchange,
           HTTP_OK,
           formatMetricsSnapshot(),
-          Map.of("Content-Type", List.of("text/plain;version=0.0.4")));
+          Map.of("Content-Type", List.of("text/plain; charset=utf-8; version=0.0.4")));
     } else {
       HttpServletRequest httpServletRequest = null;
       String value = getMetricsSnapshot(httpServletRequest);
@@ -101,7 +101,7 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
           exchange,
           HTTP_OK,
           String.join("\n", filterNonEmptyRecords(value)),
-          Map.of("Content-Type", List.of("text/plain;version=0.0.4")));
+          Map.of("Content-Type", List.of("text/plain; charset=utf-8; version=0.0.4")));
     }
   }
 
