@@ -28,6 +28,8 @@ import java.util.concurrent.Executor;
 import com.sun.net.httpserver.HttpServer;
 import lombok.extern.slf4j.Slf4j;
 
+import org.apache.spark.k8s.operator.utils.HttpMethodFilter;
+
 /** Start Http service at endpoint /prometheus, exposing operator metrics. */
 @Slf4j
 public class MetricsService {
@@ -53,7 +55,8 @@ public class MetricsService {
   /** Starts the HTTP server and exposes the Prometheus metrics endpoint. */
   public void start() {
     log.info("Starting Metrics Service for Prometheus ...");
-    server.createContext("/prometheus", metricsSystem.getPrometheusPullModelHandler());
+    server.createContext("/prometheus", metricsSystem.getPrometheusPullModelHandler())
+        .getFilters().add(new HttpMethodFilter());
     server.start();
   }
 
