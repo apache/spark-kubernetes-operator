@@ -96,7 +96,7 @@ class SentinelManagerTest {
   @Test
   @Order(3)
   void testHandleSentinelResourceReconciliation() throws InterruptedException {
-    // Reduce the SENTINEL_RESOURCE_RECONCILIATION_DELAY time to 0
+    // Reduce the SENTINEL_RESOURCE_RECONCILIATION_DELAY time to 10
     SparkOperatorConfManager.INSTANCE.refresh(
         Map.of(
             SparkOperatorConf.SENTINEL_RESOURCE_RECONCILIATION_DELAY.getKey(), "10"));
