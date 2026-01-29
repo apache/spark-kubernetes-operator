@@ -34,12 +34,14 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import org.apache.spark.k8s.operator.metrics.healthcheck.SentinelManager;
+import org.apache.spark.k8s.operator.utils.HttpMethodFilter;
 
 /** Service for health and readiness probes. */
 @Slf4j
 public class ProbeService {
   public static final String HEALTHZ = "/healthz";
   public static final String READYZ = "/readyz";
+  private static final HttpMethodFilter FILTER = new HttpMethodFilter();
   @Getter private final HttpServer server;
 
   /**
@@ -56,14 +58,15 @@ public class ProbeService {
     } catch (IOException e) {
       throw new IllegalStateException("Failed to create Probe Service Server", e);
     }
-    server.createContext(READYZ, new ReadinessProbe(operators));
-    server.createContext(HEALTHZ, new HealthProbe(operators, sentinelManagers));
+    server.createContext(READYZ, new ReadinessProbe(operators)).getFilters().add(FILTER);
+    server.createContext(HEALTHZ, new HealthProbe(operators, sentinelManagers))
+      .getFilters().add(FILTER);
     server.createContext(
         "/",
         exchange -> {
           sendMessage(exchange, HTTP_NOT_FOUND, "");
           exchange.close();
-        });
+        }).getFilters().add(FILTER);
     server.setExecutor(executor);
   }
 
