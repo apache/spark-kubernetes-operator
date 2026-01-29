@@ -59,7 +59,7 @@ public class ConfigOption<T> {
     if (log.isDebugEnabled()) {
       log.debug("Resolved value for property {}={}", key, resolvedValue);
     }
-    return resolveValue();
+    return resolvedValue;
   }
 
   private T resolveValue() {
