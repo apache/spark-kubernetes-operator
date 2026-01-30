@@ -71,6 +71,14 @@ subprojects {
     mavenCentral()
   }
 
+  configurations.all {
+    resolutionStrategy.eachDependency {
+      if (requested.group == "io.netty" && !requested.name.startsWith("netty-tcnative")) {
+        useVersion(libs.versions.netty.get())
+      }
+    }
+  }
+
   apply plugin: 'checkstyle'
   checkstyle {
     toolVersion = libs.versions.checkstyle.get()
