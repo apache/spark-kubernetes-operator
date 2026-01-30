@@ -94,23 +94,39 @@ tasks.register("assertGeneratedCRDMatchesHelmChart") {
 
       if (generatedAppCRD != stagedAppCRD) {
         errorMessage.append("=== SparkApplication CRD Differences ===\n")
-        def appDiff = ["bash", "-c",
-                       "diff -u <(echo '${generatedAppCRD.replace("'", "'\\''")}' " +
-                           "| yq -P 'sort_keys(..)') <(echo '${stagedAppCRD.replace("'", "'\\''")}' " +
-                           "| yq -P 'sort_keys(..)')"]
-            .execute().text
-        errorMessage.append(appDiff ?: "Unable to generate diff\n")
+        def tmpGenerated = File.createTempFile("generated-app-", ".yaml")
+        def tmpStaged = File.createTempFile("staged-app-", ".yaml")
+        try {
+          tmpGenerated.text = generatedAppCRD
+          tmpStaged.text = stagedAppCRD
+          def appDiff = ["bash", "-c",
+                         "diff -u <(yq -P 'sort_keys(..)' ${tmpGenerated.absolutePath}) " +
+                             "<(yq -P 'sort_keys(..)' ${tmpStaged.absolutePath})"]
+              .execute().text
+          errorMessage.append(appDiff ?: "Unable to generate diff\n")
+        } finally {
+          tmpGenerated.delete()
+          tmpStaged.delete()
+        }
         errorMessage.append("\n")
       }
 
       if (generatedClusterCRD != stagedClusterCRD) {
         errorMessage.append("=== SparkCluster CRD Differences ===\n")
-        def clusterDiff = ["bash", "-c",
-                           "diff -u <(echo '${generatedClusterCRD.replace("'", "'\\''")}' " +
-                               "| yq -P 'sort_keys(..)') <(echo '${stagedClusterCRD.replace("'", "'\\''")}' " +
-                               "| yq -P 'sort_keys(..)')"]
-            .execute().text
-        errorMessage.append(clusterDiff ?: "Unable to generate diff\n")
+        def tmpGenerated = File.createTempFile("generated-cluster-", ".yaml")
+        def tmpStaged = File.createTempFile("staged-cluster-", ".yaml")
+        try {
+          tmpGenerated.text = generatedClusterCRD
+          tmpStaged.text = stagedClusterCRD
+          def clusterDiff = ["bash", "-c",
+                             "diff -u <(yq -P 'sort_keys(..)' ${tmpGenerated.absolutePath}) " +
+                                 "<(yq -P 'sort_keys(..)' ${tmpStaged.absolutePath})"]
+              .execute().text
+          errorMessage.append(clusterDiff ?: "Unable to generate diff\n")
+        } finally {
+          tmpGenerated.delete()
+          tmpStaged.delete()
+        }
       }
 
       throw new GradleException(errorMessage.toString())
