@@ -17,6 +17,7 @@
 [versions]
 fabric8 = "7.5.2"
 lombok = "1.18.42"
+netty = "4.2.9.Final"
 operator-sdk = "5.2.2"
 dropwizard-metrics = "4.2.37"
 spark = "4.1.1"
