@@ -97,13 +97,15 @@ Spark Operator also measures the latency between each state transition for apps,
 
 | Metrics Name                                         | Type  | Description                                                      |
 |------------------------------------------------------|-------|------------------------------------------------------------------|
+| sparkapp.discover.latency                            | Timer | Tracking latency from resource creation to first Submitted state |
 | sparkapp.latency.from.`<fromState>`.to.`<toState>`   | Timer | Tracking latency for app of transition from one state to another |
 
-The latency metrics can be used to provide insights about time spent in each state. For example, a
-long latency between `DriverRequested` and `DriverStarted` indicates overhead for driver pod to be
-scheduled. Latency between `DriverStarted` and `DriverReady` indicates overhead to pull image, to
-run init containers and to start SparkSession. These metrics can be used to analyze the overhead
-from multiple dimensions.
+The latency metrics can be used to provide insights about time spent in each state. For example,
+the `discover.latency` metric measures how long it takes for the operator to discover and begin
+processing a newly created SparkApplication resource. A long latency between `DriverRequested` and
+`DriverStarted` indicates overhead for driver pod to be scheduled. Latency between `DriverStarted`
+and `DriverReady` indicates overhead to pull image, to run init containers and to start SparkSession.
+These metrics can be used to analyze the overhead from multiple dimensions.
 
 ### Forward Metrics to Prometheus
 

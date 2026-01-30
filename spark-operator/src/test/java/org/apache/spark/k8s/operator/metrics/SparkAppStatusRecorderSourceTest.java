@@ -22,6 +22,7 @@ package org.apache.spark.k8s.operator.metrics;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Instant;
 import java.util.Map;
 
 import com.codahale.metrics.Timer;
@@ -31,7 +32,6 @@ import org.junit.jupiter.api.Test;
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
-import org.apache.spark.k8s.operator.status.ApplicationStatus;
 
 class SparkAppStatusRecorderSourceTest {
 
@@ -46,13 +46,13 @@ class SparkAppStatusRecorderSourceTest {
     ApplicationState stateUpdate12 =
         new ApplicationState(ApplicationStateSummary.DriverRequested, "bar");
     // record short latency
-    source.recordStatusUpdateLatency(app1.getStatus(), stateUpdate11);
-    source.recordStatusUpdateLatency(app2.getStatus(), stateUpdate12);
+    source.recordStatusUpdateLatency(app1.getMetadata(), app1.getStatus(), stateUpdate11);
+    source.recordStatusUpdateLatency(app2.getMetadata(), app2.getStatus(), stateUpdate12);
     app1.setStatus(app1.getStatus().appendNewState(stateUpdate11));
 
     ApplicationState stateUpdate2 =
         new ApplicationState(ApplicationStateSummary.DriverStarted, "foo");
-    source.recordStatusUpdateLatency(app1.getStatus(), stateUpdate2);
+    source.recordStatusUpdateLatency(app1.getMetadata(), app1.getStatus(), stateUpdate2);
 
     Map<String, Timer> timers = source.metricRegistry().getTimers();
     assertEquals(2, timers.size());
@@ -69,10 +69,34 @@ class SparkAppStatusRecorderSourceTest {
             > 0);
   }
 
+  @Test
+  void recordDiscoverLatency() {
+    SparkAppStatusRecorderSource source = new SparkAppStatusRecorderSource();
+    SparkApplication app = prepareApplication("foo", "bar", false);
+    source.recordStatusUpdateLatency(app.getMetadata(), app.getStatus(), new ApplicationState());
+    Map<String, Timer> timers = source.metricRegistry().getTimers();
+    assertEquals(1, timers.size());
+    assertTrue(timers.containsKey("sparkapp.discover.latency"));
+    assertTrue(timers.get("sparkapp.discover.latency").getSnapshot().getMin() > 0);
+  }
+
   protected SparkApplication prepareApplication(String name, String namespace) {
+    return prepareApplication(name, namespace, true);
+  }
+
+  protected SparkApplication prepareApplication(String name,
+                                                String namespace,
+                                                boolean addInitStatus) {
     SparkApplication app = new SparkApplication();
-    app.setMetadata(new ObjectMetaBuilder().withName(name).withNamespace(namespace).build());
-    app.setStatus(new ApplicationStatus());
+    app.setMetadata(
+        new ObjectMetaBuilder()
+            .withName(name)
+            .withNamespace(namespace)
+            .withCreationTimestamp(Instant.now().toString())
+            .build());
+    if (!addInitStatus) {
+      app.setStatus(null);
+    }
     return app;
   }
 }
