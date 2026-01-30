@@ -58,7 +58,8 @@ public class SparkAppStatusRecorder
     ApplicationStatus updatedStatus = appStatus.appendNewState(newState);
     boolean statusPersisted = persistStatus(context, updatedStatus);
     if (statusPersisted) {
-      recorderSource.recordStatusUpdateLatency(appStatus, newState);
+      recorderSource.recordStatusUpdateLatency(
+          context.getResource().getMetadata(), appStatus, newState);
     }
     return statusPersisted;
   }
