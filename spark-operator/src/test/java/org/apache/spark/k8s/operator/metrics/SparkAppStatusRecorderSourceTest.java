@@ -76,8 +76,8 @@ class SparkAppStatusRecorderSourceTest {
     source.recordStatusUpdateLatency(app.getMetadata(), app.getStatus(), new ApplicationState());
     Map<String, Timer> timers = source.metricRegistry().getTimers();
     assertEquals(1, timers.size());
-    assertTrue(timers.containsKey("sparkapp.discover.latency"));
-    assertTrue(timers.get("sparkapp.discover.latency").getSnapshot().getMin() > 0);
+    assertTrue(timers.containsKey("sparkapp.latency.discover"));
+    assertTrue(timers.get("sparkapp.latency.discover").getSnapshot().getMin() > 0);
   }
 
   protected SparkApplication prepareApplication(String name, String namespace) {

@@ -35,7 +35,7 @@ public class SparkAppStatusRecorderSource extends BaseOperatorSource implements 
 
   public static final String RESOURCE_TYPE = "sparkapp";
   public static final String LATENCY_METRIC_FORMAT = "latency.from.%s.to.%s";
-  public static final String DISCOVER_LATENCY_NAME = "discover.latency";
+  public static final String DISCOVER_LATENCY_NAME = "latency.discover";
 
   /** Constructs a new SparkAppStatusRecorderSource. */
   public SparkAppStatusRecorderSource() {
