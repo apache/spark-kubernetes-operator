@@ -47,7 +47,7 @@ spec:
           command: ["sh", "-c"]
           args:
           - |
-            wget -O /comet/comet.jar "https://repo1.maven.org/maven2/org/apache/datafusion/comet-spark-spark3.5_2.12/0.12.0/comet-spark-spark3.5_2.12-0.12.0.jar"
+            wget -O /comet/comet.jar "https://repo1.maven.org/maven2/org/apache/datafusion/comet-spark-spark3.5_2.12/0.13.0/comet-spark-spark3.5_2.12-0.13.0.jar"
           volumeMounts:
           - name: comet
             mountPath: /comet
@@ -69,7 +69,7 @@ spec:
           command: ["sh", "-c"]
           args:
           - |
-            wget -O /comet/comet.jar "https://repo1.maven.org/maven2/org/apache/datafusion/comet-spark-spark3.5_2.12/0.12.0/comet-spark-spark3.5_2.12-0.12.0.jar"
+            wget -O /comet/comet.jar "https://repo1.maven.org/maven2/org/apache/datafusion/comet-spark-spark3.5_2.12/0.13.0/comet-spark-spark3.5_2.12-0.13.0.jar"
           volumeMounts:
           - name: comet
             mountPath: /comet
