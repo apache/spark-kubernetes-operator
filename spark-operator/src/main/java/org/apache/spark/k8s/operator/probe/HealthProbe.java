@@ -28,7 +28,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -58,17 +57,11 @@ public class HealthProbe implements HttpHandler {
    * @return True if the operator is healthy, false otherwise.
    */
   public boolean isHealthy() {
-    Optional<Boolean> operatorsAreReady = areOperatorsStarted(operators);
-    if (operatorsAreReady.isEmpty() || !operatorsAreReady.get()) {
+    if (!areOperatorsStarted(operators).orElse(false)) {
       return false;
     }
 
-    Optional<Boolean> runtimeInfosAreHealthy =
-        operators.stream()
-            .map(operator -> checkInformersHealth(operator.getRuntimeInfo()))
-            .reduce((a, b) -> a && b);
-
-    if (runtimeInfosAreHealthy.isEmpty() || !runtimeInfosAreHealthy.get()) {
+    if (!operators.stream().allMatch(op -> checkInformersHealth(op.getRuntimeInfo()))) {
       return false;
     }
 
@@ -90,11 +83,8 @@ public class HealthProbe implements HttpHandler {
    */
   @Override
   public void handle(HttpExchange exchange) throws IOException {
-    if (isHealthy()) {
-      sendMessage(exchange, HTTP_OK, "healthy");
-    } else {
-      sendMessage(exchange, HTTP_INTERNAL_ERROR, "unhealthy");
-    }
+    boolean flag = isHealthy();
+    sendMessage(exchange, flag ? HTTP_OK : HTTP_INTERNAL_ERROR, flag ? "healthy" : "unhealthy");
   }
 
   private boolean checkInformersHealth(RuntimeInfo operatorRuntimeInfo) {
