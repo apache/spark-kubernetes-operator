@@ -435,6 +435,16 @@ public final class SparkOperatorConf {
               .defaultValue(true)
               .build();
 
+  /** The path used for checking metrics */
+  public static final ConfigOption<String> OPERATOR_METRICS_PATH =
+      ConfigOption.<String>builder()
+          .key("spark.kubernetes.operator.metrics.path")
+          .enableDynamicOverride(false)
+          .description("The path used for checking metrics")
+          .typeParameterClass(String.class)
+          .defaultValue("/prometheus")
+          .build();
+
   /** The port used for checking metrics */
   public static final ConfigOption<Integer> OPERATOR_METRICS_PORT =
       ConfigOption.<Integer>builder()
