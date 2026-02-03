@@ -23,8 +23,10 @@ import java.time.Duration;
 import java.time.Instant;
 
 import com.codahale.metrics.MetricRegistry;
+import io.fabric8.kubernetes.api.model.ObjectMeta;
 
 import org.apache.spark.k8s.operator.status.ApplicationState;
+import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
 import org.apache.spark.metrics.source.Source;
 
@@ -33,6 +35,7 @@ public class SparkAppStatusRecorderSource extends BaseOperatorSource implements 
 
   public static final String RESOURCE_TYPE = "sparkapp";
   public static final String LATENCY_METRIC_FORMAT = "latency.from.%s.to.%s";
+  public static final String DISCOVER_LATENCY_NAME = "latency.discover";
 
   /** Constructs a new SparkAppStatusRecorderSource. */
   public SparkAppStatusRecorderSource() {
@@ -65,10 +68,11 @@ public class SparkAppStatusRecorderSource extends BaseOperatorSource implements 
    * @param status The current application status.
    * @param newState The new application state.
    */
-  public void recordStatusUpdateLatency(
-      final ApplicationStatus status, final ApplicationState newState) {
-    ApplicationState currentState = status.getCurrentState();
-    if (currentState != null) {
+  public void recordStatusUpdateLatency(final ObjectMeta metadata,
+                                        final ApplicationStatus status,
+                                        final ApplicationState newState) {
+    if (status != null && status.getCurrentState() != null) {
+      ApplicationState currentState = status.getCurrentState();
       Duration duration =
           Duration.between(
               Instant.parse(currentState.getLastTransitionTime()),
@@ -80,6 +84,11 @@ public class SparkAppStatusRecorderSource extends BaseOperatorSource implements 
                   currentState.getCurrentStateSummary().name(),
                   newState.getCurrentStateSummary().name()))
           .update(duration);
+    } else if (newState.getCurrentStateSummary() == ApplicationStateSummary.Submitted) {
+      Duration discoverTime = Duration.between(
+          Instant.parse(metadata.getCreationTimestamp()),
+          Instant.parse(newState.getLastTransitionTime()));
+      getTimer(RESOURCE_TYPE, DISCOVER_LATENCY_NAME).update(discoverTime);
     }
   }
 }
