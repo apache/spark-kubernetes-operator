@@ -19,6 +19,7 @@
 
 package org.apache.spark.k8s.operator.metrics;
 
+import static org.apache.spark.k8s.operator.config.SparkOperatorConf.OPERATOR_METRICS_PATH;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.OPERATOR_METRICS_PORT;
 
 import java.io.IOException;
@@ -30,7 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import org.apache.spark.k8s.operator.utils.HttpMethodFilter;
 
-/** Start Http service at endpoint /prometheus, exposing operator metrics. */
+/** Start Http service exposing operator metrics. */
 @Slf4j
 public class MetricsService {
   HttpServer server;
@@ -55,8 +56,8 @@ public class MetricsService {
   /** Starts the HTTP server and exposes the Prometheus metrics endpoint. */
   public void start() {
     log.info("Starting Metrics Service for Prometheus ...");
-    server.createContext("/prometheus", metricsSystem.getPrometheusPullModelHandler())
-        .getFilters().add(new HttpMethodFilter());
+    server.createContext(OPERATOR_METRICS_PATH.getValue(),
+        metricsSystem.getPrometheusPullModelHandler()).getFilters().add(new HttpMethodFilter());
     server.start();
   }
 
