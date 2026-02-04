@@ -41,6 +41,7 @@ import org.apache.spark.deploy.k8s.submit.RMainAppResource;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 import org.apache.spark.k8s.operator.spec.ConfigMapSpec;
 import org.apache.spark.k8s.operator.spec.DriverServiceIngressSpec;
+import org.apache.spark.k8s.operator.spec.ResourceRetainPolicy;
 import org.apache.spark.k8s.operator.spec.RuntimeVersions;
 import org.apache.spark.k8s.operator.utils.ModelUtils;
 import org.apache.spark.k8s.operator.utils.StringUtils;
@@ -167,6 +168,11 @@ public class SparkAppSubmissionWorker {
     effectiveSparkConf.setIfMissing("spark.app.id", appId);
     effectiveSparkConf.setIfMissing("spark.authenticate", "true");
     effectiveSparkConf.setIfMissing("spark.io.encryption.enabled", "true");
+    // Use K8s Garbage Collection instead of explicit API invocations
+    if (applicationSpec.getApplicationTolerations().getResourceRetainPolicy() !=
+        ResourceRetainPolicy.Always) {
+      effectiveSparkConf.setIfMissing("spark.kubernetes.executor.deleteOnTermination", "false");
+    }
     return SparkAppDriverConf.create(
         effectiveSparkConf,
         sparkVersion,
