@@ -43,6 +43,8 @@ import org.apache.spark.deploy.k8s.submit.JavaMainAppResource;
 import org.apache.spark.deploy.k8s.submit.PythonMainAppResource;
 import org.apache.spark.deploy.k8s.submit.RMainAppResource;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
+import org.apache.spark.k8s.operator.spec.ApplicationTolerations;
+import org.apache.spark.k8s.operator.spec.ResourceRetainPolicy;
 import org.apache.spark.k8s.operator.spec.RuntimeVersions;
 import org.apache.spark.k8s.operator.status.ApplicationAttemptSummary;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
@@ -73,6 +75,7 @@ class SparkAppSubmissionWorkerTest {
       when(mockSpec.getProxyUser()).thenReturn("foo-user");
       when(mockSpec.getMainClass()).thenReturn("foo-class");
       when(mockSpec.getDriverArgs()).thenReturn(List.of("a", "b"));
+      when(mockSpec.getApplicationTolerations()).thenReturn(new ApplicationTolerations());
 
       SparkAppSubmissionWorker submissionWorker = new SparkAppSubmissionWorker();
       SparkAppDriverConf conf = submissionWorker.buildDriverConf(mockApp, overrides);
@@ -116,6 +119,7 @@ class SparkAppSubmissionWorkerTest {
       ObjectMeta appMeta = new ObjectMetaBuilder().withName("app1").withNamespace("ns1").build();
       when(mockApp.getSpec()).thenReturn(mockSpec);
       when(mockApp.getMetadata()).thenReturn(appMeta);
+      when(mockSpec.getApplicationTolerations()).thenReturn(new ApplicationTolerations());
       when(mockSpec.getPyFiles()).thenReturn("foo");
 
       SparkAppSubmissionWorker submissionWorker = new SparkAppSubmissionWorker();
@@ -141,6 +145,7 @@ class SparkAppSubmissionWorkerTest {
       ObjectMeta appMeta = new ObjectMetaBuilder().withName("app1").withNamespace("ns1").build();
       when(mockApp.getSpec()).thenReturn(mockSpec);
       when(mockApp.getMetadata()).thenReturn(appMeta);
+      when(mockSpec.getApplicationTolerations()).thenReturn(new ApplicationTolerations());
       when(mockSpec.getMainClass()).thenReturn("org.apache.spark.deploy.PythonRunner");
       when(mockSpec.getPyFiles()).thenReturn("main.py,lib.py");
 
@@ -169,6 +174,7 @@ class SparkAppSubmissionWorkerTest {
       ObjectMeta appMeta = new ObjectMetaBuilder().withName("app1").withNamespace("ns1").build();
       when(mockApp.getSpec()).thenReturn(mockSpec);
       when(mockApp.getMetadata()).thenReturn(appMeta);
+      when(mockSpec.getApplicationTolerations()).thenReturn(new ApplicationTolerations());
       when(mockSpec.getSparkRFiles()).thenReturn("foo");
 
       SparkAppSubmissionWorker submissionWorker = new SparkAppSubmissionWorker();
@@ -257,6 +263,7 @@ class SparkAppSubmissionWorkerTest {
     when(mockSpec.getSparkConf()).thenReturn(appProps);
     when(mockApp.getSpec()).thenReturn(mockSpec);
     when(mockApp.getMetadata()).thenReturn(appMeta);
+    when(mockSpec.getApplicationTolerations()).thenReturn(new ApplicationTolerations());
 
     SparkAppSubmissionWorker submissionWorker = new SparkAppSubmissionWorker();
     SparkAppDriverConf conf = submissionWorker.buildDriverConf(mockApp, Map.of());
@@ -274,6 +281,7 @@ class SparkAppSubmissionWorkerTest {
     appProps.put("spark.kubernetes.executor.container.image", "apache/spark:{{SPARK_VERSION}}");
     appProps.put("spark.kubernetes.key", "apache/spark:{{SPARK_VERSION}}");
     ObjectMeta appMeta = new ObjectMetaBuilder().withName("app1").withNamespace("ns1").build();
+    when(mockSpec.getApplicationTolerations()).thenReturn(new ApplicationTolerations());
     when(mockSpec.getSparkConf()).thenReturn(appProps);
     when(mockApp.getSpec()).thenReturn(mockSpec);
     when(mockApp.getMetadata()).thenReturn(appMeta);
@@ -286,5 +294,30 @@ class SparkAppSubmissionWorkerTest {
     assertEquals("apache/spark:dev", conf.get("spark.kubernetes.driver.container.image"));
     assertEquals("apache/spark:dev", conf.get("spark.kubernetes.executor.container.image"));
     assertEquals("apache/spark:{{SPARK_VERSION}}", conf.get("spark.kubernetes.key"));
+  }
+
+  @Test
+  void useGarbageCollectionToDeleteExecutors() {
+    SparkApplication mockApp = mock(SparkApplication.class);
+    ApplicationSpec mockSpec = mock(ApplicationSpec.class);
+    ApplicationTolerations mockTolerations = mock(ApplicationTolerations.class);
+    when(mockSpec.getApplicationTolerations()).thenReturn(mockTolerations);
+    when(mockSpec.getSparkConf()).thenReturn(Map.of());
+    ObjectMeta appMeta = new ObjectMetaBuilder().withName("app1").withNamespace("ns1").build();
+    when(mockApp.getSpec()).thenReturn(mockSpec);
+    when(mockApp.getMetadata()).thenReturn(appMeta);
+
+    SparkAppSubmissionWorker submissionWorker = new SparkAppSubmissionWorker();
+    when(mockTolerations.getResourceRetainPolicy()).thenReturn(ResourceRetainPolicy.Always);
+    SparkAppDriverConf conf1 = submissionWorker.buildDriverConf(mockApp, Map.of());
+    assertEquals("true", conf1.get("spark.kubernetes.executor.deleteOnTermination", "true"));
+
+    when(mockTolerations.getResourceRetainPolicy()).thenReturn(ResourceRetainPolicy.Never);
+    SparkAppDriverConf conf2 = submissionWorker.buildDriverConf(mockApp, Map.of());
+    assertEquals("false", conf2.get("spark.kubernetes.executor.deleteOnTermination", "true"));
+
+    when(mockTolerations.getResourceRetainPolicy()).thenReturn(ResourceRetainPolicy.OnFailure);
+    SparkAppDriverConf conf3 = submissionWorker.buildDriverConf(mockApp, Map.of());
+    assertEquals("false", conf3.get("spark.kubernetes.executor.deleteOnTermination", "true"));
   }
 }
