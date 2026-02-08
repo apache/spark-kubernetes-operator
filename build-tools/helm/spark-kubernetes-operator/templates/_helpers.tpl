@@ -128,7 +128,7 @@ spark.kubernetes.operator.leaderElection.enabled=true
 Readiness Probe properties overrides
 */}}
 {{- define "spark-operator.readinessProbe.failureThreshold" -}}
-{{- default 30 .Values.operatorDeployment.operatorPod.operatorContainer.probes.readinessProbe.failureThreshold }}
+{{- default 1 .Values.operatorDeployment.operatorPod.operatorContainer.probes.readinessProbe.failureThreshold }}
 {{- end }}
 {{- define "spark-operator.readinessProbe.periodSeconds" -}}
 {{- default 10 .Values.operatorDeployment.operatorPod.operatorContainer.probes.readinessProbe.periodSeconds }}
