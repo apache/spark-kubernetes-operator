@@ -33,6 +33,7 @@ jobs:
     timeout-minutes: 20
     strategy:
       fail-fast: false
+      max-parallel: 20
       matrix:
         os: [ 'ubuntu-latest', 'ubuntu-24.04-arm' ]
         java-version: [ 17, 21, 25 ]
@@ -71,6 +72,7 @@ jobs:
     timeout-minutes: 20
     strategy:
       fail-fast: false
+      max-parallel: 20
       matrix:
         kubernetes-version:
           - "1.33.0"
@@ -183,6 +185,7 @@ jobs:
     timeout-minutes: 20
     strategy:
       fail-fast: false
+      max-parallel: 20
       matrix:
         kubernetes-version:
           - "1.35.0"
