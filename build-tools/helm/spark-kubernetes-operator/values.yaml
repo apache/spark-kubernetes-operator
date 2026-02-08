@@ -61,7 +61,7 @@ operatorDeployment:
         livenessProbe:
           periodSeconds: 10
           initialDelaySeconds: 30
-          failureThreshold: 1
+          failureThreshold: 3
           timeoutSeconds: 1
         startupProbe:
           failureThreshold: 30

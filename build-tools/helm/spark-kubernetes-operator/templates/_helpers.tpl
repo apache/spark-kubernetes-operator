@@ -147,7 +147,7 @@ Liveness Probe properties override
 {{- default 10 .Values.operatorDeployment.operatorPod.operatorContainer.probes.livenessProbe.periodSeconds }}
 {{- end }}
 {{- define "spark-operator.livenessProbe.failureThreshold" -}}
-{{- default 1 .Values.operatorDeployment.operatorPod.operatorContainer.probes.livenessProbe.failureThreshold }}
+{{- default 3 .Values.operatorDeployment.operatorPod.operatorContainer.probes.livenessProbe.failureThreshold }}
 {{- end }}
 {{- define "spark-operator.livenessProbe.timeoutSeconds" -}}
 {{- default 1 .Values.operatorDeployment.operatorPod.operatorContainer.probes.livenessProbe.timeoutSeconds }}
