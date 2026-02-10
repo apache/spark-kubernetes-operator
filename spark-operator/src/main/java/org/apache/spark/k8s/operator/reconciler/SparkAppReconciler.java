@@ -206,7 +206,7 @@ public class SparkAppReconciler implements Reconciler<SparkApplication>, Cleaner
     LoggingUtils.TrackedMDC trackedMDC = new LoggingUtils.TrackedMDC();
     try {
       trackedMDC.set(sparkApplication);
-      log.info("Cleaning up resources for SparkApp:" + sparkApplication.getMetadata().getName());
+      log.info("Cleaning up resources for SparkApp: {}", sparkApplication.getMetadata().getName());
       SparkAppContext ctx = new SparkAppContext(sparkApplication, context, submissionWorker);
       List<AppReconcileStep> cleanupSteps = new ArrayList<>();
       cleanupSteps.add(new AppValidateStep());

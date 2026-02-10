@@ -72,7 +72,7 @@ public class ProbeService {
 
   /** Starts the probe service HTTP server. */
   public void start() {
-    log.info("Probe service started at " + OPERATOR_PROBE_PORT.getValue());
+    log.info("Probe service started at {}", OPERATOR_PROBE_PORT.getValue());
     server.start();
   }
 
