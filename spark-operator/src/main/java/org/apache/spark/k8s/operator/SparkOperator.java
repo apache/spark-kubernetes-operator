@@ -285,6 +285,7 @@ public class SparkOperator {
   public static void main(String[] args) {
     log.info("Version: {}", SparkOperator.class.getPackage().getImplementationVersion());
     log.info("Java Version: " + Runtime.version().toString());
+    log.info("Built-in Spark Version: {}", org.apache.spark.package$.MODULE$.SPARK_VERSION());
     SparkOperator sparkOperator = new SparkOperator();
     for (Operator operator : sparkOperator.registeredOperators) {
       operator.start();
