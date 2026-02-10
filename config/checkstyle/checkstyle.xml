@@ -200,6 +200,11 @@
       <property name="message"
                 value="Please use the `assertThrows` method to test for exceptions."/>
     </module>
+    <module name="RegexpSinglelineJava">
+      <property name="format" value="log\.(info|debug|warn|error|trace)\(.*\+"/>
+      <property name="message"
+                value="Use symbolic placeholders for logging instead of string concatenation."/>
+    </module>
     <module name="IllegalImport">
       <property name="illegalPkgs" value="org.apache.commons.codec"/>
       <property name="illegalPkgs" value="org.apache.commons.collections"/>
