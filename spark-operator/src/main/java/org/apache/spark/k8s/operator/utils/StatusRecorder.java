@@ -93,7 +93,7 @@ public class StatusRecorder<
       return;
     }
 
-    Exception err = null;
+    KubernetesClientException err = null;
     long maxRetry = API_STATUS_PATCH_MAX_ATTEMPTS.getValue();
     for (long i = 1; i <= maxRetry; i++) {
       // We retry the status update maxRetry times to avoid some intermittent connectivity errors
@@ -110,7 +110,6 @@ public class StatusRecorder<
     }
 
     if (err != null) {
-      log.error("Fail to patch status.", err);
       throw err;
     }
 
