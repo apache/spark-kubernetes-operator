@@ -27,7 +27,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import com.google.common.annotations.VisibleForTesting;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.javaoperatorsdk.operator.processing.event.ResourceID;
@@ -254,8 +253,7 @@ public class SentinelManager<CR extends BaseResource<?, ?, ?, ?, ?>> {
    *
    * @return A ConcurrentHashMap of ResourceID to SentinelResourceState.
    */
-  @VisibleForTesting
-  public ConcurrentHashMap<ResourceID, SentinelResourceState> getSentinelResources() {
+  ConcurrentHashMap<ResourceID, SentinelResourceState> getSentinelResources() {
     return sentinelResources;
   }
 }
