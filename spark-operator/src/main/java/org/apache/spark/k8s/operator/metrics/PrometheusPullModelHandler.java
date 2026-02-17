@@ -37,7 +37,6 @@ import com.codahale.metrics.Snapshot;
 import com.codahale.metrics.Timer;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -95,8 +94,7 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
           formatMetricsSnapshot(),
           Map.of("Content-Type", List.of("text/plain; charset=utf-8; version=0.0.4")));
     } else {
-      HttpServletRequest httpServletRequest = null;
-      String value = getMetricsSnapshot(httpServletRequest);
+      String value = getMetricsSnapshot(null);
       sendMessage(
           exchange,
           HTTP_OK,
