@@ -168,8 +168,9 @@ public class SparkAppSubmissionWorker {
     effectiveSparkConf.setIfMissing("spark.app.id", appId);
     effectiveSparkConf.setIfMissing("spark.authenticate", "true");
     effectiveSparkConf.setIfMissing("spark.io.encryption.enabled", "true");
-    // Use K8s Garbage Collection instead of explicit API invocations
-    if (applicationSpec.getApplicationTolerations().getResourceRetainPolicy() !=
+    // In case of static allocation, use K8s Garbage Collection instead of explicit API invocations
+    if (!"true".equalsIgnoreCase(effectiveSparkConf.get("spark.dynamicAllocation.enabled", "false"))
+        && applicationSpec.getApplicationTolerations().getResourceRetainPolicy() !=
         ResourceRetainPolicy.Always) {
       effectiveSparkConf.setIfMissing("spark.kubernetes.executor.deleteOnTermination", "false");
     }
