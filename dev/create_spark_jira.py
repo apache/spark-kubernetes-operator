@@ -113,7 +113,10 @@ def main():
     parser.add_argument("-p", "--parent", help="Parent JIRA ID for subtasks")
     args = parser.parse_args()
 
-    print("Creating JIRA issue with title: %s" % args.title)
+    if args.parent:
+        print("Creating a subtask of %s with title: %s" % (args.parent, args.title))
+    else:
+        print("Creating JIRA issue with title: %s" % args.title)
 
     jira_id = create_jira_issue(args.title, args.parent)
     print("Created JIRA issue: %s" % jira_id)
