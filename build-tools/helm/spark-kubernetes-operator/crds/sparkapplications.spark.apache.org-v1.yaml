@@ -23954,6 +23954,7 @@ spec:
                               - ResourceReleased
                               - RunningHealthy
                               - RunningWithBelowThresholdExecutors
+                              - RunningWithPartialCapacity
                               - ScheduledToRestart
                               - SchedulingFailure
                               - Submitted
@@ -24547,6 +24548,7 @@ spec:
                         - ResourceReleased
                         - RunningHealthy
                         - RunningWithBelowThresholdExecutors
+                        - RunningWithPartialCapacity
                         - ScheduledToRestart
                         - SchedulingFailure
                         - Submitted
@@ -25148,6 +25150,7 @@ spec:
                               - ResourceReleased
                               - RunningHealthy
                               - RunningWithBelowThresholdExecutors
+                              - RunningWithPartialCapacity
                               - ScheduledToRestart
                               - SchedulingFailure
                               - Submitted
@@ -25742,6 +25745,7 @@ spec:
                           - ResourceReleased
                           - RunningHealthy
                           - RunningWithBelowThresholdExecutors
+                          - RunningWithPartialCapacity
                           - ScheduledToRestart
                           - SchedulingFailure
                           - Submitted

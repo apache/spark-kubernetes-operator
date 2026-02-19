@@ -183,6 +183,7 @@ public class SparkAppReconciler implements Reconciler<SparkApplication>, Cleaner
       case DriverReady,
           InitializedBelowThresholdExecutors,
           RunningHealthy,
+          RunningWithPartialCapacity,
           RunningWithBelowThresholdExecutors -> {
         steps.add(new AppRunningStep());
         steps.add(new AppResourceObserveStep(List.of(new AppDriverRunningObserver())));
