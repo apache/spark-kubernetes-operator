@@ -19,8 +19,6 @@
 
 package org.apache.spark.k8s.operator.status;
 
-import static org.apache.spark.k8s.operator.Constants.EXCEED_MAX_RETRY_ATTEMPT_MESSAGE;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -33,6 +31,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 
+import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.spec.ResourceRetainPolicy;
 import org.apache.spark.k8s.operator.spec.RestartConfig;
 import org.apache.spark.k8s.operator.spec.RestartPolicy;
@@ -127,12 +126,43 @@ public class ApplicationStatus
               >= 0;
     }
 
-    long effectiveAttemptId =
-        resetRestartCounter ? 0L : currentAttemptSummary.getAttemptInfo().getRestartCounter();
+    ApplicationStateSummary currentStateSummary = currentState.getCurrentStateSummary();
 
-    if (effectiveAttemptId >= restartConfig.getMaxRestartAttempts()) {
-      String stateMessage =
-          String.format(EXCEED_MAX_RETRY_ATTEMPT_MESSAGE, restartConfig.getMaxRestartAttempts());
+    // Create next attempt info with potentially incremented counters
+    AttemptInfo nextAttemptInfo =
+        currentAttemptSummary
+            .getAttemptInfo()
+            .createNextAttemptInfo(resetRestartCounter, currentStateSummary);
+
+    boolean exceededLimit =
+        nextAttemptInfo.getRestartCounter() > restartConfig.getMaxRestartAttempts();
+    String stateMessage = "";
+
+    if (exceededLimit) {
+      stateMessage =
+          String.format(
+              Constants.EXCEED_MAX_RETRY_ATTEMPT_MESSAGE,
+              restartConfig.getMaxRestartAttempts());
+    } else if (restartConfig.getMaxRestartOnSchedulingFailure() != null
+        && ApplicationStateSummary.SchedulingFailure == currentStateSummary) {
+      exceededLimit =
+          nextAttemptInfo.getSchedulingFailureRestartCounter()
+              > restartConfig.getMaxRestartOnSchedulingFailure();
+      stateMessage =
+          String.format(
+              Constants.EXCEED_MAX_RETRY_ATTEMPT_ON_SCHEDULING_FAILURE_MESSAGE,
+              restartConfig.getMaxRestartOnSchedulingFailure());
+    } else if (restartConfig.getMaxRestartOnFailure() != null
+        && currentStateSummary.isFailure()) {
+      exceededLimit =
+          nextAttemptInfo.getFailureRestartCounter() > restartConfig.getMaxRestartOnFailure();
+      stateMessage =
+          String.format(
+              Constants.EXCEED_MAX_RETRY_ATTEMPT_ON_FAILURE_MESSAGE,
+              restartConfig.getMaxRestartOnFailure());
+    }
+
+    if (exceededLimit) {
       if (stateMessageOverride != null && !stateMessageOverride.isEmpty()) {
         stateMessage += stateMessageOverride;
       }
@@ -152,9 +182,6 @@ public class ApplicationStatus
           previousAttemptSummary,
           currentAttemptSummary);
     }
-
-    AttemptInfo nextAttemptInfo =
-        currentAttemptSummary.getAttemptInfo().createNextAttemptInfo(resetRestartCounter);
 
     ApplicationAttemptSummary nextAttemptSummary = new ApplicationAttemptSummary(nextAttemptInfo);
     ApplicationState state =

@@ -38,6 +38,7 @@ import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.context.SparkAppContext;
 import org.apache.spark.k8s.operator.decorators.DriverResourceDecorator;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
+import org.apache.spark.k8s.operator.status.ApplicationAttemptSummary;
 import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
@@ -64,12 +65,15 @@ public class AppInitStep extends AppReconcileStep {
     SparkApplication app = context.getResource();
     if (app.getStatus().getPreviousAttemptSummary() != null) {
       Instant lastTransitionTime = Instant.parse(currentState.getLastTransitionTime());
+      ApplicationAttemptSummary attemptSummary = app.getStatus().getPreviousAttemptSummary();
+      ApplicationState lastState = attemptSummary.getStateTransitionHistory()
+          .get(attemptSummary.getStateTransitionHistory().lastKey());
       Instant restartTime =
           lastTransitionTime.plusMillis(
               app.getSpec()
                   .getApplicationTolerations()
                   .getRestartConfig()
-                  .getRestartBackoffMillis());
+                  .getEffectiveRestartBackoffMillis(lastState.getCurrentStateSummary()));
       Instant now = Instant.now();
       if (restartTime.isAfter(now)) {
         return ReconcileProgress.completeAndRequeueAfter(Duration.between(now, restartTime));

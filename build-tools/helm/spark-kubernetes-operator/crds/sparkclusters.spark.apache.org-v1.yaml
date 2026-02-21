@@ -21996,9 +21996,13 @@ spec:
                   properties:
                     attemptInfo:
                       properties:
+                        failureRestartCounter:
+                          type: integer
                         id:
                           type: integer
                         restartCounter:
+                          type: integer
+                        schedulingFailureRestartCounter:
                           type: integer
                       type: object
                     stateTransitionHistory:
@@ -22038,9 +22042,13 @@ spec:
                   properties:
                     attemptInfo:
                       properties:
+                        failureRestartCounter:
+                          type: integer
                         id:
                           type: integer
                         restartCounter:
+                          type: integer
+                        schedulingFailureRestartCounter:
                           type: integer
                       type: object
                     stateTransitionHistory:

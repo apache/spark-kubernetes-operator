@@ -157,6 +157,21 @@ public class Constants {
   public static final String EXCEED_MAX_RETRY_ATTEMPT_MESSAGE =
       "The maximum number of restart attempts (%d) has been exceeded.";
 
+  /**
+   * Message indicating that the maximum number of restart attempts has been exceeded on
+   * failures.
+   */
+  public static final String EXCEED_MAX_RETRY_ATTEMPT_ON_FAILURE_MESSAGE =
+      "The maximum number of restart attempts on consecutive failures (%d) has been exceeded.";
+
+  /**
+   * Message indicating that the maximum number of restart attempts has been exceeded on
+   * scheduling failures.
+   */
+  public static final String EXCEED_MAX_RETRY_ATTEMPT_ON_SCHEDULING_FAILURE_MESSAGE =
+      "The maximum number of restart attempts on consecutive scheduling failures (%d) " +
+          "has been exceeded.";
+
   /** Message indicating a failure to request the driver from the scheduler backend. */
   public static final String SCHEDULE_FAILURE_MESSAGE =
       "Failed to request driver from scheduler backend.";

@@ -29,7 +29,20 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
 
-/** Information about an attempt. */
+/**
+ * Information about an attempt.
+ *
+ * <p>Maintains counters for different restart limit checks:
+ * <ul>
+ *   <li><b>id</b>: Unique attempt identifier, always increments</li>
+ *   <li><b>restartCounter</b>: Total restart count, checked against maxRestartAttempts</li>
+ *   <li><b>failureRestartCounter</b>: Consecutive failure count, checked against
+ *       maxRestartOnFailure</li>
+ *   <li><b>schedulingFailureRestartCounter</b>: Consecutive scheduling failure count, checked
+ *       against maxRestartOnSchedulingFailure</li>
+ * </ul>
+ *
+ */
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -40,13 +53,41 @@ import lombok.ToString;
 public class AttemptInfo {
   @Getter @Builder.Default protected final long id = 0L;
   @Getter @Setter protected long restartCounter;
+  @Getter @Setter protected long failureRestartCounter;
+  @Getter @Setter protected long schedulingFailureRestartCounter;
 
   /**
    * Creates a new AttemptInfo object representing the next attempt.
-   *
-   * @return A new AttemptInfo with an incremented ID.
    */
-  public AttemptInfo createNextAttemptInfo(boolean resetRestartCounter) {
-    return new AttemptInfo(id + 1L, resetRestartCounter ? 1L : restartCounter + 1);
+  public AttemptInfo createNextAttemptInfo(
+      boolean resetRestartCounter, ApplicationStateSummary currentStateSummary) {
+    long newRestartCounter = resetRestartCounter ? 1L : restartCounter + 1;
+    long newFailureCounter;
+    long newSchedulingFailureCounter;
+
+    if (resetRestartCounter) {
+      // Reset all counters when restart counter is reset
+      newRestartCounter = 1L;
+      newFailureCounter = 0L;
+      newSchedulingFailureCounter = 0L;
+    } else if (ApplicationStateSummary.SchedulingFailure == currentStateSummary) {
+      // Scheduling failure: increment both counters
+      newSchedulingFailureCounter = schedulingFailureRestartCounter + 1;
+      newFailureCounter = failureRestartCounter + 1;
+    } else if (currentStateSummary.isFailure()) {
+      // Other failure: increment general failure counter, reset schedulingFailureRestartCounter
+      newFailureCounter = failureRestartCounter + 1;
+      newSchedulingFailureCounter = 0L;
+    } else {
+      // Success: reset all failure counters (break the failure streak)
+      newFailureCounter = 0L;
+      newSchedulingFailureCounter = 0L;
+    }
+
+    return new AttemptInfo(
+        id + 1L,
+        newRestartCounter,
+        newFailureCounter,
+        newSchedulingFailureCounter);
   }
 }
