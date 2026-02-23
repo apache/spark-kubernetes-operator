@@ -50,7 +50,7 @@ def run_cmd(cmd):
 
 import argparse
 
-def create_jira_issue(title, parent_jira_id=None):
+def create_jira_issue(title, parent_jira_id=None, issue_type=None):
     asf_jira = jira.client.JIRA(
         {"server": JIRA_API_BASE},
         token_auth=JIRA_ACCESS_TOKEN
@@ -76,7 +76,7 @@ def create_jira_issue(title, parent_jira_id=None):
         issue_dict['issuetype'] = {'name': 'Sub-task'}
         issue_dict['parent'] = {'key': parent_jira_id}
     else:
-        issue_dict['issuetype'] = {'name': 'Improvement'}
+        issue_dict['issuetype'] = {'name': issue_type if issue_type else 'Improvement'}
 
     try:
         new_issue = asf_jira.create_issue(fields=issue_dict)
@@ -111,6 +111,7 @@ def main():
     parser = argparse.ArgumentParser(description="Create a Spark JIRA issue.")
     parser.add_argument("title", help="Title of the JIRA issue")
     parser.add_argument("-p", "--parent", help="Parent JIRA ID for subtasks")
+    parser.add_argument("-t", "--type", help="Issue type to create when no parent is specified (e.g. Bug). Defaults to Improvement.")
     args = parser.parse_args()
 
     if args.parent:
@@ -118,7 +119,7 @@ def main():
     else:
         print("Creating JIRA issue with title: %s" % args.title)
 
-    jira_id = create_jira_issue(args.title, args.parent)
+    jira_id = create_jira_issue(args.title, args.parent, args.type)
     print("Created JIRA issue: %s" % jira_id)
 
     create_and_checkout_branch(jira_id)
