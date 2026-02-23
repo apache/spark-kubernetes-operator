@@ -23,7 +23,6 @@ import static org.apache.spark.k8s.operator.Constants.*;
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.completeAndDefaultRequeue;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import io.fabric8.kubernetes.api.model.Pod;
@@ -119,8 +118,11 @@ public class AppRunningStep extends AppReconcileStep {
    * @return true if dynamic allocation is enabled, false otherwise
    */
   private boolean isDynamicAllocationEnabled(SparkAppContext context) {
-      Map<String, String> sparkConf = context.getSparkConf();
-      return "true".equalsIgnoreCase(
-          sparkConf.getOrDefault("spark.dynamicAllocation.enabled", "false"));
+    return "true".equalsIgnoreCase(
+        context
+            .getResource()
+            .getSpec()
+            .getSparkConf()
+            .getOrDefault("spark.dynamicAllocation.enabled", "false"));
   }
 }

@@ -23,7 +23,6 @@ import static org.apache.spark.k8s.operator.utils.Utils.driverLabels;
 import static org.apache.spark.k8s.operator.utils.Utils.executorLabels;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -144,14 +143,5 @@ public class SparkAppContext extends BaseContext<SparkApplication> {
    */
   public List<HasMetadata> getDriverResourcesSpec() {
     return getSecondaryResourceSpec().getDriverResources();
-  }
-
-  /**
-   * Returns the SparkConf from the driver configuration.
-   *
-   * @return The SparkConf object containing Spark configuration properties.
-   */
-  public Map<String, String> getSparkConf() {
-    return sparkApplication.getSpec().getSparkConf();
   }
 }

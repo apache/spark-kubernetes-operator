@@ -67,18 +67,27 @@ stateDiagram-v2
 
     DriverReady --> RunningHealthy
     DriverReady --> InitializedBelowThresholdExecutors
+    DriverReady --> RunningWithPartialCapacity
     DriverReady --> ExecutorsStartTimedOut
     DriverReady --> DriverEvicted
 
     InitializedBelowThresholdExecutors --> RunningHealthy
+    InitializedBelowThresholdExecutors --> RunningWithPartialCapacity
     InitializedBelowThresholdExecutors --> Failed
 
     RunningHealthy --> Succeeded
     RunningHealthy --> RunningWithBelowThresholdExecutors
+    RunningHealthy --> RunningWithPartialCapacity
     RunningHealthy --> Failed
 
+    RunningWithBelowThresholdExecutors --> RunningWithPartialCapacity
     RunningWithBelowThresholdExecutors --> RunningHealthy
     RunningWithBelowThresholdExecutors --> Failed
+
+    RunningWithPartialCapacity --> RunningWithBelowThresholdExecutors
+    RunningWithPartialCapacity --> RunningHealthy
+    RunningWithPartialCapacity --> Succeeded
+    RunningWithPartialCapacity --> Failed
 
     state Failures {
         SchedulingFailure

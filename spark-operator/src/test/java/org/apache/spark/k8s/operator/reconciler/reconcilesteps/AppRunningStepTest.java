@@ -127,7 +127,6 @@ class AppRunningStepTest {
             new ApplicationState(ApplicationStateSummary.RunningHealthy, "Previous state"));
     app.setStatus(appStatus);
 
-    when(mockContext.getSparkConf()).thenReturn(sparkConf);
     when(mockContext.getExecutorsForApplication()).thenReturn(createExecutorPods(5));
 
     appRunningStep.reconcile(mockContext, mockRecorder);
@@ -156,7 +155,6 @@ class AppRunningStepTest {
             new ApplicationState(ApplicationStateSummary.DriverReady, "Driver ready"));
     app.setStatus(appStatus);
 
-    when(mockContext.getSparkConf()).thenReturn(sparkConf);
     when(mockContext.getExecutorsForApplication()).thenReturn(createExecutorPods(5));
 
     appRunningStep.reconcile(mockContext, mockRecorder);
@@ -184,7 +182,6 @@ class AppRunningStepTest {
             new ApplicationState(ApplicationStateSummary.DriverReady, "Driver ready"));
     app.setStatus(appStatus);
 
-    when(mockContext.getSparkConf()).thenReturn(sparkConf);
     when(mockContext.getExecutorsForApplication()).thenReturn(createExecutorPods(10));
 
     appRunningStep.reconcile(mockContext, mockRecorder);
@@ -212,7 +209,6 @@ class AppRunningStepTest {
             new ApplicationState(ApplicationStateSummary.DriverReady, "Driver ready"));
     app.setStatus(appStatus);
 
-    when(mockContext.getSparkConf()).thenReturn(sparkConf);
     when(mockContext.getExecutorsForApplication()).thenReturn(createExecutorPods(5));
 
     appRunningStep.reconcile(mockContext, mockRecorder);
@@ -240,7 +236,6 @@ class AppRunningStepTest {
             new ApplicationState(ApplicationStateSummary.RunningHealthy, "Previous state"));
     app.setStatus(appStatus);
 
-    when(mockContext.getSparkConf()).thenReturn(sparkConf);
     when(mockContext.getExecutorsForApplication()).thenReturn(createExecutorPods(3));
 
     appRunningStep.reconcile(mockContext, mockRecorder);
@@ -268,7 +263,6 @@ class AppRunningStepTest {
             new ApplicationState(ApplicationStateSummary.DriverReady, "Driver ready"));
     app.setStatus(appStatus);
 
-    when(mockContext.getSparkConf()).thenReturn(sparkConf);
     when(mockContext.getExecutorsForApplication()).thenReturn(createExecutorPods(3));
 
     appRunningStep.reconcile(mockContext, mockRecorder);
@@ -295,7 +289,6 @@ class AppRunningStepTest {
             new ApplicationState(ApplicationStateSummary.DriverReady, "Driver ready"));
     app.setStatus(appStatus);
 
-    when(mockContext.getSparkConf()).thenReturn(sparkConf);
     when(mockContext.getExecutorsForApplication()).thenReturn(createExecutorPods(5));
 
     appRunningStep.reconcile(mockContext, mockRecorder);
@@ -320,7 +313,6 @@ class AppRunningStepTest {
             new ApplicationState(ApplicationStateSummary.DriverReady, "Driver ready"));
     app.setStatus(appStatus);
 
-    when(mockContext.getSparkConf()).thenReturn(sparkConf);
     when(mockContext.getExecutorsForApplication()).thenReturn(createExecutorPods(3));
 
     appRunningStep.reconcile(mockContext, mockRecorder);
@@ -347,7 +339,6 @@ class AppRunningStepTest {
             new ApplicationState(ApplicationStateSummary.DriverReady, "Driver ready"));
     app.setStatus(appStatus);
 
-    when(mockContext.getSparkConf()).thenReturn(sparkConf);
     when(mockContext.getExecutorsForApplication()).thenReturn(createExecutorPods(3));
 
     appRunningStep.reconcile(mockContext, mockRecorder);
@@ -376,8 +367,6 @@ class AppRunningStepTest {
         appStatus.appendNewState(
             new ApplicationState(ApplicationStateSummary.DriverReady, "Driver ready"));
     app.setStatus(appStatus);
-
-    when(mockContext.getSparkConf()).thenReturn(sparkConf);
 
     // First reconcile: 5 executors (between min and max) -> should transition to
     // RunningWithPartialCapacity
