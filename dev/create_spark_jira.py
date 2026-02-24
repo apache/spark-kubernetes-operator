@@ -50,27 +50,31 @@ def run_cmd(cmd):
 
 import argparse
 
-def create_jira_issue(title, parent_jira_id=None, issue_type=None):
+def create_jira_issue(title, parent_jira_id=None, issue_type=None, version=None):
     asf_jira = jira.client.JIRA(
         {"server": JIRA_API_BASE},
         token_auth=JIRA_ACCESS_TOKEN,
         timeout=(3.05, 30)
     )
 
-    versions = asf_jira.project_versions("SPARK")
-    # Consider only kubernetes-operator-x.y.z, unreleased, unarchived versions
-    versions = [
-        x for x in versions
-        if not x.raw["released"] and not x.raw["archived"] and re.match(r"kubernetes-operator-\d+\.\d+\.\d+", x.name)
-    ]
-    versions = sorted(versions, key=lambda x: x.name, reverse=True)
+    if version is None:
+        versions = asf_jira.project_versions("SPARK")
+        # Consider only kubernetes-operator-x.y.z, unreleased, unarchived versions
+        versions = [
+            x for x in versions
+            if not x.raw["released"] and not x.raw["archived"] and re.match(r"kubernetes-operator-\d+\.\d+\.\d+", x.name)
+        ]
+        versions = sorted(versions, key=lambda x: x.name, reverse=True)
+        affected_version = versions[0].name
+    else:
+        affected_version = version
 
     issue_dict = {
         'project': {'key': 'SPARK'},
         'summary': title,
         'description': '',
         'components': [{'name': 'Kubernetes'}],
-        'versions': [{'name': versions[0].name}],
+        'versions': [{'name': affected_version}],
     }
 
     if parent_jira_id:
@@ -113,6 +117,7 @@ def main():
     parser.add_argument("title", help="Title of the JIRA issue")
     parser.add_argument("-p", "--parent", help="Parent JIRA ID for subtasks")
     parser.add_argument("-t", "--type", help="Issue type to create when no parent is specified (e.g. Bug). Defaults to Improvement.")
+    parser.add_argument("-v", "--version", help="Version for the JIRA issue")
     args = parser.parse_args()
 
     if args.parent:
@@ -120,7 +125,7 @@ def main():
     else:
         print("Creating JIRA issue with title: %s" % args.title)
 
-    jira_id = create_jira_issue(args.title, args.parent, args.type)
+    jira_id = create_jira_issue(args.title, args.parent, args.type, args.version)
     print("Created JIRA issue: %s" % jira_id)
 
     create_and_checkout_branch(jira_id)
