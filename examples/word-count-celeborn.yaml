@@ -28,7 +28,6 @@ spec:
     spark.kubernetes.container.image: "apache/spark:4.0.2-scala"
     spark.kubernetes.driver.limit.cores: "5"
     spark.kubernetes.driver.master: "local[10]"
-    spark.kubernetes.driver.pod.excludedFeatureSteps: "org.apache.spark.deploy.k8s.features.KerberosConfDriverFeatureStep"
     spark.kubernetes.driver.request.cores: "5"
     spark.shuffle.manager: "org.apache.spark.shuffle.celeborn.SparkShuffleManager"
     spark.shuffle.service.enabled: "false"
