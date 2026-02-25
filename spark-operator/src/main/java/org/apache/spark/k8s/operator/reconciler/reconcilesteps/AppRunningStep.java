@@ -65,8 +65,15 @@ public class AppRunningStep extends AppReconcileStep {
       long runningExecutors = executors.stream().filter(PodUtils::isPodReady).count();
       if (prevStateSummary.isStarting()) {
         if (runningExecutors >= executorInstanceConfig.getInitExecutors()) {
-          proposedStateSummary = ApplicationStateSummary.RunningHealthy;
-          stateMessage = RUNNING_HEALTHY_MESSAGE;
+          if (!isDynamicAllocationEnabled(context)
+              && executorInstanceConfig.getMaxExecutors() > 0
+              && runningExecutors < executorInstanceConfig.getMaxExecutors()) {
+            proposedStateSummary = ApplicationStateSummary.RunningWithPartialCapacity;
+            stateMessage = RUNNING_WITH_PARTIAL_CAPACITY_MESSAGE;
+          } else {
+            proposedStateSummary = ApplicationStateSummary.RunningHealthy;
+            stateMessage = RUNNING_HEALTHY_MESSAGE;
+          }
         } else if (runningExecutors > 0L) {
           proposedStateSummary = ApplicationStateSummary.InitializedBelowThresholdExecutors;
           stateMessage = INITIALIZED_WITH_BELOW_THRESHOLD_EXECUTORS_MESSAGE;
@@ -76,8 +83,15 @@ public class AppRunningStep extends AppReconcileStep {
         }
       } else {
         if (runningExecutors >= executorInstanceConfig.getMinExecutors()) {
-          proposedStateSummary = ApplicationStateSummary.RunningHealthy;
-          stateMessage = RUNNING_HEALTHY_MESSAGE;
+          if (!isDynamicAllocationEnabled(context)
+              && executorInstanceConfig.getMaxExecutors() > 0
+              && runningExecutors < executorInstanceConfig.getMaxExecutors()) {
+            proposedStateSummary = ApplicationStateSummary.RunningWithPartialCapacity;
+            stateMessage = RUNNING_WITH_PARTIAL_CAPACITY_MESSAGE;
+          } else {
+            proposedStateSummary = ApplicationStateSummary.RunningHealthy;
+            stateMessage = RUNNING_HEALTHY_MESSAGE;
+          }
         } else {
           proposedStateSummary = ApplicationStateSummary.RunningWithBelowThresholdExecutors;
           stateMessage = RUNNING_WITH_BELOW_THRESHOLD_EXECUTORS_MESSAGE;
@@ -95,5 +109,20 @@ public class AppRunningStep extends AppReconcileStep {
       return attemptStatusUpdate(
           context, statusRecorder, updatedStatus, completeAndDefaultRequeue());
     }
+  }
+
+  /**
+   * Checks if dynamic allocation is enabled for the application.
+   *
+   * @param context The SparkAppContext
+   * @return true if dynamic allocation is enabled, false otherwise
+   */
+  private boolean isDynamicAllocationEnabled(SparkAppContext context) {
+    return "true".equalsIgnoreCase(
+        context
+            .getResource()
+            .getSpec()
+            .getSparkConf()
+            .getOrDefault("spark.dynamicAllocation.enabled", "false"));
   }
 }

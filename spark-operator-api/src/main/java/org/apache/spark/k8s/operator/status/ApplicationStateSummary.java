@@ -57,6 +57,13 @@ public enum ApplicationStateSummary implements BaseStateSummary {
    */
   RunningHealthy,
 
+  /**
+   * Application is running with dynamic allocation disabled and executor count is between minimum
+   * and maximum thresholds, exclusive. The application is in a tolerable state but not at optimal
+   * capacity.
+   */
+  RunningWithPartialCapacity,
+
   /** The application has lost a fraction of executors for external reasons */
   RunningWithBelowThresholdExecutors,
 

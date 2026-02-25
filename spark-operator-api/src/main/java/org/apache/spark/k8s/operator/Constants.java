@@ -165,6 +165,13 @@ public class Constants {
   public static final String RUNNING_HEALTHY_MESSAGE = "Application is running healthy.";
 
   /**
+   * Message indicating that the application is running with partial executor capacity (between min
+   * and max, exclusive, with dynamic allocation disabled).
+   */
+  public static final String RUNNING_WITH_PARTIAL_CAPACITY_MESSAGE =
+      "Application is running with executor count between minimum and maximum capacity, exclusive.";
+
+  /**
    * Message indicating that the application is running with less than the minimal number of
    * requested initial executors.
    */
