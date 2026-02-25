@@ -31,7 +31,6 @@ spec:
     spark.executor.extraClassPath: "local:///comet/comet.jar"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
     spark.kubernetes.container.image: "apache/spark:3.5.8-java17"
-    spark.kubernetes.driver.pod.excludedFeatureSteps: "org.apache.spark.deploy.k8s.features.KerberosConfDriverFeatureStep"
     spark.memory.offHeap.enabled: "true"
     spark.memory.offHeap.size: "1g"
     spark.plugins: "org.apache.spark.CometPlugin"

@@ -35,7 +35,6 @@ spec:
     spark.hadoop.fs.s3a.path.style.access: "true"
     spark.hadoop.fs.s3a.access.key: "test"
     spark.hadoop.fs.s3a.secret.key: "test"
-    spark.kubernetes.driver.pod.excludedFeatureSteps: "org.apache.spark.deploy.k8s.features.KerberosConfDriverFeatureStep"
     # JWS Filter Configuration
     spark.ui.filters: "org.apache.spark.ui.JWSFilter"
     spark.org.apache.spark.ui.JWSFilter.param.secretKey: "VmlzaXQgaHR0cHM6Ly9zcGFyay5hcGFjaGUub3JnIHRvIGRvd25sb2FkIEFwYWNoZSBTcGFyay4="
