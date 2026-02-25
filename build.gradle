@@ -75,6 +75,9 @@ subprojects {
       if (requested.group == "io.netty" && !requested.name.startsWith("netty-tcnative")) {
         useVersion(libs.versions.netty.get())
       }
+      if (requested.group == "org.apache.hadoop") {
+        useVersion(libs.versions.hadoop.get())
+      }
     }
   }
 

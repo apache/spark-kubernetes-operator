@@ -21,6 +21,7 @@ netty = "4.2.10.Final"
 operator-sdk = "5.2.2"
 dropwizard-metrics = "4.2.37"
 spark = "4.1.1"
+hadoop = "3.4.3"
 log4j = "2.24.3"
 slf4j = "2.0.17"
 
