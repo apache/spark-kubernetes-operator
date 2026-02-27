@@ -32,7 +32,7 @@ mockito = "5.21.0"
 
 # Build Analysis
 checkstyle = "13.0.0"
-pmd = "7.19.0"
+pmd = "7.21.0"
 spotbugs-tool = "4.9.8"
 spotbugs-plugin = "6.4.7"
 spotless-plugin = "8.1.0"

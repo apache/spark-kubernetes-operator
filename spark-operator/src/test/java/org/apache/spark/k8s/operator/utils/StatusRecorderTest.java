@@ -46,7 +46,7 @@ import org.apache.spark.k8s.operator.status.ApplicationStatus;
     justification = "Unwritten fields are covered by Kubernetes mock client")
 class StatusRecorderTest {
 
-  public static final String DEFAULT_NS = "default";
+  static final String DEFAULT_NS = "default";
   KubernetesMockServer server;
   KubernetesClient client;
 

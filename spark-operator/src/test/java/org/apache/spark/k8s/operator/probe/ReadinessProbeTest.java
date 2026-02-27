@@ -42,7 +42,7 @@ class ReadinessProbeTest {
   HttpExchange httpExchange;
 
   @BeforeEach
-  public void beforeEach() {
+  void beforeEach() {
     OutputStream outputStream = mock(OutputStream.class);
     httpExchange = mock(HttpExchange.class);
     client = mock(KubernetesClient.class);

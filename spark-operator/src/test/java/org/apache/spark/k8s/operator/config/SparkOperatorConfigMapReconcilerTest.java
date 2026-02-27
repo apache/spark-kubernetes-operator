@@ -43,7 +43,7 @@ import org.junit.jupiter.api.Test;
 @EnableKubeAPIServer
 class SparkOperatorConfigMapReconcilerTest {
 
-  public static final Long TARGET_RECONCILER_INTERVAL = 60L;
+  static final Long TARGET_RECONCILER_INTERVAL = 60L;
 
   private static KubernetesClient client;
 

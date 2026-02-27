@@ -64,7 +64,7 @@ class SparkAppReconcilerTest {
       new SparkAppReconciler(mockWorker, mockRecorder, mockSentinelManager);
 
   @BeforeEach
-  public void beforeEach() {
+  void beforeEach() {
     when(mockContext.getClient()).thenReturn(mockClient);
     doNothing().when(mockRecorder).removeCachedStatus(any(SparkApplication.class));
     doAnswer(
