@@ -58,7 +58,7 @@ class SparkClusterReconcilerTest {
       new SparkClusterReconciler(mockWorker, mockRecorder, mockSentinelManager);
 
   @BeforeEach
-  public void beforeEach() {
+  void beforeEach() {
     when(mockContext.getClient()).thenReturn(mockClient);
     doNothing().when(mockRecorder).removeCachedStatus(any(SparkCluster.class));
     doAnswer(

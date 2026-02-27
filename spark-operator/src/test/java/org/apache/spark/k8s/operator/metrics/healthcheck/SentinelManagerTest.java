@@ -67,7 +67,7 @@ class SentinelManagerTest {
   private static final String SPARK_DEMO = "spark-demo";
   KubernetesClient kubernetesClient;
   KubernetesMockServer server;
-  public static final int SENTINEL_RESOURCE_RECONCILIATION_DELAY_SECONDS = 10;
+  static final int SENTINEL_RESOURCE_RECONCILIATION_DELAY_SECONDS = 10;
 
   @BeforeAll
   static void beforeAll() {

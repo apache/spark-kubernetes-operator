@@ -61,14 +61,14 @@ class HealthProbeTest {
       unhealthyEventSources2 = new HashMap<>();
 
   @BeforeAll
-  public static void beforeAll() {
+  static void beforeAll() {
     operator = mock(Operator.class);
     sparkConfMonitor = mock(Operator.class);
     operators = Arrays.asList(operator, sparkConfMonitor);
   }
 
   @BeforeEach
-  public void beforeEach() {
+  void beforeEach() {
     isRunning = new AtomicBoolean(false);
     isRunning2 = new AtomicBoolean(false);
     RuntimeInfo runtimeInfo =

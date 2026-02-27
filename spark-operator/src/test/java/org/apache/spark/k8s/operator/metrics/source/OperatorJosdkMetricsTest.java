@@ -56,7 +56,7 @@ class OperatorJosdkMetricsTest {
   private OperatorJosdkMetrics operatorMetrics;
 
   @BeforeEach
-  public void setup() {
+  void setup() {
     operatorMetrics = new OperatorJosdkMetrics();
   }
 
