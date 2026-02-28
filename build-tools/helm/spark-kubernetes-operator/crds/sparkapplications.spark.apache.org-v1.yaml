@@ -17424,7 +17424,15 @@ spec:
                       properties:
                         maxRestartAttempts:
                           type: integer
+                        maxRestartOnFailure:
+                          type: integer
+                        maxRestartOnSchedulingFailure:
+                          type: integer
                         restartBackoffMillis:
+                          type: integer
+                        restartBackoffMillisForFailure:
+                          type: integer
+                        restartBackoffMillisForSchedulingFailure:
                           type: integer
                         restartCounterResetMillis:
                           default: -1
@@ -23932,9 +23940,13 @@ spec:
                   properties:
                     attemptInfo:
                       properties:
+                        failureRestartCounter:
+                          type: integer
                         id:
                           type: integer
                         restartCounter:
+                          type: integer
+                        schedulingFailureRestartCounter:
                           type: integer
                       type: object
                     stateTransitionHistory:
@@ -25128,9 +25140,13 @@ spec:
                   properties:
                     attemptInfo:
                       properties:
+                        failureRestartCounter:
+                          type: integer
                         id:
                           type: integer
                         restartCounter:
+                          type: integer
+                        schedulingFailureRestartCounter:
                           type: integer
                       type: object
                     stateTransitionHistory:

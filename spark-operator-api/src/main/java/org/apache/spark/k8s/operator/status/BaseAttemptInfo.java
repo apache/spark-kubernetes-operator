@@ -19,40 +19,28 @@
 
 package org.apache.spark.k8s.operator.status;
 
-import java.util.SortedMap;
-
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import lombok.ToString;
 
-/** Summary of a Spark application attempt. */
-@EqualsAndHashCode(callSuper = true)
-@ToString(callSuper = true)
+/**
+ * Basic information about an attempt.
+ */
+@Getter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@EqualsAndHashCode
+@ToString
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class ApplicationAttemptSummary extends BaseAttemptSummary<ApplicationAttemptInfo> {
-  // The state transition history for given attempt
-  // This is used when state history trimming is enabled
-  @Getter protected final SortedMap<Long, ApplicationState> stateTransitionHistory;
-
-  public ApplicationAttemptSummary(ApplicationAttemptInfo attemptInfo,
-                                   SortedMap<Long, ApplicationState> stateTransitionHistory) {
-    super(attemptInfo);
-    this.stateTransitionHistory = stateTransitionHistory;
-  }
-
-  public ApplicationAttemptSummary() {
-    this(new ApplicationAttemptInfo(), null);
-  }
-
-  public ApplicationAttemptSummary(ApplicationAttemptInfo attemptInfo) {
-    this(attemptInfo, null);
-  }
-
-  @Override
-  public ApplicationAttemptInfo getAttemptInfo() {
-    return attemptInfo == null ? new ApplicationAttemptInfo() : attemptInfo;
-  }
+public class BaseAttemptInfo {
+  @Builder.Default protected final long id = 0L;
+  @Builder.Default @Setter protected long restartCounter = 0L;
 }
