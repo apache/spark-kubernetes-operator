@@ -19,8 +19,13 @@
 
 package org.apache.spark.k8s.operator.utils;
 
+import static java.net.HttpURLConnection.HTTP_BAD_GATEWAY;
+import static java.net.HttpURLConnection.HTTP_CLIENT_TIMEOUT;
 import static java.net.HttpURLConnection.HTTP_CONFLICT;
+import static java.net.HttpURLConnection.HTTP_GATEWAY_TIMEOUT;
+import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
+import static java.net.HttpURLConnection.HTTP_UNAVAILABLE;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.API_SECONDARY_RESOURCE_CREATE_MAX_ATTEMPTS;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.RECONCILER_FOREGROUND_REQUEST_TIMEOUT_SECONDS;
 import static org.apache.spark.k8s.operator.utils.ModelUtils.buildOwnerReferenceTo;
@@ -127,11 +132,17 @@ public final class ReconcilerUtils {
                 return current;
               }
             }
-            if (++attemptCount > maxAttempts) {
-              log.error("Max Retries exceeded while trying to create resource");
-              throw e;
+          } else if (isTransientError(e) || e.getCode() == HTTP_INTERNAL_ERROR) {
+            // GET to avoid duplicate create attempt for timeouts (0) and transient 5xx
+            current = getResource(client, resource);
+            if (current.isPresent()) {
+              return current;
             }
           } else {
+            throw e;
+          }
+          if (++attemptCount > maxAttempts) {
+            log.error("Max Retries exceeded while trying to create resource");
             throw e;
           }
         }
@@ -209,6 +220,15 @@ public final class ReconcilerUtils {
         throw e;
       }
     }
+  }
+
+  private static boolean isTransientError(KubernetesClientException e) {
+    // code 0 is fabric8's sentinel for network-level failures (timeouts, connection resets, etc.)
+    return switch (e.getCode()) {
+      case 0, HTTP_CLIENT_TIMEOUT, HTTP_INTERNAL_ERROR, HTTP_BAD_GATEWAY,
+           HTTP_UNAVAILABLE, HTTP_GATEWAY_TIMEOUT -> true;
+      default -> false;
+    };
   }
 
   /**
