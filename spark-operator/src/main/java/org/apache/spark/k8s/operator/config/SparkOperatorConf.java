@@ -369,7 +369,8 @@ public final class SparkOperatorConf {
   /**
    * Maximal number of retry attempts of requesting secondary resource for Spark application. This
    * would be performed on top of k8s client spark.kubernetes.operator.retry.maxAttempts to overcome
-   * potential conflicting reconcile on the same SparkApplication. This should be positive number
+   * potential conflicting reconcile on the same SparkApplication, as well as transient API server
+   * errors and network-level timeouts. This should be positive number
    */
   public static final ConfigOption<Long> API_SECONDARY_RESOURCE_CREATE_MAX_ATTEMPTS =
       ConfigOption.<Long>builder()
@@ -379,8 +380,9 @@ public final class SparkOperatorConf {
               "Maximal number of retry attempts of requesting secondary resource for Spark "
                   + "application. This would be performed on top of k8s client "
                   + "spark.kubernetes.operator.retry.maxAttempts to overcome potential "
-                  + "conflicting reconcile on the same SparkApplication. This should be "
-                  + "positive number")
+                  + "conflicting reconcile on the same SparkApplication, as well as transient "
+                  + "API server errors (500/502/503/504) and network-level timeouts. This should "
+                  + "be positive number.")
           .typeParameterClass(Long.class)
           .defaultValue(3L)
           .build();
