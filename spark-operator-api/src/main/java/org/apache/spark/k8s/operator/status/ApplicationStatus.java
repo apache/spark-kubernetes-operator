@@ -127,12 +127,8 @@ public class ApplicationStatus
     }
 
     ApplicationStateSummary currentStateSummary = currentState.getCurrentStateSummary();
-
-    // Create next attempt info with potentially incremented counters
-    AttemptInfo nextAttemptInfo =
-        currentAttemptSummary
-            .getAttemptInfo()
-            .createNextAttemptInfo(resetRestartCounter, currentStateSummary);
+    ApplicationAttemptInfo nextAttemptInfo = getAttemptInfo(resetRestartCounter,
+        currentAttemptSummary.getAttemptInfo(), currentStateSummary);
 
     boolean exceededLimit =
         nextAttemptInfo.getRestartCounter() > restartConfig.getMaxRestartAttempts();
@@ -205,6 +201,32 @@ public class ApplicationStatus
           currentAttemptSummary,
           nextAttemptSummary);
     }
+  }
+
+  private ApplicationAttemptInfo getAttemptInfo(boolean resetRestartCounter,
+                                                ApplicationAttemptInfo currentAttemptInfo,
+                                                ApplicationStateSummary currentStateSummary) {
+    long newRestartCounter = resetRestartCounter ? 1L : currentAttemptInfo.getRestartCounter() + 1;
+    long newFailureCounter;
+    long newSchedulingFailureCounter;
+    if (resetRestartCounter) {
+      newFailureCounter = 0L;
+      newSchedulingFailureCounter = 0L;
+    } else if (ApplicationStateSummary.SchedulingFailure == currentStateSummary) {
+      newSchedulingFailureCounter = currentAttemptInfo.getSchedulingFailureRestartCounter() + 1;
+      newFailureCounter = currentAttemptInfo.getFailureRestartCounter() + 1;
+    } else if (currentStateSummary.isFailure()) {
+      newFailureCounter = currentAttemptInfo.getFailureRestartCounter() + 1;
+      newSchedulingFailureCounter = 0L;
+    } else {
+      newFailureCounter = 0L;
+      newSchedulingFailureCounter = 0L;
+    }
+    return new ApplicationAttemptInfo(
+        currentAttemptInfo.getId() + 1L,
+        newRestartCounter,
+        newFailureCounter,
+        newSchedulingFailureCounter);
   }
 
   /**

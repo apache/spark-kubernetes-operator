@@ -174,9 +174,6 @@ public class AppCleanUpStep extends AppReconcileStep {
       return appendStateAndRequeueAfter(
           context, statusRecorder, state, Duration.ofMillis(requeueAfterMillis));
     } else {
-      // Check if current state is a failure before restarting
-      ApplicationStateSummary currentStateSummary =
-          currentStatus.getCurrentState().getCurrentStateSummary();
 
       updatedStatus =
           currentStatus.terminateOrRestart(
@@ -188,6 +185,9 @@ public class AppCleanUpStep extends AppReconcileStep {
           tolerations.getApplicationTimeoutConfig().getTerminationRequeuePeriodMillis();
       if (ApplicationStateSummary.ScheduledToRestart ==
           updatedStatus.getCurrentState().getCurrentStateSummary()) {
+        // Check if current state is a failure before restarting
+        ApplicationStateSummary currentStateSummary =
+            currentStatus.getCurrentState().getCurrentStateSummary();
         requeueAfterMillis =
             tolerations.getRestartConfig().getEffectiveRestartBackoffMillis(currentStateSummary);
       }

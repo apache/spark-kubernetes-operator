@@ -19,40 +19,45 @@
 
 package org.apache.spark.k8s.operator.status;
 
-import java.util.SortedMap;
-
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.ToString;
 
-/** Summary of a Spark application attempt. */
+/**
+ * Information about an attempt.
+ *
+ * <p>Maintains counters for different restart limit checks:
+ * <ul>
+ *   <li><b>failureRestartCounter</b>: Consecutive failure count, checked against
+ *       maxRestartOnFailure</li>
+ *   <li><b>schedulingFailureRestartCounter</b>: Consecutive scheduling failure count, checked
+ *       against maxRestartOnSchedulingFailure</li>
+ * </ul>
+ *
+ */
+@Setter
+@Getter
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class ApplicationAttemptSummary extends BaseAttemptSummary<ApplicationAttemptInfo> {
-  // The state transition history for given attempt
-  // This is used when state history trimming is enabled
-  @Getter protected final SortedMap<Long, ApplicationState> stateTransitionHistory;
+public class ApplicationAttemptInfo extends BaseAttemptInfo {
+  protected long failureRestartCounter;
+  protected long schedulingFailureRestartCounter;
 
-  public ApplicationAttemptSummary(ApplicationAttemptInfo attemptInfo,
-                                   SortedMap<Long, ApplicationState> stateTransitionHistory) {
-    super(attemptInfo);
-    this.stateTransitionHistory = stateTransitionHistory;
+  public ApplicationAttemptInfo() {
+    super();
+    failureRestartCounter = 0L;
+    schedulingFailureRestartCounter = 0L;
   }
 
-  public ApplicationAttemptSummary() {
-    this(new ApplicationAttemptInfo(), null);
-  }
-
-  public ApplicationAttemptSummary(ApplicationAttemptInfo attemptInfo) {
-    this(attemptInfo, null);
-  }
-
-  @Override
-  public ApplicationAttemptInfo getAttemptInfo() {
-    return attemptInfo == null ? new ApplicationAttemptInfo() : attemptInfo;
+  public ApplicationAttemptInfo(long id, long restartCounter, long failureRestartCounter,
+                                long schedulingFailureRestartCounter) {
+    super(id, restartCounter);
+    this.failureRestartCounter = failureRestartCounter;
+    this.schedulingFailureRestartCounter = schedulingFailureRestartCounter;
   }
 }
