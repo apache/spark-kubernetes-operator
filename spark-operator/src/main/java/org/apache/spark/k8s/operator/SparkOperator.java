@@ -202,6 +202,8 @@ public class SparkOperator {
         SparkOperatorConf.TERMINATE_ON_INFORMER_FAILURE_ENABLED.getValue());
     overrider.withReconciliationTerminationTimeout(
         Duration.ofSeconds(SparkOperatorConf.RECONCILER_TERMINATION_TIMEOUT_SECONDS.getValue()));
+    overrider.withCacheSyncTimeout(
+        Duration.ofSeconds(SparkOperatorConf.CACHE_SYNC_TIMEOUT_SECONDS.getValue()));
     int parallelism = SparkOperatorConf.RECONCILER_PARALLELISM.getValue();
     if (parallelism > 0) {
       log.info("Configuring operator with {} reconciliation threads.", parallelism);

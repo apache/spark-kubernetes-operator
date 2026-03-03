@@ -120,6 +120,17 @@ public final class SparkOperatorConf {
           .defaultValue(30)
           .build();
 
+  /** Timeout threshold for operator to sync informer cache in seconds. */
+  public static final ConfigOption<Integer> CACHE_SYNC_TIMEOUT_SECONDS =
+      ConfigOption.<Integer>builder()
+          .key("spark.kubernetes.operator.cacheSyncTimeoutSeconds")
+          .enableDynamicOverride(false)
+          .description(
+              "Timeout threshold for operator to sync informer cache in seconds.")
+          .typeParameterClass(Integer.class)
+          .defaultValue(30)
+          .build();
+
   /**
    * Thread pool size for Spark Operator reconcilers. Unbounded pool would be used if set to
    * non-positive number.
