@@ -48,6 +48,9 @@ jobs:
           cache: 'gradle'
       - name: Build with Gradle
         run: |
+          if [[ "${{ matrix.java-version }}" == "25" || "${{ matrix.java-version }}" == "26-ea" ]]; then
+            export JDK_JAVA_OPTIONS="-XX:+UseCompactObjectHeaders"
+          fi
           ./gradlew build
   build-image:
     name: "Build Operator Image CI"
