@@ -6,13 +6,14 @@
  | spark.kubernetes.operator.api.retryMaxAttempts | Integer | 15 | false | Max attempts of retries on unhandled controller errors. Setting this to non-positive value means no retry. | 
  | spark.kubernetes.operator.api.secondaryResourceCreateMaxAttempts | Long | 3 | false | Maximal number of retry attempts of requesting secondary resource for Spark application. This would be performed on top of k8s client spark.kubernetes.operator.retry.maxAttempts to overcome potential conflicting reconcile on the same SparkApplication. This should be positive number | 
  | spark.kubernetes.operator.api.statusPatchMaxAttempts | Long | 3 | false | Maximal number of retry attempts of requests to k8s server for resource status update. This would be performed on top of k8s client spark.kubernetes.operator.retry.maxAttempts to overcome potential conflicting update on the same SparkApplication. This should be positive number. | 
- | spark.kubernetes.operator.cacheSyncTimeoutSeconds | Integer | 30 | false | Timeout threshold for operator to sync informer cache in seconds. | 
  | spark.kubernetes.operator.dynamicConfig.enabled | Boolean | false | false | When enabled, operator would use config map as source of truth for config property override. The config map need to be created in spark.kubernetes.operator.namespace, and labeled with operator name. | 
  | spark.kubernetes.operator.dynamicConfig.reconcilerParallelism | Integer | 1 | false | Parallelism for dynamic config reconciler. Unbounded pool would be used if set to non-positive number. | 
  | spark.kubernetes.operator.dynamicConfig.selector | String | app.kubernetes.io/name=spark-kubernetes-operator,app.kubernetes.io/component=operator-dynamic-config-overrides | false | The selector str applied to dynamic config map. | 
  | spark.kubernetes.operator.health.probePort | Integer | 19091 | false | The port used for health/readiness check probe status. | 
  | spark.kubernetes.operator.health.sentinelExecutorPoolSize | Integer | 3 | false | Size of executor service in Sentinel Managers to check the health of sentinel resources. | 
  | spark.kubernetes.operator.health.sentinelResourceReconciliationDelaySeconds | Integer | 60 | true | Allowed max time(seconds) between spec update and reconciliation for sentinel resources. | 
+ | spark.kubernetes.operator.informer.cacheSyncTimeoutSeconds | Integer | 30 | false | Timeout threshold for operator to sync informer cache in seconds. | 
+ | spark.kubernetes.operator.informer.terminateOnInformerFailureEnabled | Boolean | false | false | Enable to indicate informer errors should stop operator startup. If disabled, operator startup will ignore recoverable errors, caused for example by RBAC issues and will retry periodically. | 
  | spark.kubernetes.operator.leaderElection.enabled | Boolean | false | false | Enable leader election for the operator to allow running standby instances. When this is disabled, only one operator instance is expected to be up and running at any time (replica = 1) to avoid race condition. | 
  | spark.kubernetes.operator.leaderElection.leaseDurationSeconds | Integer | 180 | false | Leader election lease duration in seconds, non-negative. | 
  | spark.kubernetes.operator.leaderElection.leaseName | String | spark-operator-lease | false | Leader election lease name, must be unique for leases in the same namespace. | 
@@ -40,7 +41,6 @@
  | spark.kubernetes.operator.reconciler.retry.maxIntervalSeconds | Integer | -1 | false | Max interval(in seconds) of retries on unhandled controller errors. Set to non-positive for unlimited. | 
  | spark.kubernetes.operator.reconciler.terminationTimeoutSeconds | Integer | 30 | false | Grace period for operator shutdown before reconciliation threads are killed. | 
  | spark.kubernetes.operator.reconciler.trimStateTransitionHistoryEnabled | Boolean | true | true | When enabled, operator would trim state transition history when a new attempt starts, keeping previous attempt summary only. | 
- | spark.kubernetes.operator.terminateOnInformerFailureEnabled | Boolean | false | false | Enable to indicate informer errors should stop operator startup. If disabled, operator startup will ignore recoverable errors, caused for example by RBAC issues and will retry periodically. | 
  | spark.kubernetes.operator.watchedNamespaces | String | default | true | Comma-separated list of namespaces that the operator would be watching for Spark resources. If set to '*', operator would watch all namespaces. | 
  | spark.logConf | Boolean | false | true | When enabled, operator will print configurations | 
 

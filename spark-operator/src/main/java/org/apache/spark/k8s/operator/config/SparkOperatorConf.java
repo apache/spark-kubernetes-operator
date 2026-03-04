@@ -98,7 +98,7 @@ public final class SparkOperatorConf {
    */
   public static final ConfigOption<Boolean> TERMINATE_ON_INFORMER_FAILURE_ENABLED =
       ConfigOption.<Boolean>builder()
-          .key("spark.kubernetes.operator.terminateOnInformerFailureEnabled")
+          .key("spark.kubernetes.operator.informer.terminateOnInformerFailureEnabled")
           .enableDynamicOverride(false)
           .description(
               "Enable to indicate informer errors should stop operator startup. If "
@@ -109,6 +109,17 @@ public final class SparkOperatorConf {
           .defaultValue(false)
           .build();
 
+  /** Timeout threshold for operator to sync informer cache in seconds. */
+  public static final ConfigOption<Integer> CACHE_SYNC_TIMEOUT_SECONDS =
+      ConfigOption.<Integer>builder()
+          .key("spark.kubernetes.operator.informer.cacheSyncTimeoutSeconds")
+          .enableDynamicOverride(false)
+          .description(
+              "Timeout threshold for operator to sync informer cache in seconds.")
+          .typeParameterClass(Integer.class)
+          .defaultValue(30)
+          .build();
+
   /** Grace period for operator shutdown before reconciliation threads are killed. */
   public static final ConfigOption<Integer> RECONCILER_TERMINATION_TIMEOUT_SECONDS =
       ConfigOption.<Integer>builder()
@@ -116,17 +127,6 @@ public final class SparkOperatorConf {
           .enableDynamicOverride(false)
           .description(
               "Grace period for operator shutdown before reconciliation threads are killed.")
-          .typeParameterClass(Integer.class)
-          .defaultValue(30)
-          .build();
-
-  /** Timeout threshold for operator to sync informer cache in seconds. */
-  public static final ConfigOption<Integer> CACHE_SYNC_TIMEOUT_SECONDS =
-      ConfigOption.<Integer>builder()
-          .key("spark.kubernetes.operator.cacheSyncTimeoutSeconds")
-          .enableDynamicOverride(false)
-          .description(
-              "Timeout threshold for operator to sync informer cache in seconds.")
           .typeParameterClass(Integer.class)
           .defaultValue(30)
           .build();
