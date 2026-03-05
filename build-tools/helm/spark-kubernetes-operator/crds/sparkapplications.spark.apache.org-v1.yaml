@@ -20691,6 +20691,10 @@ spec:
                                                   type: integer
                                                 signerName:
                                                   type: string
+                                                userAnnotations:
+                                                  additionalProperties:
+                                                    type: string
+                                                  type: object
                                               type: object
                                             secret:
                                               properties:
@@ -20836,6 +20840,15 @@ spec:
                                     type: object
                                 type: object
                               type: array
+                            workloadRef:
+                              properties:
+                                name:
+                                  type: string
+                                podGroup:
+                                  type: string
+                                podGroupReplicaKey:
+                                  type: string
+                              type: object
                           type: object
                       type: object
                   type: object
@@ -23748,6 +23761,10 @@ spec:
                                                   type: integer
                                                 signerName:
                                                   type: string
+                                                userAnnotations:
+                                                  additionalProperties:
+                                                    type: string
+                                                  type: object
                                               type: object
                                             secret:
                                               properties:
@@ -23893,6 +23910,15 @@ spec:
                                     type: object
                                 type: object
                               type: array
+                            workloadRef:
+                              properties:
+                                name:
+                                  type: string
+                                podGroup:
+                                  type: string
+                                podGroupReplicaKey:
+                                  type: string
+                              type: object
                           type: object
                       type: object
                   type: object
@@ -23963,6 +23989,13 @@ spec:
                             type: string
                           lastObservedDriverStatus:
                             properties:
+                              allocatedResources:
+                                additionalProperties:
+                                  anyOf:
+                                    - type: integer
+                                    - type: string
+                                  x-kubernetes-int-or-string: true
+                                type: object
                               conditions:
                                 items:
                                   properties:
@@ -24522,6 +24555,32 @@ spec:
                                       type: string
                                   type: object
                                 type: array
+                              resources:
+                                properties:
+                                  claims:
+                                    items:
+                                      properties:
+                                        name:
+                                          type: string
+                                        request:
+                                          type: string
+                                      type: object
+                                    type: array
+                                  limits:
+                                    additionalProperties:
+                                      anyOf:
+                                        - type: integer
+                                        - type: string
+                                      x-kubernetes-int-or-string: true
+                                    type: object
+                                  requests:
+                                    additionalProperties:
+                                      anyOf:
+                                        - type: integer
+                                        - type: string
+                                      x-kubernetes-int-or-string: true
+                                    type: object
+                                type: object
                               startTime:
                                 type: string
                             type: object
@@ -24557,6 +24616,13 @@ spec:
                       type: string
                     lastObservedDriverStatus:
                       properties:
+                        allocatedResources:
+                          additionalProperties:
+                            anyOf:
+                              - type: integer
+                              - type: string
+                            x-kubernetes-int-or-string: true
+                          type: object
                         conditions:
                           items:
                             properties:
@@ -25116,6 +25182,32 @@ spec:
                                 type: string
                             type: object
                           type: array
+                        resources:
+                          properties:
+                            claims:
+                              items:
+                                properties:
+                                  name:
+                                    type: string
+                                  request:
+                                    type: string
+                                type: object
+                              type: array
+                            limits:
+                              additionalProperties:
+                                anyOf:
+                                  - type: integer
+                                  - type: string
+                                x-kubernetes-int-or-string: true
+                              type: object
+                            requests:
+                              additionalProperties:
+                                anyOf:
+                                  - type: integer
+                                  - type: string
+                                x-kubernetes-int-or-string: true
+                              type: object
+                          type: object
                         startTime:
                           type: string
                       type: object
@@ -25159,6 +25251,13 @@ spec:
                             type: string
                           lastObservedDriverStatus:
                             properties:
+                              allocatedResources:
+                                additionalProperties:
+                                  anyOf:
+                                    - type: integer
+                                    - type: string
+                                  x-kubernetes-int-or-string: true
+                                type: object
                               conditions:
                                 items:
                                   properties:
@@ -25718,6 +25817,32 @@ spec:
                                       type: string
                                   type: object
                                 type: array
+                              resources:
+                                properties:
+                                  claims:
+                                    items:
+                                      properties:
+                                        name:
+                                          type: string
+                                        request:
+                                          type: string
+                                      type: object
+                                    type: array
+                                  limits:
+                                    additionalProperties:
+                                      anyOf:
+                                        - type: integer
+                                        - type: string
+                                      x-kubernetes-int-or-string: true
+                                    type: object
+                                  requests:
+                                    additionalProperties:
+                                      anyOf:
+                                        - type: integer
+                                        - type: string
+                                      x-kubernetes-int-or-string: true
+                                    type: object
+                                type: object
                               startTime:
                                 type: string
                             type: object
@@ -25754,6 +25879,13 @@ spec:
                         type: string
                       lastObservedDriverStatus:
                         properties:
+                          allocatedResources:
+                            additionalProperties:
+                              anyOf:
+                                - type: integer
+                                - type: string
+                              x-kubernetes-int-or-string: true
+                            type: object
                           conditions:
                             items:
                               properties:
@@ -26313,6 +26445,32 @@ spec:
                                   type: string
                               type: object
                             type: array
+                          resources:
+                            properties:
+                              claims:
+                                items:
+                                  properties:
+                                    name:
+                                      type: string
+                                    request:
+                                      type: string
+                                  type: object
+                                type: array
+                              limits:
+                                additionalProperties:
+                                  anyOf:
+                                    - type: integer
+                                    - type: string
+                                  x-kubernetes-int-or-string: true
+                                type: object
+                              requests:
+                                additionalProperties:
+                                  anyOf:
+                                    - type: integer
+                                    - type: string
+                                  x-kubernetes-int-or-string: true
+                                type: object
+                            type: object
                           startTime:
                             type: string
                         type: object
