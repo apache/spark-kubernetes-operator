@@ -50,7 +50,7 @@ import lombok.NoArgsConstructor;
  *   <li>If Spark app acquires less than 5 executors in given tine window
  *       (.spec.applicationTolerations.applicationTimeoutConfig.executorStartTimeoutMillis) after
  *       submitted, it would be shut down proactively in order to avoid resource deadlock.
- *   <li>Spark app would be marked as 'RUNNING_WITH_PARTIAL_CAPACITY' if it loses executors after
+ *   <li>Spark app would be marked as 'RunningWithPartialCapacity' if it loses executors after
  *       successfully start up.
  *   <li>Spark app would be marked as 'RunningHealthy' if it has at least min executors after
  *       successfully start up.
