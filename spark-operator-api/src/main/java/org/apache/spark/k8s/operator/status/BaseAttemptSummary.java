@@ -33,6 +33,6 @@ import lombok.ToString;
 @RequiredArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class BaseAttemptSummary<AI extends BaseAttemptInfo> {
-  protected final AI attemptInfo;
+public class BaseAttemptSummary<I extends BaseAttemptInfo> {
+  protected final I attemptInfo;
 }
