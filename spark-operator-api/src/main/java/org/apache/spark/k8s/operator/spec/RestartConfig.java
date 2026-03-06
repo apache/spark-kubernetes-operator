@@ -27,6 +27,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
+
 /** Restart configuration for a Spark application. */
 @Data
 @NoArgsConstructor
@@ -42,4 +44,23 @@ public class RestartConfig {
   @Default("-1")
   @Builder.Default
   protected Long restartCounterResetMillis = -1L;
+  @Builder.Default protected Long maxRestartOnFailure = null;
+  @Builder.Default protected Long restartBackoffMillisForFailure = null;
+  @Builder.Default protected Long maxRestartOnSchedulingFailure = null;
+  @Builder.Default protected Long restartBackoffMillisForSchedulingFailure = null;
+  /**
+   * Returns the effective restart backoff time in milliseconds based on the current application
+   * state.
+   */
+  public long getEffectiveRestartBackoffMillis(
+      ApplicationStateSummary stateSummary) {
+    if (ApplicationStateSummary.SchedulingFailure == stateSummary
+        && restartBackoffMillisForSchedulingFailure != null) {
+      return restartBackoffMillisForSchedulingFailure;
+    }
+    if (stateSummary.isFailure() && restartBackoffMillisForFailure != null) {
+      return restartBackoffMillisForFailure;
+    }
+    return restartBackoffMillis;
+  }
 }

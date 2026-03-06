@@ -393,4 +393,340 @@ class ApplicationStatusTest {
     submittedState.setLastTransitionTime(submittedTime.toString());
     return status;
   }
+
+  @Test
+  void terminateOrRestartUsesFailureOverrideForFailedState() {
+    RestartConfig config =
+        RestartConfig.builder()
+            .restartPolicy(RestartPolicy.Always)
+            .maxRestartAttempts(10L)
+            .maxRestartOnFailure(0L)
+            .build();
+
+    ApplicationStatus status =
+        new ApplicationStatus()
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
+            .appendNewState(new ApplicationState(ApplicationStateSummary.RunningHealthy, ""))
+            .appendNewState(new ApplicationState(ApplicationStateSummary.Failed, "error"));
+
+    ApplicationStatus restarted =
+        status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+
+    assertEquals(
+        ApplicationStateSummary.ResourceReleased,
+        restarted.getCurrentState().getCurrentStateSummary());
+    assertEquals(0L, restarted.getCurrentAttemptSummary().getAttemptInfo().getId());
+  }
+
+  @Test
+  void terminateOrRestartUsesGeneralMaxAttemptsForNonFailureState() {
+    RestartConfig config =
+        RestartConfig.builder()
+            .restartPolicy(RestartPolicy.Always)
+            .maxRestartAttempts(10L)
+            .maxRestartOnFailure(0L)
+            .build();
+
+    ApplicationStatus status =
+        new ApplicationStatus()
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
+            .appendNewState(new ApplicationState(ApplicationStateSummary.RunningHealthy, ""))
+            .appendNewState(new ApplicationState(Succeeded, "completed"));
+
+    ApplicationStatus restarted =
+        status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+
+    assertEquals(
+        ApplicationStateSummary.ScheduledToRestart,
+        restarted.getCurrentState().getCurrentStateSummary());
+    assertEquals(1L, restarted.getCurrentAttemptSummary().getAttemptInfo().getId());
+  }
+
+  @Test
+  void terminateOrRestartSchedulingFailureUsesSchedulingOverride() {
+    RestartConfig config =
+        RestartConfig.builder()
+            .restartPolicy(RestartPolicy.Always)
+            .maxRestartAttempts(10L)
+            .maxRestartOnFailure(10L)
+            .maxRestartOnSchedulingFailure(0L)
+            .build();
+
+    ApplicationStatus status =
+        new ApplicationStatus()
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
+            .appendNewState(
+                new ApplicationState(ApplicationStateSummary.SchedulingFailure, "quota exceeded"));
+
+    ApplicationStatus restarted =
+        status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+
+    assertEquals(
+        ApplicationStateSummary.ResourceReleased,
+        restarted.getCurrentState().getCurrentStateSummary());
+    assertEquals(0L, restarted.getCurrentAttemptSummary().getAttemptInfo().getId());
+  }
+
+  @Test
+  void terminateOrRestartSchedulingFailureFallsBackToGeneralFailureOverride() {
+    RestartConfig config =
+        RestartConfig.builder()
+            .restartPolicy(RestartPolicy.Always)
+            .maxRestartAttempts(10L)
+            .maxRestartOnFailure(0L)
+            .build();
+
+    ApplicationStatus status =
+        new ApplicationStatus()
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
+            .appendNewState(
+                new ApplicationState(
+                    ApplicationStateSummary.SchedulingFailure, "resources unavailable"));
+
+    ApplicationStatus restarted =
+        status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+
+    assertEquals(
+        ApplicationStateSummary.ResourceReleased,
+        restarted.getCurrentState().getCurrentStateSummary());
+    assertEquals(0L, restarted.getCurrentAttemptSummary().getAttemptInfo().getId());
+  }
+
+  @Test
+  void consecutiveFailureCounterResetsOnSuccess() {
+    RestartConfig config =
+        RestartConfig.builder()
+            .restartPolicy(RestartPolicy.Always)
+            .maxRestartAttempts(10L)
+            .maxRestartOnFailure(2L) // Only 2 consecutive failures allowed
+            .build();
+
+    ApplicationStatus status = new ApplicationStatus();
+    // simulate a F -> S -> F -> F -> F scenario
+    // Attempt 1: Fails
+    status =
+        status
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
+            .appendNewState(new ApplicationState(ApplicationStateSummary.Failed, "error1"));
+
+    status = status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+    assertEquals(
+        ApplicationStateSummary.ScheduledToRestart,
+        status.getCurrentState().getCurrentStateSummary());
+    assertEquals(1L, status.getCurrentAttemptSummary().getAttemptInfo().getRestartCounter());
+    assertEquals(
+        1L, status.getCurrentAttemptSummary().getAttemptInfo().getFailureRestartCounter());
+
+    // Attempt 2: Succeeds - should reset failure counter
+    status =
+        status
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
+            .appendNewState(new ApplicationState(Succeeded, "success1"));
+
+    status = status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+    assertEquals(
+        ApplicationStateSummary.ScheduledToRestart,
+        status.getCurrentState().getCurrentStateSummary());
+    assertEquals(2L, status.getCurrentAttemptSummary().getAttemptInfo().getRestartCounter());
+    // Failure counter should be reset to 0
+    assertEquals(
+        0L, status.getCurrentAttemptSummary().getAttemptInfo().getFailureRestartCounter());
+
+    // Attempt 3: Fails again - failure counter restarts from 1
+    status =
+        status
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
+            .appendNewState(new ApplicationState(ApplicationStateSummary.Failed, "error2"));
+
+    status = status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+    assertEquals(
+        ApplicationStateSummary.ScheduledToRestart,
+        status.getCurrentState().getCurrentStateSummary());
+    assertEquals(3L, status.getCurrentAttemptSummary().getAttemptInfo().getRestartCounter());
+    // Failure counter should be 1 (not 2, because success reset it)
+    assertEquals(
+        1L, status.getCurrentAttemptSummary().getAttemptInfo().getFailureRestartCounter());
+
+    // Attempt 4: Fails again - 2 consecutive failures now
+    status =
+        status
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
+            .appendNewState(new ApplicationState(ApplicationStateSummary.Failed, "error3"));
+
+    status = status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+    assertEquals(
+        ApplicationStateSummary.ScheduledToRestart,
+        status.getCurrentState().getCurrentStateSummary());
+    assertEquals(4L, status.getCurrentAttemptSummary().getAttemptInfo().getRestartCounter());
+    assertEquals(
+        2L, status.getCurrentAttemptSummary().getAttemptInfo().getFailureRestartCounter());
+
+    // Attempt 5: Fails for third consecutive time - should exceed limit
+    status =
+        status
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
+            .appendNewState(new ApplicationState(ApplicationStateSummary.Failed, "error4"));
+
+    status = status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+    // Should stop because consecutive failure counter 3 > maxRestartOnFailure 2
+    assertEquals(
+        ApplicationStateSummary.ResourceReleased,
+        status.getCurrentState().getCurrentStateSummary());
+  }
+
+  @Test
+  void schedulingFailureIncrementsBothConsecutiveCounters() {
+    RestartConfig config =
+        RestartConfig.builder()
+            .restartPolicy(RestartPolicy.Always)
+            .maxRestartAttempts(10L)
+            .maxRestartOnFailure(2L) // Only 2 consecutive general failures
+            .maxRestartOnSchedulingFailure(null) // No specific override
+            .build();
+
+    ApplicationStatus status = new ApplicationStatus();
+
+    // Attempt 1: Scheduling failure
+    status =
+        status
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
+            .appendNewState(
+                new ApplicationState(ApplicationStateSummary.SchedulingFailure, "quota1"));
+
+    status = status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+    assertEquals(1L, status.getCurrentAttemptSummary().getAttemptInfo().getFailureRestartCounter());
+    assertEquals(
+        1L,
+        status.getCurrentAttemptSummary().getAttemptInfo().getSchedulingFailureRestartCounter());
+
+    // Attempt 2: Another scheduling failure
+    status =
+        status
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
+            .appendNewState(
+                new ApplicationState(ApplicationStateSummary.SchedulingFailure, "quota2"));
+
+    status = status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+    assertEquals(2L, status.getCurrentAttemptSummary().getAttemptInfo().getFailureRestartCounter());
+    assertEquals(
+        2L,
+        status.getCurrentAttemptSummary().getAttemptInfo().getSchedulingFailureRestartCounter());
+
+    // Attempt 3: Third consecutive scheduling failure - should exceed general failure limit
+    status =
+        status
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
+            .appendNewState(
+                new ApplicationState(ApplicationStateSummary.SchedulingFailure, "quota3"));
+
+    status = status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+    // Should stop because consecutive failure counter 3 > maxRestartOnFailure 2
+    assertEquals(
+        ApplicationStateSummary.ResourceReleased,
+        status.getCurrentState().getCurrentStateSummary());
+  }
+
+  @Test
+  void generalLimitEnforcedEvenForFailures() {
+    RestartConfig config =
+        RestartConfig.builder()
+            .restartPolicy(RestartPolicy.Always)
+            .maxRestartAttempts(2L) // General limit
+            .maxRestartOnFailure(10L)
+            .build();
+
+    ApplicationStatus status = new ApplicationStatus();
+
+    // Attempt 1: Succeeds
+    status =
+        status
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
+            .appendNewState(new ApplicationState(Succeeded, "success1"));
+
+    status = status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+    assertEquals(
+        ApplicationStateSummary.ScheduledToRestart,
+        status.getCurrentState().getCurrentStateSummary());
+    assertEquals(1L, status.getCurrentAttemptSummary().getAttemptInfo().getRestartCounter());
+
+    // Attempt 2: Succeeds
+    status =
+        status
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
+            .appendNewState(new ApplicationState(Succeeded, "success2"));
+
+    status = status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+    assertEquals(
+        ApplicationStateSummary.ScheduledToRestart,
+        status.getCurrentState().getCurrentStateSummary());
+    assertEquals(2L, status.getCurrentAttemptSummary().getAttemptInfo().getRestartCounter());
+
+    // Attempt 3: Fails - should stop due to general limit even though failure limit is 10
+    status =
+        status
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
+            .appendNewState(new ApplicationState(ApplicationStateSummary.Failed, "error"));
+
+    status = status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+    // Should stop because general counter >= general limit
+    assertEquals(
+        ApplicationStateSummary.ResourceReleased,
+        status.getCurrentState().getCurrentStateSummary());
+    assertTrue(
+        status
+            .getCurrentState()
+            .getMessage()
+            .contains("The maximum number of restart attempts (2) has been exceeded."));
+  }
+
+  @Test
+  void mixedFailureTypesResetIndependently() {
+    RestartConfig config =
+        RestartConfig.builder()
+            .restartPolicy(RestartPolicy.Always)
+            .maxRestartAttempts(10L)
+            .maxRestartOnFailure(3L)
+            .maxRestartOnSchedulingFailure(2L)
+            .build();
+
+    ApplicationStatus status = new ApplicationStatus();
+
+    // Attempt 1: Scheduling failure
+    status =
+        status
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
+            .appendNewState(
+                new ApplicationState(ApplicationStateSummary.SchedulingFailure, "quota"));
+
+    status = status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+    assertEquals(1L, status.getCurrentAttemptSummary().getAttemptInfo().getFailureRestartCounter());
+    assertEquals(
+        1L,
+        status.getCurrentAttemptSummary().getAttemptInfo().getSchedulingFailureRestartCounter());
+
+    // Attempt 2: Regular failure (not scheduling)
+    status =
+        status
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
+            .appendNewState(new ApplicationState(ApplicationStateSummary.Failed, "error"));
+
+    status = status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+    assertEquals(2L, status.getCurrentAttemptSummary().getAttemptInfo().getFailureRestartCounter());
+    // Scheduling failure counter reset
+    assertEquals(
+        0L,
+        status.getCurrentAttemptSummary().getAttemptInfo().getSchedulingFailureRestartCounter());
+
+    // Attempt 3: Success - resets both counters
+    status =
+        status
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
+            .appendNewState(new ApplicationState(Succeeded, "success"));
+
+    status = status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+    assertEquals(0L, status.getCurrentAttemptSummary().getAttemptInfo().getFailureRestartCounter());
+    assertEquals(
+        0L,
+        status.getCurrentAttemptSummary().getAttemptInfo().getSchedulingFailureRestartCounter());
+  }
 }

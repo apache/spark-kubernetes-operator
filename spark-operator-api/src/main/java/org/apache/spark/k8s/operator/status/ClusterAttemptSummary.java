@@ -33,20 +33,20 @@ import lombok.ToString;
 @ToString(callSuper = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class ClusterAttemptSummary extends BaseAttemptSummary {
+public class ClusterAttemptSummary extends BaseAttemptSummary<BaseAttemptInfo> {
   protected final SortedMap<Long, ClusterState> stateTransitionHistory;
 
   public ClusterAttemptSummary(
-      AttemptInfo attemptInfo, SortedMap<Long, ClusterState> stateTransitionHistory) {
+      BaseAttemptInfo attemptInfo, SortedMap<Long, ClusterState> stateTransitionHistory) {
     super(attemptInfo);
     this.stateTransitionHistory = stateTransitionHistory;
   }
 
   public ClusterAttemptSummary() {
-    this(new AttemptInfo(), null);
+    this(new BaseAttemptInfo(), null);
   }
 
-  public ClusterAttemptSummary(AttemptInfo attemptInfo) {
+  public ClusterAttemptSummary(BaseAttemptInfo attemptInfo) {
     this(attemptInfo, null);
   }
 }

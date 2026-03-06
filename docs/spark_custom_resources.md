@@ -234,14 +234,111 @@ restartConfig:
   restartBackoffMillis: 30000
 ```
 
+### Granular Restart Control
+
+For more fine-grained control over restart behavior, you can configure different retry limits
+and backoff times for specific failure types. This allows you to handle different failure
+scenarios with appropriate strategies.
+
+The operator maintains multiple counters to track different types of restarts:
+- General restart counter: Tracks all restarts
+- Consecutive failure counter: Tracks consecutive failures
+- Consecutive scheduling failure counter: Tracks consecutive scheduling failures only
+
+#### Restart Behavior Control
+
+- Consecutive failure tracking: The failure-specific counters track consecutive failures
+  of the app, distinguishing between persistent failures (requiring intervention) and
+  transient issues (safe for retry).
+  - For Example: With `restartPolicy=Always`, `maxRestartAttempts=5` and `maxRestartOnFailure=2`:
+  - The app would tolerate at maximum of 3 consecutive failures, with maximal of 5 restarts
+  - In other words, sequence F -> F -> F would stop.
+  - sequence F -> S -> F -> S -> F would continue with the 5th restart as the succeeded attempts
+    reset the failure counter
+- Granular control over `SchedulingFailure`: similarly, it's possible to control the maximal
+  restart and backoff interval for consecutive `SchedulingFailure` attempts, as it can be highly
+  associated with API server rejections, quota exceeded, resource constraints.
+
+#### Restart Limit Evaluation
+
+When an attempt ends, limits are checked in order:
+  1. General limit (`maxRestartAttempts`) is checked for every restart
+  2. For failures, the most specific applicable limit is also checked:
+     - Scheduling failures (SchedulingFailure) → `maxRestartOnSchedulingFailure` (if set)
+     - Other failures → `maxRestartOnFailure` (if set)
+  3. The application stops if any applicable limit is exceeded
+
+
+#### Configuration Fields
+
+```yaml
+restartConfig:
+  restartPolicy: Always
+  # Default restart configuration (applies to all restarts)
+  maxRestartAttempts: 5
+  restartBackoffMillis: 30000  # 30 seconds
+
+  # Override for consecutive general failures (application crashes, driver failures, etc.)
+  # This counter resets to 0 on success
+  maxRestartOnFailure: 3
+  restartBackoffMillisForFailure: 60000  # 1 minute
+
+  # Override for consecutive scheduling failures
+  maxRestartOnSchedulingFailure: 1
+  restartBackoffMillisForSchedulingFailure: 300000  # 5 minutes
+```
+
+#### Example Use Cases
+
+Tolerate transient failures but stop on persistent issues:
+
+```yaml
+restartConfig:
+  restartPolicy: Always
+  maxRestartAttempts: 100  # Allow many total attempts
+  restartBackoffMillis: 30000
+  # But stop after 3 consecutive failures (indicates persistent problem)
+  maxRestartOnFailure: 3
+  restartBackoffMillisForFailure: 60000
+```
+
+Mitigate API server stress during scheduling failures:
+
+```yaml
+restartConfig:
+  restartPolicy: Always
+  maxRestartAttempts: 50
+  restartBackoffMillis: 30000
+  # Stop quickly on scheduling failures to avoid overwhelming API server
+  maxRestartOnSchedulingFailure: 2
+  restartBackoffMillisForSchedulingFailure: 600000  # 10 minutes
+```
+
+
+| Field                                                                                   | Type    | Default Value | Description                                                                                                                                                                                                                              |
+|-----------------------------------------------------------------------------------------|---------|---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| .spec.applicationTolerations.restartConfig.restartPolicy                                | string  | Never         | Restart policy: `Never`, `Always`, `OnFailure`, or `OnInfrastructureFailure`                                                                                                                                                             |
+| .spec.applicationTolerations.restartConfig.maxRestartAttempts                           | integer | 3             | Maximum number of restart attempts for all scenarios (always checked)                                                                                                                                                                    |
+| .spec.applicationTolerations.restartConfig.restartBackoffMillis                         | integer | 30000         | Default backoff time in milliseconds between restart attempts                                                                                                                                                                            |
+| .spec.applicationTolerations.restartConfig.maxRestartOnFailure                          | integer | null          | Maximum consecutive failures before stopping. Resets to 0 on success. If null, uses maxRestartAttempts                                                                                                                                   |
+| .spec.applicationTolerations.restartConfig.restartBackoffMillisForFailure               | integer | null          | Backoff time for application failures. If null, uses restartBackoffMillis                                                                                                                                                                |
+| .spec.applicationTolerations.restartConfig.maxRestartOnSchedulingFailure                | integer | null          | Maximum consecutive scheduling failures before stopping. Scheduling failures occur when the API server rejects requests (e.g., quota exceeded, resource constraints). Resets to 0 on success. If null, falls back to maxRestartOnFailure |
+| .spec.applicationTolerations.restartConfig.restartBackoffMillisForSchedulingFailure     | integer | null          | Backoff time for scheduling failures. If null, falls back to restartBackoffMillisForFailure                                                                                                                                              |
+
 ### Restart Counter reset
 
-The restartCounterResetMillis field controls automatic restart counter resets for long-running
+The `restartCounterResetMillis` field controls automatic restart counter resets for long-running
 application attempts. When set to a non-negative value (in milliseconds), the operator will reset
-the restart counter if an application attempt runs successfully for at least the specified duration
-before failing. This feature enables user to allow maximal x attempts if an app fails really
-fast (which could indicate some underlying issue other than the app itself) while allowing
-indefinite restarts when the app can survive given threshold.
+all restart counters (including the general counter and both failure counters) if an application
+attempt runs successfully for at least the specified duration before ending.
+
+Time-based reset takes highest precedence over all limit checks. If an attempt runs longer than
+`restartCounterResetMillis`, the operator will always restart with reset counters, regardless
+of how many times the application has previously failed.
+
+This feature enables applications to recover from early instability: you can limit fast-failing
+restarts (which often indicate configuration or infrastructure issues) while allowing indefinite
+restarts for applications that demonstrate stable operation for extended periods.
 
 For example, setting
 

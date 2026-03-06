@@ -46,9 +46,9 @@ import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 import org.apache.spark.k8s.operator.spec.ApplicationTolerations;
 import org.apache.spark.k8s.operator.spec.ResourceRetainPolicy;
 import org.apache.spark.k8s.operator.spec.RuntimeVersions;
+import org.apache.spark.k8s.operator.status.ApplicationAttemptInfo;
 import org.apache.spark.k8s.operator.status.ApplicationAttemptSummary;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
-import org.apache.spark.k8s.operator.status.AttemptInfo;
 
 @SuppressWarnings("PMD.UnusedLocalVariable")
 class SparkAppSubmissionWorkerTest {
@@ -221,7 +221,7 @@ class SparkAppSubmissionWorkerTest {
         "Multiple invoke of generateSparkAppId shall give same result.");
 
     ApplicationAttemptSummary mockAttempt = mock(ApplicationAttemptSummary.class);
-    AttemptInfo mockAttemptInfo = mock(AttemptInfo.class);
+    ApplicationAttemptInfo mockAttemptInfo = mock(ApplicationAttemptInfo.class);
     when(mockAttempt.getAttemptInfo()).thenReturn(mockAttemptInfo);
     when(mockAttemptInfo.getId()).thenReturn(2L);
     when(mockStatus1.getCurrentAttemptSummary()).thenReturn(mockAttempt);
