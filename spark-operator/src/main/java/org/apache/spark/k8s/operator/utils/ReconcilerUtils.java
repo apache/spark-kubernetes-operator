@@ -225,7 +225,7 @@ public final class ReconcilerUtils {
   private static boolean isTransientError(KubernetesClientException e) {
     // code 0 is fabric8's sentinel for network-level failures (timeouts, connection resets, etc.)
     return switch (e.getCode()) {
-      case 0, HTTP_CLIENT_TIMEOUT, HTTP_INTERNAL_ERROR, HTTP_BAD_GATEWAY,
+      case 0, HTTP_CLIENT_TIMEOUT, HTTP_BAD_GATEWAY,
            HTTP_UNAVAILABLE, HTTP_GATEWAY_TIMEOUT -> true;
       default -> false;
     };
