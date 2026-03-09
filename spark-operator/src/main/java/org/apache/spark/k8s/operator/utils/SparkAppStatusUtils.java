@@ -19,10 +19,11 @@
 
 package org.apache.spark.k8s.operator.utils;
 
-import org.apache.spark.k8s.operator.Constants;
+import static org.apache.spark.k8s.operator.Constants.*;
+import static org.apache.spark.k8s.operator.status.ApplicationStateSummary.*;
+
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.status.ApplicationState;
-import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
 
 /** Handy utils for create and manage Application Status. */
 public final class SparkAppStatusUtils {
@@ -48,8 +49,7 @@ public final class SparkAppStatusUtils {
    * @return An ApplicationState object for driver unexpected removal.
    */
   public static ApplicationState driverUnexpectedRemoved() {
-    return new ApplicationState(
-        ApplicationStateSummary.Failed, Constants.DRIVER_UNEXPECTED_REMOVED_MESSAGE);
+    return new ApplicationState(Failed, DRIVER_UNEXPECTED_REMOVED_MESSAGE);
   }
 
   /**
@@ -58,8 +58,7 @@ public final class SparkAppStatusUtils {
    * @return An ApplicationState object for driver launch timeout.
    */
   public static ApplicationState driverLaunchTimedOut() {
-    return new ApplicationState(
-        ApplicationStateSummary.DriverStartTimedOut, Constants.DRIVER_LAUNCH_TIMEOUT_MESSAGE);
+    return new ApplicationState(DriverStartTimedOut, DRIVER_LAUNCH_TIMEOUT_MESSAGE);
   }
 
   /**
@@ -68,8 +67,7 @@ public final class SparkAppStatusUtils {
    * @return An ApplicationState object for driver ready timeout.
    */
   public static ApplicationState driverReadyTimedOut() {
-    return new ApplicationState(
-        ApplicationStateSummary.DriverReadyTimedOut, Constants.DRIVER_LAUNCH_TIMEOUT_MESSAGE);
+    return new ApplicationState(DriverReadyTimedOut, DRIVER_LAUNCH_TIMEOUT_MESSAGE);
   }
 
   /**
@@ -78,8 +76,7 @@ public final class SparkAppStatusUtils {
    * @return An ApplicationState object for executor launch timeout.
    */
   public static ApplicationState executorLaunchTimedOut() {
-    return new ApplicationState(
-        ApplicationStateSummary.ExecutorsStartTimedOut, Constants.EXECUTOR_LAUNCH_TIMEOUT_MESSAGE);
+    return new ApplicationState(ExecutorsStartTimedOut, EXECUTOR_LAUNCH_TIMEOUT_MESSAGE);
   }
 
   /**
@@ -88,8 +85,7 @@ public final class SparkAppStatusUtils {
    * @return An ApplicationState object for application cancellation.
    */
   public static ApplicationState appCancelled() {
-    return new ApplicationState(
-        ApplicationStateSummary.ResourceReleased, Constants.APP_CANCELLED_MESSAGE);
+    return new ApplicationState(ResourceReleased, APP_CANCELLED_MESSAGE);
   }
 
   /**
@@ -98,8 +94,7 @@ public final class SparkAppStatusUtils {
    * @return An ApplicationState object for exceeding retain duration.
    */
   public static ApplicationState appExceededRetainDuration() {
-    return new ApplicationState(
-        ApplicationStateSummary.ResourceReleased, Constants.APP_EXCEEDED_RETAIN_DURATION_MESSAGE);
+    return new ApplicationState(ResourceReleased, APP_EXCEEDED_RETAIN_DURATION_MESSAGE);
   }
 
   /**
