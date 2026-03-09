@@ -19,6 +19,13 @@
 
 package org.apache.spark.k8s.operator.reconciler;
 
+import static java.net.HttpURLConnection.HTTP_CONFLICT;
+import static org.apache.spark.k8s.operator.config.SparkOperatorConf.API_SECONDARY_RESOURCE_CREATE_BACKOFF_JITTER_MILLIS;
+import static org.apache.spark.k8s.operator.config.SparkOperatorConf.API_SECONDARY_RESOURCE_CREATE_BACKOFF_MULTIPLIER;
+import static org.apache.spark.k8s.operator.config.SparkOperatorConf.API_SECONDARY_RESOURCE_CREATE_INITIAL_BACKOFF_MILLIS;
+import static org.apache.spark.k8s.operator.config.SparkOperatorConf.API_SECONDARY_RESOURCE_CREATE_MAX_ATTEMPTS;
+import static org.apache.spark.k8s.operator.config.SparkOperatorConf.API_SECONDARY_RESOURCE_CREATE_MAX_BACKOFF_MILLIS;
+import static org.apache.spark.k8s.operator.utils.TestUtils.setConfigKey;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -27,13 +34,18 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Optional;
 
 import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.KubernetesClientException;
+import io.fabric8.kubernetes.client.dsl.NamespaceableResource;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
 import io.javaoperatorsdk.operator.api.reconciler.DeleteControl;
 import org.junit.jupiter.api.BeforeEach;
@@ -173,4 +185,77 @@ class SparkAppReconcilerTest {
       utils.verifyNoInteractions();
     }
   }
+
+    @SuppressWarnings("unchecked")
+    private NamespaceableResource<Pod> mockSecondaryResource(Pod pod) {
+        NamespaceableResource<Pod> mockResource = mock(NamespaceableResource.class);
+        when(mockClient.resource(pod)).thenReturn(mockResource);
+        return mockResource;
+    }
+
+    private void setFastBackoff() {
+        setConfigKey(API_SECONDARY_RESOURCE_CREATE_MAX_ATTEMPTS, 3L);
+        setConfigKey(API_SECONDARY_RESOURCE_CREATE_INITIAL_BACKOFF_MILLIS, 5000L);
+        setConfigKey(API_SECONDARY_RESOURCE_CREATE_MAX_BACKOFF_MILLIS, 10000L);
+        setConfigKey(API_SECONDARY_RESOURCE_CREATE_BACKOFF_JITTER_MILLIS, 0L);
+        setConfigKey(API_SECONDARY_RESOURCE_CREATE_BACKOFF_MULTIPLIER, 2.0);
+    }
+
+    private void restoreBackoffDefaults(
+            long maxAttempts,
+            long initialBackoff,
+            long maxBackoff,
+            long jitter,
+            double multiplier) {
+        setConfigKey(API_SECONDARY_RESOURCE_CREATE_MAX_ATTEMPTS, maxAttempts);
+        setConfigKey(API_SECONDARY_RESOURCE_CREATE_INITIAL_BACKOFF_MILLIS, initialBackoff);
+        setConfigKey(API_SECONDARY_RESOURCE_CREATE_MAX_BACKOFF_MILLIS, maxBackoff);
+        setConfigKey(API_SECONDARY_RESOURCE_CREATE_BACKOFF_JITTER_MILLIS, jitter);
+        setConfigKey(API_SECONDARY_RESOURCE_CREATE_BACKOFF_MULTIPLIER, multiplier);
+    }
+
+    private Pod buildTestPod() {
+        return new PodBuilder()
+                .withNewMetadata()
+                .withName("test-pod")
+                .withNamespace("default")
+                .endMetadata()
+                .build();
+    }
+
+    @Test
+    void secondaryResourceCreationRetriesWithBackoffOnConflict() {
+        long savedMaxAttempts = API_SECONDARY_RESOURCE_CREATE_MAX_ATTEMPTS.getValue();
+        long savedInitialBackoff = API_SECONDARY_RESOURCE_CREATE_INITIAL_BACKOFF_MILLIS.getValue();
+        long savedMaxBackoff = API_SECONDARY_RESOURCE_CREATE_MAX_BACKOFF_MILLIS.getValue();
+        long savedJitter = API_SECONDARY_RESOURCE_CREATE_BACKOFF_JITTER_MILLIS.getValue();
+        double savedMultiplier = API_SECONDARY_RESOURCE_CREATE_BACKOFF_MULTIPLIER.getValue();
+        try {
+            setFastBackoff();
+            Pod pod = buildTestPod();
+            NamespaceableResource<Pod> mockResource = mockSecondaryResource(pod);
+            KubernetesClientException conflict =
+                    new KubernetesClientException("conflict", HTTP_CONFLICT, null);
+            when(mockResource.get()).thenReturn(null);
+            when(mockResource.create()).thenThrow(conflict).thenReturn(pod);
+
+            long start = System.currentTimeMillis();
+            Optional<Pod> result = ReconcilerUtils.getOrCreateSecondaryResource(mockClient, pod);
+            long elapsed = System.currentTimeMillis() - start;
+
+            assertTrue(result.isPresent());
+            verify(mockResource, times(2)).create();
+            assertTrue(elapsed >= 5000L,
+                    "Expected backoff delay of at least "
+                            + "5000ms, but was: "
+                            + elapsed + "ms");
+        } finally {
+            restoreBackoffDefaults(
+                    savedMaxAttempts,
+                    savedInitialBackoff,
+                    savedMaxBackoff,
+                    savedJitter,
+                    savedMultiplier);
+        }
+    }
 }
