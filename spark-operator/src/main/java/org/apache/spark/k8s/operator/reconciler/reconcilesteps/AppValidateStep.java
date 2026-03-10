@@ -21,7 +21,7 @@ package org.apache.spark.k8s.operator.reconciler.reconcilesteps;
 
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.completeAndImmediateRequeue;
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.proceed;
-import static org.apache.spark.k8s.operator.spec.DeploymentMode.ClientMode;
+import static org.apache.spark.k8s.operator.utils.ModelUtils.isClientMode;
 import static org.apache.spark.k8s.operator.utils.SparkAppStatusUtils.isValidApplicationStatus;
 
 import lombok.extern.slf4j.Slf4j;
@@ -50,7 +50,7 @@ public class AppValidateStep extends AppReconcileStep {
       log.warn("Spark application found with empty status. Resetting to initial state.");
       return attemptStatusUpdate(context, statusRecorder, new ApplicationStatus(), proceed());
     }
-    if (ClientMode == context.getResource().getSpec().getDeploymentMode()) {
+    if (isClientMode(context.getResource())) {
       ApplicationState failure =
           new ApplicationState(ApplicationStateSummary.Failed, "Client mode is not supported yet.");
       return attemptStatusUpdate(

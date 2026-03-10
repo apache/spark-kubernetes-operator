@@ -20,6 +20,7 @@
 package org.apache.spark.k8s.operator.utils;
 
 import static org.apache.spark.k8s.operator.Constants.DRIVER_SPARK_CONTAINER_PROP_KEY;
+import static org.apache.spark.k8s.operator.spec.DeploymentMode.ClientMode;
 
 import java.util.List;
 import java.util.Map;
@@ -154,5 +155,15 @@ public final class ModelUtils {
       attemptId = app.getStatus().getCurrentAttemptSummary().getAttemptInfo().getId();
     }
     return attemptId;
+  }
+
+  /**
+   * Checks if the application is in client mode.
+   *
+   * @param app The SparkApplication to check.
+   * @return True if the application is in client mode, false otherwise.
+   */
+  public static boolean isClientMode(SparkApplication app) {
+    return ClientMode == app.getSpec().getDeploymentMode();
   }
 }
