@@ -96,21 +96,4 @@ public final class SparkAppStatusUtils {
   public static ApplicationState appExceededRetainDuration() {
     return new ApplicationState(ResourceReleased, APP_EXCEEDED_RETAIN_DURATION_MESSAGE);
   }
-
-  /**
-   * Checks if the application has reached a specific state in its transition history.
-   *
-   * @param application The SparkApplication to check.
-   * @param stateToCheck The ApplicationState to look for.
-   * @return True if the application has reached the state, false otherwise.
-   */
-  public static boolean hasReachedState(
-      SparkApplication application, ApplicationState stateToCheck) {
-    return isValidApplicationStatus(application)
-        && application.getStatus().getStateTransitionHistory().keySet().parallelStream()
-            .anyMatch(
-                stateId ->
-                    stateToCheck.equals(
-                        application.getStatus().getStateTransitionHistory().get(stateId)));
-  }
 }
