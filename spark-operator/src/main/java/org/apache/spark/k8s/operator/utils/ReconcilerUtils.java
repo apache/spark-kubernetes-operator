@@ -48,6 +48,7 @@ import io.javaoperatorsdk.operator.api.reconciler.UpdateControl;
 import lombok.extern.slf4j.Slf4j;
 
 import org.apache.spark.k8s.operator.BaseResource;
+import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 
 /** Utility class for reconciler operations. */
@@ -132,8 +133,8 @@ public final class ReconcilerUtils {
                 return current;
               }
             }
-          } else if (e.getCode() == BackoffUtils.HTTP_TOO_MANY_REQUESTS) {
-            log.warn("Server returned 429 Too Many Requests, will retry with backoff");
+          } else if (e.getCode() == Constants.HTTP_TOO_MANY_REQUESTS) {
+            log.debug("Server returned 429 Too Many Requests, will retry with backoff");
           } else if (isTransientError(e) || e.getCode() == HTTP_INTERNAL_ERROR) {
             // GET to avoid duplicate create attempt for timeouts (0) and transient 5xx
             current = getResource(client, resource);
@@ -229,7 +230,7 @@ public final class ReconcilerUtils {
 
   private static boolean shouldBackoffBeforeRetry(KubernetesClientException e) {
     return switch (e.getCode()) {
-      case HTTP_CONFLICT, BackoffUtils.HTTP_TOO_MANY_REQUESTS -> true;
+      case HTTP_CONFLICT, Constants.HTTP_TOO_MANY_REQUESTS -> true;
       default -> false;
     };
   }

@@ -601,60 +601,57 @@ public final class SparkOperatorConf {
    * Initial backoff (in milliseconds) between retries when creating secondary resources. Backoff
    * is applied only on 409 (Conflict) and 429 (Too Many Requests) responses.
    */
-  public static final ConfigOption<Long>
-          API_SECONDARY_RESOURCE_CREATE_INITIAL_BACKOFF_MILLIS =
-          ConfigOption.<Long>builder()
-                  .key("spark.kubernetes.operator.api.secondaryResourceCreateInitialBackoffMillis")
-                  .enableDynamicOverride(false)
-                  .description(
-                          "Initial backoff (in milliseconds) between retries "
-                                  + "when creating secondary resources for Spark application. "
-                                  + "Backoff is applied only on 409 (Conflict) and "
-                                  + "429 (Too Many Requests) responses.")
-                  .typeParameterClass(Long.class)
-                  .defaultValue(1000L)
-                  .build();
+  public static final ConfigOption<Long> API_SECONDARY_RESOURCE_CREATE_INITIAL_BACKOFF_MILLIS =
+      ConfigOption.<Long>builder()
+          .key("spark.kubernetes.operator.api.secondaryResourceCreateInitialBackoffMillis")
+          .enableDynamicOverride(false)
+          .description(
+              "Initial backoff (in milliseconds) between retries "
+                  + "when creating secondary resources for Spark application. "
+                  + "Backoff is applied only on 409 (Conflict) and "
+                  + "429 (Too Many Requests) responses.")
+          .typeParameterClass(Long.class)
+          .defaultValue(1000L)
+          .build();
 
   /** Maximum backoff (in milliseconds) between retries when creating secondary resources. */
-  public static final ConfigOption<Long>
-          API_SECONDARY_RESOURCE_CREATE_MAX_BACKOFF_MILLIS =
-          ConfigOption.<Long>builder()
-                  .key("spark.kubernetes.operator.api.secondaryResourceCreateMaxBackoffMillis")
-                  .enableDynamicOverride(false)
-                  .description(
-                          "Maximum backoff (in milliseconds) between retries when creating " +
-                                  "secondary resources for Spark application.")
-                  .typeParameterClass(Long.class)
-                  .defaultValue(40000L)
-                  .build();
+  public static final ConfigOption<Long> API_SECONDARY_RESOURCE_CREATE_MAX_BACKOFF_MILLIS =
+      ConfigOption.<Long>builder()
+          .key("spark.kubernetes.operator.api.secondaryResourceCreateMaxBackoffMillis")
+          .enableDynamicOverride(false)
+          .description(
+              "Maximum backoff (in milliseconds) between retries when creating "
+                  + "secondary resources for Spark application.")
+          .typeParameterClass(Long.class)
+          .defaultValue(40000L)
+          .build();
 
   /** Backoff multiplier applied to each retry interval when creating secondary resources. */
-  public static final ConfigOption<Double>
-          API_SECONDARY_RESOURCE_CREATE_BACKOFF_MULTIPLIER =
-          ConfigOption.<Double>builder()
-                  .key(
-                          "spark.kubernetes.operator.api.secondaryResourceCreateBackoffMultiplier")
-                  .enableDynamicOverride(false)
-                  .description(
-                          "Backoff multiplier applied to each retry interval when creating " +
-                                  "secondary resources for Spark application.")
-                  .typeParameterClass(Double.class)
-                  .defaultValue(2.0)
-                  .build();
+  public static final ConfigOption<Double> API_SECONDARY_RESOURCE_CREATE_BACKOFF_MULTIPLIER =
+      ConfigOption.<Double>builder()
+          .key("spark.kubernetes.operator.api.secondaryResourceCreateBackoffMultiplier")
+          .enableDynamicOverride(false)
+          .description(
+              "Backoff multiplier applied to each retry interval when creating "
+                  + "secondary resources for Spark application.")
+          .typeParameterClass(Double.class)
+          .defaultValue(2.0)
+          .build();
 
-  /** Jitter (in milliseconds) added to backoff delay
-   * between retries when creating secondary resources. */
-  public static final ConfigOption<Long>
-          API_SECONDARY_RESOURCE_CREATE_BACKOFF_JITTER_MILLIS =
-          ConfigOption.<Long>builder()
-                  .key("spark.kubernetes.operator.api.secondaryResourceCreateBackoffJitterMillis")
-                  .enableDynamicOverride(false)
-                  .description(
-                          "Jitter (in milliseconds) added to backoff delay between retries when " +
-                                  "creating secondary resources for Spark application.")
-                  .typeParameterClass(Long.class)
-                  .defaultValue(500L)
-                  .build();
+  /**
+   * Jitter (in milliseconds) added to backoff delay between retries when creating secondary
+   * resources.
+   */
+  public static final ConfigOption<Long> API_SECONDARY_RESOURCE_CREATE_BACKOFF_JITTER_MILLIS =
+      ConfigOption.<Long>builder()
+          .key("spark.kubernetes.operator.api.secondaryResourceCreateBackoffJitterMillis")
+          .enableDynamicOverride(false)
+          .description(
+              "Jitter (in milliseconds) added to backoff delay between retries when "
+                  + "creating secondary resources for Spark application.")
+          .typeParameterClass(Long.class)
+          .defaultValue(500L)
+          .build();
 
   private SparkOperatorConf() {}
 

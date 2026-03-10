@@ -19,10 +19,7 @@
 
 package org.apache.spark.k8s.operator.utils;
 
-import static org.apache.spark.k8s.operator.config.SparkOperatorConf.API_SECONDARY_RESOURCE_CREATE_BACKOFF_JITTER_MILLIS;
-import static org.apache.spark.k8s.operator.config.SparkOperatorConf.API_SECONDARY_RESOURCE_CREATE_BACKOFF_MULTIPLIER;
-import static org.apache.spark.k8s.operator.config.SparkOperatorConf.API_SECONDARY_RESOURCE_CREATE_INITIAL_BACKOFF_MILLIS;
-import static org.apache.spark.k8s.operator.config.SparkOperatorConf.API_SECONDARY_RESOURCE_CREATE_MAX_BACKOFF_MILLIS;
+import static org.apache.spark.k8s.operator.config.SparkOperatorConf.*;
 
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -31,9 +28,6 @@ import lombok.extern.slf4j.Slf4j;
 /** Utility class for exponential backoff with jitter on retryable API errors. */
 @Slf4j
 public final class BackoffUtils {
-
-  /** HTTP 429 Too Many Requests (not defined in {@link java.net.HttpURLConnection}). */
-  static final int HTTP_TOO_MANY_REQUESTS = 429;
 
   private BackoffUtils() {}
 
