@@ -34,8 +34,10 @@ import io.fabric8.kubernetes.api.model.PodTemplateSpecBuilder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 import org.apache.spark.k8s.operator.spec.BaseApplicationTemplateSpec;
+import org.apache.spark.k8s.operator.spec.DeploymentMode;
 
 class ModelUtilsTest {
 
@@ -123,5 +125,19 @@ class ModelUtilsTest {
     executorSpec.setPodTemplateSpec(buildSamplePodTemplateSpec());
     applicationSpec.setDriverSpec(executorSpec);
     assertTrue(ModelUtils.overrideDriverTemplateEnabled(applicationSpec));
+  }
+
+  @Test
+  void testIsClientMode() {
+    SparkApplication app = new SparkApplication();
+    ApplicationSpec spec = new ApplicationSpec();
+
+    spec.setDeploymentMode(DeploymentMode.ClientMode);
+    app.setSpec(spec);
+    assertTrue(ModelUtils.isClientMode(app));
+
+    spec.setDeploymentMode(DeploymentMode.ClusterMode);
+    app.setSpec(spec);
+    assertFalse(ModelUtils.isClientMode(app));
   }
 }
