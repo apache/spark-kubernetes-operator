@@ -39,7 +39,11 @@ import io.fabric8.kubernetes.api.model.PodTemplateSpec;
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 
-/** Utility class for Kubernetes model operations. */
+/**
+ * Utility class for Kubernetes model operations.
+ *
+ * @since 0.1.0
+ */
 public final class ModelUtils {
 
   public static final ObjectMapper objectMapper = new ObjectMapper();

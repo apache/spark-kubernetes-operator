@@ -32,7 +32,11 @@ import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
 
-/** SparkApplication is the Custom Resource Definition (CRD) for a Spark application. */
+/**
+ * SparkApplication is the Custom Resource Definition (CRD) for a Spark application.
+ *
+ * @since 0.1.0
+ */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonDeserialize()
 @Group(Constants.API_GROUP)

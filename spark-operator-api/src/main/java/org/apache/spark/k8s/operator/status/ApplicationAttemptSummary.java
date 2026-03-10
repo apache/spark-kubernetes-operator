@@ -27,7 +27,11 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
 
-/** Summary of a Spark application attempt. */
+/**
+ * Summary of a Spark application attempt.
+ *
+ * @since 0.1.0
+ */
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)

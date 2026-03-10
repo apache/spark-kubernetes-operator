@@ -31,6 +31,8 @@ import lombok.ToString;
 
 /**
  * Basic information about an attempt.
+ *
+ * @since 0.8.0
  */
 @Getter
 @NoArgsConstructor

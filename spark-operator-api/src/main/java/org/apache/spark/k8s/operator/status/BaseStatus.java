@@ -35,6 +35,7 @@ import lombok.ToString;
  * @param <S> The type of the state summary.
  * @param <STATE> The type of the state.
  * @param <AS> The type of the attempt summary.
+ * @since 0.1.0
  */
 @ToString
 @EqualsAndHashCode

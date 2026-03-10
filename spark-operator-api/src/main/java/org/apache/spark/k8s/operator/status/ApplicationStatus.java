@@ -36,7 +36,11 @@ import org.apache.spark.k8s.operator.spec.ResourceRetainPolicy;
 import org.apache.spark.k8s.operator.spec.RestartConfig;
 import org.apache.spark.k8s.operator.spec.RestartPolicy;
 
-/** Represents the status of a Spark application. */
+/**
+ * Represents the status of a Spark application.
+ *
+ * @since 0.1.0
+ */
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)

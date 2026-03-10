@@ -21,6 +21,11 @@ package org.apache.spark.k8s.operator.status;
 
 import java.util.Set;
 
+/**
+ * State summary for a Spark application.
+ *
+ * @since 0.1.0
+ */
 public enum ApplicationStateSummary implements BaseStateSummary {
   /** Spark application is submitted to the cluster but yet scheduled */
   Submitted,

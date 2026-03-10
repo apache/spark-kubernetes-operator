@@ -27,7 +27,11 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/** Runtime versions for a Spark application or cluster. */
+/**
+ * Runtime versions for a Spark application or cluster.
+ *
+ * @since 0.1.0
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

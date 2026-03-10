@@ -32,7 +32,11 @@ import lombok.NoArgsConstructor;
 
 import org.apache.spark.k8s.operator.status.ApplicationState;
 
-/** Toleration settings for a Spark application. */
+/**
+ * Toleration settings for a Spark application.
+ *
+ * @since 0.1.0
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

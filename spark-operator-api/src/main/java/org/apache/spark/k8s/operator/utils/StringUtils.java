@@ -22,7 +22,11 @@ package org.apache.spark.k8s.operator.utils;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
-/** Utility class for string operations. */
+/**
+ * Utility class for string operations.
+ *
+ * @since 0.6.0
+ */
 public final class StringUtils {
   private StringUtils() {}
 

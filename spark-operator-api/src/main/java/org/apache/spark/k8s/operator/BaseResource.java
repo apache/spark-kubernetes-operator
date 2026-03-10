@@ -36,6 +36,7 @@ import org.apache.spark.k8s.operator.status.BaseStatus;
  * @param <STATE> The type of the state.
  * @param <SPEC> The type of the spec.
  * @param <STATUS> The type of the status.
+ * @since 0.1.0
  */
 public class BaseResource<
     S,

@@ -37,6 +37,7 @@ import lombok.ToString;
  *       against maxRestartOnSchedulingFailure</li>
  * </ul>
  *
+ * @since 0.8.0
  */
 @Setter
 @Getter
