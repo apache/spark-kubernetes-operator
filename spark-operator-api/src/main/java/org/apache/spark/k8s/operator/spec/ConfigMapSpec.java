@@ -28,7 +28,11 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/** Spec for a ConfigMap. */
+/**
+ * Spec for a ConfigMap.
+ *
+ * @since 0.1.0
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

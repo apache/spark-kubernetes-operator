@@ -21,7 +21,11 @@ package org.apache.spark.k8s.operator.spec;
 
 import org.apache.spark.k8s.operator.status.BaseStateSummary;
 
-/** Defines the restart policy for a Spark application. */
+/**
+ * Defines the restart policy for a Spark application.
+ *
+ * @since 0.1.0
+ */
 public enum RestartPolicy {
   Always,
   Never,

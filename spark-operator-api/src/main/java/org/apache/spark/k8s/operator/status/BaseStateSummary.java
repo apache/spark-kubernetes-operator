@@ -19,7 +19,11 @@
 
 package org.apache.spark.k8s.operator.status;
 
-/** State for Spark Custom Resource */
+/**
+ * State for Spark Custom Resource.
+ *
+ * @since 0.1.0
+ */
 public interface BaseStateSummary {
   /**
    * Checks if the CustomResource has failed.

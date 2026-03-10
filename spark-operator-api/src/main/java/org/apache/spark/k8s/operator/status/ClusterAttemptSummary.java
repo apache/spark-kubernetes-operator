@@ -27,7 +27,11 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
 
-/** Summary of a Spark cluster attempt. */
+/**
+ * Summary of a Spark cluster attempt.
+ *
+ * @since 0.1.0
+ */
 @Getter
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)

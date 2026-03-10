@@ -55,6 +55,8 @@ import lombok.NoArgsConstructor;
  *   <li>Spark app would be marked as 'RunningHealthy' if it has at least min executors after
  *       successfully start up.
  * </ul>
+ *
+ * @since 0.1.0
  */
 @Data
 @NoArgsConstructor

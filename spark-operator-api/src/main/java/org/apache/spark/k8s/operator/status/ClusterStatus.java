@@ -27,7 +27,11 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 
-/** Represents the status of a Spark cluster. */
+/**
+ * Represents the status of a Spark cluster.
+ *
+ * @since 0.1.0
+ */
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)

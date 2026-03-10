@@ -31,6 +31,8 @@ package org.apache.spark.k8s.operator.spec;
  * configured to make sure it's garbage collected by k8s. Please be advised that resource would
  * not be retained if application is configured to restart, this is to avoid resource quota usage
  * increase unexpectedly or resource conflicts among multiple attempts.
+ *
+ * @since 0.1.0
  */
 public enum ResourceRetainPolicy {
   Always,

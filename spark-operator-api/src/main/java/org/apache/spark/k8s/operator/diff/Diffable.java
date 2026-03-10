@@ -23,5 +23,6 @@ package org.apache.spark.k8s.operator.diff;
  * Represents an entity that can be compared for differences.
  *
  * @param <T> the type of the entity to compare with
+ * @since 0.1.0
  */
 public interface Diffable<T> {}

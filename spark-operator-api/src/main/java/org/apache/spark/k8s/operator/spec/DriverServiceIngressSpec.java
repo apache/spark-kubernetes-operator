@@ -30,7 +30,11 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/** Spec for a driver service ingress. */
+/**
+ * Spec for a driver service ingress.
+ *
+ * @since 0.1.0
+ */
 @Data
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)

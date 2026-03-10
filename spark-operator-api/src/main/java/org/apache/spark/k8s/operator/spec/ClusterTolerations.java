@@ -25,7 +25,11 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/** Toleration settings for a Spark cluster. */
+/**
+ * Toleration settings for a Spark cluster.
+ *
+ * @since 0.1.0
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

@@ -19,7 +19,11 @@
 
 package org.apache.spark.k8s.operator;
 
-/** Constants used in the Spark Kubernetes Operator. */
+/**
+ * Constants used in the Spark Kubernetes Operator.
+ *
+ * @since 0.1.0
+ */
 @SuppressWarnings("PMD.DataClass")
 public class Constants {
   /** The API group for Spark K8s Operator CRD resources. */

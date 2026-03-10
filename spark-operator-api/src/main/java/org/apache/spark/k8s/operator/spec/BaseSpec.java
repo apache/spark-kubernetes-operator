@@ -28,7 +28,11 @@ import lombok.Data;
 
 import org.apache.spark.k8s.operator.diff.Diffable;
 
-/** Base spec for all custom resources. */
+/**
+ * Base spec for all custom resources.
+ *
+ * @since 0.1.0
+ */
 @Data
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)

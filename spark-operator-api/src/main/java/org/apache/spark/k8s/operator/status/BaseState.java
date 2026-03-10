@@ -30,6 +30,7 @@ import lombok.Data;
  * Base class for state information.
  *
  * @param <T> The type of the current state summary.
+ * @since 0.1.0
  */
 @Data
 @AllArgsConstructor
