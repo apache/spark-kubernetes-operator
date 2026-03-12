@@ -225,4 +225,7 @@ public class Constants {
 
   /** Message indicating that the cluster status cannot be processed. */
   public static final String UNKNOWN_CLUSTER_STATE_MESSAGE = "Cannot process cluster status.";
+
+  /** HTTP 429 Too Many Requests (not defined in {@link java.net.HttpURLConnection}). */
+  public static final int HTTP_TOO_MANY_REQUESTS = 429;
 }
