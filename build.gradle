@@ -27,6 +27,8 @@ buildscript {
     classpath "${libs.spotless.plugin.gradle.get()}"
     classpath "${libs.shadow.get()}"
     classpath "${libs.cyclonedx.bom.get()}"
+    classpath "${libs.crd.generator.api.v2.get()}"
+    classpath "${libs.crd.generator.collector.get()}"
   }
 }
 

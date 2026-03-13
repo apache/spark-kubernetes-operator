@@ -19,8 +19,7 @@
 dependencies {
   // fabric8
   implementation(libs.kubernetes.client)
-  compileOnly(libs.crd.generator.apt)
-  annotationProcessor(libs.crd.generator.apt)
+  implementation(libs.crd.generator.annotations)
 
   // utils
   implementation(libs.lombok)
@@ -40,29 +39,47 @@ test {
   useJUnitPlatform()
 }
 
-// Adds additional printer columns to generated yaml
-// This requires yq
-tasks.register('finalizeGeneratedCRD', Exec) {
-  dependsOn jar
-  println "Updating PrinterColumns for generated CRD"
-  commandLine 'sh', './src/main/resources/printer-columns.sh'
+// CRD Generator v2 - generates CRD YAML from compiled CustomResource classes
+tasks.register('generateCrds') {
+  description = 'Generate CRDs from compiled custom resource classes'
+  group = 'crd'
+  dependsOn classes
+  def sourceSet = project.sourceSets.main
+  def compileClasspathElements = sourceSet.compileClasspath.collect { it.absolutePath }
+  def outputClassesDirs = sourceSet.output.classesDirs
+  def outputClasspathElements = outputClassesDirs.collect { it.absolutePath }
+  def classpathElements = outputClasspathElements + compileClasspathElements
+  def filesToScan = outputClassesDirs as List
+  def outputDir = sourceSet.output.resourcesDir
+
+  doLast {
+    outputDir.mkdirs()
+
+    def collector = new io.fabric8.crd.generator.collector.CustomResourceCollector()
+        .withParentClassLoader(Thread.currentThread().contextClassLoader)
+        .withClasspathElements(classpathElements)
+        .withFilesToScan(filesToScan)
+
+    def crdGenerator = new io.fabric8.crdv2.generator.CRDGenerator()
+        .customResourceClasses(collector.findCustomResourceClasses())
+        .inOutputDir(outputDir)
+
+    def crdGenerationInfo = crdGenerator.detailedGenerate()
+    crdGenerationInfo.getCRDDetailsPerNameAndVersion().each { crdName, versionToInfo ->
+      println "Generated CRD ${crdName}:"
+      versionToInfo.each { version, info -> println "  ${version} -> ${info.filePath}" }
+    }
+  }
 }
 
-// Copy generated yaml to Helm charts
-tasks.register('relocateGeneratedCRD', Copy) {
-  dependsOn finalizeGeneratedCRD
-  from "build/classes/java/main/META-INF/fabric8/"
-  include "*.spark.apache.org-v1.yml"
-  into "../build-tools/helm/spark-kubernetes-operator/crds"
-  rename '(.+).yml', '$1.yaml'
-}
+classes.finalizedBy('generateCrds')
 
 tasks.register("assertGeneratedCRDMatchesHelmChart") {
-  dependsOn 'finalizeGeneratedCRD'
+  dependsOn 'generateCrds'
   description = 'Asserts that the generated CRD yaml matches the staged version in Helm Chart'
   doLast {
     def currentPath = projectDir.absolutePath
-    def generatedCRDFileBase = "$currentPath/build/classes/java/main/META-INF/fabric8/"
+    def generatedCRDFileBase = "$currentPath/build/crd/"
     def stagedCRDFileBase = "$currentPath/../build-tools/helm/spark-kubernetes-operator/crds/"
     def generatedAppCRD = [
         "yq",

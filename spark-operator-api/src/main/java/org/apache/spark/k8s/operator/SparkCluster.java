@@ -22,6 +22,7 @@ package org.apache.spark.k8s.operator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import io.fabric8.crd.generator.annotation.AdditionalPrinterColumn;
 import io.fabric8.kubernetes.model.annotation.Group;
 import io.fabric8.kubernetes.model.annotation.ShortNames;
 import io.fabric8.kubernetes.model.annotation.Version;
@@ -43,6 +44,14 @@ import org.apache.spark.k8s.operator.status.ClusterStatus;
 @Version(Constants.API_VERSION)
 @ShortNames({"sparkcluster"})
 @JsonIgnoreProperties(ignoreUnknown = true)
+@AdditionalPrinterColumn(
+    name = "Current State",
+    jsonPath = ".status.currentState.currentStateSummary",
+    type = AdditionalPrinterColumn.Type.STRING)
+@AdditionalPrinterColumn(
+    name = "Age",
+    jsonPath = ".metadata.creationTimestamp",
+    type = AdditionalPrinterColumn.Type.DATE)
 public class SparkCluster
     extends BaseResource<
         ClusterStateSummary, ClusterAttemptSummary, ClusterState, ClusterSpec, ClusterStatus> {

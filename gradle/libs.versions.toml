@@ -46,7 +46,9 @@ kubernetes-client = { group = "io.fabric8", name = "kubernetes-client", version.
 kubernetes-httpclient-vertx = { group = "io.fabric8", name = "kubernetes-httpclient-vertx", version.ref = "fabric8" }
 kubernetes-server-mock = { group = "io.fabric8", name = "kubernetes-server-mock", version.ref = "fabric8" }
 kube-api-test-client-inject = {group = "io.fabric8", name = "kube-api-test-client-inject", version.ref = "fabric8"}
-crd-generator-apt = { group = "io.fabric8", name = "crd-generator-apt", version.ref = "fabric8" }
+crd-generator-annotations = { group = "io.fabric8", name = "generator-annotations", version.ref = "fabric8" }
+crd-generator-api-v2 = { group = "io.fabric8", name = "crd-generator-api-v2", version.ref = "fabric8" }
+crd-generator-collector = { group = "io.fabric8", name = "crd-generator-collector", version.ref = "fabric8" }
 lombok = { group = "org.projectlombok", name = "lombok", version.ref = "lombok" }
 log4j-api = { group = "org.apache.logging.log4j", name = "log4j-api", version.ref = "log4j" }
 log4j-core = { group = "org.apache.logging.log4j", name = "log4j-core", version.ref = "log4j" }
