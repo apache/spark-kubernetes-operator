@@ -18,7 +18,7 @@
 fabric8 = "7.6.1"
 lombok = "1.18.42"
 netty = "4.2.10.Final"
-operator-sdk = "5.2.3"
+operator-sdk = "5.3.0"
 dropwizard-metrics = "4.2.38"
 spark = "4.1.1"
 hadoop = "3.4.3"
@@ -54,7 +54,7 @@ log4j-slf4j2-impl = { group = "org.apache.logging.log4j", name = "log4j-slf4j2-i
 log4j-layout-template-json = { group = "org.apache.logging.log4j", name = "log4j-layout-template-json", version.ref = "log4j" }
 slf4j-api = { group = "org.slf4j", name = "slf4j-api", version.ref = "slf4j" }
 operator-framework = { group = "io.javaoperatorsdk", name = "operator-framework", version.ref = "operator-sdk"}
-operator-framework-junit5 = { group = "io.javaoperatorsdk", name = "operator-framework-junit-5", version.ref = "operator-sdk"}
+operator-framework-junit5 = { group = "io.javaoperatorsdk", name = "operator-framework-junit", version.ref = "operator-sdk"}
 spotbugs-annotations = { group = "com.github.spotbugs", name = "spotbugs-annotations", version.ref = "spotbugs-tool"}
 metrics-core = { group = "io.dropwizard.metrics", name = "metrics-core", version.ref = "dropwizard-metrics"}
 metrics-jvm = { group = "io.dropwizard.metrics", name = "metrics-jvm", version.ref = "dropwizard-metrics"}
