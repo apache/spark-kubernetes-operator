@@ -76,6 +76,7 @@ public class SparkClusterReconciler implements Reconciler<SparkCluster>, Cleaner
       SparkCluster sparkCluster, Context<SparkCluster> context) throws Exception {
     LoggingUtils.TrackedMDC trackedMDC = new LoggingUtils.TrackedMDC();
     try {
+      trackedMDC.set(sparkCluster);
       if (sentinelManager.handleSentinelResourceReconciliation(sparkCluster, context.getClient())) {
         return UpdateControl.noUpdate();
       }
@@ -109,6 +110,7 @@ public class SparkClusterReconciler implements Reconciler<SparkCluster>, Cleaner
       SparkCluster sparkCluster, Context<SparkCluster> context, Exception e) {
     LoggingUtils.TrackedMDC trackedMDC = new LoggingUtils.TrackedMDC();
     try {
+      trackedMDC.set(sparkCluster);
       context
           .getRetryInfo()
           .ifPresent(
@@ -178,6 +180,7 @@ public class SparkClusterReconciler implements Reconciler<SparkCluster>, Cleaner
   public DeleteControl cleanup(SparkCluster sparkCluster, Context<SparkCluster> context) {
     LoggingUtils.TrackedMDC trackedMDC = new LoggingUtils.TrackedMDC();
     try {
+      trackedMDC.set(sparkCluster);
       log.info("Cleaning up resources for SparkCluster.");
       SparkClusterContext ctx = new SparkClusterContext(sparkCluster, context, submissionWorker);
       List<ClusterReconcileStep> cleanupSteps = new ArrayList<>();
