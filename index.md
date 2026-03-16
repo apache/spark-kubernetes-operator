@@ -21,7 +21,7 @@ aims to extend K8s resource manager to manage Apache Spark applications and clus
 ## Requirements
 
 - Apache Spark 3.5+
-- Kubernetes 1.32+ cluster
+- Kubernetes 1.33+ cluster
 - Helm 3.0+
 
 ## Install Helm Chart
