@@ -33,7 +33,7 @@ import io.javaoperatorsdk.operator.api.reconciler.Constants;
 import io.javaoperatorsdk.operator.processing.GroupVersionKind;
 import io.javaoperatorsdk.operator.processing.event.Event;
 import io.javaoperatorsdk.operator.processing.event.ResourceID;
-import io.javaoperatorsdk.operator.processing.event.source.controller.ResourceAction;
+import io.javaoperatorsdk.operator.processing.event.source.ResourceAction;
 import io.javaoperatorsdk.operator.processing.event.source.controller.ResourceEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -93,7 +93,7 @@ class OperatorJosdkMetricsTest {
 
   @Test
   void testReconciliationFinished() {
-    operatorMetrics.finishedReconciliation(buildNamespacedResource(), metadata);
+    operatorMetrics.reconciliationFinished(buildNamespacedResource(), null, metadata);
     Map<String, Metric> metrics = operatorMetrics.metricRegistry().getMetrics();
     assertEquals(2, metrics.size());
     assertTrue(metrics.containsKey("configmap.default.reconciliation.finished"));
@@ -101,22 +101,22 @@ class OperatorJosdkMetricsTest {
   }
 
   @Test
-  void testReconciliationExecutionStartedAndFinished() {
-    operatorMetrics.reconciliationExecutionStarted(buildNamespacedResource(), metadata);
+  void testReconciliationStartedAndSucceeded() {
+    operatorMetrics.reconciliationStarted(buildNamespacedResource(), metadata);
     Map<String, Metric> metrics = operatorMetrics.metricRegistry().getMetrics();
     assertEquals(2, metrics.size());
     assertTrue(metrics.containsKey("configmap.test-controller-name.reconciliations.executions"));
     assertTrue(
         metrics.containsKey("configmap.default.test-controller-name.reconciliations.executions"));
-    operatorMetrics.reconciliationExecutionFinished(buildNamespacedResource(), metadata);
+    operatorMetrics.reconciliationSucceeded(buildNamespacedResource(), metadata);
     assertEquals(3, metrics.size());
     assertTrue(metrics.containsKey("configmap.test-controller-name.reconciliations.queue.size"));
   }
 
   @Test
-  void testReceivedEvent() {
+  void testEventReceived() {
     Event event = new ResourceEvent(ResourceAction.ADDED, resourceId, buildNamespacedResource());
-    operatorMetrics.receivedEvent(event, metadata);
+    operatorMetrics.eventReceived(event, metadata);
     Map<String, Metric> metrics = operatorMetrics.metricRegistry().getMetrics();
     assertEquals(2, metrics.size());
     assertTrue(metrics.containsKey("sparkapplication.added.resource.event"));

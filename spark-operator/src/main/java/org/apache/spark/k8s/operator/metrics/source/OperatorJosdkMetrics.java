@@ -25,7 +25,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
-import com.codahale.metrics.Gauge;
 import com.codahale.metrics.MetricRegistry;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.javaoperatorsdk.operator.api.monitoring.Metrics;
@@ -35,7 +34,7 @@ import io.javaoperatorsdk.operator.processing.Controller;
 import io.javaoperatorsdk.operator.processing.GroupVersionKind;
 import io.javaoperatorsdk.operator.processing.event.Event;
 import io.javaoperatorsdk.operator.processing.event.ResourceID;
-import io.javaoperatorsdk.operator.processing.event.source.controller.ResourceAction;
+import io.javaoperatorsdk.operator.processing.event.source.ResourceAction;
 import io.javaoperatorsdk.operator.processing.event.source.controller.ResourceEvent;
 import lombok.extern.slf4j.Slf4j;
 
@@ -64,7 +63,6 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
   private static final String RECONCILIATIONS = "reconciliations";
   private static final String RECONCILIATIONS_EXECUTIONS = RECONCILIATIONS + ".executions";
   private static final String RECONCILIATIONS_QUEUE_SIZE = RECONCILIATIONS + ".queue.size";
-  private static final String SIZE = "size";
 
   private final Clock clock;
 
@@ -112,7 +110,7 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
    * @param metadata Additional metadata associated with the event.
    */
   @Override
-  public void receivedEvent(Event event, Map<String, Object> metadata) {
+  public void eventReceived(Event event, Map<String, Object> metadata) {
     log.debug("received event {}, metadata {}", event, metadata);
     if (event instanceof ResourceEvent) {
       final ResourceAction action = ((ResourceEvent) event).getAction();
@@ -204,7 +202,7 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
    * @param metadata Additional metadata.
    */
   @Override
-  public void reconcileCustomResource(
+  public void reconciliationSubmitted(
       HasMetadata resource, RetryInfo retryInfo, Map<String, Object> metadata) {
     log.debug(
         "Reconcile custom resource {}, with retryInfo {} metadata {}",
@@ -225,12 +223,16 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
    * Records metrics when a reconciliation fails.
    *
    * @param resource The custom resource for which reconciliation failed.
+   * @param retryInfo Information about retries, if any.
    * @param exception The exception that caused the failure.
    * @param metadata Additional metadata.
    */
   @Override
-  public void failedReconciliation(
-      HasMetadata resource, Exception exception, Map<String, Object> metadata) {
+  public void reconciliationFailed(
+      HasMetadata resource,
+      RetryInfo retryInfo,
+      Exception exception,
+      Map<String, Object> metadata) {
     log.error(
         "Failed reconciliation for resource {} with metadata {}", resource, exception, exception);
     String metricsPrefix = getMetricNamePrefix(resource.getClass());
@@ -239,13 +241,15 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
   }
 
   /**
-   * Records metrics when a reconciliation finishes successfully.
+   * Records metrics when a reconciliation finishes.
    *
    * @param resource The custom resource for which reconciliation finished.
+   * @param retryInfo Information about retries, if any.
    * @param metadata Additional metadata.
    */
   @Override
-  public void finishedReconciliation(HasMetadata resource, Map<String, Object> metadata) {
+  public void reconciliationFinished(
+      HasMetadata resource, RetryInfo retryInfo, Map<String, Object> metadata) {
     log.debug("Finished reconciliation for resource {} with metadata {}", resource, metadata);
     String metricsPrefix = getMetricNamePrefix(resource.getClass());
     getCounter(metricsPrefix, RECONCILIATION, FINISHED).inc();
@@ -259,7 +263,7 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
    * @param metadata Additional metadata.
    */
   @Override
-  public void cleanupDoneFor(ResourceID resourceID, Map<String, Object> metadata) {
+  public void cleanupDone(ResourceID resourceID, Map<String, Object> metadata) {
     log.debug("Cleanup Done for resource {} with metadata {}", resourceID, metadata);
     String metricsPrefix = getMetricNamePrefix(resourceID.getClass());
     getCounter(metricsPrefix, RECONCILIATION, CLEANUP).inc();
@@ -269,35 +273,13 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
   }
 
   /**
-   * Monitors the size of a map and exposes it as a Gauge metric.
-   *
-   * @param map The map to monitor.
-   * @param name The name of the metric.
-   * @param <T> The type of the map.
-   * @return The monitored map.
-   */
-  @Override
-  public <T extends Map<?, ?>> T monitorSizeOf(T map, String name) {
-    log.debug("Monitor size for {}", name);
-    Gauge<Integer> gauge =
-        new Gauge<>() {
-          @Override
-          public Integer getValue() {
-            return map.size();
-          }
-        };
-    gauges.put(MetricRegistry.name(name, SIZE), gauge);
-    return map;
-  }
-
-  /**
    * Records metrics when a reconciliation execution starts.
    *
    * @param resource The custom resource for which reconciliation started.
    * @param metadata Additional metadata.
    */
   @Override
-  public void reconciliationExecutionStarted(HasMetadata resource, Map<String, Object> metadata) {
+  public void reconciliationStarted(HasMetadata resource, Map<String, Object> metadata) {
     log.debug("Reconciliation execution started");
     String namespace = resource.getMetadata().getNamespace();
     String metricsPrefix = getMetricNamePrefix(resource.getClass());
@@ -318,7 +300,7 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
    * @param metadata Additional metadata.
    */
   @Override
-  public void reconciliationExecutionFinished(HasMetadata resource, Map<String, Object> metadata) {
+  public void reconciliationSucceeded(HasMetadata resource, Map<String, Object> metadata) {
     log.debug("Reconciliation execution finished");
     String namespace = resource.getMetadata().getNamespace();
     String metricsPrefix = getMetricNamePrefix(resource.getClass());
