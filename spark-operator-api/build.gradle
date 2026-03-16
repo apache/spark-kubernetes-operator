@@ -19,7 +19,7 @@
 dependencies {
   // fabric8
   implementation(libs.kubernetes.client)
-  implementation(libs.crd.generator.annotations)
+  compileOnly(libs.crd.generator.annotations)
 
   // utils
   implementation(libs.lombok)
@@ -61,7 +61,8 @@ tasks.register('generateCrds') {
         .withFilesToScan(filesToScan)
 
     def crdGenerator = new io.fabric8.crdv2.generator.CRDGenerator()
-        .customResourceClasses(collector.findCustomResourceClasses())
+            .withMinQuotes(true)
+            .customResourceClasses(collector.findCustomResourceClasses())
         .inOutputDir(outputDir)
 
     def crdGenerationInfo = crdGenerator.detailedGenerate()
