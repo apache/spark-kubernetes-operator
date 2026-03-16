@@ -17381,7 +17381,16 @@ spec:
         - jsonPath: .metadata.creationTimestamp
           name: Age
           type: date
-    - name: v1
+    - additionalPrinterColumns:
+        - jsonPath: .metadata.creationTimestamp
+          name: Age
+          priority: 0
+          type: date
+        - jsonPath: .status.currentState.currentStateSummary
+          name: Current State
+          priority: 0
+          type: string
+      name: v1
       schema:
         openAPIV3Schema:
           properties:
@@ -26502,10 +26511,3 @@ spec:
       storage: true
       subresources:
         status: {}
-      additionalPrinterColumns:
-        - jsonPath: .status.currentState.currentStateSummary
-          name: Current State
-          type: string
-        - jsonPath: .metadata.creationTimestamp
-          name: Age
-          type: date
