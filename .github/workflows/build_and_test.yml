@@ -36,7 +36,7 @@ jobs:
       max-parallel: 20
       matrix:
         os: [ 'ubuntu-latest', 'ubuntu-24.04-arm' ]
-        java-version: [ 17, 21, 25, '26-ea' ]
+        java-version: [ 17, 21, 25, 26 ]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -48,7 +48,7 @@ jobs:
           cache: 'gradle'
       - name: Build with Gradle
         run: |
-          if [[ "${{ matrix.java-version }}" == "25" || "${{ matrix.java-version }}" == "26-ea" ]]; then
+          if [[ "${{ matrix.java-version }}" == "25" || "${{ matrix.java-version }}" == "26" ]]; then
             export JDK_JAVA_OPTIONS="-XX:+UseCompactObjectHeaders"
           fi
           ./gradlew build
