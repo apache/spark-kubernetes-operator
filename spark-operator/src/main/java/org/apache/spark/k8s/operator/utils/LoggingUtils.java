@@ -25,34 +25,60 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import org.slf4j.MDC;
 
-import org.apache.spark.k8s.operator.SparkApplication;
-import org.apache.spark.k8s.operator.status.ApplicationAttemptSummary;
+import org.apache.spark.k8s.operator.BaseResource;
+import org.apache.spark.k8s.operator.spec.BaseSpec;
+import org.apache.spark.k8s.operator.status.BaseAttemptInfo;
+import org.apache.spark.k8s.operator.status.BaseAttemptSummary;
+import org.apache.spark.k8s.operator.status.BaseState;
+import org.apache.spark.k8s.operator.status.BaseStatus;
 
 /** Utility class for logging. */
 public class LoggingUtils {
   /** Utility class for managing MDC (Mapped Diagnostic Context) for logging. */
   public static final class TrackedMDC {
     public static final String AppAttemptIdKey = "resource.app.attemptId";
+    public static final String ResourceNameKey = "resource.name";
+    public static final String ResourceNamespaceKey = "resource.namespace";
     private final ReentrantLock lock = new ReentrantLock();
     private final Set<String> keys = new HashSet<>();
 
     /**
-     * Sets the MDC (Mapped Diagnostic Context) with the application attempt ID if available.
+     * Sets the MDC (Mapped Diagnostic Context) with resource name, namespace, and
+     * application-specific attempt ID if available.
      *
-     * @param application The SparkApplication object.
+     * @param resource The BaseResource object (SparkApplication or SparkCluster).
      */
-    public void set(final SparkApplication application) {
-      if (application != null && application.getStatus() != null) {
-        try {
-          lock.lock();
-          ApplicationAttemptSummary summary = application.getStatus().getCurrentAttemptSummary();
+    public void set(final BaseResource<
+            ?,
+            ? extends BaseAttemptSummary<? extends BaseAttemptInfo>,
+            ? extends BaseState<?>,
+            ? extends BaseSpec,
+            ? extends BaseStatus<?, ?, ?>> resource) {
+      if (resource == null) {
+        return;
+      }
+      try {
+        lock.lock();
+        if (resource.getMetadata() != null) {
+          if (resource.getMetadata().getName() != null) {
+            MDC.put(ResourceNameKey, resource.getMetadata().getName());
+            keys.add(ResourceNameKey);
+          }
+          if (resource.getMetadata().getNamespace() != null) {
+            MDC.put(ResourceNamespaceKey, resource.getMetadata().getNamespace());
+            keys.add(ResourceNamespaceKey);
+          }
+        }
+        if (resource.getStatus() != null) {
+          BaseAttemptSummary<? extends BaseAttemptInfo> summary =
+              resource.getStatus().getCurrentAttemptSummary();
           if (summary != null && summary.getAttemptInfo() != null) {
             MDC.put(AppAttemptIdKey, String.valueOf(summary.getAttemptInfo().getId()));
             keys.add(AppAttemptIdKey);
           }
-        } finally {
-          lock.unlock();
         }
+      } finally {
+        lock.unlock();
       }
     }
 
