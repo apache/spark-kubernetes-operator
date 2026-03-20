@@ -76,7 +76,7 @@ spec:
         - name: {{ .Chart.Name }}
           image: {{ include "spark-operator.imagePath" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command: [ "./docker-entrypoint.sh", "operator" ]
+          command: ["java", "-cp", "./spark-kubernetes-operator.jar", "$(LOG_CONFIG)", "$(OPERATOR_JAVA_OPTS)", "org.apache.spark.k8s.operator.SparkOperator"]
           ports:
             - containerPort: {{ include "spark-operator.probePort" . }}
               name: probe-port
