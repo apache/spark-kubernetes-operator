@@ -43,10 +43,6 @@ RUN groupadd --system --gid=$SPARK_UID spark && \
     chown -R spark:spark $SPARK_OPERATOR_HOME
 
 COPY --from=builder --chown=spark:spark /app/spark-operator/build/libs/spark-kubernetes-operator-$APP_VERSION-all.jar $SPARK_OPERATOR_JAR
-COPY --from=builder --chown=spark:spark /app/build-tools/docker/docker-entrypoint.sh .
-
 USER spark
 
-ENTRYPOINT ["/opt/spark-operator/operator/docker-entrypoint.sh"]
-
-CMD ["help"]
+CMD ["java", "-cp", "./spark-kubernetes-operator.jar", "org.apache.spark.k8s.operator.SparkOperator"]
