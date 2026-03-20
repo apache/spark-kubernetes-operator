@@ -28,7 +28,7 @@ slf4j = "2.0.17"
 # Test
 junit = "6.0.0"
 jacoco = "0.8.14"
-mockito = "5.21.0"
+mockito = "5.23.0"
 
 # Build Analysis
 checkstyle = "13.2.0"
