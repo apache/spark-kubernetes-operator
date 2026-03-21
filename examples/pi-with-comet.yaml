@@ -58,7 +58,7 @@ spec:
         volumes:
         - name: comet
           emptyDir:
-            sizeLimit: 100Mi
+            sizeLimit: 200Mi
   executorSpec:
     podTemplateSpec:
       spec:
@@ -80,6 +80,6 @@ spec:
         volumes:
         - name: comet
           emptyDir:
-            sizeLimit: 100Mi
+            sizeLimit: 200Mi
   runtimeVersions:
     sparkVersion: "3.5.8"
