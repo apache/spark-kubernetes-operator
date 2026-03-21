@@ -22,7 +22,28 @@ COPY . .
 
 RUN --mount=type=cache,target=/home/gradle/.gradle/caches gradle --no-daemon clean build -x check
 
-FROM azul/zulu-openjdk-alpine:26-jre
+FROM azul/zulu-openjdk-alpine:26 AS jlink
+
+ARG APP_VERSION=0.9.0-SNAPSHOT
+
+COPY --from=builder /app/spark-operator/build/libs/spark-kubernetes-operator-${APP_VERSION}-all.jar /tmp/app.jar
+
+RUN apk add --no-cache binutils && \
+    MODULES=$(jdeps \
+      --ignore-missing-deps \
+      --print-module-deps \
+      --multi-release 17 \
+      /tmp/app.jar) && \
+    MODULES="${MODULES},jdk.httpserver,jdk.unsupported,jdk.crypto.ec,jdk.security.auth,java.management" && \
+    jlink \
+      --add-modules ${MODULES} \
+      --strip-debug \
+      --compress zip-6 \
+      --no-header-files \
+      --no-man-pages \
+      --output /opt/custom-jre
+
+FROM alpine:3.23
 
 ARG APP_VERSION=0.9.0-SNAPSHOT
 ARG SPARK_UID=185
@@ -32,13 +53,18 @@ LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.ref.name="Apache Spark Kubernetes Operator"
 LABEL org.opencontainers.image.version="${APP_VERSION}"
 
+ENV JAVA_HOME=/opt/custom-jre
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
 ENV SPARK_OPERATOR_HOME=/opt/spark-operator
 ENV SPARK_OPERATOR_WORK_DIR=/opt/spark-operator/operator
 ENV SPARK_OPERATOR_JAR=spark-kubernetes-operator.jar
 
 WORKDIR $SPARK_OPERATOR_WORK_DIR
 
-RUN addgroup -S -g $SPARK_UID spark && \
+COPY --from=jlink /opt/custom-jre $JAVA_HOME
+
+RUN apk add --no-cache libstdc++ && \
+    addgroup -S -g $SPARK_UID spark && \
     adduser -S -h $SPARK_OPERATOR_HOME -u $SPARK_UID -G spark spark && \
     chown -R spark:spark $SPARK_OPERATOR_HOME
 
