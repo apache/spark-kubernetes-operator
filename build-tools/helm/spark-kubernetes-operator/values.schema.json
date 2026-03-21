@@ -229,6 +229,16 @@
                           "type": "integer",
                           "description": "Initial delay before probing",
                           "minimum": 0
+                        },
+                        "failureThreshold": {
+                          "type": "integer",
+                          "description": "Number of failures in a row before the overall check is considered failed",
+                          "minimum": 1
+                        },
+                        "timeoutSeconds": {
+                          "type": "integer",
+                          "description": "Number of seconds after which the probe times out",
+                          "minimum": 1
                         }
                       }
                     },
