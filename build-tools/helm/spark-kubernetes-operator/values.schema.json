@@ -3,6 +3,14 @@
   "type": "object",
   "description": "Values for Spark Kubernetes Operator Helm Chart",
   "properties": {
+    "nameOverride": {
+      "type": "string",
+      "description": "Override chart name"
+    },
+    "fullnameOverride": {
+      "type": "string",
+      "description": "Override fully qualified app name"
+    },
     "image": {
       "type": "object",
       "description": "Operator image configuration",
@@ -255,8 +263,49 @@
                           "type": "integer",
                           "description": "Period between probe invocations",
                           "minimum": 1
+                        },
+                        "initialDelaySeconds": {
+                          "type": "integer",
+                          "description": "Initial delay before probing",
+                          "minimum": 0
+                        },
+                        "timeoutSeconds": {
+                          "type": "integer",
+                          "description": "Number of seconds after which the probe times out",
+                          "minimum": 1
                         }
                       }
+                    },
+                    "readinessProbe": {
+                      "type": "object",
+                      "description": "Readiness probe configuration",
+                      "properties": {
+                        "failureThreshold": {
+                          "type": "integer",
+                          "description": "Number of failures before marking unready",
+                          "minimum": 1
+                        },
+                        "periodSeconds": {
+                          "type": "integer",
+                          "description": "Period between probe invocations",
+                          "minimum": 1
+                        },
+                        "timeoutSeconds": {
+                          "type": "integer",
+                          "description": "Number of seconds after which the probe times out",
+                          "minimum": 1
+                        }
+                      }
+                    }
+                  }
+                },
+                "metrics": {
+                  "type": "object",
+                  "description": "Metrics configuration",
+                  "properties": {
+                    "port": {
+                      "type": "integer",
+                      "description": "Metrics port"
                     }
                   }
                 },
@@ -510,6 +559,7 @@
         "clusterRole",
         "roleBinding",
         "sparkApplicationSentinel",
+        "sparkClusterSentinel",
         "annotations",
         "labels"
       ],
@@ -623,6 +673,38 @@
             "create": {
               "type": "boolean",
               "description": "Create sentinel application"
+            },
+            "name": {
+              "type": "string",
+              "description": "Sentinel name"
+            },
+            "sentinelNamespaces": {
+              "type": "object",
+              "description": "Sentinel namespaces",
+              "properties": {
+                "data": {
+                  "type": ["null", "array"],
+                  "description": "List of namespace names",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "sparkClusterSentinel": {
+          "type": "object",
+          "description": "Spark cluster sentinel configuration",
+          "required": [
+            "create",
+            "name",
+            "sentinelNamespaces"
+          ],
+          "properties": {
+            "create": {
+              "type": "boolean",
+              "description": "Create sentinel cluster"
             },
             "name": {
               "type": "string",
