@@ -21,8 +21,10 @@ package org.apache.spark.k8s.operator.status;
 
 import java.util.SortedMap;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
@@ -41,8 +43,11 @@ public class ApplicationAttemptSummary extends BaseAttemptSummary<ApplicationAtt
   // This is used when state history trimming is enabled
   @Getter protected final SortedMap<Long, ApplicationState> stateTransitionHistory;
 
-  public ApplicationAttemptSummary(ApplicationAttemptInfo attemptInfo,
-                                   SortedMap<Long, ApplicationState> stateTransitionHistory) {
+  @JsonCreator
+  public ApplicationAttemptSummary(
+      @JsonProperty("attemptInfo") ApplicationAttemptInfo attemptInfo,
+      @JsonProperty("stateTransitionHistory")
+          SortedMap<Long, ApplicationState> stateTransitionHistory) {
     super(attemptInfo);
     this.stateTransitionHistory = stateTransitionHistory;
   }

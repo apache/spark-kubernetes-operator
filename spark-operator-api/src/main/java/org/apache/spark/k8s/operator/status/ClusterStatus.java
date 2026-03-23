@@ -22,8 +22,10 @@ package org.apache.spark.k8s.operator.status;
 import java.util.Map;
 import java.util.TreeMap;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 
@@ -52,11 +54,12 @@ public class ClusterStatus
    * @param previousAttemptSummary Summary of the previous cluster attempt.
    * @param currentAttemptSummary Summary of the current cluster attempt.
    */
+  @JsonCreator
   public ClusterStatus(
-      ClusterState currentState,
-      Map<Long, ClusterState> stateTransitionHistory,
-      ClusterAttemptSummary previousAttemptSummary,
-      ClusterAttemptSummary currentAttemptSummary) {
+      @JsonProperty("currentState") ClusterState currentState,
+      @JsonProperty("stateTransitionHistory") Map<Long, ClusterState> stateTransitionHistory,
+      @JsonProperty("previousAttemptSummary") ClusterAttemptSummary previousAttemptSummary,
+      @JsonProperty("currentAttemptSummary") ClusterAttemptSummary currentAttemptSummary) {
     super(currentState, stateTransitionHistory, previousAttemptSummary, currentAttemptSummary);
   }
 

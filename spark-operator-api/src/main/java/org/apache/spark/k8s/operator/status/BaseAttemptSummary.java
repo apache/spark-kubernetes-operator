@@ -19,11 +19,12 @@
 
 package org.apache.spark.k8s.operator.status;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import lombok.ToString;
 
 /**
@@ -34,9 +35,13 @@ import lombok.ToString;
 @EqualsAndHashCode
 @ToString
 @Getter
-@RequiredArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class BaseAttemptSummary<I extends BaseAttemptInfo> {
   protected final I attemptInfo;
+
+  @JsonCreator
+  public BaseAttemptSummary(@JsonProperty("attemptInfo") I attemptInfo) {
+    this.attemptInfo = attemptInfo;
+  }
 }
