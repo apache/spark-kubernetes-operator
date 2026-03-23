@@ -247,7 +247,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.gradle/jdks/
-          key: gradle-jdks-${{ matrix.os }}-${{ matrix.java-version }}
+          key: gradle-jdks-lint
       - name: Linters
         run: |
           ./gradlew build -x test
