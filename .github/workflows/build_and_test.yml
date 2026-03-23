@@ -95,6 +95,7 @@ jobs:
           - resource-retain-duration
           - resource-selector
           - watched-namespaces
+          - driver-start-timeout
         exclude:
           - mode: dynamic
             test-group: spark-versions
@@ -106,6 +107,8 @@ jobs:
             test-group: resource-retain-duration
           - mode: dynamic
             test-group: resource-selector
+          - mode: dynamic
+            test-group: driver-start-timeout
           - mode: static
             test-group: watched-namespaces
           - mode: static
@@ -120,6 +123,8 @@ jobs:
             test-group: resource-retain-duration
           - mode: selector
             test-group: watched-namespaces
+          - mode: selector
+            test-group: driver-start-timeout
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
