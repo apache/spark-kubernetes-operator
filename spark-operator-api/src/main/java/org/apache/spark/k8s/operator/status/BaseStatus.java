@@ -23,8 +23,10 @@ import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
@@ -70,11 +72,12 @@ public class BaseStatus<S, STATE extends BaseState<S>, AS extends BaseAttemptSum
    * @param previousAttemptSummary The summary of the previous attempt.
    * @param currentAttemptSummary The summary of the current attempt.
    */
+  @JsonCreator
   public BaseStatus(
-      STATE currentState,
-      Map<Long, STATE> stateTransitionHistory,
-      AS previousAttemptSummary,
-      AS currentAttemptSummary) {
+      @JsonProperty("currentState") STATE currentState,
+      @JsonProperty("stateTransitionHistory") Map<Long, STATE> stateTransitionHistory,
+      @JsonProperty("previousAttemptSummary") AS previousAttemptSummary,
+      @JsonProperty("currentAttemptSummary") AS currentAttemptSummary) {
     this.currentState = currentState;
     this.stateTransitionHistory = new TreeMap<>(stateTransitionHistory);
     this.previousAttemptSummary = previousAttemptSummary;

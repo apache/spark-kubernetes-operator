@@ -21,8 +21,10 @@ package org.apache.spark.k8s.operator.status;
 
 import java.util.SortedMap;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
@@ -40,8 +42,11 @@ import lombok.ToString;
 public class ClusterAttemptSummary extends BaseAttemptSummary<BaseAttemptInfo> {
   protected final SortedMap<Long, ClusterState> stateTransitionHistory;
 
+  @JsonCreator
   public ClusterAttemptSummary(
-      BaseAttemptInfo attemptInfo, SortedMap<Long, ClusterState> stateTransitionHistory) {
+      @JsonProperty("attemptInfo") BaseAttemptInfo attemptInfo,
+      @JsonProperty("stateTransitionHistory")
+          SortedMap<Long, ClusterState> stateTransitionHistory) {
     super(attemptInfo);
     this.stateTransitionHistory = stateTransitionHistory;
   }

@@ -19,8 +19,10 @@
 
 package org.apache.spark.k8s.operator.status;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
@@ -55,8 +57,12 @@ public class ApplicationAttemptInfo extends BaseAttemptInfo {
     schedulingFailureRestartCounter = 0L;
   }
 
-  public ApplicationAttemptInfo(long id, long restartCounter, long failureRestartCounter,
-                                long schedulingFailureRestartCounter) {
+  @JsonCreator
+  public ApplicationAttemptInfo(
+      @JsonProperty("id") long id,
+      @JsonProperty("restartCounter") long restartCounter,
+      @JsonProperty("failureRestartCounter") long failureRestartCounter,
+      @JsonProperty("schedulingFailureRestartCounter") long schedulingFailureRestartCounter) {
     super(id, restartCounter);
     this.failureRestartCounter = failureRestartCounter;
     this.schedulingFailureRestartCounter = schedulingFailureRestartCounter;

@@ -19,13 +19,13 @@
 
 package org.apache.spark.k8s.operator.status;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import lombok.AllArgsConstructor;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
 
@@ -35,14 +35,25 @@ import lombok.ToString;
  * @since 0.8.0
  */
 @Getter
-@NoArgsConstructor
-@AllArgsConstructor
 @Builder
 @EqualsAndHashCode
 @ToString
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class BaseAttemptInfo {
-  @Builder.Default protected final long id = 0L;
-  @Builder.Default @Setter protected long restartCounter = 0L;
+  protected final long id;
+  @Setter protected long restartCounter;
+
+  public BaseAttemptInfo() {
+    this.id = 0L;
+    this.restartCounter = 0L;
+  }
+
+  @JsonCreator
+  public BaseAttemptInfo(
+      @JsonProperty("id") long id,
+      @JsonProperty("restartCounter") long restartCounter) {
+    this.id = id;
+    this.restartCounter = restartCounter;
+  }
 }

@@ -26,8 +26,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 
@@ -61,11 +63,12 @@ public class ApplicationStatus
    * @param previousAttemptSummary Summary of the previous application attempt.
    * @param currentAttemptSummary Summary of the current application attempt.
    */
+  @JsonCreator
   public ApplicationStatus(
-      ApplicationState currentState,
-      Map<Long, ApplicationState> stateTransitionHistory,
-      ApplicationAttemptSummary previousAttemptSummary,
-      ApplicationAttemptSummary currentAttemptSummary) {
+      @JsonProperty("currentState") ApplicationState currentState,
+      @JsonProperty("stateTransitionHistory") Map<Long, ApplicationState> stateTransitionHistory,
+      @JsonProperty("previousAttemptSummary") ApplicationAttemptSummary previousAttemptSummary,
+      @JsonProperty("currentAttemptSummary") ApplicationAttemptSummary currentAttemptSummary) {
     super(currentState, stateTransitionHistory, previousAttemptSummary, currentAttemptSummary);
   }
 
