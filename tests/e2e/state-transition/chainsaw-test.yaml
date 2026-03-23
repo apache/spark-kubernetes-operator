@@ -70,6 +70,12 @@ spec:
             value: default
         timeout: 60s
         file: "../assertions/spark-cluster/spark-cluster-state-transition.yaml"
+    - assert:
+        bindings:
+          - name: SPARK_APP_NAMESPACE
+            value: default
+        timeout: 60s
+        file: "../assertions/spark-cluster/spark-cluster-worker-statefulset.yaml"
     catch:
     - describe:
         apiVersion: spark.apache.org/v1
