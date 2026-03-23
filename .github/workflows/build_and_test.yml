@@ -88,6 +88,7 @@ jobs:
           - python
           - state-transition
           - resource-retain-duration
+          - resource-retain-on-failure
           - resource-selector
           - watched-namespaces
         exclude:
@@ -99,6 +100,8 @@ jobs:
             test-group: state-transition
           - mode: dynamic
             test-group: resource-retain-duration
+          - mode: dynamic
+            test-group: resource-retain-on-failure
           - mode: dynamic
             test-group: resource-selector
           - mode: static
@@ -113,6 +116,8 @@ jobs:
             test-group: state-transition
           - mode: selector
             test-group: resource-retain-duration
+          - mode: selector
+            test-group: resource-retain-on-failure
           - mode: selector
             test-group: watched-namespaces
     steps:
