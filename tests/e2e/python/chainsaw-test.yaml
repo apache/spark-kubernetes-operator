@@ -23,6 +23,13 @@ spec:
   scenarios:
     - bindings:
         - name: "SPARK_VERSION"
+          value: "4.1.1"
+        - name: "SCALA_VERSION"
+          value: "2.13"
+        - name: "IMAGE"
+          value: "apache/spark:4.1.1-python3"
+    - bindings:
+        - name: "SPARK_VERSION"
           value: "3.5.8"
         - name: "SCALA_VERSION"
           value: "2.12"
