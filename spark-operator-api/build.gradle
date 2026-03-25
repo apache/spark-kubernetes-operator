@@ -22,7 +22,7 @@ dependencies {
   compileOnly(libs.crd.generator.annotations)
 
   // utils
-  implementation(libs.lombok)
+  compileOnly(libs.lombok)
   annotationProcessor(libs.lombok)
 
   // logging
