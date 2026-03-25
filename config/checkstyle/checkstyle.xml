@@ -214,5 +214,11 @@
       <property name="illegalPkgs" value="org.apache.commons.lang3" />
       <property name="illegalPkgs" value="org.apache.log4j"/>
     </module>
+    <module name="RegexpSinglelineJava">
+      <property name="format" value="import lombok\.(SneakyThrows|val|var)\b"/>
+      <property name="message"
+                value="Avoid using Lombok features that require runtime dependency
+                (SneakyThrows, val, var). Use compile-time-only annotations instead."/>
+    </module>
   </module>
 </module>
