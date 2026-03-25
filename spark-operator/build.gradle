@@ -43,6 +43,8 @@ dependencies {
     exclude group: "com.ibm.icu"
     exclude group: "commons-codec"
     exclude group: "commons-collections", module: "commons-collections"
+    exclude group: "io.netty", module: "netty-codec-classes-quic"
+    exclude group: "io.netty", module: "netty-codec-native-quic"
     exclude group: "io.netty", module: "netty-tcnative-boringssl-static"
     exclude group: "io.netty", module: "netty-tcnative-classes"
     exclude group: "org.apache.commons", module: "commons-compress"
@@ -66,6 +68,8 @@ dependencies {
     exclude group: 'junit'
   }
   testImplementation(libs.spark.core) {
+    exclude group: "io.netty", module: "netty-codec-classes-quic"
+    exclude group: "io.netty", module: "netty-codec-native-quic"
     exclude group: "org.apache.logging.log4j"
     exclude group: "org.slf4j"
   }
