@@ -27,7 +27,7 @@ dependencies {
     exclude group: 'io.fabric8'
   }
   implementation(libs.kubernetes.httpclient.vertx)
-  implementation(libs.spotbugs.annotations)
+  compileOnly(libs.spotbugs.annotations)
   // logging
   implementation(libs.log4j.api)
   implementation(libs.log4j.core)
@@ -73,6 +73,7 @@ dependencies {
   testImplementation(libs.junit.jupiter)
   testRuntimeOnly(libs.junit.platform.launcher)
 
+  testImplementation(libs.spotbugs.annotations)
   testImplementation(libs.mockito.core)
   testImplementation(libs.kube.api.test.client.inject)
 }
