@@ -79,7 +79,8 @@ public class BaseStatus<S, STATE extends BaseState<S>, AS extends BaseAttemptSum
       @JsonProperty("previousAttemptSummary") AS previousAttemptSummary,
       @JsonProperty("currentAttemptSummary") AS currentAttemptSummary) {
     this.currentState = currentState;
-    this.stateTransitionHistory = new TreeMap<>(stateTransitionHistory);
+    this.stateTransitionHistory =
+        stateTransitionHistory != null ? new TreeMap<>(stateTransitionHistory) : new TreeMap<>();
     this.previousAttemptSummary = previousAttemptSummary;
     this.currentAttemptSummary = currentAttemptSummary;
   }

@@ -21,6 +21,7 @@ package org.apache.spark.k8s.operator.status;
 
 import static org.apache.spark.k8s.operator.status.ApplicationStateSummary.Submitted;
 import static org.apache.spark.k8s.operator.status.ApplicationStateSummary.Succeeded;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -30,6 +31,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.TreeMap;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 import org.apache.spark.k8s.operator.spec.ResourceRetainPolicy;
@@ -728,5 +730,46 @@ class ApplicationStatusTest {
     assertEquals(
         0L,
         status.getCurrentAttemptSummary().getAttemptInfo().getSchedulingFailureRestartCounter());
+  }
+
+  @Test
+  void testJsonRoundTrip() throws Exception {
+    ObjectMapper mapper = new ObjectMapper();
+    ApplicationStatus original = new ApplicationStatus();
+    original =
+        original.appendNewState(
+            new ApplicationState(ApplicationStateSummary.DriverRequested, "test"));
+
+    String json = mapper.writeValueAsString(original);
+    ApplicationStatus deserialized = mapper.readValue(json, ApplicationStatus.class);
+
+    assertEquals(
+        original.getStateTransitionHistory().size(),
+        deserialized.getStateTransitionHistory().size());
+    assertEquals(
+        original.getCurrentState().getCurrentStateSummary(),
+        deserialized.getCurrentState().getCurrentStateSummary());
+  }
+
+  @Test
+  void testDeserializationWithEmptyJson() throws Exception {
+    ObjectMapper mapper = new ObjectMapper();
+    ApplicationStatus deserialized =
+        assertDoesNotThrow(() -> mapper.readValue("{}", ApplicationStatus.class));
+    assertNotNull(deserialized.getStateTransitionHistory());
+    assertTrue(deserialized.getStateTransitionHistory().isEmpty());
+  }
+
+  @Test
+  void testDeserializationWithMissingStateTransitionHistory() throws Exception {
+    ObjectMapper mapper = new ObjectMapper();
+    String json =
+        "{\"currentState\":{\"currentStateSummary\":\"Submitted\","
+            + "\"lastTransitionTime\":\"2025-01-01T00:00:00Z\",\"message\":\"test\"}}";
+    ApplicationStatus deserialized =
+        assertDoesNotThrow(() -> mapper.readValue(json, ApplicationStatus.class));
+    assertNotNull(deserialized.getStateTransitionHistory());
+    assertTrue(deserialized.getStateTransitionHistory().isEmpty());
+    assertEquals(Submitted, deserialized.getCurrentState().getCurrentStateSummary());
   }
 }
