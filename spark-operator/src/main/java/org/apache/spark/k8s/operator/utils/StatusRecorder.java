@@ -19,6 +19,7 @@
 
 package org.apache.spark.k8s.operator.utils;
 
+import static java.net.HttpURLConnection.HTTP_CONFLICT;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.API_RETRY_ATTEMPT_AFTER_SECONDS;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.API_STATUS_PATCH_MAX_ATTEMPTS;
 
@@ -31,7 +32,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.javaoperatorsdk.operator.processing.event.ResourceID;
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import org.apache.spark.k8s.operator.BaseResource;
@@ -82,7 +82,6 @@ public class StatusRecorder<
    * @param resource Resource for which status update should be performed.
    * @param client KubernetesClient instance.
    */
-  @SneakyThrows
   private void patchAndStatusWithVersionLocked(CR resource, KubernetesClient client) {
     ObjectNode newStatusNode = objectMapper.convertValue(resource.getStatus(), ObjectNode.class);
     ResourceID resourceId = ResourceID.fromResource(resource);
@@ -104,7 +103,23 @@ public class StatusRecorder<
         break;
       } catch (KubernetesClientException e) {
         log.debug("Error while patching status, retrying {}/{}...", i, maxRetry, e);
-        Thread.sleep(TimeUnit.SECONDS.toMillis(API_RETRY_ATTEMPT_AFTER_SECONDS.getValue()));
+        if (e.getCode() == HTTP_CONFLICT) {
+          try {
+            CR latest = client.resource(resource).get();
+            if (latest != null) {
+              resource
+                  .getMetadata()
+                  .setResourceVersion(latest.getMetadata().getResourceVersion());
+            }
+          } catch (KubernetesClientException refreshEx) {
+            log.debug("Failed to refresh resource version", refreshEx);
+          }
+        }
+        try {
+          Thread.sleep(TimeUnit.SECONDS.toMillis(API_RETRY_ATTEMPT_AFTER_SECONDS.getValue()));
+        } catch (InterruptedException ie) {
+          log.debug("Interrupted during retry sleep", ie);
+        }
         err = e;
       }
     }

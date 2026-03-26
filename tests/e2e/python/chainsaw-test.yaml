@@ -74,3 +74,14 @@ spec:
         - podLogs:
             selector: spark-app-name=spark
             namespace: default
+      finally:
+        - script:
+            bindings:
+              - name: SPARK_APPLICATION_NAME
+                value: (join('-', ['pyspark', replace_all(($SPARK_VERSION), '.', '-')]))
+            env:
+              - name: SPARK_APPLICATION_NAME
+                value: ($SPARK_APPLICATION_NAME)
+            timeout: 120s
+            content: |
+              kubectl delete sparkapplication $SPARK_APPLICATION_NAME --ignore-not-found=true

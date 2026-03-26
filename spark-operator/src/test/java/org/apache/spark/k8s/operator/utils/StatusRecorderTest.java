@@ -57,6 +57,37 @@ class StatusRecorderTest {
           List.of(mockStatusListener), ApplicationStatus.class, SparkApplication.class);
 
   @Test
+  void refreshesResourceVersionOn409Conflict() {
+    var testResource = getSparkApplication("1");
+    var resourceV2 = getSparkApplication("2");
+    var resourceV3 = getSparkApplication("3");
+
+    BaseContext<SparkApplication> context = mock(BaseContext.class);
+    when(context.getResource()).thenReturn(testResource);
+    when(context.getClient()).thenReturn(client);
+    var basePath =
+        "/apis/spark.apache.org/v1/namespaces/"
+            + DEFAULT_NS
+            + "/sparkapplications/"
+            + testResource.getMetadata().getName();
+    var statusPath = basePath + "/status";
+    // First status update returns 409 Conflict
+    server.expect().withPath(statusPath).andReturn(409, null).once();
+    // After 409, GET latest resource with resourceVersion "2"
+    server.expect().withPath(basePath).andReturn(200, resourceV2).once();
+    // Second status update succeeds with refreshed resourceVersion
+    server.expect().withPath(statusPath).andReturn(200, resourceV3).once();
+
+    statusRecorder.persistStatus(context, new ApplicationStatus());
+
+    verify(mockStatusListener, times(1))
+        .listenStatus(
+            assertArg(a -> assertThat(a.getMetadata().getResourceVersion()).isEqualTo("3")),
+            any(),
+            any());
+  }
+
+  @Test
   void retriesFailedStatusPatches() {
     var testResource = getSparkApplication("1");
     var resourceV2 = getSparkApplication("2");

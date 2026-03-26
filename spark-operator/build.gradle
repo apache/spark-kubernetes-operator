@@ -27,7 +27,7 @@ dependencies {
     exclude group: 'io.fabric8'
   }
   implementation(libs.kubernetes.httpclient.vertx)
-  implementation(libs.spotbugs.annotations)
+  compileOnly(libs.spotbugs.annotations)
   // logging
   implementation(libs.log4j.api)
   implementation(libs.log4j.core)
@@ -43,8 +43,12 @@ dependencies {
     exclude group: "com.ibm.icu"
     exclude group: "commons-codec"
     exclude group: "commons-collections", module: "commons-collections"
+    exclude group: "io.netty", module: "netty-codec-classes-quic"
+    exclude group: "io.netty", module: "netty-codec-native-quic"
     exclude group: "io.netty", module: "netty-tcnative-boringssl-static"
     exclude group: "io.netty", module: "netty-tcnative-classes"
+    exclude group: "io.netty", module: "netty-transport-classes-io_uring"
+    exclude group: "io.netty", module: "netty-transport-native-io_uring"
     exclude group: "org.apache.commons", module: "commons-compress"
     exclude group: "org.apache.logging.log4j"
     exclude group: "org.fusesource.leveldbjni"
@@ -66,6 +70,10 @@ dependencies {
     exclude group: 'junit'
   }
   testImplementation(libs.spark.core) {
+    exclude group: "io.netty", module: "netty-codec-classes-quic"
+    exclude group: "io.netty", module: "netty-codec-native-quic"
+    exclude group: "io.netty", module: "netty-transport-classes-io_uring"
+    exclude group: "io.netty", module: "netty-transport-native-io_uring"
     exclude group: "org.apache.logging.log4j"
     exclude group: "org.slf4j"
   }
@@ -73,6 +81,7 @@ dependencies {
   testImplementation(libs.junit.jupiter)
   testRuntimeOnly(libs.junit.platform.launcher)
 
+  testImplementation(libs.spotbugs.annotations)
   testImplementation(libs.mockito.core)
   testImplementation(libs.kube.api.test.client.inject)
 }
@@ -102,6 +111,9 @@ shadowJar {
   // Netty QUIC native libraries - not needed for K8s API server communication (HTTP/1.1 & HTTP/2)
   exclude("META-INF/native/libnetty_quiche*")
   exclude("META-INF/native/netty_quiche*")
+  // Netty io_uring native libraries - not needed for K8s API server communication
+  exclude("META-INF/native/libnetty_io_uring*")
+  exclude("META-INF/native/netty_io_uring*")
   manifest {
     attributes(
       'Implementation-Title': project.description,
