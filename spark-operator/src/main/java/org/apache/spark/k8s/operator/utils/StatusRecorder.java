@@ -19,6 +19,7 @@
 
 package org.apache.spark.k8s.operator.utils;
 
+import static java.net.HttpURLConnection.HTTP_CONFLICT;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.API_RETRY_ATTEMPT_AFTER_SECONDS;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.API_STATUS_PATCH_MAX_ATTEMPTS;
 
@@ -102,6 +103,18 @@ public class StatusRecorder<
         break;
       } catch (KubernetesClientException e) {
         log.debug("Error while patching status, retrying {}/{}...", i, maxRetry, e);
+        if (e.getCode() == HTTP_CONFLICT) {
+          try {
+            CR latest = client.resource(resource).get();
+            if (latest != null) {
+              resource
+                  .getMetadata()
+                  .setResourceVersion(latest.getMetadata().getResourceVersion());
+            }
+          } catch (KubernetesClientException refreshEx) {
+            log.debug("Failed to refresh resource version", refreshEx);
+          }
+        }
         try {
           Thread.sleep(TimeUnit.SECONDS.toMillis(API_RETRY_ATTEMPT_AFTER_SECONDS.getValue()));
         } catch (InterruptedException ie) {
