@@ -25,13 +25,13 @@ subprojects {
     task sourceJar(type: Jar, dependsOn: classes) {
       archiveClassifier.set('sources')
       from sourceSets.main.allSource
-      group 'build'
+      group = 'build'
     }
 
     task javadocJar(type: Jar, dependsOn: javadoc) {
       archiveClassifier.set('javadoc')
       from javadoc.destinationDir
-      group 'build'
+      group = 'build'
     }
 
     task testJar(type: Jar) {
@@ -39,11 +39,7 @@ subprojects {
       from sourceSets.test.output
     }
 
-    artifacts {
-      archives sourceJar
-      archives javadocJar
-      archives testJar
-    }
+    assemble.dependsOn sourceJar, javadocJar, testJar
 
     // add LICENSE and NOTICE
     [jar, sourceJar, javadocJar, testJar].each { task ->
@@ -66,8 +62,8 @@ subprojects {
           artifact javadocJar
           artifact testJar
           artifact("$buildDir/reports/bom.xml") {
-            classifier 'cyclonedx'
-            extension 'xml'
+            classifier = 'cyclonedx'
+            extension = 'xml'
             builtBy tasks.named('cyclonedxBom')
           }
 
@@ -107,8 +103,8 @@ subprojects {
       repositories {
         maven {
           credentials {
-            username project.hasProperty('mavenUser') ? "$mavenUser" : ""
-            password project.hasProperty('mavenPassword') ? "$mavenPassword" : ""
+            username = project.hasProperty('mavenUser') ? "$mavenUser" : ""
+            password = project.hasProperty('mavenPassword') ? "$mavenPassword" : ""
           }
           // upload to the releases repository using ./gradlew -Prelease publish
           def apacheSnapshotsRepoUrl = 'https://repository.apache.org/content/repositories/snapshots'
