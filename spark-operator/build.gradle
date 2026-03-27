@@ -81,7 +81,7 @@ dependencies {
   testImplementation(libs.junit.jupiter)
   testRuntimeOnly(libs.junit.platform.launcher)
 
-  testImplementation(libs.spotbugs.annotations)
+  testCompileOnly(libs.spotbugs.annotations)
   testImplementation(libs.mockito.core)
   testImplementation(libs.kube.api.test.client.inject)
 }
