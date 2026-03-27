@@ -170,7 +170,7 @@
                   }
                 },
                 "volumeMounts": {
-                  "type": "object",
+                  "type": "array",
                   "description": "Container volume mounts",
                   "additionalProperties": true
                 },
@@ -363,7 +363,7 @@
               "additionalProperties": true
             },
             "volumes": {
-              "type": "object",
+              "type": "array",
               "description": "Pod volumes",
               "additionalProperties": true
             },
