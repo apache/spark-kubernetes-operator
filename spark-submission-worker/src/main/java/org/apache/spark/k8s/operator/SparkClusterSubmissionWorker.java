@@ -42,12 +42,12 @@ public class SparkClusterSubmissionWorker {
     Map<String, String> confFromSpec = cluster.getSpec().getSparkConf();
     if (!confFromSpec.isEmpty()) {
       for (Map.Entry<String, String> entry : confFromSpec.entrySet()) {
-        effectiveSparkConf.set(entry.getKey(), entry.getValue());
+        String key = entry.getKey();
         String value = entry.getValue();
-        if ("spark.kubernetes.container.image".equals(entry.getKey())) {
+        if ("spark.kubernetes.container.image".equals(key)) {
           value = value.replace("{{SPARK_VERSION}}", sparkVersion);
         }
-        effectiveSparkConf.set(entry.getKey(), value);
+        effectiveSparkConf.set(key, value);
       }
     }
 
