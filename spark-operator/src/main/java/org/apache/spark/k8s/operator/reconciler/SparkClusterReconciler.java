@@ -163,7 +163,8 @@ public class SparkClusterReconciler implements Reconciler<SparkCluster>, Cleaner
       case RunningHealthy -> {
         // There is nothing to do because Spark Cluster is supposed to run infinitely.
       }
-      default -> steps.add(new ClusterUnknownStateStep());
+      case SchedulingFailure, Failed, ResourceReleased ->
+          steps.add(new ClusterUnknownStateStep());
     }
     return steps;
   }
