@@ -331,9 +331,9 @@ public final class AppCleanUpStep extends AppReconcileStep {
   protected boolean retainReleaseResourceForPolicyAndState(
       ResourceRetainPolicy resourceRetainPolicy, ApplicationState currentState) {
     return switch (resourceRetainPolicy) {
+      case Always -> true;
       case Never -> false;
       case OnFailure -> currentState.getCurrentStateSummary().isFailure();
-      default -> true;
     };
   }
 
