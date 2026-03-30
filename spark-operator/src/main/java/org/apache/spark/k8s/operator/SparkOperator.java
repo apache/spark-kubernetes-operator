@@ -209,8 +209,8 @@ public class SparkOperator {
       log.info("Configuring operator with {} reconciliation threads.", parallelism);
       overrider.withConcurrentReconciliationThreads(parallelism);
     } else {
-      log.info("Configuring operator with unbounded reconciliation thread pool.");
-      overrider.withExecutorService(Executors.newCachedThreadPool());
+      log.info("Configuring operator with unbounded virtual thread pool for reconciliation.");
+      overrider.withExecutorService(Executors.newVirtualThreadPerTaskExecutor());
     }
     if (SparkOperatorConf.LEADER_ELECTION_ENABLED.getValue()) {
       overrider.withLeaderElectionConfiguration(SparkOperatorConf.getLeaderElectionConfig());
