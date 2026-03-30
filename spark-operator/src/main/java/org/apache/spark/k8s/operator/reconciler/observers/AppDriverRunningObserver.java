@@ -32,7 +32,7 @@ import org.apache.spark.k8s.operator.status.ApplicationStatus;
  * scheduled). Note that this means `DriverStarted` and we need to wait `DriverReady` as a next
  * step.
  */
-public class AppDriverRunningObserver extends BaseAppDriverObserver {
+public final class AppDriverRunningObserver extends BaseAppDriverObserver {
   /**
    * Observes the driver pod to determine if it is running.
    *

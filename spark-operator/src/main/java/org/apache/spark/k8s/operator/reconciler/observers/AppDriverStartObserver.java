@@ -32,7 +32,7 @@ import org.apache.spark.k8s.operator.status.ApplicationStatus;
 import org.apache.spark.k8s.operator.utils.PodUtils;
 
 /** Observes whether the driver pod has started. */
-public class AppDriverStartObserver extends BaseAppDriverObserver {
+public final class AppDriverStartObserver extends BaseAppDriverObserver {
   /**
    * Observes the driver pod to determine if it has started.
    *

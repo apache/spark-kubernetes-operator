@@ -32,7 +32,7 @@ import org.apache.spark.k8s.operator.status.ApplicationStatus;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusUtils;
 
 /** Observes driver status and time-out as configured in app spec. */
-public class AppDriverTimeoutObserver extends BaseAppDriverObserver {
+public final class AppDriverTimeoutObserver extends BaseAppDriverObserver {
 
   /**
    * Observes the driver status and applies timeouts as configured in the application specification.
