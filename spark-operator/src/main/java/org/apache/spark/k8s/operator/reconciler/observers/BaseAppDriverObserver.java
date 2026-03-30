@@ -42,14 +42,18 @@ import org.apache.spark.k8s.operator.utils.PodUtils;
 
 /** Observes driver pod status and update Application status as needed. */
 @Slf4j
-public abstract class BaseAppDriverObserver
+public abstract sealed class BaseAppDriverObserver
     extends BaseSecondaryResourceObserver<
         ApplicationStateSummary,
         ApplicationAttemptSummary,
         ApplicationState,
         ApplicationSpec,
         ApplicationStatus,
-        Pod> {
+        Pod>
+    permits AppDriverReadyObserver,
+        AppDriverRunningObserver,
+        AppDriverStartObserver,
+        AppDriverTimeoutObserver {
 
   /**
    * Check whether the driver pod (and thus the application) has actually terminated This would be
