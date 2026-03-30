@@ -36,6 +36,7 @@ dependencies {
     exclude group: "io.netty", module: "netty-tcnative-classes"
     exclude group: "io.netty", module: "netty-transport-classes-io_uring"
     exclude group: "io.netty", module: "netty-transport-native-io_uring"
+    exclude group: "org.apache.avro"
     exclude group: "org.apache.commons", module: "commons-compress"
     exclude group: "org.apache.logging.log4j"
     exclude group: "org.fusesource.leveldbjni"
