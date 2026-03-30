@@ -32,7 +32,7 @@ buildscript {
   }
 }
 
-assert JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_17): "Java 17 or newer is " +
+assert JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_21): "Java 21 or newer is " +
     "required"
 
 allprojects {
@@ -58,7 +58,7 @@ subprojects {
   }
 
   tasks.withType(JavaCompile).configureEach {
-    options.release = 17
+    options.release = 21
     options.compilerArgs.add("-proc:full")
   }
 
