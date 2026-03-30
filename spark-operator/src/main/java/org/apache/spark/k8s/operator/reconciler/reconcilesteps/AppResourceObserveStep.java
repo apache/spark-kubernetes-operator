@@ -30,7 +30,7 @@ import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 
 /** Observes secondary resource and update app status if needed. */
 @RequiredArgsConstructor
-public class AppResourceObserveStep extends AppReconcileStep {
+public final class AppResourceObserveStep extends AppReconcileStep {
 
   private final List<BaseAppDriverObserver> observers;
 
