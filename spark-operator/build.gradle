@@ -108,6 +108,8 @@ shadowJar {
   mergeServiceFiles()
   transform(com.github.jengelman.gradle.plugins.shadow.transformers.Log4j2PluginsCacheFileTransformer)
   exclude("org/apache/spark/ui/static/**")
+  // Hadoop webapps (HDFS/YARN UI)
+  exclude("webapps/**")
   // Netty QUIC native libraries - not needed for K8s API server communication (HTTP/1.1 & HTTP/2)
   exclude("META-INF/native/libnetty_quiche*")
   exclude("META-INF/native/netty_quiche*")
