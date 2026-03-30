@@ -114,6 +114,15 @@ shadowJar {
   // Netty io_uring native libraries - not needed for K8s API server communication
   exclude("META-INF/native/libnetty_io_uring*")
   exclude("META-INF/native/netty_io_uring*")
+  minimize {
+    exclude(dependency('com.fasterxml.jackson:.*'))
+    exclude(dependency('io.dropwizard.metrics:.*'))
+    exclude(dependency('io.fabric8:.*'))
+    exclude(dependency('io.javaoperatorsdk:.*'))
+    exclude(dependency('io.vertx:.*'))
+    exclude(dependency('org.apache.logging.log4j:.*'))
+    exclude(dependency('org.slf4j:.*'))
+  }
   manifest {
     attributes(
       'Implementation-Title': project.description,
