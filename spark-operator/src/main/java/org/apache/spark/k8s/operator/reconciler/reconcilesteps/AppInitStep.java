@@ -47,7 +47,7 @@ import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 
 /** Request all driver and its resources when starting an attempt. */
 @Slf4j
-public class AppInitStep extends AppReconcileStep {
+public final class AppInitStep extends AppReconcileStep {
   /**
    * Reconciles the application initialization step, creating driver and associated resources.
    *

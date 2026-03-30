@@ -29,7 +29,7 @@ import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
 
 /** Validates the submitted cluster. This can be re-factored into webhook in the future. */
 @Slf4j
-public class ClusterValidateStep extends ClusterReconcileStep {
+public final class ClusterValidateStep extends ClusterReconcileStep {
   /**
    * Reconciles the cluster by validating its configuration and status.
    *

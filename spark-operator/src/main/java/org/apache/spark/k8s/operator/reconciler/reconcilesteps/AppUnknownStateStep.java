@@ -31,7 +31,7 @@ import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 
 /** Abnormal state handler. */
-public class AppUnknownStateStep extends AppReconcileStep {
+public final class AppUnknownStateStep extends AppReconcileStep {
   /**
    * Reconciles the application when it is in an unknown state, marking it as failed.
    *

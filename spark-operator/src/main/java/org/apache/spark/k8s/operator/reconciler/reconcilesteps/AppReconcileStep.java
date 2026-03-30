@@ -40,7 +40,9 @@ import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 
 /** Basic reconcile step for application. */
 @Log4j2
-public abstract class AppReconcileStep {
+public abstract sealed class AppReconcileStep
+    permits AppCleanUpStep, AppInitStep, AppResourceObserveStep, AppRunningStep,
+        AppUnknownStateStep, AppValidateStep {
   /**
    * Reconciles a specific step for a Spark application.
    *

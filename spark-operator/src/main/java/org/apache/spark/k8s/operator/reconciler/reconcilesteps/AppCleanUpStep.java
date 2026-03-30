@@ -55,7 +55,7 @@ import org.apache.spark.k8s.operator.utils.StringUtils;
  */
 @NoArgsConstructor
 @Slf4j
-public class AppCleanUpStep extends AppReconcileStep {
+public final class AppCleanUpStep extends AppReconcileStep {
   private Supplier<ApplicationState> onDemandCleanUpReason;
   private String stateUpdateMessage;
 

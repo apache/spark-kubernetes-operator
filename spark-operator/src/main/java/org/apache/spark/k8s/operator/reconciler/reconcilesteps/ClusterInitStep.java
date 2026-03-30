@@ -43,7 +43,7 @@ import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
 
 /** Request cluster master and its resources when starting an attempt. */
 @Slf4j
-public class ClusterInitStep extends ClusterReconcileStep {
+public final class ClusterInitStep extends ClusterReconcileStep {
   /**
    * Reconciles the cluster initialization step, creating master and worker resources.
    *

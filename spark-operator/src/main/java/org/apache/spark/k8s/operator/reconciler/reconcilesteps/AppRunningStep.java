@@ -38,7 +38,7 @@ import org.apache.spark.k8s.operator.utils.PodUtils;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 
 /** Observe whether app acquires enough executors as configured in spec. */
-public class AppRunningStep extends AppReconcileStep {
+public final class AppRunningStep extends AppReconcileStep {
   /**
    * Reconciles the application's running state, checking if enough executors are acquired.
    *

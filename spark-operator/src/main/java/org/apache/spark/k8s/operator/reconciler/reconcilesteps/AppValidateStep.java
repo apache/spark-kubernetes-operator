@@ -35,7 +35,7 @@ import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 
 /** Validates the submitted app. This can be re-factored into webhook in the future. */
 @Slf4j
-public class AppValidateStep extends AppReconcileStep {
+public final class AppValidateStep extends AppReconcileStep {
   /**
    * Reconciles the application by validating its configuration and status.
    *
