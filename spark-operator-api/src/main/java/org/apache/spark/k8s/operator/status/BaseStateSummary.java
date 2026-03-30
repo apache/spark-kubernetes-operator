@@ -24,7 +24,8 @@ package org.apache.spark.k8s.operator.status;
  *
  * @since 0.1.0
  */
-public interface BaseStateSummary {
+public sealed interface BaseStateSummary
+    permits ApplicationStateSummary, ClusterStateSummary {
   /**
    * Checks if the CustomResource has failed.
    *
