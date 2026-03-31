@@ -20,6 +20,7 @@
 package org.apache.spark.k8s.operator;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.spark.launcher.SparkLauncher.NO_RESOURCE;
 
 import java.math.BigInteger;
 import java.security.MessageDigest;
@@ -143,7 +144,7 @@ public class SparkAppSubmissionWorker {
       }
     }
     effectiveSparkConf.set("spark.kubernetes.namespace", app.getMetadata().getNamespace());
-    MainAppResource primaryResource = new JavaMainAppResource(Option.empty());
+    MainAppResource primaryResource = new JavaMainAppResource(Option.apply(NO_RESOURCE));
     if (StringUtils.isNotEmpty(applicationSpec.getJars())) {
       primaryResource = new JavaMainAppResource(Option.apply(applicationSpec.getJars()));
       effectiveSparkConf.setIfMissing("spark.jars", applicationSpec.getJars());

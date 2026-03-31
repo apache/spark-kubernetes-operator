@@ -20,6 +20,7 @@
 package org.apache.spark.k8s.operator;
 
 import static org.apache.spark.k8s.operator.SparkAppSubmissionWorker.DEFAULT_ID_LENGTH_LIMIT;
+import static org.apache.spark.launcher.SparkLauncher.NO_RESOURCE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -95,7 +96,7 @@ class SparkAppSubmissionWorkerTest {
       // validate main resources
       assertInstanceOf(JavaMainAppResource.class, constructorArgs.get(conf).get(3));
       JavaMainAppResource mainResource = (JavaMainAppResource) constructorArgs.get(conf).get(3);
-      assertTrue(mainResource.primaryResource().isEmpty());
+      assertEquals(NO_RESOURCE, mainResource.primaryResource().get());
 
       assertEquals("foo-class", constructorArgs.get(conf).get(4));
 
