@@ -22,7 +22,7 @@ operator-sdk = "5.3.2"
 dropwizard-metrics = "4.2.38"
 spark = "4.1.1"
 hadoop = "3.4.3"
-log4j = "2.24.3"
+log4j = "2.25.4"
 slf4j = "2.0.17"
 
 # Test
