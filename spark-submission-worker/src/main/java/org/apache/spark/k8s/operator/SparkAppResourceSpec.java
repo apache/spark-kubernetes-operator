@@ -29,6 +29,7 @@ import io.fabric8.kubernetes.api.model.ContainerBuilder;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
+import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicy;
 import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicyBuilder;
 import lombok.Getter;
@@ -100,8 +101,33 @@ public class SparkAppResourceSpec {
     this.driverPreResources.addAll(ConfigMapSpecUtils.buildConfigMaps(configMapSpecs));
     this.driverPreResources.add(buildNetworkPolicy(kubernetesDriverConf.appId(), namespace));
     this.driverResources.addAll(configureDriverServerIngress(sparkPod, driverServiceIngressList));
+    this.driverResources.forEach(SparkAppResourceSpec::setSparkConnectAppProtocol);
     this.driverPreResources.forEach(r -> setNamespaceIfMissing(r, namespace));
     this.driverResources.forEach(r -> setNamespaceIfMissing(r, namespace));
+  }
+
+  /**
+   * Sets {@code appProtocol} to {@code "grpc"} on the Spark Connect service port so that service
+   * meshes (e.g. Istio) can apply L7-aware routing. Ports that already have an {@code appProtocol}
+   * set are left unchanged.
+   */
+  private static void setSparkConnectAppProtocol(HasMetadata resource) {
+    if (!(resource instanceof Service service)) {
+      return;
+    }
+    if (service.getSpec() == null || service.getSpec().getPorts() == null) {
+      return;
+    }
+    service
+        .getSpec()
+        .getPorts()
+        .forEach(
+            port -> {
+              if (port.getAppProtocol() == null
+                  && Constants.SPARK_CONNECT_SERVER_PORT_NAME().equals(port.getName())) {
+                port.setAppProtocol("grpc");
+              }
+            });
   }
 
   /**

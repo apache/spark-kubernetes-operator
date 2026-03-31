@@ -34,6 +34,8 @@ import io.fabric8.kubernetes.api.model.ContainerBuilder;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
+import io.fabric8.kubernetes.api.model.Service;
+import io.fabric8.kubernetes.api.model.ServiceBuilder;
 import io.fabric8.kubernetes.api.model.Volume;
 import io.fabric8.kubernetes.api.model.VolumeMount;
 import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicy;
@@ -161,6 +163,130 @@ class SparkAppResourceSpecTest {
         .build();
     Assertions.assertEquals(1, appResourceSpec.getDriverPreResources().size());
     Assertions.assertEquals(expected, appResourceSpec.getDriverPreResources().get(0));
+  }
+
+  @Test
+  void testSparkConnectAppProtocol() {
+    SparkAppDriverConf mockConf = mock(SparkAppDriverConf.class);
+    when(mockConf.configMapNameDriver()).thenReturn("foo-configmap");
+    when(mockConf.sparkConf())
+        .thenReturn(new SparkConf().set("spark.kubernetes.namespace", "foo-namespace"));
+
+    KubernetesDriverSpec mockSpec = mock(KubernetesDriverSpec.class);
+    SparkPod sparkPod = new SparkPod(buildBasicPod("driver"), buildBasicContainer());
+
+    Service driverService =
+        new ServiceBuilder()
+            .withNewMetadata()
+            .withName("driver-svc")
+            .endMetadata()
+            .withNewSpec()
+            .addNewPort()
+            .withName(org.apache.spark.deploy.k8s.Constants.DRIVER_PORT_NAME())
+            .withPort(7078)
+            .endPort()
+            .addNewPort()
+            .withName(org.apache.spark.deploy.k8s.Constants.SPARK_CONNECT_SERVER_PORT_NAME())
+            .withPort(15002)
+            .endPort()
+            .endSpec()
+            .build();
+
+    Seq<HasMetadata> resourceSeq =
+        CollectionConverters.asScala(List.<HasMetadata>of(driverService)).toList();
+    Seq<HasMetadata> empty = CollectionConverters.asScala(List.<HasMetadata>of()).toList();
+    when(mockSpec.driverKubernetesResources()).thenReturn(resourceSeq);
+    when(mockSpec.driverPreKubernetesResources()).thenReturn(empty);
+    when(mockSpec.pod()).thenReturn(sparkPod);
+    when(mockSpec.systemProperties()).thenReturn(new HashMap<>());
+
+    SparkAppResourceSpec appResourceSpec =
+        new SparkAppResourceSpec(mockConf, mockSpec, List.of(), List.of());
+
+    Service resultService =
+        appResourceSpec.getDriverResources().stream()
+            .filter(r -> r instanceof Service)
+            .map(r -> (Service) r)
+            .findFirst()
+            .orElseThrow();
+
+    var ports = resultService.getSpec().getPorts();
+    // spark-connect port should have appProtocol set to grpc
+    Assertions.assertEquals(
+        "grpc",
+        ports.stream()
+            .filter(
+                p ->
+                    org.apache.spark.deploy.k8s.Constants.SPARK_CONNECT_SERVER_PORT_NAME()
+                        .equals(p.getName()))
+            .findFirst()
+            .orElseThrow()
+            .getAppProtocol());
+    // Other ports should not have appProtocol set
+    Assertions.assertNull(
+        ports.stream()
+            .filter(
+                p ->
+                    org.apache.spark.deploy.k8s.Constants.DRIVER_PORT_NAME()
+                        .equals(p.getName()))
+            .findFirst()
+            .orElseThrow()
+            .getAppProtocol());
+  }
+
+  @Test
+  void testSparkConnectPreservesExistingAppProtocol() {
+    SparkAppDriverConf mockConf = mock(SparkAppDriverConf.class);
+    when(mockConf.configMapNameDriver()).thenReturn("foo-configmap");
+    when(mockConf.sparkConf())
+        .thenReturn(new SparkConf().set("spark.kubernetes.namespace", "foo-namespace"));
+
+    KubernetesDriverSpec mockSpec = mock(KubernetesDriverSpec.class);
+    SparkPod sparkPod = new SparkPod(buildBasicPod("driver"), buildBasicContainer());
+
+    Service driverService =
+        new ServiceBuilder()
+            .withNewMetadata()
+            .withName("driver-svc")
+            .endMetadata()
+            .withNewSpec()
+            .addNewPort()
+            .withName(org.apache.spark.deploy.k8s.Constants.SPARK_CONNECT_SERVER_PORT_NAME())
+            .withPort(15002)
+            .withAppProtocol("custom-protocol")
+            .endPort()
+            .endSpec()
+            .build();
+
+    Seq<HasMetadata> resourceSeq =
+        CollectionConverters.asScala(List.<HasMetadata>of(driverService)).toList();
+    Seq<HasMetadata> empty = CollectionConverters.asScala(List.<HasMetadata>of()).toList();
+    when(mockSpec.driverKubernetesResources()).thenReturn(resourceSeq);
+    when(mockSpec.driverPreKubernetesResources()).thenReturn(empty);
+    when(mockSpec.pod()).thenReturn(sparkPod);
+    when(mockSpec.systemProperties()).thenReturn(new HashMap<>());
+
+    SparkAppResourceSpec appResourceSpec =
+        new SparkAppResourceSpec(mockConf, mockSpec, List.of(), List.of());
+
+    Service resultService =
+        appResourceSpec.getDriverResources().stream()
+            .filter(r -> r instanceof Service)
+            .map(r -> (Service) r)
+            .findFirst()
+            .orElseThrow();
+
+    // Pre-existing appProtocol must not be overwritten
+    Assertions.assertEquals(
+        "custom-protocol",
+        resultService.getSpec().getPorts().stream()
+            .filter(
+                p ->
+                    org.apache.spark.deploy.k8s.Constants.SPARK_CONNECT_SERVER_PORT_NAME()
+                        .equals(p.getName()))
+            .findFirst()
+            .orElseThrow()
+            .getAppProtocol());
   }
 
   protected Container buildBasicContainer() {
