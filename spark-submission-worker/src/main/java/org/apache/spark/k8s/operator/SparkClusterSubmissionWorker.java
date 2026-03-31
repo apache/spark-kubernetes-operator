@@ -39,17 +39,12 @@ public class SparkClusterSubmissionWorker {
     String sparkVersion = (versions != null) ? versions.getSparkVersion() : "UNKNOWN";
     SparkConf effectiveSparkConf = new SparkConf();
 
-    Map<String, String> confFromSpec = cluster.getSpec().getSparkConf();
-    if (!confFromSpec.isEmpty()) {
-      for (Map.Entry<String, String> entry : confFromSpec.entrySet()) {
-        effectiveSparkConf.set(entry.getKey(), entry.getValue());
-        String value = entry.getValue();
-        if ("spark.kubernetes.container.image".equals(entry.getKey())) {
-          value = value.replace("{{SPARK_VERSION}}", sparkVersion);
-        }
-        effectiveSparkConf.set(entry.getKey(), value);
+    cluster.getSpec().getSparkConf().forEach((key, value) -> {
+      if ("spark.kubernetes.container.image".equals(key)) {
+        value = value.replace("{{SPARK_VERSION}}", sparkVersion);
       }
-    }
+      effectiveSparkConf.set(key, value);
+    });
 
     if (!confOverrides.isEmpty()) {
       for (Map.Entry<String, String> entry : confOverrides.entrySet()) {
