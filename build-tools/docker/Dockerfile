@@ -32,7 +32,7 @@ RUN apk add --no-cache binutils && \
     MODULES=$(jdeps \
       --ignore-missing-deps \
       --print-module-deps \
-      --multi-release 17 \
+      --multi-release 21 \
       /tmp/app.jar) && \
     MODULES="${MODULES},jdk.httpserver,jdk.unsupported,jdk.crypto.ec,jdk.security.auth,java.management" && \
     jlink \
