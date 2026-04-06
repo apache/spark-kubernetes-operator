@@ -170,9 +170,12 @@
                   }
                 },
                 "volumeMounts": {
-                  "type": "object",
+                  "type": ["null", "array"],
                   "description": "Container volume mounts",
-                  "additionalProperties": true
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
                 },
                 "resources": {
                   "type": "object",
@@ -358,14 +361,20 @@
               }
             },
             "additionalContainers": {
-              "type": "object",
+              "type": ["null", "array"],
               "description": "Additional containers in the pod",
-              "additionalProperties": true
+              "items": {
+                "type": "object",
+                "additionalProperties": true
+              }
             },
             "volumes": {
-              "type": "object",
+              "type": ["null", "array"],
               "description": "Pod volumes",
-              "additionalProperties": true
+              "items": {
+                "type": "object",
+                "additionalProperties": true
+              }
             },
             "securityContext": {
               "type": "object",
