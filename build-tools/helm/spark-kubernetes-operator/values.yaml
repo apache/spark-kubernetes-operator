@@ -46,7 +46,7 @@ operatorDeployment:
         - name: "SPARK_USER"
           value: "spark"
       envFrom:
-      volumeMounts: { }
+      volumeMounts: [ ]
       resources:
         limits:
           cpu: "1"
@@ -82,8 +82,8 @@ operatorDeployment:
         runAsUser: 185
         seccompProfile:
           type: RuntimeDefault
-    additionalContainers: { }
-    volumes: { }
+    additionalContainers: [ ]
+    volumes: [ ]
     securityContext: { }
     dnsPolicy:
     dnsConfig:
