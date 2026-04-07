@@ -29,6 +29,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -144,8 +145,8 @@ public final class SparkAppResourceSpecFactory {
       } else {
         log.warn("Local temp file not found at {}", pathKey);
       }
-    } catch (Throwable t) {
-      log.warn("Failed to delete temp file. Attempting delete upon exit.", t);
+    } catch (SecurityException e) {
+      log.warn("Failed to delete temp file. Attempting delete upon exit.", e);
     } finally {
       if (!deleted && localFile.isPresent() && localFile.get().exists()) {
         localFile.get().deleteOnExit();
@@ -212,10 +213,10 @@ public final class SparkAppResourceSpecFactory {
       final PodTemplateSpec podTemplateSpec, final String tempFilePrefix) {
     try {
       File tmpFile = File.createTempFile(tempFilePrefix, ".json");
-      FileOutputStream fileStream = new FileOutputStream(tmpFile);
-      OutputStreamWriter writer = new OutputStreamWriter(fileStream, "UTF-8");
-      writer.write(ModelUtils.asJsonString(ModelUtils.getPodFromTemplateSpec(podTemplateSpec)));
-      writer.close();
+      try (OutputStreamWriter writer =
+          new OutputStreamWriter(new FileOutputStream(tmpFile), StandardCharsets.UTF_8)) {
+        writer.write(ModelUtils.asJsonString(ModelUtils.getPodFromTemplateSpec(podTemplateSpec)));
+      }
       String path = tmpFile.getAbsolutePath();
       if (log.isDebugEnabled()) {
         log.debug("Temp file wrote to {}", tmpFile.getAbsolutePath());
