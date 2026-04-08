@@ -45,7 +45,8 @@ jobs:
         with:
           java-version: ${{ matrix.java-version }}
           distribution: 'zulu'
-          cache: 'gradle'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@39e147cb9de83bb9910b8ef8bd7fff0ee20fcd6f
       - name: Cache Gradle Java Toolchain
         uses: actions/cache@v4
         with:
@@ -69,7 +70,8 @@ jobs:
         with:
           java-version: 26
           distribution: 'zulu'
-          cache: 'gradle'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@39e147cb9de83bb9910b8ef8bd7fff0ee20fcd6f
       - name: Build Operator Image
         run: |
           ./gradlew buildDockerImage
@@ -138,7 +140,8 @@ jobs:
         with:
           java-version: 26
           distribution: 'zulu'
-          cache: 'gradle'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@39e147cb9de83bb9910b8ef8bd7fff0ee20fcd6f
       - name: Set up Minikube
         uses: medyagh/setup-minikube@v0.0.21
         with:
@@ -216,7 +219,8 @@ jobs:
         with:
           java-version: 26
           distribution: 'zulu'
-          cache: 'gradle'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@39e147cb9de83bb9910b8ef8bd7fff0ee20fcd6f
       - name: Set up Minikube
         uses: medyagh/setup-minikube@v0.0.21
         with:
@@ -252,7 +256,8 @@ jobs:
         with:
           java-version: 26
           distribution: 'zulu'
-          cache: 'gradle'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@39e147cb9de83bb9910b8ef8bd7fff0ee20fcd6f
       - name: Cache Gradle Java Toolchain
         uses: actions/cache@v4
         with:
