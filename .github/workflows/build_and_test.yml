@@ -47,6 +47,8 @@ jobs:
           distribution: 'zulu'
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@39e147cb9de83bb9910b8ef8bd7fff0ee20fcd6f
+        with:
+          cache-provider: basic
       - name: Build with Gradle
         run: |
           if [[ "${{ matrix.java-version }}" == "25" || "${{ matrix.java-version }}" == "26" ]]; then
@@ -67,6 +69,8 @@ jobs:
           distribution: 'zulu'
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@39e147cb9de83bb9910b8ef8bd7fff0ee20fcd6f
+        with:
+          cache-provider: basic
       - name: Build Operator Image
         run: |
           ./gradlew buildDockerImage
@@ -137,6 +141,8 @@ jobs:
           distribution: 'zulu'
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@39e147cb9de83bb9910b8ef8bd7fff0ee20fcd6f
+        with:
+          cache-provider: basic
       - name: Set up Minikube
         uses: medyagh/setup-minikube@v0.0.21
         with:
@@ -216,6 +222,8 @@ jobs:
           distribution: 'zulu'
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@39e147cb9de83bb9910b8ef8bd7fff0ee20fcd6f
+        with:
+          cache-provider: basic
       - name: Set up Minikube
         uses: medyagh/setup-minikube@v0.0.21
         with:
@@ -253,6 +261,8 @@ jobs:
           distribution: 'zulu'
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@39e147cb9de83bb9910b8ef8bd7fff0ee20fcd6f
+        with:
+          cache-provider: basic
       - name: Linters
         run: |
           ./gradlew build -x test
