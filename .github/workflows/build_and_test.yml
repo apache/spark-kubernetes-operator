@@ -47,11 +47,6 @@ jobs:
           distribution: 'zulu'
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@39e147cb9de83bb9910b8ef8bd7fff0ee20fcd6f
-      - name: Cache Gradle Java Toolchain
-        uses: actions/cache@v4
-        with:
-          path: ~/.gradle/jdks/
-          key: gradle-jdks-${{ matrix.os }}-${{ matrix.java-version }}
       - name: Build with Gradle
         run: |
           if [[ "${{ matrix.java-version }}" == "25" || "${{ matrix.java-version }}" == "26" ]]; then
@@ -258,11 +253,6 @@ jobs:
           distribution: 'zulu'
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@39e147cb9de83bb9910b8ef8bd7fff0ee20fcd6f
-      - name: Cache Gradle Java Toolchain
-        uses: actions/cache@v4
-        with:
-          path: ~/.gradle/jdks/
-          key: gradle-jdks-lint
       - name: Linters
         run: |
           ./gradlew build -x test
