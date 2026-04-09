@@ -40,15 +40,8 @@ dependencies {
     exclude group: "org.xerial.snappy"
   }
 
-  compileOnly(libs.lombok)
-  annotationProcessor(libs.lombok)
-
   testImplementation(platform(libs.junit.bom))
   testImplementation(libs.mockito.core)
   testImplementation(libs.junit.jupiter)
   testRuntimeOnly(libs.junit.platform.launcher)
-}
-
-test {
-  useJUnitPlatform()
 }

@@ -21,17 +21,9 @@ dependencies {
   implementation(libs.kubernetes.client)
   compileOnly(libs.crd.generator.annotations)
 
-  // utils
-  compileOnly(libs.lombok)
-  annotationProcessor(libs.lombok)
-
   testImplementation(platform(libs.junit.bom))
   testImplementation(libs.junit.jupiter)
   testRuntimeOnly(libs.junit.platform.launcher)
-}
-
-test {
-  useJUnitPlatform()
 }
 
 // CRD Generator v2 - generates CRD YAML from compiled CustomResource classes

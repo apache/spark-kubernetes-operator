@@ -28,12 +28,6 @@ dependencies {
     implementation project(":spark-operator")
     implementation(libs.log4j.core)
     implementation(libs.log4j.slf4j2.impl)
-    compileOnly(libs.lombok)
-    annotationProcessor(libs.lombok)
-}
-
-test {
-    useJUnitPlatform()
 }
 
 tasks.register('generateConfPropsDoc', Exec) {
