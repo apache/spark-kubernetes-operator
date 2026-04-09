@@ -24,9 +24,7 @@ RUN --mount=type=cache,target=/home/gradle/.gradle/caches gradle --no-daemon cle
 
 FROM azul/zulu-openjdk-alpine:26 AS jlink
 
-ARG APP_VERSION=0.9.0-SNAPSHOT
-
-COPY --from=builder /app/spark-operator/build/libs/spark-kubernetes-operator-${APP_VERSION}-all.jar /tmp/app.jar
+COPY --from=builder /app/spark-operator/build/libs/spark-kubernetes-operator-*-all.jar /tmp/app.jar
 
 RUN apk add --no-cache binutils && \
     MODULES=$(jdeps \
@@ -45,7 +43,7 @@ RUN apk add --no-cache binutils && \
 
 FROM alpine:3.23
 
-ARG APP_VERSION=0.9.0-SNAPSHOT
+ARG APP_VERSION
 ARG SPARK_UID=185
 
 LABEL org.opencontainers.image.authors="Apache Spark project <dev@spark.apache.org>"
@@ -68,7 +66,7 @@ RUN apk add --no-cache libstdc++ && \
     adduser -S -h $SPARK_OPERATOR_HOME -u $SPARK_UID -G spark spark && \
     chown -R spark:spark $SPARK_OPERATOR_HOME
 
-COPY --from=builder --chown=spark:spark /app/spark-operator/build/libs/spark-kubernetes-operator-$APP_VERSION-all.jar $SPARK_OPERATOR_JAR
+COPY --from=builder --chown=spark:spark /app/spark-operator/build/libs/spark-kubernetes-operator-*-all.jar $SPARK_OPERATOR_JAR
 USER spark
 
 CMD ["java", "-cp", "./spark-kubernetes-operator.jar", "org.apache.spark.k8s.operator.SparkOperator"]
