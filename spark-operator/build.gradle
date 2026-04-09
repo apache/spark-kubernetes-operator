@@ -51,9 +51,6 @@ dependencies {
     exclude group: "org.slf4j"
     exclude group: "org.xerial.snappy"
   }
-  compileOnly(libs.lombok)
-
-  annotationProcessor(libs.lombok)
   annotationProcessor(libs.spotbugs.annotations)
 
   testImplementation(libs.operator.framework.junit5) {
@@ -74,10 +71,6 @@ dependencies {
   testCompileOnly(libs.spotbugs.annotations)
   testImplementation(libs.mockito.core)
   testImplementation(libs.kube.api.test.client.inject)
-}
-
-test {
-  useJUnitPlatform()
 }
 
 jar.dependsOn shadowJar
