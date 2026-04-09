@@ -42,6 +42,7 @@ import org.apache.spark.k8s.operator.SparkAppResourceSpec;
 import org.apache.spark.k8s.operator.SparkAppSubmissionWorker;
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.decorators.OwnerResourceDecorator;
+import org.apache.spark.k8s.operator.spec.BaseApplicationTemplateSpec;
 import org.apache.spark.k8s.operator.utils.ModelUtils;
 
 /** Factory for creating SparkAppResourceSpec objects. */
@@ -89,8 +90,14 @@ public final class SparkAppResourceSpecFactory {
     if (app.getSpec().getSparkConf().containsKey("spark.app.name")) {
       confOverrides.put("spark.app.name", app.getMetadata().getName());
     }
-    confOverrides.putAll(getOrCreateLocalFileForDriverSpec(app, confOverrides));
-    confOverrides.putAll(getOrCreateLocalFileForExecutorSpec(app, confOverrides));
+    confOverrides.putAll(
+        getOrCreateLocalFileForSpec(
+            app, confOverrides, app.getSpec().getDriverSpec(),
+            DRIVER_SPARK_TEMPLATE_FILE_PROP_KEY, "-driver-"));
+    confOverrides.putAll(
+        getOrCreateLocalFileForSpec(
+            app, confOverrides, app.getSpec().getExecutorSpec(),
+            EXECUTOR_SPARK_TEMPLATE_FILE_PROP_KEY, "-executor-"));
     return confOverrides;
   }
 
@@ -155,48 +162,30 @@ public final class SparkAppResourceSpecFactory {
   }
 
   /**
-   * Gets or creates a local file for the driver pod template specification.
+   * Gets or creates a local file for the given pod template specification.
    *
    * @param app The SparkApplication.
    * @param confOverrides The configuration overrides map.
+   * @param templateSpec The BaseApplicationTemplateSpec (driver or executor).
+   * @param propKey The configuration property key for the template file path.
+   * @param fileSuffix The suffix for the temporary file name (e.g., "-driver-" or "-executor-").
    * @return A Map containing the path to the local file if created or found, otherwise an empty
    *     map.
    */
-  private static Map<String, String> getOrCreateLocalFileForDriverSpec(
-      final SparkApplication app, final Map<String, String> confOverrides) {
-    if (overrideDriverTemplateEnabled(app.getSpec())) {
-      Optional<File> localFile =
-          getLocalFileFromPathKey(confOverrides, DRIVER_SPARK_TEMPLATE_FILE_PROP_KEY);
+  private static Map<String, String> getOrCreateLocalFileForSpec(
+      final SparkApplication app,
+      final Map<String, String> confOverrides,
+      final BaseApplicationTemplateSpec templateSpec,
+      final String propKey,
+      final String fileSuffix) {
+    if (templateSpec != null && templateSpec.getPodTemplateSpec() != null) {
+      Optional<File> localFile = getLocalFileFromPathKey(confOverrides, propKey);
       if (localFile.isEmpty() || !localFile.get().exists() || !localFile.get().isFile()) {
         String filePath =
             createLocalFileForPodTemplateSpec(
-                app.getSpec().getDriverSpec().getPodTemplateSpec(),
-                app.getMetadata().getUid() + "-driver-");
-        return Map.of(DRIVER_SPARK_TEMPLATE_FILE_PROP_KEY, filePath);
-      }
-    }
-    return Map.of();
-  }
-
-  /**
-   * Gets or creates a local file for the executor pod template specification.
-   *
-   * @param app The SparkApplication.
-   * @param confOverrides The configuration overrides map.
-   * @return A Map containing the path to the local file if created or found, otherwise an empty
-   *     map.
-   */
-  private static Map<String, String> getOrCreateLocalFileForExecutorSpec(
-      final SparkApplication app, final Map<String, String> confOverrides) {
-    if (overrideExecutorTemplateEnabled(app.getSpec())) {
-      Optional<File> localFile =
-          getLocalFileFromPathKey(confOverrides, EXECUTOR_SPARK_TEMPLATE_FILE_PROP_KEY);
-      if (localFile.isEmpty() || !localFile.get().exists() || !localFile.get().isFile()) {
-        String filePath =
-            createLocalFileForPodTemplateSpec(
-                app.getSpec().getExecutorSpec().getPodTemplateSpec(),
-                app.getMetadata().getUid() + "-executor-");
-        return Map.of(EXECUTOR_SPARK_TEMPLATE_FILE_PROP_KEY, filePath);
+                templateSpec.getPodTemplateSpec(),
+                app.getMetadata().getUid() + fileSuffix);
+        return Map.of(propKey, filePath);
       }
     }
     return Map.of();
