@@ -19,6 +19,8 @@
 
 package org.apache.spark.k8s.operator.reconciler;
 
+import static org.apache.spark.k8s.operator.utils.Utils.sparkClusterResourceLabels;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -27,7 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.spark.k8s.operator.SparkCluster;
 import org.apache.spark.k8s.operator.SparkClusterResourceSpec;
 import org.apache.spark.k8s.operator.SparkClusterSubmissionWorker;
-import org.apache.spark.k8s.operator.decorators.ClusterDecorator;
+import org.apache.spark.k8s.operator.decorators.OwnerResourceDecorator;
 
 /** Factory for creating SparkClusterResourceSpec objects. */
 @Slf4j
@@ -46,7 +48,8 @@ public final class SparkClusterResourceSpecFactory {
       final SparkCluster cluster, final SparkClusterSubmissionWorker worker) {
     Map<String, String> confOverrides = new HashMap<>();
     SparkClusterResourceSpec spec = worker.getResourceSpec(cluster, confOverrides);
-    ClusterDecorator decorator = new ClusterDecorator(cluster);
+    OwnerResourceDecorator decorator =
+        new OwnerResourceDecorator(cluster, sparkClusterResourceLabels(cluster));
     decorator.decorate(spec.getMasterService());
     decorator.decorate(spec.getWorkerService());
     decorator.decorate(spec.getMasterStatefulSet());
