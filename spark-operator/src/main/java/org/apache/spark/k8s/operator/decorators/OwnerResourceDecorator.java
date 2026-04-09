@@ -20,35 +20,31 @@
 package org.apache.spark.k8s.operator.decorators;
 
 import static org.apache.spark.k8s.operator.utils.ModelUtils.buildOwnerReferenceTo;
-import static org.apache.spark.k8s.operator.utils.Utils.sparkClusterResourceLabels;
+
+import java.util.Map;
 
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import lombok.RequiredArgsConstructor;
 
-import org.apache.spark.k8s.operator.SparkCluster;
-
-/** Decorates Spark cluster resources like statefulsets. */
+/**
+ * Decorates Kubernetes resources with owner references and labels from the owner resource. Adds
+ * owner reference to the owner resource for garbage collection.
+ */
 @RequiredArgsConstructor
-public class ClusterDecorator implements ResourceDecorator {
+public class OwnerResourceDecorator implements ResourceDecorator {
 
-  private final SparkCluster cluster;
+  private final HasMetadata owner;
+  private final Map<String, String> labels;
 
-  /**
-   * Decorates a Kubernetes resource with owner references and labels from the SparkCluster.
-   *
-   * @param resource The resource to decorate.
-   * @param <T> The type of the resource, extending HasMetadata.
-   * @return The decorated resource.
-   */
   @Override
   public <T extends HasMetadata> T decorate(T resource) {
     ObjectMeta metaData =
         new ObjectMetaBuilder(resource.getMetadata())
-            .addToOwnerReferences(buildOwnerReferenceTo(cluster))
-            .addToLabels(sparkClusterResourceLabels(cluster))
-            .withNamespace(cluster.getMetadata().getNamespace())
+            .addToOwnerReferences(buildOwnerReferenceTo(owner))
+            .addToLabels(labels)
+            .withNamespace(owner.getMetadata().getNamespace())
             .build();
     resource.setMetadata(metaData);
     return resource;

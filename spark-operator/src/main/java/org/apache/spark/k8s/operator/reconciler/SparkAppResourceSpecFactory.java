@@ -41,7 +41,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.spark.k8s.operator.SparkAppResourceSpec;
 import org.apache.spark.k8s.operator.SparkAppSubmissionWorker;
 import org.apache.spark.k8s.operator.SparkApplication;
-import org.apache.spark.k8s.operator.decorators.DriverDecorator;
+import org.apache.spark.k8s.operator.decorators.OwnerResourceDecorator;
 import org.apache.spark.k8s.operator.utils.ModelUtils;
 
 /** Factory for creating SparkAppResourceSpec objects. */
@@ -65,7 +65,7 @@ public final class SparkAppResourceSpecFactory {
     Map<String, String> confOverrides = overrideDependencyConf(app);
     SparkAppResourceSpec resourceSpec = worker.getResourceSpec(app, client, confOverrides);
     cleanUpTempResourcesForApp(app, confOverrides);
-    DriverDecorator decorator = new DriverDecorator(app);
+    OwnerResourceDecorator decorator = new OwnerResourceDecorator(app, sparkAppResourceLabels(app));
     decorator.decorate(resourceSpec.getConfiguredPod());
     return resourceSpec;
   }
