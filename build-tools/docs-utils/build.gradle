@@ -46,10 +46,12 @@ tasks.register('generateConfPropsDoc', Exec) {
 tasks.register('validateConfPropsDocUpToDate') {
     description = "Validate the generate config properties doc is up to date"
     dependsOn 'generateConfPropsDoc'
+    def generatedFile = file("$docOutputPath/$generatedDocFileName")
+    def stagedFile = file("$defaultDocsPath/$generatedDocFileName")
 
     doLast {
-      File generated = file("$docOutputPath/$generatedDocFileName")
-      File staged = file("$defaultDocsPath/$generatedDocFileName")
+      File generated = generatedFile
+      File staged = stagedFile
       if (!staged.exists()) {
         throw new GradleException("Staged properties doc file does not exist.")
       }

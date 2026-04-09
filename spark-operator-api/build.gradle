@@ -73,8 +73,8 @@ classes.finalizedBy('generateCrds')
 tasks.register("assertGeneratedCRDMatchesHelmChart") {
   dependsOn 'generateCrds'
   description = 'Asserts that the generated CRD yaml matches the staged version in Helm Chart'
+  def currentPath = projectDir.absolutePath
   doLast {
-    def currentPath = projectDir.absolutePath
     def generatedCRDFileBase = "$currentPath/build/resources/main/"
     def stagedCRDFileBase = "$currentPath/../build-tools/helm/spark-kubernetes-operator/crds/"
     def generatedAppCRD = [
