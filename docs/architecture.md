@@ -46,6 +46,50 @@ The Operator is built with the [Java Operator SDK](https://javaoperatorsdk.io/) 
 launching Spark deployments and submitting jobs under the hood. It also uses
 [fabric8](https://fabric8.io/) client to interact with Kubernetes API Server.
 
+## Deployment Topology
+
+A typical installation places the Operator pod in one dedicated namespace while it watches
+Spark custom resources in one or more workload namespaces. RBAC is scoped by the Helm chart:
+the Operator ServiceAccount is bound to the permissions required to manage
+`SparkApplication` / `SparkCluster` resources and their child Kubernetes objects.
+
+```mermaid
+flowchart LR
+    user([User / CI]) -->|kubectl apply| api[Kubernetes API Server]
+
+    subgraph operatorNs[Operator Namespace]
+        op[Spark Operator Pod]
+        sa[ServiceAccount + Role/ClusterRole Bindings]
+        op -.uses.- sa
+    end
+
+    subgraph workloadA[Workload Namespace A]
+        crA1[SparkApplication CR]
+        crA2[SparkCluster CR]
+        drvA[Driver Pod / Master Pod]
+        execA[Executor / Worker Pods]
+    end
+
+    subgraph workloadB[Workload Namespace B]
+        crB[SparkApplication CR]
+        drvB[Driver Pod]
+        execB[Executor Pods]
+    end
+
+    api <-->|watch / patch| op
+    op -->|reconcile| crA1
+    op -->|reconcile| crA2
+    op -->|reconcile| crB
+    op ==>|create driver / master| drvA
+    op ==>|create driver| drvB
+    drvA -->|spawns| execA
+    drvB -->|spawns| execB
+```
+
+Multiple Operator instances can coexist on the same cluster (for example one per region or per
+tenant) as long as each uses a distinct ServiceAccount / RoleBinding name and a disjoint set of
+watched namespaces. See [operations.md](operations.md) for a concrete multi-instance example.
+
 ## Application State Transition
 
 ```mermaid
