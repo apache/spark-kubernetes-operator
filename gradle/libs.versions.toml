@@ -18,7 +18,7 @@
 fabric8 = "7.6.1"
 lombok = "1.18.44"
 netty = "4.2.12.Final"
-operator-sdk = "5.3.2"
+operator-sdk = "5.3.3"
 dropwizard-metrics = "4.2.38"
 spark = "4.1.1"
 hadoop = "3.5.0"
