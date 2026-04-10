@@ -23,10 +23,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
-
-import scala.collection.immutable.HashMap;
-import scala.collection.immutable.Seq;
-import scala.jdk.javaapi.CollectionConverters;
+import java.util.Map;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.Container;
@@ -54,7 +51,6 @@ class SparkAppResourceSpecTest {
     when(mockConf.sparkConf())
         .thenReturn(new SparkConf().set("spark.kubernetes.namespace", "foo-namespace"));
 
-    KubernetesDriverSpec mockSpec = mock(KubernetesDriverSpec.class);
     Pod driver = buildBasicPod("driver");
     SparkPod sparkPod = new SparkPod(driver, buildBasicContainer());
 
@@ -63,15 +59,11 @@ class SparkAppResourceSpecTest {
     Pod pod2 = buildBasicPod("pod-2");
     List<HasMetadata> preResourceList = List.of(pod1);
     List<HasMetadata> resourceList = List.of(pod2);
-    Seq<HasMetadata> preResourceSeq = CollectionConverters.asScala(preResourceList).toList();
-    Seq<HasMetadata> resourceSeq = CollectionConverters.asScala(resourceList).toList();
-    when(mockSpec.driverKubernetesResources()).thenReturn(resourceSeq);
-    when(mockSpec.driverPreKubernetesResources()).thenReturn(preResourceSeq);
-    when(mockSpec.pod()).thenReturn(sparkPod);
-    when(mockSpec.systemProperties()).thenReturn(new HashMap<>());
+    KubernetesDriverSpec spec =
+        KubernetesDriverSpec.create(sparkPod, preResourceList, resourceList, Map.of());
 
     SparkAppResourceSpec appResourceSpec =
-        new SparkAppResourceSpec(mockConf, mockSpec, List.of(), List.of());
+        new SparkAppResourceSpec(mockConf, spec, List.of(), List.of());
 
     Assertions.assertEquals(2, appResourceSpec.getDriverResources().size());
     Assertions.assertEquals(2, appResourceSpec.getDriverPreResources().size());
@@ -120,19 +112,14 @@ class SparkAppResourceSpecTest {
     when(mockConf.sparkConf())
         .thenReturn(new SparkConf().set("spark.kubernetes.namespace", "foo-namespace"));
 
-    KubernetesDriverSpec mockSpec = mock(KubernetesDriverSpec.class);
     Pod driver = buildBasicPod("driver");
     SparkPod sparkPod = new SparkPod(driver, buildBasicContainer());
 
-    // Add some mock resources and pre-resources
-    Seq<HasMetadata> empty = CollectionConverters.asScala(List.<HasMetadata>of()).toList();
-    when(mockSpec.driverKubernetesResources()).thenReturn(empty);
-    when(mockSpec.driverPreKubernetesResources()).thenReturn(empty);
-    when(mockSpec.pod()).thenReturn(sparkPod);
-    when(mockSpec.systemProperties()).thenReturn(new HashMap<>());
+    KubernetesDriverSpec spec =
+        KubernetesDriverSpec.create(sparkPod, List.of(), List.of(), Map.of());
 
     SparkAppResourceSpec appResourceSpec =
-        new SparkAppResourceSpec(mockConf, mockSpec, List.of(), List.of());
+        new SparkAppResourceSpec(mockConf, spec, List.of(), List.of());
 
     Assertions.assertEquals(1, appResourceSpec.getDriverPreResources().size());
     Assertions.assertEquals(NetworkPolicy.class,
