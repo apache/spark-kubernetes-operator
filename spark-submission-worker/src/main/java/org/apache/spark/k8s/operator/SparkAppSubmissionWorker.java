@@ -26,8 +26,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.Map;
-
-import scala.Option;
+import java.util.Optional;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
 
@@ -181,7 +180,7 @@ public class SparkAppSubmissionWorker {
         primaryResource,
         applicationSpec.getMainClass(),
         applicationSpec.getDriverArgs().toArray(String[]::new),
-        Option.apply(applicationSpec.getProxyUser()));
+        Optional.ofNullable(applicationSpec.getProxyUser()));
   }
 
   /**

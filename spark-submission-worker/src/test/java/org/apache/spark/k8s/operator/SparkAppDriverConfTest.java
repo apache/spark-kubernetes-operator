@@ -23,9 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
+import java.util.Optional;
 import java.util.UUID;
-
-import scala.Option;
 
 import org.junit.jupiter.api.Test;
 
@@ -50,7 +49,7 @@ class SparkAppDriverConfTest {
             mock(JavaMainAppResource.class),
             "foo",
             null,
-            Option.empty());
+            Optional.empty());
     String resourcePrefix = sparkAppDriverConf.resourceNamePrefix();
     assertEquals(
         resourcePrefix,
@@ -79,7 +78,7 @@ class SparkAppDriverConfTest {
             mock(JavaMainAppResource.class),
             "foo",
             null,
-            Option.empty());
+            Optional.empty());
     String configMapNameDriver = sparkAppDriverConf.configMapNameDriver();
     assertTrue(
         configMapNameDriver.length() <= 253,
@@ -100,7 +99,7 @@ class SparkAppDriverConfTest {
             mock(JavaMainAppResource.class),
             "foo",
             null,
-            Option.empty());
+            Optional.empty());
     assertEquals(VERSION, sparkAppDriverConf.labels().get("spark-version").get());
   }
 }

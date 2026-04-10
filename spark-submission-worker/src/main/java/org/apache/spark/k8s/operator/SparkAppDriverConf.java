@@ -21,7 +21,7 @@ package org.apache.spark.k8s.operator;
 
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_VERSION_NAME;
 
-import scala.Option;
+import java.util.Optional;
 
 import org.apache.spark.SparkConf;
 import org.apache.spark.deploy.k8s.Config;
@@ -41,8 +41,15 @@ public final class SparkAppDriverConf extends KubernetesDriverConf {
       MainAppResource mainAppResource,
       String mainClass,
       String[] appArgs,
-      Option<String> proxyUser) {
-    super(sparkConf, appId, mainAppResource, mainClass, appArgs, proxyUser, null);
+      Optional<String> proxyUser) {
+    super(
+        sparkConf,
+        appId,
+        mainAppResource,
+        mainClass,
+        appArgs,
+        scala.Option.apply(proxyUser.orElse(null)),
+        null);
     this.sparkVersion = sparkVersion;
   }
 
@@ -54,7 +61,7 @@ public final class SparkAppDriverConf extends KubernetesDriverConf {
    * @param mainAppResource The main application resource.
    * @param mainClass The main class of the application.
    * @param appArgs The application arguments.
-   * @param proxyUser The proxy user option.
+   * @param proxyUser The proxy user.
    * @return A new SparkAppDriverConf instance.
    */
   public static SparkAppDriverConf create(
@@ -64,7 +71,7 @@ public final class SparkAppDriverConf extends KubernetesDriverConf {
       MainAppResource mainAppResource,
       String mainClass,
       String[] appArgs,
-      Option<String> proxyUser) {
+      Optional<String> proxyUser) {
     // pre-create check only
     KubernetesVolumeUtils.parseVolumesWithPrefix(
         sparkConf, Config.KUBERNETES_EXECUTOR_VOLUMES_PREFIX());
