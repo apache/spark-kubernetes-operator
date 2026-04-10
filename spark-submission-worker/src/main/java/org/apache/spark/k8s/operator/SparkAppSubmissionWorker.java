@@ -143,9 +143,9 @@ public class SparkAppSubmissionWorker {
       }
     }
     effectiveSparkConf.set("spark.kubernetes.namespace", app.getMetadata().getNamespace());
-    MainAppResource primaryResource = new JavaMainAppResource(Option.empty());
+    MainAppResource primaryResource = JavaMainAppResource.create();
     if (StringUtils.isNotEmpty(applicationSpec.getJars())) {
-      primaryResource = new JavaMainAppResource(Option.apply(applicationSpec.getJars()));
+      primaryResource = JavaMainAppResource.of(applicationSpec.getJars());
       effectiveSparkConf.setIfMissing("spark.jars", applicationSpec.getJars());
     } else if ("org.apache.spark.deploy.PythonRunner".equals(applicationSpec.getMainClass())) {
       String[] files = applicationSpec.getPyFiles().split(",", 2);
