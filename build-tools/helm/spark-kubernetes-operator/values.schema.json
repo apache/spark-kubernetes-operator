@@ -11,6 +11,17 @@
       "type": "string",
       "description": "Override fully qualified app name"
     },
+    "crds": {
+      "type": "object",
+      "description": "CRD installation configuration",
+      "required": ["install"],
+      "properties": {
+        "install": {
+          "type": "boolean",
+          "description": "Install CRDs with the chart. Set to false if CRDs are managed separately."
+        }
+      }
+    },
     "image": {
       "type": "object",
       "description": "Operator image configuration",

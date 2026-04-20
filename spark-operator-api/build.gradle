@@ -68,7 +68,7 @@ tasks.register("assertGeneratedCRDMatchesHelmChart") {
   def currentPath = projectDir.absolutePath
   doLast {
     def generatedCRDFileBase = "$currentPath/build/resources/main/"
-    def stagedCRDFileBase = "$currentPath/../build-tools/helm/spark-kubernetes-operator/crds/"
+    def stagedCRDFileBase = "$currentPath/../build-tools/helm/spark-kubernetes-operator/templates/crds/"
     def generatedAppCRD = [
         "yq",
         "e",
@@ -82,16 +82,12 @@ tasks.register("assertGeneratedCRDMatchesHelmChart") {
         "${generatedCRDFileBase}sparkclusters.spark.apache.org-v1.yml"
     ].execute().text.trim()
     def stagedAppCRD = [
-        "yq",
-        "e",
-        ".spec.versions[-1]",
-        "${stagedCRDFileBase}sparkapplications.spark.apache.org-v1.yaml"
+        "bash", "-c",
+        "sed '/^{{/d' ${stagedCRDFileBase}sparkapplications.spark.apache.org-v1.yaml | yq e '.spec.versions[-1]' -"
     ].execute().text.trim()
     def stagedClusterCRD = [
-        "yq",
-        "e",
-        ".spec.versions[-1]",
-        "${stagedCRDFileBase}sparkclusters.spark.apache.org-v1.yaml"
+        "bash", "-c",
+        "sed '/^{{/d' ${stagedCRDFileBase}sparkclusters.spark.apache.org-v1.yaml | yq e '.spec.versions[-1]' -"
     ].execute().text.trim()
     if (generatedAppCRD != stagedAppCRD || generatedClusterCRD != stagedClusterCRD) {
       def errorMessage = new StringBuilder("Generated CRD yaml does not match the staged " +

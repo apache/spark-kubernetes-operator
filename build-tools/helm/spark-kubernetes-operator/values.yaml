@@ -22,6 +22,9 @@ image:
 
 imagePullSecrets: [ ]
 
+crds:
+  install: true
+
 operatorDeployment:
   # Replicas must be 1 unless leader election is enabled
   replicas: 1
