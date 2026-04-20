@@ -38,7 +38,7 @@ spotbugs-plugin = "6.5.1"
 spotless-plugin = "8.4.0"
 
 # Packaging
-cyclonedx = "2.4.1"
+cyclonedx = "3.2.4"
 shadow-jar-plugin = "8.3.10"
 versions-plugin = "0.54.0"
 
