@@ -61,7 +61,7 @@ subprojects {
           artifact sourceJar
           artifact javadocJar
           artifact testJar
-          artifact("$buildDir/reports/bom.xml") {
+          artifact("$buildDir/reports/cyclonedx/bom.xml") {
             classifier = 'cyclonedx'
             extension = 'xml'
             builtBy tasks.named('cyclonedxBom')
