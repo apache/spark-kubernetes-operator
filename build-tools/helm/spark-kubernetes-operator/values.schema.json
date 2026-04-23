@@ -19,6 +19,13 @@
         "install": {
           "type": "boolean",
           "description": "Install CRDs with the chart. Set to false if CRDs are managed separately."
+        },
+        "annotations": {
+          "type": "object",
+          "description": "Annotations to add to CRD resources. Default includes helm.sh/resource-policy: keep to prevent CRD deletion on helm uninstall.",
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       }
     },

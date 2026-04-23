@@ -24,6 +24,8 @@ imagePullSecrets: [ ]
 
 crds:
   install: true
+  annotations:
+    "helm.sh/resource-policy": keep
 
 operatorDeployment:
   # Replicas must be 1 unless leader election is enabled

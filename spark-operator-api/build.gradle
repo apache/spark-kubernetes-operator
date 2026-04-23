@@ -83,11 +83,11 @@ tasks.register("assertGeneratedCRDMatchesHelmChart") {
     ].execute().text.trim()
     def stagedAppCRD = [
         "bash", "-c",
-        "sed '/^{{/d' ${stagedCRDFileBase}sparkapplications.spark.apache.org-v1.yaml | yq e '.spec.versions[-1]' -"
+        "sed '/{{/d' ${stagedCRDFileBase}sparkapplications.spark.apache.org-v1.yaml | yq e '.spec.versions[-1]' -"
     ].execute().text.trim()
     def stagedClusterCRD = [
         "bash", "-c",
-        "sed '/^{{/d' ${stagedCRDFileBase}sparkclusters.spark.apache.org-v1.yaml | yq e '.spec.versions[-1]' -"
+        "sed '/{{/d' ${stagedCRDFileBase}sparkclusters.spark.apache.org-v1.yaml | yq e '.spec.versions[-1]' -"
     ].execute().text.trim()
     if (generatedAppCRD != stagedAppCRD || generatedClusterCRD != stagedClusterCRD) {
       def errorMessage = new StringBuilder("Generated CRD yaml does not match the staged " +
