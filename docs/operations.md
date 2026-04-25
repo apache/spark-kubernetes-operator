@@ -165,7 +165,7 @@ helm install us-west-1 spark/spark-kubernetes-operator --create-namespace --name
 ```
 
 ```bash
-helm install us-west-2 spark/spark-kubernetes-operator --create-namespace --namespace us-west-2 --set operatorRbac.clusterRole.name=spark-operator-clusterrole-us-west-2 --set operatorRbac.clusterRoleBinding.name=spark-operator-clusterrolebinding-us-west-2 --set workloadResources.clusterRole.name=spark-workload-clusterrole-us-west-2
+helm install us-west-2 spark/spark-kubernetes-operator --create-namespace --namespace us-west-2 --set crds.install=false --set operatorRbac.clusterRole.name=spark-operator-clusterrole-us-west-2 --set operatorRbac.clusterRoleBinding.name=spark-operator-clusterrolebinding-us-west-2 --set workloadResources.clusterRole.name=spark-workload-clusterrole-us-west-2
 ```
 
 Check installation.
