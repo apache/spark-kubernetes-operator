@@ -16,7 +16,7 @@
 # under the License.
 [versions]
 fabric8 = "7.6.1"
-lombok = "1.18.44"
+lombok = "1.18.46"
 netty = "4.2.12.Final"
 operator-sdk = "5.3.3"
 dropwizard-metrics = "4.2.38"
