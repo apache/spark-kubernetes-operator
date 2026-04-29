@@ -61,6 +61,8 @@ following table:
 
 | Parameters                                                       | Description                                                                                                                                                                    | Default value                                                                                           |
 |------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------|
+| crds.install                                                     | Whether to install CRDs with the chart. Set to `false` when CRDs are managed externally or when deploying additional operator instances.                                       | true                                                                                                    |
+| crds.annotations                                                 | Annotations to add to CRD resources. The default prevents CRDs from being deleted on `helm uninstall`.                                                                         | `"helm.sh/resource-policy": keep`                                                                       |
 | image.repository                                                 | The image repository of spark-kubernetes-operator.                                                                                                                             | apache/spark-kubernetes-operator                                                                        |
 | image.pullPolicy                                                 | The image pull policy of spark-kubernetes-operator.                                                                                                                            | IfNotPresent                                                                                            |
 | image.tag                                                        | The image tag of spark-kubernetes-operator.                                                                                                                                    | 0.9.0-SNAPSHOT                                                                                          |
@@ -154,6 +156,21 @@ metadata:
   name: spark-sentinel-resources
   labels:
     "spark.operator/sentinel": "true"
+```
+
+## Upgrading from chart versions that used the `crds/` directory
+
+Older chart versions installed CRDs via Helm's special `crds/` directory, which does not
+track ownership metadata. The current chart manages CRDs as regular templates. Before
+running `helm upgrade`, you must label and annotate the existing CRDs so Helm can adopt
+them. Replace `<release-name>` and `<release-namespace>` with your Helm release values:
+
+```bash
+kubectl label crd sparkapplications.spark.apache.org app.kubernetes.io/managed-by=Helm
+kubectl annotate crd sparkapplications.spark.apache.org meta.helm.sh/release-name=<release-name> meta.helm.sh/release-namespace=<release-namespace>
+
+kubectl label crd sparkclusters.spark.apache.org app.kubernetes.io/managed-by=Helm
+kubectl annotate crd sparkclusters.spark.apache.org meta.helm.sh/release-name=<release-name> meta.helm.sh/release-namespace=<release-namespace>
 ```
 
 ## Example
