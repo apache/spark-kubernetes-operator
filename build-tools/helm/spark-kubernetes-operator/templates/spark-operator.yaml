@@ -191,25 +191,19 @@ metadata:
   {{- end }}
   {{- end }}
 data:
-  log4j2.properties: |+
+  log4j2.properties: |
 {{- if .Values.operatorConfiguration.append }}
-  {{- $.Files.Get "conf/log4j2.properties"  | nindent 4 -}}
+{{-   with $.Files.Get "conf/log4j2.properties" }}{{ . | nindent 4 }}{{ end }}
 {{- end }}
-{{- if index (.Values.operatorConfiguration) "log4j2.properties" }}
-  {{- index (.Values.operatorConfiguration) "log4j2.properties" | nindent 4 -}}
-{{- end }}
-  spark-operator.properties: |+
-  {{- include "spark-operator.defaultPropertyOverrides" . | nindent 4 }}
+{{- with index .Values.operatorConfiguration "log4j2.properties" }}{{ . | nindent 4 }}{{ end }}
+  spark-operator.properties: |
+{{- include "spark-operator.defaultPropertyOverrides" . | nindent 4 }}
 {{- if .Values.operatorConfiguration.append }}
-  {{- $.Files.Get "conf/spark-operator.properties"  | nindent 4 -}}
+{{-   with $.Files.Get "conf/spark-operator.properties" }}{{ . | nindent 4 }}{{ end }}
 {{- end }}
-{{- if index (.Values.operatorConfiguration) "spark-operator.properties" }}
-  {{- index (.Values.operatorConfiguration) "spark-operator.properties" | nindent 4 -}}
-{{- end }}
-  metrics.properties: |+
-{{- if index (.Values.operatorConfiguration) "metrics.properties" }}
-  {{- index (.Values.operatorConfiguration) "metrics.properties" | nindent 4 -}}
-{{- end }}
+{{- with index .Values.operatorConfiguration "spark-operator.properties" }}{{ . | nindent 4 }}{{ end }}
+  metrics.properties: |
+{{- with index .Values.operatorConfiguration "metrics.properties" }}{{ . | nindent 4 }}{{ end }}
 ---
 {{- if .Values.operatorConfiguration.dynamicConfig.create }}
 apiVersion: v1
