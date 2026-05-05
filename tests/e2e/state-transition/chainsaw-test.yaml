@@ -34,11 +34,8 @@ spec:
         value: spark-cluster-succeeded-test
   steps:
   - try:
-    - script:
-        env:
-          - name: FILE_NAME
-            value: ($APPLICATION_FILE_NAME)
-        content: kubectl apply -f $FILE_NAME
+    - apply:
+        file: ($APPLICATION_FILE_NAME)
     - assert:
         bindings:
           - name: SPARK_APP_NAMESPACE
@@ -59,11 +56,8 @@ spec:
         content: |
           kubectl delete sparkapplication $SPARK_APPLICATION_NAME
   - try:
-    - script:
-        env:
-          - name: FILE_NAME
-            value: ($CLUSTER_FILE_NAME)
-        content: kubectl apply -f $FILE_NAME
+    - apply:
+        file: ($CLUSTER_FILE_NAME)
     - assert:
         bindings:
           - name: SPARK_APP_NAMESPACE

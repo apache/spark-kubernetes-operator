@@ -30,11 +30,8 @@ spec:
         value: spark-example-driver-start-timeout
   steps:
   - try:
-    - script:
-        env:
-          - name: FILE_NAME
-            value: ($APPLICATION_FILE_NAME)
-        content: kubectl apply -f $FILE_NAME
+    - apply:
+        file: ($APPLICATION_FILE_NAME)
     - assert:
         bindings:
           - name: SPARK_APP_NAMESPACE
