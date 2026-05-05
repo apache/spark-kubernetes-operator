@@ -34,7 +34,7 @@ spec:
     spark.memory.offHeap.enabled: "true"
     spark.memory.offHeap.size: "1g"
     spark.plugins: "org.apache.spark.CometPlugin"
-    spark.shuffle.manager": "org.apache.spark.sql.comet.execution.shuffle.CometShuffleManager"
+    spark.shuffle.manager: "org.apache.spark.sql.comet.execution.shuffle.CometShuffleManager"
   applicationTolerations:
     resourceRetainPolicy: OnFailure
   driverSpec:

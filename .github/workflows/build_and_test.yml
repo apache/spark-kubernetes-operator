@@ -77,7 +77,7 @@ jobs:
   k8s-integration-tests:
     name: "K8s Integration Tests"
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       max-parallel: 20
@@ -131,6 +131,10 @@ jobs:
             test-group: watched-namespaces
           - mode: selector
             test-group: driver-start-timeout
+        include:
+          - kubernetes-version: "1.36.0"
+            mode: static
+            test-group: pi-with-comet
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
