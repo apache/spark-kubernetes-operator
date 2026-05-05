@@ -23,7 +23,7 @@ spec:
   steps:
   - try:
     - script:
-        content: kubectl apply -f ../../examples/pi-with-comet.yaml
+        content: kubectl apply -f ./examples/pi-with-comet.yaml
     - assert:
         bindings:
           - name: SPARK_APP_NAMESPACE
