@@ -20,6 +20,7 @@ kind: Test
 metadata:
   name: spark-operator-pi-with-comet-validation
 spec:
+  namespace: default
   steps:
   - try:
     - apply:
