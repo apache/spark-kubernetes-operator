@@ -24,8 +24,6 @@ import static org.apache.spark.k8s.operator.Constants.*;
 import java.util.Map;
 import java.util.Optional;
 
-import scala.Tuple2;
-
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServiceBuilder;
@@ -75,8 +73,8 @@ public class SparkClusterResourceSpec {
     ClusterSpec spec = cluster.getSpec();
     String version = spec.getRuntimeVersions().getSparkVersion();
     StringBuilder options = new StringBuilder();
-    for (Tuple2<String, String> t : conf.getAll()) {
-      options.append(String.format("-D%s=\"%s\" ", t._1, t._2));
+    for (Map.Entry<String, String> e : conf.getAllAsJavaMap().entrySet()) {
+      options.append(String.format("-D%s=\"%s\" ", e.getKey(), e.getValue()));
     }
     MasterSpec masterSpec = spec.getMasterSpec();
     WorkerSpec workerSpec = spec.getWorkerSpec();
