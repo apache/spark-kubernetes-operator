@@ -40,7 +40,7 @@ kind: SparkApplication
 metadata:
   name: pi
 spec:
-  # Entry point for the app  
+  # Entry point for the app
   mainClass: "org.apache.spark.examples.SparkPi"
   jars: "local:///opt/spark/examples/jars/spark-examples.jar"
   sparkConf:
@@ -48,12 +48,12 @@ spec:
     spark.dynamicAllocation.shuffleTracking.enabled: "true"
     spark.dynamicAllocation.maxExecutors: "3"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
-    spark.kubernetes.container.image: "apache/spark:4.0.0"
+    spark.kubernetes.container.image: "apache/spark:4.1.1-scala"
   applicationTolerations:
     resourceRetainPolicy: OnFailure
+    ttlAfterStopMillis: 10000
   runtimeVersions:
-    scalaVersion: "2.13"
-    sparkVersion: "4.0.0"
+    sparkVersion: "4.1.1"
 ```
 
 After application is submitted, Operator will add status information to your application based on
@@ -204,13 +204,12 @@ are creating / managing SparkApplications with external microservices or workflo
 Spark Operator recognizes "infrastructure failure" in the best effort way. It is possible to
 configure different restart policy on general failure(s) vs. on potential infrastructure
 failure(s). For example, you may configure the app to restart only upon infrastructure
-failures. If Spark application fails as a result of `DriverStartTimedOut`,
-`ExecutorsStartTimedOut`, `SchedulingFailure`.
-
-It is more likely that the app failed as a result of infrastructure reason(s), including
-scenarios like driver or executors cannot be scheduled or cannot initialize in configured
-time window for scheduler reasons, as a result of insufficient capacity, cannot get IP
-allocated, cannot pull images, or k8s API server issue at scheduling .etc.
+failures. If a Spark application fails with `DriverStartTimedOut`, `ExecutorsStartTimedOut`,
+or `SchedulingFailure`, it is more likely that the app failed as a result of infrastructure
+reason(s), including scenarios like driver or executors cannot be scheduled or cannot
+initialize in configured time window for scheduler reasons, as a result of insufficient
+capacity, cannot get IP allocated, cannot pull images, or k8s API server issues at
+scheduling, etc.
 
 Please be advised that this is a best-effort failure identification. You may still need to
 debug actual failure from the driver pods. Spark Operator would stage the last observed
@@ -250,11 +249,12 @@ The operator maintains multiple counters to track different types of restarts:
 - Consecutive failure tracking: The failure-specific counters track consecutive failures
   of the app, distinguishing between persistent failures (requiring intervention) and
   transient issues (safe for retry).
-  - For Example: With `restartPolicy=Always`, `maxRestartAttempts=5` and `maxRestartOnFailure=2`:
-  - The app would tolerate at maximum of 3 consecutive failures, with maximal of 5 restarts
-  - In other words, sequence F -> F -> F would stop.
-  - sequence F -> S -> F -> S -> F would continue with the 5th restart as the succeeded attempts
-    reset the failure counter
+  - Example: with `restartPolicy=Always`, `maxRestartAttempts=5`, and `maxRestartOnFailure=2`:
+  - The app tolerates at most 2 consecutive failures; the 3rd consecutive failure stops it,
+    within an overall cap of 5 total restarts.
+  - In other words, the sequence F -> F -> F stops on the 3rd F.
+  - The sequence F -> S -> F -> S -> F continues, because each successful attempt
+    resets the consecutive-failure counter.
 - Granular control over `SchedulingFailure`: similarly, it's possible to control the maximal
   restart and backoff interval for consecutive `SchedulingFailure` attempts, as it can be highly
   associated with API server rejections, quota exceeded, resource constraints.
@@ -438,7 +438,7 @@ For example, if an app with below configuration:
 applicationTolerations:
   restartConfig:
     restartPolicy: OnFailure
-  maxRestartAttempts: 1
+    maxRestartAttempts: 1
   resourceRetainPolicy: Always
   resourceRetainDurationMillis: 30000
   ttlAfterStopMillis: 60000

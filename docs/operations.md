@@ -21,9 +21,9 @@ under the License.
 
 ## Compatibility
 
-- Java 21, 25 and 26
+- Java 21 or newer
 - Kubernetes version compatibility:
-  - k8s version >= 1.34 is recommended. Operator attempts to be API compatible as possible, but
+  - k8s version >= 1.34 is recommended. Operator attempts to be as API compatible as possible, but
       patch support will not be performed on k8s versions that reached EOL.
 - Spark versions 3.5 or above.
 
@@ -122,7 +122,7 @@ following table:
 | operatorConfiguration.spark-operator.properties                  | The default operator configuration.                                                                                                                                            |                                                                                                         |
 | operatorConfiguration.metrics.properties                         | The default operator metrics (sink) configuration.                                                                                                                             |                                                                                                         |
 | operatorConfiguration.dynamicConfig.create                       | If set to true, a config map would be created & watched by operator as source of truth for hot properties loading.                                                             | false                                                                                                   |
-| operatorConfiguration.dynamicConfig.enable                       | If set to true, operator would honor the created config mapas source of truth for hot properties loading.                                                                      | false                                                                                                   |
+| operatorConfiguration.dynamicConfig.enable                       | If set to true, operator would honor the created config map as source of truth for hot properties loading.                                                                     | false                                                                                                   |
 | operatorConfiguration.dynamicConfig.annotations                  | Annotations to be applied for the dynamicConfig resources.                                                                                                                     | `"helm.sh/resource-policy": keep`                                                                       |
 | operatorConfiguration.dynamicConfig.data                         | Data field (key-value pairs) that acts as hot properties in the config map.                                                                                                    | `spark.kubernetes.operator.reconciler.intervalSeconds: "60"`                                            |
 
@@ -172,9 +172,9 @@ Check installation.
 
 ```bash
 $ helm list -A
-NAME      NAMESPACE REVISION UPDATED                              STATUS   CHART                           APP VERSION
-us-west-1 us-west-1 1        2025-10-08 22:04:45.530136 -0700 PDT deployed spark-kubernetes-operator-1.3.0 0.5.0
-us-west-2 us-west-2 1        2025-10-08 22:04:48.747434 -0700 PDT deployed spark-kubernetes-operator-1.3.0 0.5.0
+NAME      NAMESPACE REVISION UPDATED                              STATUS   CHART                               APP VERSION
+us-west-1 us-west-1 1        2026-05-06 10:00:00.000000 -0700 PDT deployed spark-kubernetes-operator-1.7.0-dev 0.9.0-SNAPSHOT
+us-west-2 us-west-2 1        2026-05-06 10:00:03.000000 -0700 PDT deployed spark-kubernetes-operator-1.7.0-dev 0.9.0-SNAPSHOT
 ```
 
 Launch `pi.yaml` at `us-west-1` and `us-west-2` namespaces.
