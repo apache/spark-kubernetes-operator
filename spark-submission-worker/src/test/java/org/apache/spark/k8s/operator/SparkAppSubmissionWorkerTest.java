@@ -320,4 +320,25 @@ class SparkAppSubmissionWorkerTest {
     SparkAppDriverConf conf3 = submissionWorker.buildDriverConf(mockApp, Map.of());
     assertEquals("false", conf3.get("spark.kubernetes.executor.deleteOnTermination", "true"));
   }
+
+  @Test
+  void annotateExitExceptionShouldDefaultToTrueWhenUnset() {
+    SparkApplication mockApp = mock(SparkApplication.class);
+    ApplicationSpec mockSpec = mock(ApplicationSpec.class);
+    ObjectMeta appMeta = new ObjectMetaBuilder().withName("app1").withNamespace("ns1").build();
+    when(mockSpec.getApplicationTolerations()).thenReturn(new ApplicationTolerations());
+    when(mockApp.getSpec()).thenReturn(mockSpec);
+    when(mockApp.getMetadata()).thenReturn(appMeta);
+
+    SparkAppSubmissionWorker submissionWorker = new SparkAppSubmissionWorker();
+
+    when(mockSpec.getSparkConf()).thenReturn(Map.of());
+    SparkAppDriverConf conf1 = submissionWorker.buildDriverConf(mockApp, Map.of());
+    assertEquals("true", conf1.get("spark.kubernetes.driver.annotateExitException", "false"));
+
+    when(mockSpec.getSparkConf())
+        .thenReturn(Map.of("spark.kubernetes.driver.annotateExitException", "false"));
+    SparkAppDriverConf conf2 = submissionWorker.buildDriverConf(mockApp, Map.of());
+    assertEquals("false", conf2.get("spark.kubernetes.driver.annotateExitException", "true"));
+  }
 }
