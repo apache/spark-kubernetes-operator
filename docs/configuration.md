@@ -24,9 +24,9 @@ under the License.
 Spark Operator supports different ways to configure the behavior:
 
 * **spark-operator.properties** provided when deploying the operator. In addition to the
-  [property file](../build-tools/helm/spark-kubernetes-operator/conf/spark-operator.
-  properties), it is also possible to override or append config properties in helm [Values
-  files](../build-tools/helm/spark-kubernetes-operator/values.yaml).
+  [property file](../build-tools/helm/spark-kubernetes-operator/conf/spark-operator.properties),
+  it is also possible to override or append config properties in helm
+  [Values files](../build-tools/helm/spark-kubernetes-operator/values.yaml).
 * **System Properties** : when provided as system properties (e.g. via -D options to the
   operator JVM), it overrides the values provided in property file.
 * **Hot property loading** : when enabled, a
