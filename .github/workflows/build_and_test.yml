@@ -158,7 +158,9 @@ jobs:
           cpus: 3
           memory: 10240m
       - name: Set Up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
+        with:
+          go-version: 'stable'
       - name: Set Up Chainsaw
         run: |
           go install github.com/kyverno/chainsaw@latest
