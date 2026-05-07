@@ -18,13 +18,16 @@ metadata:
   name: pi-preview-with-executor-resize-plugin
 spec:
   mainClass: "org.apache.spark.examples.SparkPi"
+  driverArgs: ["200000"]
   jars: "local:///opt/spark/examples/jars/spark-examples.jar"
   sparkConf:
     spark.dynamicAllocation.enabled: "true"
-    spark.dynamicAllocation.maxExecutors: "3"
+    spark.dynamicAllocation.maxExecutors: "1"
     spark.dynamicAllocation.shuffleTracking.enabled: "true"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
     spark.kubernetes.container.image: "apache/spark:4.2.0-preview5-scala"
+    spark.kubernetes.executor.resizeInterval: "1min"
+    spark.kubernetes.executor.resizeThreshold: "0.25"
     spark.plugins: "org.apache.spark.scheduler.cluster.k8s.ExecutorResizePlugin"
   applicationTolerations:
     resourceRetainPolicy: OnFailure
