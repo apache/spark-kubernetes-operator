@@ -65,7 +65,6 @@ class SparkOperatorConfigMapReconcilerTest {
   }
 
   @Test
-  @SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
   void sanityTest() {
     client.resource(testConfigMap()).create();
 
