@@ -63,7 +63,7 @@ following table:
 |------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------|
 | image.repository                                                 | The image repository of spark-kubernetes-operator.                                                                                                                             | apache/spark-kubernetes-operator                                                                        |
 | image.pullPolicy                                                 | The image pull policy of spark-kubernetes-operator.                                                                                                                            | IfNotPresent                                                                                            |
-| image.tag                                                        | The image tag of spark-kubernetes-operator.                                                                                                                                    | 0.9.0-SNAPSHOT                                                                                          |
+| image.tag                                                        | The image tag of spark-kubernetes-operator.                                                                                                                                    | 1.0.0-SNAPSHOT                                                                                          |
 | image.digest                                                     | The image digest of spark-kubernetes-operator. If set then it takes precedence and the image tag will be ignored.                                                              |                                                                                                         |
 | imagePullSecrets                                                 | The image pull secrets of spark-kubernetes-operator.                                                                                                                           |                                                                                                         |
 | operatorDeployment.replica                                       | Operator replica count. Must be 1 unless leader election is configured.                                                                                                        | 1                                                                                                       |
@@ -173,8 +173,8 @@ Check installation.
 ```bash
 $ helm list -A
 NAME      NAMESPACE REVISION UPDATED                              STATUS   CHART                               APP VERSION
-us-west-1 us-west-1 1        2026-05-06 10:00:00.000000 -0700 PDT deployed spark-kubernetes-operator-1.7.0-dev 0.9.0-SNAPSHOT
-us-west-2 us-west-2 1        2026-05-06 10:00:03.000000 -0700 PDT deployed spark-kubernetes-operator-1.7.0-dev 0.9.0-SNAPSHOT
+us-west-1 us-west-1 1        2026-05-06 10:00:00.000000 -0700 PDT deployed spark-kubernetes-operator-1.8.0-dev 1.0.0-SNAPSHOT
+us-west-2 us-west-2 1        2026-05-06 10:00:03.000000 -0700 PDT deployed spark-kubernetes-operator-1.8.0-dev 1.0.0-SNAPSHOT
 ```
 
 Launch `pi.yaml` at `us-west-1` and `us-west-2` namespaces.
