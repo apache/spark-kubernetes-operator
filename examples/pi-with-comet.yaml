@@ -30,7 +30,7 @@ spec:
     spark.dynamicAllocation.shuffleTracking.enabled: "true"
     spark.executor.extraClassPath: "local:///comet/comet.jar"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
-    spark.kubernetes.container.image: "apache/spark:4.0.2-scala"
+    spark.kubernetes.container.image: "apache/spark:4.1.1-scala"
     spark.memory.offHeap.enabled: "true"
     spark.memory.offHeap.size: "1g"
     spark.plugins: "org.apache.spark.CometPlugin"
@@ -46,7 +46,7 @@ spec:
           command: ["sh", "-c"]
           args:
           - |
-            wget -O /comet/comet.jar "https://repo1.maven.org/maven2/org/apache/datafusion/comet-spark-spark4.0_2.13/0.16.0/comet-spark-spark4.0_2.13-0.16.0.jar"
+            wget -O /comet/comet.jar "https://repo1.maven.org/maven2/org/apache/datafusion/comet-spark-spark4.1_2.13/0.16.0/comet-spark-spark4.1_2.13-0.16.0.jar"
           volumeMounts:
           - name: comet
             mountPath: /comet
@@ -68,7 +68,7 @@ spec:
           command: ["sh", "-c"]
           args:
           - |
-            wget -O /comet/comet.jar "https://repo1.maven.org/maven2/org/apache/datafusion/comet-spark-spark4.0_2.13/0.16.0/comet-spark-spark4.0_2.13-0.16.0.jar"
+            wget -O /comet/comet.jar "https://repo1.maven.org/maven2/org/apache/datafusion/comet-spark-spark4.1_2.13/0.16.0/comet-spark-spark4.1_2.13-0.16.0.jar"
           volumeMounts:
           - name: comet
             mountPath: /comet
@@ -82,4 +82,4 @@ spec:
           emptyDir:
             sizeLimit: 200Mi
   runtimeVersions:
-    sparkVersion: "4.0.2"
+    sparkVersion: "4.1.1"
