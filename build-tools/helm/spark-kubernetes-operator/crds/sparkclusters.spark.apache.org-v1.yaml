@@ -9834,6 +9834,11 @@ spec:
                                         type: string
                                     type: object
                                   type: array
+                                schedulingGroup:
+                                  properties:
+                                    podGroupName:
+                                      type: string
+                                  type: object
                                 securityContext:
                                   properties:
                                     appArmorProfile:
@@ -10669,15 +10674,6 @@ spec:
                                         type: object
                                     type: object
                                   type: array
-                                workloadRef:
-                                  properties:
-                                    name:
-                                      type: string
-                                    podGroup:
-                                      type: string
-                                    podGroupReplicaKey:
-                                      type: string
-                                  type: object
                               type: object
                           type: object
                         updateStrategy:
@@ -13665,6 +13661,11 @@ spec:
                                         type: string
                                     type: object
                                   type: array
+                                schedulingGroup:
+                                  properties:
+                                    podGroupName:
+                                      type: string
+                                  type: object
                                 securityContext:
                                   properties:
                                     appArmorProfile:
@@ -14500,15 +14501,6 @@ spec:
                                         type: object
                                     type: object
                                   type: array
-                                workloadRef:
-                                  properties:
-                                    name:
-                                      type: string
-                                    podGroup:
-                                      type: string
-                                    podGroupReplicaKey:
-                                      type: string
-                                  type: object
                               type: object
                           type: object
                         updateStrategy:

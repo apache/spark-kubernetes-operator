@@ -11345,6 +11345,11 @@ spec:
                                     type: string
                                 type: object
                               type: array
+                            schedulingGroup:
+                              properties:
+                                podGroupName:
+                                  type: string
+                              type: object
                             securityContext:
                               properties:
                                 appArmorProfile:
@@ -12180,15 +12185,6 @@ spec:
                                     type: object
                                 type: object
                               type: array
-                            workloadRef:
-                              properties:
-                                name:
-                                  type: string
-                                podGroup:
-                                  type: string
-                                podGroupReplicaKey:
-                                  type: string
-                              type: object
                           type: object
                       type: object
                   type: object
@@ -14415,6 +14411,11 @@ spec:
                                     type: string
                                 type: object
                               type: array
+                            schedulingGroup:
+                              properties:
+                                podGroupName:
+                                  type: string
+                              type: object
                             securityContext:
                               properties:
                                 appArmorProfile:
@@ -15250,15 +15251,6 @@ spec:
                                     type: object
                                 type: object
                               type: array
-                            workloadRef:
-                              properties:
-                                name:
-                                  type: string
-                                podGroup:
-                                  type: string
-                                podGroupReplicaKey:
-                                  type: string
-                              type: object
                           type: object
                       type: object
                   type: object
@@ -15379,6 +15371,8 @@ spec:
                                               properties:
                                                 health:
                                                   type: string
+                                                message:
+                                                  type: string
                                                 resourceID:
                                                   type: string
                                               type: object
@@ -15516,6 +15510,14 @@ spec:
                                             type: boolean
                                           recursiveReadOnly:
                                             type: string
+                                          volumeStatus:
+                                            properties:
+                                              image:
+                                                properties:
+                                                  imageRef:
+                                                    type: string
+                                                type: object
+                                            type: object
                                         type: object
                                       type: array
                                   type: object
@@ -15540,6 +15542,8 @@ spec:
                                               properties:
                                                 health:
                                                   type: string
+                                                message:
+                                                  type: string
                                                 resourceID:
                                                   type: string
                                               type: object
@@ -15677,6 +15681,14 @@ spec:
                                             type: boolean
                                           recursiveReadOnly:
                                             type: string
+                                          volumeStatus:
+                                            properties:
+                                              image:
+                                                properties:
+                                                  imageRef:
+                                                    type: string
+                                                type: object
+                                            type: object
                                         type: object
                                       type: array
                                   type: object
@@ -15726,6 +15738,8 @@ spec:
                                               properties:
                                                 health:
                                                   type: string
+                                                message:
+                                                  type: string
                                                 resourceID:
                                                   type: string
                                               type: object
@@ -15863,12 +15877,38 @@ spec:
                                             type: boolean
                                           recursiveReadOnly:
                                             type: string
+                                          volumeStatus:
+                                            properties:
+                                              image:
+                                                properties:
+                                                  imageRef:
+                                                    type: string
+                                                type: object
+                                            type: object
                                         type: object
                                       type: array
                                   type: object
                                 type: array
                               message:
                                 type: string
+                              nodeAllocatableResourceClaimStatuses:
+                                items:
+                                  properties:
+                                    containers:
+                                      items:
+                                        type: string
+                                      type: array
+                                    resourceClaimName:
+                                      type: string
+                                    resources:
+                                      additionalProperties:
+                                        anyOf:
+                                          - type: integer
+                                          - type: string
+                                        x-kubernetes-int-or-string: true
+                                      type: object
+                                  type: object
+                                type: array
                               nominatedNodeName:
                                 type: string
                               observedGeneration:
@@ -16006,6 +16046,8 @@ spec:
                                         properties:
                                           health:
                                             type: string
+                                          message:
+                                            type: string
                                           resourceID:
                                             type: string
                                         type: object
@@ -16143,6 +16185,14 @@ spec:
                                       type: boolean
                                     recursiveReadOnly:
                                       type: string
+                                    volumeStatus:
+                                      properties:
+                                        image:
+                                          properties:
+                                            imageRef:
+                                              type: string
+                                          type: object
+                                      type: object
                                   type: object
                                 type: array
                             type: object
@@ -16167,6 +16217,8 @@ spec:
                                         properties:
                                           health:
                                             type: string
+                                          message:
+                                            type: string
                                           resourceID:
                                             type: string
                                         type: object
@@ -16304,6 +16356,14 @@ spec:
                                       type: boolean
                                     recursiveReadOnly:
                                       type: string
+                                    volumeStatus:
+                                      properties:
+                                        image:
+                                          properties:
+                                            imageRef:
+                                              type: string
+                                          type: object
+                                      type: object
                                   type: object
                                 type: array
                             type: object
@@ -16353,6 +16413,8 @@ spec:
                                         properties:
                                           health:
                                             type: string
+                                          message:
+                                            type: string
                                           resourceID:
                                             type: string
                                         type: object
@@ -16490,12 +16552,38 @@ spec:
                                       type: boolean
                                     recursiveReadOnly:
                                       type: string
+                                    volumeStatus:
+                                      properties:
+                                        image:
+                                          properties:
+                                            imageRef:
+                                              type: string
+                                          type: object
+                                      type: object
                                   type: object
                                 type: array
                             type: object
                           type: array
                         message:
                           type: string
+                        nodeAllocatableResourceClaimStatuses:
+                          items:
+                            properties:
+                              containers:
+                                items:
+                                  type: string
+                                type: array
+                              resourceClaimName:
+                                type: string
+                              resources:
+                                additionalProperties:
+                                  anyOf:
+                                    - type: integer
+                                    - type: string
+                                  x-kubernetes-int-or-string: true
+                                type: object
+                            type: object
+                          type: array
                         nominatedNodeName:
                           type: string
                         observedGeneration:
@@ -16645,6 +16733,8 @@ spec:
                                               properties:
                                                 health:
                                                   type: string
+                                                message:
+                                                  type: string
                                                 resourceID:
                                                   type: string
                                               type: object
@@ -16782,6 +16872,14 @@ spec:
                                             type: boolean
                                           recursiveReadOnly:
                                             type: string
+                                          volumeStatus:
+                                            properties:
+                                              image:
+                                                properties:
+                                                  imageRef:
+                                                    type: string
+                                                type: object
+                                            type: object
                                         type: object
                                       type: array
                                   type: object
@@ -16806,6 +16904,8 @@ spec:
                                               properties:
                                                 health:
                                                   type: string
+                                                message:
+                                                  type: string
                                                 resourceID:
                                                   type: string
                                               type: object
@@ -16943,6 +17043,14 @@ spec:
                                             type: boolean
                                           recursiveReadOnly:
                                             type: string
+                                          volumeStatus:
+                                            properties:
+                                              image:
+                                                properties:
+                                                  imageRef:
+                                                    type: string
+                                                type: object
+                                            type: object
                                         type: object
                                       type: array
                                   type: object
@@ -16992,6 +17100,8 @@ spec:
                                               properties:
                                                 health:
                                                   type: string
+                                                message:
+                                                  type: string
                                                 resourceID:
                                                   type: string
                                               type: object
@@ -17129,12 +17239,38 @@ spec:
                                             type: boolean
                                           recursiveReadOnly:
                                             type: string
+                                          volumeStatus:
+                                            properties:
+                                              image:
+                                                properties:
+                                                  imageRef:
+                                                    type: string
+                                                type: object
+                                            type: object
                                         type: object
                                       type: array
                                   type: object
                                 type: array
                               message:
                                 type: string
+                              nodeAllocatableResourceClaimStatuses:
+                                items:
+                                  properties:
+                                    containers:
+                                      items:
+                                        type: string
+                                      type: array
+                                    resourceClaimName:
+                                      type: string
+                                    resources:
+                                      additionalProperties:
+                                        anyOf:
+                                          - type: integer
+                                          - type: string
+                                        x-kubernetes-int-or-string: true
+                                      type: object
+                                  type: object
+                                type: array
                               nominatedNodeName:
                                 type: string
                               observedGeneration:
@@ -17273,6 +17409,8 @@ spec:
                                           properties:
                                             health:
                                               type: string
+                                            message:
+                                              type: string
                                             resourceID:
                                               type: string
                                           type: object
@@ -17410,6 +17548,14 @@ spec:
                                         type: boolean
                                       recursiveReadOnly:
                                         type: string
+                                      volumeStatus:
+                                        properties:
+                                          image:
+                                            properties:
+                                              imageRef:
+                                                type: string
+                                            type: object
+                                        type: object
                                     type: object
                                   type: array
                               type: object
@@ -17434,6 +17580,8 @@ spec:
                                           properties:
                                             health:
                                               type: string
+                                            message:
+                                              type: string
                                             resourceID:
                                               type: string
                                           type: object
@@ -17571,6 +17719,14 @@ spec:
                                         type: boolean
                                       recursiveReadOnly:
                                         type: string
+                                      volumeStatus:
+                                        properties:
+                                          image:
+                                            properties:
+                                              imageRef:
+                                                type: string
+                                            type: object
+                                        type: object
                                     type: object
                                   type: array
                               type: object
@@ -17620,6 +17776,8 @@ spec:
                                           properties:
                                             health:
                                               type: string
+                                            message:
+                                              type: string
                                             resourceID:
                                               type: string
                                           type: object
@@ -17757,12 +17915,38 @@ spec:
                                         type: boolean
                                       recursiveReadOnly:
                                         type: string
+                                      volumeStatus:
+                                        properties:
+                                          image:
+                                            properties:
+                                              imageRef:
+                                                type: string
+                                            type: object
+                                        type: object
                                     type: object
                                   type: array
                               type: object
                             type: array
                           message:
                             type: string
+                          nodeAllocatableResourceClaimStatuses:
+                            items:
+                              properties:
+                                containers:
+                                  items:
+                                    type: string
+                                  type: array
+                                resourceClaimName:
+                                  type: string
+                                resources:
+                                  additionalProperties:
+                                    anyOf:
+                                      - type: integer
+                                      - type: string
+                                    x-kubernetes-int-or-string: true
+                                  type: object
+                              type: object
+                            type: array
                           nominatedNodeName:
                             type: string
                           observedGeneration:
