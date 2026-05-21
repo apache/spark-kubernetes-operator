@@ -17,27 +17,12 @@
 # limitations under the License.
 #
 
-import os
-import re
+import argparse
 import subprocess
 import sys
 import traceback
 
-try:
-    import jira.client
-
-    JIRA_IMPORTED = True
-except ImportError:
-    JIRA_IMPORTED = False
-
-# ASF JIRA access token
-JIRA_ACCESS_TOKEN = os.environ.get("JIRA_ACCESS_TOKEN")
-JIRA_API_BASE = "https://issues.apache.org/jira"
-
-
-def fail(msg):
-    print(msg)
-    sys.exit(-1)
+from spark_jira_utils import create_jira_issue, fail, get_jira_client
 
 
 def run_cmd(cmd):
@@ -46,48 +31,6 @@ def run_cmd(cmd):
         return subprocess.check_output(cmd).decode("utf-8")
     else:
         return subprocess.check_output(cmd.split(" ")).decode("utf-8")
-
-
-import argparse
-
-def create_jira_issue(title, parent_jira_id=None, issue_type=None, version=None):
-    asf_jira = jira.client.JIRA(
-        {"server": JIRA_API_BASE},
-        token_auth=JIRA_ACCESS_TOKEN,
-        timeout=(3.05, 30)
-    )
-
-    if version is None:
-        versions = asf_jira.project_versions("SPARK")
-        # Consider only kubernetes-operator-x.y.z, unreleased, unarchived versions
-        versions = [
-            x for x in versions
-            if not x.raw["released"] and not x.raw["archived"] and re.match(r"kubernetes-operator-\d+\.\d+\.\d+", x.name)
-        ]
-        versions = sorted(versions, key=lambda x: x.name, reverse=True)
-        affected_version = versions[0].name
-    else:
-        affected_version = version
-
-    issue_dict = {
-        'project': {'key': 'SPARK'},
-        'summary': title,
-        'description': '',
-        'components': [{'name': 'Kubernetes'}],
-        'versions': [{'name': affected_version}],
-    }
-
-    if parent_jira_id:
-        issue_dict['issuetype'] = {'name': 'Sub-task'}
-        issue_dict['parent'] = {'key': parent_jira_id}
-    else:
-        issue_dict['issuetype'] = {'name': issue_type if issue_type else 'Improvement'}
-
-    try:
-        new_issue = asf_jira.create_issue(fields=issue_dict)
-        return new_issue.key
-    except Exception as e:
-        fail("Failed to create JIRA issue: %s" % e)
 
 
 def create_and_checkout_branch(jira_id):
@@ -107,12 +50,6 @@ def create_commit(jira_id, title):
 
 
 def main():
-    if not JIRA_IMPORTED:
-        fail("Could not find jira-python library. Run 'sudo pip3 install jira' to install.")
-
-    if not JIRA_ACCESS_TOKEN:
-        fail("The env-var JIRA_ACCESS_TOKEN is not set.")
-
     parser = argparse.ArgumentParser(description="Create a Spark JIRA issue.")
     parser.add_argument("title", help="Title of the JIRA issue")
     parser.add_argument("-p", "--parent", help="Parent JIRA ID for subtasks")
@@ -125,7 +62,10 @@ def main():
     else:
         print("Creating JIRA issue with title: %s" % args.title)
 
-    jira_id = create_jira_issue(args.title, args.parent, args.type, args.version)
+    asf_jira = get_jira_client()
+    jira_id = create_jira_issue(
+        asf_jira, args.title, "Kubernetes", args.parent, args.type, args.version
+    )
     print("Created JIRA issue: %s" % jira_id)
 
     create_and_checkout_branch(jira_id)
