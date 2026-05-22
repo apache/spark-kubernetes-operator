@@ -31,4 +31,4 @@ spec:
     spark.kubernetes.container.image: "apache/spark:non-existent-image"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
   runtimeVersions:
-    sparkVersion: "4.1.1"
+    sparkVersion: "4.1.2"

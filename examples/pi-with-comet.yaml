@@ -30,7 +30,7 @@ spec:
     spark.dynamicAllocation.shuffleTracking.enabled: "true"
     spark.executor.extraClassPath: "local:///comet/comet.jar"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
-    spark.kubernetes.container.image: "apache/spark:4.1.1-scala"
+    spark.kubernetes.container.image: "apache/spark:4.1.2-scala"
     spark.memory.offHeap.enabled: "true"
     spark.memory.offHeap.size: "1g"
     spark.plugins: "org.apache.spark.CometPlugin"
@@ -82,4 +82,4 @@ spec:
           emptyDir:
             sizeLimit: 200Mi
   runtimeVersions:
-    sparkVersion: "4.1.1"
+    sparkVersion: "4.1.2"
