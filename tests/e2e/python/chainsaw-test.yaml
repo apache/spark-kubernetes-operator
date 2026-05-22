@@ -28,13 +28,6 @@ spec:
           value: "2.13"
         - name: "IMAGE"
           value: "apache/spark:4.1.2-python3"
-    - bindings:
-        - name: "SPARK_VERSION"
-          value: "3.5.8"
-        - name: "SCALA_VERSION"
-          value: "2.12"
-        - name: "IMAGE"
-          value: "apache/spark:3.5.8-scala2.12-java17-python3-ubuntu"
   steps:
     - name: install-spark-application
       try:

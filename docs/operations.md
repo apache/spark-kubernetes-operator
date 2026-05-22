@@ -25,7 +25,7 @@ under the License.
 - Kubernetes version compatibility:
   - k8s version >= 1.34 is recommended. Operator attempts to be as API compatible as possible, but
       patch support will not be performed on k8s versions that reached EOL.
-- Spark versions 3.5 or above.
+- Spark versions 4.0 or above.
 
 ## Spark Application Namespaces
 

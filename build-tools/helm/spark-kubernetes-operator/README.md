@@ -38,7 +38,7 @@ cluster using the [Helm](https://helm.sh) package manager. With this, you can la
 
 ## Features
 
-- Support Apache Spark 3.5+
+- Support Apache Spark 4.0+
 - Support `SparkApp` and `SparkCluster` CRDs
   - `sparkapplications.spark.apache.org` (v1)
   - `sparkclusters.spark.apache.org` (v1)
