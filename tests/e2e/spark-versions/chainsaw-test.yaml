@@ -32,15 +32,6 @@ spec:
         value: "apache/spark:4.1.2-scala-java17"
   - bindings:
       - name: "SPARK_VERSION"
-        value: "3.5.8"
-      - name: "SCALA_VERSION"
-        value: "2.12"
-      - name: "JAVA_VERSION"
-        value: "17"
-      - name: "IMAGE"
-        value: 'apache/spark:3.5.8-scala2.12-java17-ubuntu'
-  - bindings:
-      - name: "SPARK_VERSION"
         value: "4.1.2"
       - name: "SCALA_VERSION"
         value: "2.13"
