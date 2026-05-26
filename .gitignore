@@ -1,5 +1,7 @@
 *.swp
 *~
+*.pyc
+*.pyo
 .java-version
 .DS_Store
 .idea/
