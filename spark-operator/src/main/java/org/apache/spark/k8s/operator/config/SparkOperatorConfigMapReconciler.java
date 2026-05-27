@@ -19,29 +19,23 @@
 
 package org.apache.spark.k8s.operator.config;
 
-import java.util.Set;
-import java.util.function.Function;
-
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
 import io.javaoperatorsdk.operator.api.reconciler.ControllerConfiguration;
 import io.javaoperatorsdk.operator.api.reconciler.ErrorStatusUpdateControl;
 import io.javaoperatorsdk.operator.api.reconciler.Reconciler;
 import io.javaoperatorsdk.operator.api.reconciler.UpdateControl;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * This serves dynamic configuration for Spark Operator. When enabled, Operator assumes config file
  * is located in given config map. It would keep watch the config map and apply changes when update
- * is detected.
+ * is detected. The set of watched namespaces is intentionally excluded from dynamic refresh and can
+ * only be changed by restarting the operator with updated Helm values.
  */
 @ControllerConfiguration
-@RequiredArgsConstructor
 @Slf4j
 public class SparkOperatorConfigMapReconciler implements Reconciler<ConfigMap> {
-  private final Function<Set<String>, Boolean> namespaceUpdater;
-  private final Function<Void, Set<String>> watchedNamespacesGetter;
 
   /**
    * Updates the error status of the ConfigMap reconciliation.
@@ -70,7 +64,6 @@ public class SparkOperatorConfigMapReconciler implements Reconciler<ConfigMap> {
   public UpdateControl<ConfigMap> reconcile(ConfigMap resource, Context<ConfigMap> context)
       throws Exception {
     SparkOperatorConfManager.INSTANCE.refresh(resource.getData());
-    namespaceUpdater.apply(watchedNamespacesGetter.apply(null));
     return UpdateControl.noUpdate();
   }
 }
