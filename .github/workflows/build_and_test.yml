@@ -96,7 +96,6 @@ jobs:
           - resource-retain-duration
           - resource-retain-on-failure
           - resource-selector
-          - watched-namespaces
           - driver-start-timeout
         exclude:
           - mode: dynamic
@@ -114,8 +113,6 @@ jobs:
           - mode: dynamic
             test-group: driver-start-timeout
           - mode: static
-            test-group: watched-namespaces
-          - mode: static
             test-group: resource-selector
           - mode: selector
             test-group: spark-versions
@@ -127,8 +124,6 @@ jobs:
             test-group: resource-retain-duration
           - mode: selector
             test-group: resource-retain-on-failure
-          - mode: selector
-            test-group: watched-namespaces
           - mode: selector
             test-group: driver-start-timeout
         include:
