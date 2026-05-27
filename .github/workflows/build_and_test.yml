@@ -22,7 +22,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
       - name: Check license header
-        uses: apache/skywalking-eyes@main
+        uses: apache/skywalking-eyes@e9f91c35e4d4ae4420f722aa6598c4a13cc69093
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
