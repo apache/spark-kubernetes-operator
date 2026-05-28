@@ -266,7 +266,8 @@ public final class SparkOperatorConf {
           ConfigOption.<String>builder()
                   .key("spark.kubernetes.operator.dynamicConfig.name")
                   .enableDynamicOverride(false)
-                  .description("The name of the config map to read the dynamic namespace configuration.")
+                  .description("The name of the config map to read " +
+                          "the dynamic namespace configuration.")
                   .typeParameterClass(String.class)
                   .defaultValue("spark-kubernetes-operator-dynamic-configuration")
                   .build();
