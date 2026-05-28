@@ -261,7 +261,7 @@ public final class SparkOperatorConf {
           .defaultValue(Utils.labelsAsStr(Utils.defaultOperatorConfigLabels()))
           .build();
 
-  /** The name of the dynamic config map. */
+  /** The name of the dynamic namespace list config map. */
   public static final ConfigOption<String> DYNAMIC_CONFIG_MAP_NAME =
           ConfigOption.<String>builder()
                   .key("spark.kubernetes.operator.dynamicConfig.name")
