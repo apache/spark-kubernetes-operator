@@ -261,6 +261,16 @@ public final class SparkOperatorConf {
           .defaultValue(Utils.labelsAsStr(Utils.defaultOperatorConfigLabels()))
           .build();
 
+  /** The name of the dynamic config map. */
+  public static final ConfigOption<String> DYNAMIC_CONFIG_MAP_NAME =
+          ConfigOption.<String>builder()
+                  .key("spark.kubernetes.operator.dynamicConfig.name")
+                  .enableDynamicOverride(false)
+                  .description("The name of the config map to read the dynamic namespace configuration.")
+                  .typeParameterClass(String.class)
+                  .defaultValue("spark-kubernetes-operator-dynamic-configuration")
+                  .build();
+
   /**
    * Parallelism for dynamic config reconciler. Unbounded pool would be used if set to non-positive
    * number.

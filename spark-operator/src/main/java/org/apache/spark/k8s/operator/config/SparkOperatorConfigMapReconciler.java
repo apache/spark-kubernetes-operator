@@ -31,6 +31,8 @@ import io.javaoperatorsdk.operator.api.reconciler.UpdateControl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import static org.apache.spark.k8s.operator.config.SparkOperatorConf.DYNAMIC_CONFIG_MAP_NAME;
+
 /**
  * This serves dynamic configuration for Spark Operator. When enabled, Operator assumes config file
  * is located in given config map. It would keep watch the config map and apply changes when update
@@ -69,6 +71,11 @@ public class SparkOperatorConfigMapReconciler implements Reconciler<ConfigMap> {
   @Override
   public UpdateControl<ConfigMap> reconcile(ConfigMap resource, Context<ConfigMap> context)
       throws Exception {
+
+    if (!resource.getMetadata().getName().equals(DYNAMIC_CONFIG_MAP_NAME.getValue())){
+      return UpdateControl.noUpdate();
+    }
+
     SparkOperatorConfManager.INSTANCE.refresh(resource.getData());
     namespaceUpdater.apply(watchedNamespacesGetter.apply(null));
     return UpdateControl.noUpdate();
