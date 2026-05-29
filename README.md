@@ -3,7 +3,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Release](https://img.shields.io/github/v/release/apache/spark-kubernetes-operator)](https://github.com/apache/spark-kubernetes-operator/releases)
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/spark-kubernetes-operator)](https://artifacthub.io/packages/search?repo=spark-kubernetes-operator)
-[![GitHub Actions Build](https://github.com/apache/spark-kubernetes-operator/actions/workflows/build_and_test.yml/badge.svg)](https://github.com/apache/spark-kubernetes-operator/actions/workflows/build_and_test.yml)
+[![GitHub Actions Build](https://github.com/apache/spark-kubernetes-operator/actions/workflows/build_main.yml/badge.svg)](https://github.com/apache/spark-kubernetes-operator/actions/workflows/build_main.yml)
 [![Java](https://img.shields.io/badge/Java-21+-brightgreen.svg)](https://adoptium.net/temurin/releases/?version=21)
 [![Repo Size](https://img.shields.io/github/repo-size/apache/spark-kubernetes-operator)](https://img.shields.io/github/repo-size/apache/spark-kubernetes-operator)
 
