@@ -1,17 +1,7 @@
 name: Build and test
 
 on:
-  push:
-    branches:
-    - main
-  pull_request:
-    branches:
-    - main
-
-# Cancel previous PR build and test
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.number || github.sha }}
-  cancel-in-progress: true
+  workflow_call:
 
 jobs:
   license-check:
