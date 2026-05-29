@@ -22,6 +22,7 @@ buildscript {
       url = uri("https://plugins.gradle.org/m2/")
     }
   }
+
   dependencies {
     classpath "${libs.spotbugs.gradle.plugin.get()}"
     classpath "${libs.spotless.plugin.gradle.get()}"
