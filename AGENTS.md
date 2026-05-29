@@ -1,11 +1,11 @@
 # Agent Guide — Apache Spark K8s Operator
 
 Guidance for AI agents and contributors working in this repository
-(Apache Spark™ Kubernetes Operator).
+(Apache Spark Kubernetes Operator).
 
 ## Project Overview
 
-Apache Spark™ K8s Operator is a subproject of Apache Spark that extends Kubernetes to manage the
+Apache Spark K8s Operator is a subproject of Apache Spark that extends Kubernetes to manage the
 full lifecycle of Spark applications and clusters via the
 [Operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/). It watches
 `SparkApplication` and `SparkCluster` custom resources and reconciles them — launching the
