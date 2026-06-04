@@ -200,6 +200,47 @@ public final class SparkOperatorConf {
           .build();
 
   /**
+   * Grace period (in seconds) the operator waits for the pod informer cache to catch up
+   * after the driver pod is observed missing, before doing a live API verification. Brief
+   * cache lag during pod creation/update event propagation is normal; only sustained absence
+   * triggers an apiserver lookup. Set to 0 to verify on every cache miss.
+   */
+  public static final ConfigOption<Integer> MISSING_DRIVER_GRACE_PERIOD_SECONDS =
+      ConfigOption.<Integer>builder()
+          .key("spark.kubernetes.operator.reconciler.missingDriverGracePeriodSeconds")
+          .enableDynamicOverride(true)
+          .description(
+              "Grace period (in seconds) the operator waits for the pod informer cache to "
+                  + "catch up after the driver pod is observed missing, before doing a live "
+                  + "API verification against the Kubernetes apiserver. This protects healthy "
+                  + "applications from being failed when the informer cache is briefly stale "
+                  + "(e.g., after a watch reconnect). Set to 0 to verify on every cache miss.")
+          .typeParameterClass(Integer.class)
+          .defaultValue(60)
+          .build();
+
+  /**
+   * Default requeue interval (in seconds) used for short-lived requeues while waiting for a
+   * transient condition to clear (e.g., for the pod informer cache to catch up during the
+   * missing-driver grace period). Distinct from {@link #RECONCILER_INTERVAL_SECONDS}, which
+   * controls the steady-state periodic reconcile cadence.
+   */
+  public static final ConfigOption<Integer> DEFAULT_REQUEUE_INTERVAL_SECONDS =
+      ConfigOption.<Integer>builder()
+          .key("spark.kubernetes.operator.reconciler.defaultRequeueIntervalSeconds")
+          .enableDynamicOverride(true)
+          .description(
+              "Default requeue interval (in seconds) used for short-lived requeues while waiting "
+                  + "for a transient condition to clear, e.g., for the pod informer cache to "
+                  + "catch up during the missing-driver grace period. Distinct from "
+                  + "spark.kubernetes.operator.reconciler.intervalSeconds, which controls the "
+                  + "steady-state periodic reconcile cadence.")
+          .typeParameterClass(Integer.class)
+          .defaultValue(15)
+          .build();
+
+
+  /**
    * When enabled, operator would trim state transition history when a new attempt starts, keeping
    * previous attempt summary only.
    */

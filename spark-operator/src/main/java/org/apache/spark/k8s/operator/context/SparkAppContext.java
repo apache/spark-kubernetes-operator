@@ -71,6 +71,23 @@ public class SparkAppContext extends BaseContext<SparkApplication> {
   }
 
   /**
+   * Live lookup of the driver pod against the API server, bypassing the informer cache.
+   *
+   * @return An Optional containing the driver Pod as known to the API server.
+   */
+  public Optional<Pod> getDriverPodFromApi() {
+    return josdkContext
+        .getClient()
+        .pods()
+        .inNamespace(sparkApplication.getMetadata().getNamespace())
+        .withLabels(driverLabels(sparkApplication))
+        .list()
+        .getItems()
+        .stream()
+        .findAny();
+  }
+
+  /**
    * Returns a set of executor pods for the Spark application.
    *
    * @return A Set of Pods representing the executors.
