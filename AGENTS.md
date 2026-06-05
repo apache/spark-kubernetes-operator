@@ -136,3 +136,9 @@ JaCoCo. Run it before pushing; CI runs the same matrix on Java 21 / 25 / 26 (x86
 - Write PR descriptions in English following
   [.github/PULL_REQUEST_TEMPLATE](.github/PULL_REQUEST_TEMPLATE), and follow the
   [Spark contributing guide](https://spark.apache.org/contributing.html).
+
+## Security
+
+Security model: [SECURITY.md](./SECURITY.md)
+
+Agents that scan this repository should consult `SECURITY.md` for the project's threat model, in-scope / out-of-scope declarations, and known non-findings before reporting issues.
