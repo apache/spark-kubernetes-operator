@@ -168,6 +168,7 @@ public class SparkAppSubmissionWorker {
     effectiveSparkConf.setIfMissing("spark.authenticate", "true");
     effectiveSparkConf.setIfMissing("spark.io.encryption.enabled", "true");
     effectiveSparkConf.setIfMissing("spark.kubernetes.driver.annotateExitException", "true");
+    effectiveSparkConf.setIfMissing("spark.kubernetes.executor.useDriverPodIP", "true");
     // In case of static allocation, use K8s Garbage Collection instead of explicit API invocations
     if (!"true".equalsIgnoreCase(effectiveSparkConf.get("spark.dynamicAllocation.enabled", "false"))
         && applicationSpec.getApplicationTolerations().getResourceRetainPolicy() !=
