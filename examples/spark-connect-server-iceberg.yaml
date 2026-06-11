@@ -30,7 +30,7 @@ spec:
     spark.jars.ivy: "/tmp/.ivy2.5.2"
     spark.jars.packages: "org.apache.hadoop:hadoop-aws:3.4.1,org.apache.iceberg:iceberg-spark-runtime-4.0_2.13:1.11.0"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
-    spark.kubernetes.container.image: "apache/spark:4.0.2"
+    spark.kubernetes.container.image: "apache/spark:4.0.3"
     spark.kubernetes.executor.podNamePrefix: "spark-connect-server-iceberg"
     spark.scheduler.mode: "FAIR"
     spark.sql.catalog.s3.type: "hadoop"
@@ -41,4 +41,4 @@ spec:
   applicationTolerations:
     resourceRetainPolicy: OnFailure
   runtimeVersions:
-    sparkVersion: "4.0.2"
+    sparkVersion: "4.0.3"
