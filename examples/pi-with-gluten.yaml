@@ -26,7 +26,7 @@ spec:
     spark.dynamicAllocation.shuffleTracking.enabled: "true"
     spark.executor.extraClassPath: "local:///gluten/gluten.jar"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
-    spark.kubernetes.container.image: "apache/spark:4.0.2-scala"
+    spark.kubernetes.container.image: "apache/spark:4.0.3-scala"
     spark.kubernetes.node.selector.kubernetes.io/arch: "amd64"
     spark.memory.offHeap.enabled: "true"
     spark.memory.offHeap.size: "1g"
@@ -84,4 +84,4 @@ spec:
           emptyDir:
             sizeLimit: 500Mi
   runtimeVersions:
-    sparkVersion: "4.0.2"
+    sparkVersion: "4.0.3"
