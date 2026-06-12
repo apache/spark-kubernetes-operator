@@ -26,7 +26,6 @@ import static org.apache.spark.k8s.operator.utils.Utils.getWatchedNamespaces;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -37,7 +36,6 @@ import java.util.concurrent.TimeUnit;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.http.Interceptor;
 import io.javaoperatorsdk.operator.Operator;
-import io.javaoperatorsdk.operator.RegisteredController;
 import io.javaoperatorsdk.operator.api.config.ConfigurationServiceOverrider;
 import io.javaoperatorsdk.operator.api.config.ControllerConfigurationOverrider;
 import lombok.extern.slf4j.Slf4j;
@@ -73,7 +71,6 @@ public class SparkOperator {
   private final SparkClusterSubmissionWorker clusterSubmissionWorker;
   private final SparkAppStatusRecorder sparkAppStatusRecorder;
   private final SparkClusterStatusRecorder sparkClusterStatusRecorder;
-  protected Set<RegisteredController<?>> registeredSparkControllers;
   protected Set<String> watchedNamespaces;
   private final MetricsSystem metricsSystem;
   private final SentinelManager<SparkApplication> sparkApplicationSentinelManager;
@@ -95,7 +92,6 @@ public class SparkOperator {
     this.sparkAppStatusRecorder =
         new SparkAppStatusRecorder(getAppStatusListener(), recorderSource);
     this.sparkClusterStatusRecorder = new SparkClusterStatusRecorder(getClusterStatusListener());
-    this.registeredSparkControllers = new HashSet<>();
     this.watchedNamespaces = getWatchedNamespaces();
     this.sparkApplicationSentinelManager = new SentinelManager<>();
     this.sparkClusterSentinelManager = new SentinelManager<>();
@@ -161,16 +157,14 @@ public class SparkOperator {
    */
   protected Operator registerSparkOperator() {
     Operator op = new Operator(this::overrideOperatorConfigs);
-    registeredSparkControllers.add(
-        op.register(
-            new SparkAppReconciler(
-                appSubmissionWorker, sparkAppStatusRecorder, sparkApplicationSentinelManager),
-            this::overrideControllerConfigs));
-    registeredSparkControllers.add(
-        op.register(
-            new SparkClusterReconciler(
-                clusterSubmissionWorker, sparkClusterStatusRecorder, sparkClusterSentinelManager),
-            this::overrideControllerConfigs));
+    op.register(
+        new SparkAppReconciler(
+            appSubmissionWorker, sparkAppStatusRecorder, sparkApplicationSentinelManager),
+        this::overrideControllerConfigs);
+    op.register(
+        new SparkClusterReconciler(
+            clusterSubmissionWorker, sparkClusterStatusRecorder, sparkClusterSentinelManager),
+        this::overrideControllerConfigs);
     return op;
   }
 
@@ -188,46 +182,13 @@ public class SparkOperator {
         operatorNamespace,
         confSelector);
     op.register(
-        new SparkOperatorConfigMapReconciler(
-            this::updateWatchingNamespaces, unused -> getWatchedNamespaces()),
+        new SparkOperatorConfigMapReconciler(),
         c -> {
           c.withRateLimiter(SparkOperatorConf.getOperatorRateLimiter());
           c.settingNamespaces(operatorNamespace);
           c.withLabelSelector(confSelector);
         });
     return op;
-  }
-
-  /**
-   * Updates the set of namespaces that the operator is watching.
-   *
-   * @param namespaces The new set of namespaces to watch.
-   * @return True if the namespaces were updated, false otherwise.
-   */
-  protected boolean updateWatchingNamespaces(Set<String> namespaces) {
-    if (watchedNamespaces.equals(namespaces)) {
-      log.info("No watched namespace change detected");
-      return false;
-    }
-    if (watchedNamespaces.isEmpty()) {
-      log.info("Cannot update watch namespaces for operator started at cluster level.");
-      return false;
-    }
-    if (namespaces == null || namespaces.isEmpty()) {
-      log.error("Cannot updating namespaces to empty");
-      return false;
-    }
-    registeredSparkControllers.forEach(
-        c -> {
-          if (c.allowsNamespaceChanges()) {
-            log.info("Updating operator namespaces to {}", namespaces);
-            c.changeNamespaces(namespaces);
-          } else {
-            log.error("Controller does not allow namespace change, skipping namespace change.");
-          }
-        });
-    this.watchedNamespaces = new HashSet<>(namespaces);
-    return true;
   }
 
   /**

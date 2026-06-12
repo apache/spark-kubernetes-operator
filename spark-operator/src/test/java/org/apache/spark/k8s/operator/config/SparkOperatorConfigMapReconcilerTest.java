@@ -22,10 +22,8 @@ package org.apache.spark.k8s.operator.config;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.RECONCILER_INTERVAL_SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
-import static org.mockito.Mockito.mock;
 
 import java.util.Map;
-import java.util.function.Function;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.fabric8.kubeapitest.junit.EnableKubeAPIServer;
@@ -50,10 +48,8 @@ class SparkOperatorConfigMapReconcilerTest {
   Operator operator;
 
   @BeforeEach
-  @SuppressWarnings("unchecked")
   void startController() {
-    var reconciler =
-        new SparkOperatorConfigMapReconciler(mock(Function.class), mock(Function.class));
+    var reconciler = new SparkOperatorConfigMapReconciler();
     operator = new Operator(o -> o.withKubernetesClient(client));
     operator.register(reconciler);
     operator.start();
