@@ -25,7 +25,7 @@ spec:
       - apply:
           file: spark-operator-dynamic-config-1.yaml
       - sleep:
-          duration: 30s
+          duration: 150s
       - script:
           content:
             kubectl logs -n default $(kubectl get pods -o=name -l app.kubernetes.io/component=operator-deployment,app.kubernetes.io/name=spark-kubernetes-operator)
