@@ -48,7 +48,7 @@ spec:
               value: spark-2
           file: spark-example.yaml
       - sleep:
-          duration: 60s
+          duration: 150s
       - script:
           content:
             kubectl get sparkapplication spark-job-succeeded-test -n spark-2 -o json | jq ".status"
