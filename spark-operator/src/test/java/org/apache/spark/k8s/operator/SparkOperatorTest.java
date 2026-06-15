@@ -41,8 +41,8 @@ import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 
 import org.apache.spark.k8s.operator.client.KubernetesClientFactory;
+import org.apache.spark.k8s.operator.config.DynamicConfigMonitor;
 import org.apache.spark.k8s.operator.config.SparkOperatorConf;
-import org.apache.spark.k8s.operator.config.SparkOperatorConfigMapReconciler;
 import org.apache.spark.k8s.operator.metrics.MetricsService;
 import org.apache.spark.k8s.operator.metrics.MetricsSystem;
 import org.apache.spark.k8s.operator.metrics.MetricsSystemFactory;
@@ -68,12 +68,12 @@ class SparkOperatorTest {
         MockedConstruction<Operator> operatorConstruction = mockConstruction(Operator.class);
         MockedConstruction<SparkAppReconciler> sparkAppReconcilerConstruction =
             mockConstruction(SparkAppReconciler.class);
-        MockedConstruction<SparkOperatorConfigMapReconciler> configReconcilerConstruction =
-            mockConstruction(SparkOperatorConfigMapReconciler.class);
         MockedConstruction<ProbeService> probeServiceConstruction =
             mockConstruction(ProbeService.class);
         MockedConstruction<MetricsService> metricsServiceConstruction =
             mockConstruction(MetricsService.class);
+        MockedConstruction<DynamicConfigMonitor> dynamicConfigMonitorConstruction =
+            mockConstruction(DynamicConfigMonitor.class);
         MockedConstruction<KubernetesMetricsInterceptor> interceptorMockedConstruction =
             mockConstruction(KubernetesMetricsInterceptor.class)) {
       setConfigKey(SparkOperatorConf.DYNAMIC_CONFIG_ENABLED, true);
@@ -87,11 +87,11 @@ class SparkOperatorTest {
 
       SparkOperator sparkOperator = new SparkOperator();
       Assertions.assertEquals(1, sparkOperator.registeredSparkControllers.size());
-      Assertions.assertEquals(2, operatorConstruction.constructed().size());
+      Assertions.assertEquals(1, operatorConstruction.constructed().size());
       Assertions.assertEquals(1, sparkAppReconcilerConstruction.constructed().size());
-      Assertions.assertEquals(1, configReconcilerConstruction.constructed().size());
       Assertions.assertEquals(1, probeServiceConstruction.constructed().size());
       Assertions.assertEquals(1, metricsServiceConstruction.constructed().size());
+      Assertions.assertEquals(1, dynamicConfigMonitorConstruction.constructed().size());
       Assertions.assertEquals(1, interceptorMockedConstruction.constructed().size());
       verify(mockMetricsSystem).registerSource(interceptorMockedConstruction.constructed().get(0));
 
@@ -119,6 +119,8 @@ class SparkOperatorTest {
             mockConstruction(ProbeService.class);
         MockedConstruction<MetricsService> metricsServiceConstruction =
             mockConstruction(MetricsService.class);
+        MockedConstruction<DynamicConfigMonitor> dynamicConfigMonitorConstruction =
+            mockConstruction(DynamicConfigMonitor.class);
         MockedConstruction<KubernetesMetricsInterceptor> interceptorMockedConstruction =
             mockConstruction(KubernetesMetricsInterceptor.class)) {
       setConfigKey(SparkOperatorConf.DYNAMIC_CONFIG_ENABLED, false);
@@ -134,6 +136,7 @@ class SparkOperatorTest {
       Assertions.assertEquals(1, sparkAppReconcilerConstruction.constructed().size());
       Assertions.assertEquals(1, probeServiceConstruction.constructed().size());
       Assertions.assertEquals(1, metricsServiceConstruction.constructed().size());
+      Assertions.assertEquals(0, dynamicConfigMonitorConstruction.constructed().size());
       Assertions.assertEquals(1, interceptorMockedConstruction.constructed().size());
       verify(mockMetricsSystem).registerSource(interceptorMockedConstruction.constructed().get(0));
     } finally {
@@ -166,12 +169,12 @@ class SparkOperatorTest {
                 });
         MockedConstruction<SparkAppReconciler> sparkAppReconcilerConstruction =
             mockConstruction(SparkAppReconciler.class);
-        MockedConstruction<SparkOperatorConfigMapReconciler> configReconcilerConstruction =
-            mockConstruction(SparkOperatorConfigMapReconciler.class);
         MockedConstruction<ProbeService> probeServiceConstruction =
             mockConstruction(ProbeService.class);
         MockedConstruction<MetricsService> metricsServiceConstruction =
             mockConstruction(MetricsService.class);
+        MockedConstruction<DynamicConfigMonitor> dynamicConfigMonitorConstruction =
+            mockConstruction(DynamicConfigMonitor.class);
         MockedConstruction<KubernetesMetricsInterceptor> interceptorMockedConstruction =
             mockConstruction(KubernetesMetricsInterceptor.class)) {
       setConfigKey(SparkOperatorConf.DYNAMIC_CONFIG_ENABLED, true);

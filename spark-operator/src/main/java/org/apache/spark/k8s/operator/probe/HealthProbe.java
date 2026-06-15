@@ -21,7 +21,7 @@ package org.apache.spark.k8s.operator.probe;
 
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_OK;
-import static org.apache.spark.k8s.operator.utils.ProbeUtil.areOperatorsStarted;
+import static org.apache.spark.k8s.operator.utils.ProbeUtil.isOperatorStarted;
 import static org.apache.spark.k8s.operator.utils.ProbeUtil.sendMessage;
 
 import java.io.IOException;
@@ -40,6 +40,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import org.apache.spark.k8s.operator.config.DynamicConfigMonitor;
 import org.apache.spark.k8s.operator.metrics.healthcheck.SentinelManager;
 
 /** Health probe for the operator. */
@@ -47,8 +48,9 @@ import org.apache.spark.k8s.operator.metrics.healthcheck.SentinelManager;
 @Slf4j
 @RequiredArgsConstructor
 public class HealthProbe implements HttpHandler {
-  private final List<Operator> operators;
+  private final Operator operator;
   private final List<SentinelManager<?>> sentinelManagers;
+  private final DynamicConfigMonitor dynamicConfigMonitor;
 
   /**
    * Checks the overall health of the operator, including all registered operators and sentinel
@@ -57,11 +59,10 @@ public class HealthProbe implements HttpHandler {
    * @return True if the operator is healthy, false otherwise.
    */
   public boolean isHealthy() {
-    if (!areOperatorsStarted(operators).orElse(false)) {
+    if (!isOperatorStarted(operator)) {
       return false;
     }
-
-    if (!operators.stream().allMatch(op -> checkInformersHealth(op.getRuntimeInfo()))) {
+    if (!checkInformersHealth(operator.getRuntimeInfo())) {
       return false;
     }
 
@@ -71,7 +72,10 @@ public class HealthProbe implements HttpHandler {
         return false;
       }
     }
-
+    if (dynamicConfigMonitor != null && !dynamicConfigMonitor.isRunning()) {
+      log.error("Dynamic config monitor is not running.");
+      return false;
+    }
     return true;
   }
 

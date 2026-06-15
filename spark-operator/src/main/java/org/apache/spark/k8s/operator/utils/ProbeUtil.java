@@ -24,7 +24,6 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
@@ -85,14 +84,11 @@ public final class ProbeUtil {
   /**
    * Checks if all provided Operator instances have started.
    *
-   * @param operators A List of Operator instances.
+   * @param operator instance
    * @return An Optional containing True if all operators are started, False otherwise. Empty if the
    *     list is empty.
    */
-  public static Optional<Boolean> areOperatorsStarted(List<Operator> operators) {
-    return operators.stream()
-        .map(
-            operator -> {
+  public static boolean isOperatorStarted(Operator operator) {
               RuntimeInfo runtimeInfo = operator.getRuntimeInfo();
               if (runtimeInfo != null) {
                 if (!operator.getRuntimeInfo().isStarted()) {
@@ -102,7 +98,5 @@ public final class ProbeUtil {
                 return true;
               }
               return false;
-            })
-        .reduce((a, b) -> a && b);
   }
 }

@@ -20,30 +20,34 @@
 package org.apache.spark.k8s.operator.probe;
 
 import static java.net.HttpURLConnection.*;
-import static org.apache.spark.k8s.operator.utils.ProbeUtil.areOperatorsStarted;
+import static org.apache.spark.k8s.operator.utils.ProbeUtil.isOperatorStarted;
 import static org.apache.spark.k8s.operator.utils.ProbeUtil.sendMessage;
 
 import java.io.IOException;
-import java.util.List;
-import java.util.Optional;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import io.javaoperatorsdk.operator.Operator;
 import lombok.extern.slf4j.Slf4j;
 
+import org.apache.spark.k8s.operator.config.DynamicConfigMonitor;
+
 /** Readiness probe for the operator. */
 @Slf4j
 public class ReadinessProbe implements HttpHandler {
-  private final List<Operator> operators;
+  private final Operator operator;
+  private final DynamicConfigMonitor dynamicConfigMonitor;
 
   /**
    * Constructs a new ReadinessProbe.
    *
-   * @param operators A list of Operator instances to check for readiness.
+   * @param operator A list of Operator instances to check for readiness.
+   * @param dynamicConfigMonitor optional dynamic config monitor whose running state participates in
+   *     the readiness check. May be {@code null} when dynamic config is disabled.
    */
-  public ReadinessProbe(List<Operator> operators) {
-    this.operators = operators;
+  public ReadinessProbe(Operator operator, DynamicConfigMonitor dynamicConfigMonitor) {
+    this.operator = operator;
+    this.dynamicConfigMonitor = dynamicConfigMonitor;
   }
 
   /**
@@ -54,14 +58,21 @@ public class ReadinessProbe implements HttpHandler {
    */
   @Override
   public void handle(HttpExchange httpExchange) throws IOException {
-    Optional<Boolean> operatorsAreReady = areOperatorsStarted(operators);
-    if (operatorsAreReady.isEmpty() || !operatorsAreReady.get()) {
+    if (!isOperatorStarted(operator)) {
       sendMessage(httpExchange, HTTP_BAD_REQUEST, "spark operators are not ready yet");
+      return;
+    }
+
+    if (dynamicConfigMonitor != null && !dynamicConfigMonitor.isRunning()) {
+      sendMessage(
+          httpExchange, HTTP_BAD_REQUEST, "dynamic config monitor is not running yet");
+      return;
     }
 
     if (!passRbacCheck()) {
       sendMessage(
           httpExchange, HTTP_FORBIDDEN, "required rbac test failed, operators are not ready");
+      return;
     }
 
     sendMessage(httpExchange, HTTP_OK, "started");

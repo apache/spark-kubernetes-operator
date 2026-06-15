@@ -86,7 +86,7 @@ spec:
               value: spark-3
           file: spark-example.yaml
       - sleep:
-          duration: 60s
+          duration: 150s
       - script:
           content:
             kubectl logs -n default-2 $(kubectl get pods -n default-2 -o=name -l app.kubernetes.io/component=operator-deployment,app.kubernetes.io/name=spark-kubernetes-operator)

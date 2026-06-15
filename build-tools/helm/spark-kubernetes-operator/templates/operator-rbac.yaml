@@ -118,37 +118,6 @@ metadata:
 {{- template "spark-operator.operatorRbacRules" $ }}
 ---
 {{- end }}
-{{- if .Values.operatorConfiguration.dynamicConfig.enable }}
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: {{ .Values.operatorRbac.configManagement.roleName }}
-  namespace: {{ .Release.Namespace }}
-{{- template "spark-operator.rbacLabelsAnnotations" $ }}
-rules:
-  - apiGroups:
-      - ""
-    resources:
-      - configmaps
-    verbs:
-      - '*'
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: {{ .Values.operatorRbac.configManagement.roleBindingName }}
-  namespace: {{ .Release.Namespace }}
-{{- template "spark-operator.rbacLabelsAnnotations" $ }}
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: {{ .Values.operatorRbac.configManagement.roleName }}
-subjects:
-  - kind: ServiceAccount
-    name: {{ .Values.operatorRbac.serviceAccount.name }}
-    namespace: {{ .Release.Namespace }}
----
-{{- end }}
 
 {{- $workloadResources := .Values.workloadResources -}}
 {{- $systemNs := .Release.Namespace -}}

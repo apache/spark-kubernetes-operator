@@ -24,7 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +41,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import org.apache.spark.k8s.operator.config.DynamicConfigMonitor;
 import org.apache.spark.k8s.operator.metrics.healthcheck.SentinelManager;
 
 @EnableKubernetesMockClient(crud = true)
@@ -50,27 +50,19 @@ import org.apache.spark.k8s.operator.metrics.healthcheck.SentinelManager;
     justification = "Unwritten fields are covered by Kubernetes mock client")
 class HealthProbeTest {
   private static Operator operator;
-  private static Operator sparkConfMonitor;
-  private static List<Operator> operators;
-  private KubernetesClient kubernetesClient;
   private AtomicBoolean isRunning;
-  private AtomicBoolean isRunning2;
+  private KubernetesClient kubernetesClient;
   private final Map<String, Map<String, InformerWrappingEventSourceHealthIndicator>>
       unhealthyEventSources = new HashMap<>();
-  private final Map<String, Map<String, InformerWrappingEventSourceHealthIndicator>>
-      unhealthyEventSources2 = new HashMap<>();
 
   @BeforeAll
   static void beforeAll() {
     operator = mock(Operator.class);
-    sparkConfMonitor = mock(Operator.class);
-    operators = Arrays.asList(operator, sparkConfMonitor);
   }
 
   @BeforeEach
   void beforeEach() {
     isRunning = new AtomicBoolean(false);
-    isRunning2 = new AtomicBoolean(false);
     RuntimeInfo runtimeInfo =
         new RuntimeInfo(
             new Operator(overrider -> overrider.withKubernetesClient(kubernetesClient))) {
@@ -86,48 +78,12 @@ class HealthProbeTest {
           }
         };
 
-    RuntimeInfo runtimeInfo2 =
-        new RuntimeInfo(
-            new Operator(overrider -> overrider.withKubernetesClient(kubernetesClient))) {
-          @Override
-          public boolean isStarted() {
-            return isRunning2.get();
-          }
-
-          @Override
-          public Map<String, Map<String, InformerWrappingEventSourceHealthIndicator>>
-              unhealthyInformerWrappingEventSourceHealthIndicator() {
-            return unhealthyEventSources2;
-          }
-        };
-
     when(operator.getRuntimeInfo()).thenReturn(runtimeInfo);
-    when(sparkConfMonitor.getRuntimeInfo()).thenReturn(runtimeInfo2);
-  }
-
-  @Test
-  void testHealthProbeWithInformerHealthWithMultiOperators() {
-    HealthProbe healthyProbe = new HealthProbe(operators, List.of());
-    isRunning.set(true);
-    assertFalse(
-        healthyProbe.isHealthy(),
-        "Healthy Probe should fail when the spark conf monitor operator is not running");
-    isRunning2.set(true);
-    assertTrue(
-        healthyProbe.isHealthy(), "Healthy Probe should pass when both operators are running");
-
-    unhealthyEventSources2.put(
-        "c1", Map.of("e1", informerHealthIndicator(Map.of("i1", Status.UNHEALTHY))));
-    assertFalse(
-        healthyProbe.isHealthy(),
-        "Healthy Probe should fail when monitor's informer health is not healthy");
-    unhealthyEventSources2.clear();
-    assertTrue(healthyProbe.isHealthy(), "Healthy Probe should pass");
   }
 
   @Test
   void testHealthProbeWithInformerHealthWithSingleOperator() {
-    HealthProbe healthyProbe = new HealthProbe(List.of(operator), List.of());
+    HealthProbe healthyProbe = new HealthProbe(operator, List.of(), null);
     assertFalse(healthyProbe.isHealthy(), "Health Probe should fail when operator is not running");
     isRunning.set(true);
     unhealthyEventSources.put(
@@ -141,14 +97,26 @@ class HealthProbeTest {
   @Test
   void testHealthProbeWithSentinelHealthWithMultiOperators() {
     var sentinelManager = mock(SentinelManager.class);
-    HealthProbe healthyProbe = new HealthProbe(operators, List.of(sentinelManager));
+    HealthProbe healthyProbe = new HealthProbe(operator, List.of(sentinelManager), null);
     isRunning.set(true);
-    isRunning2.set(true);
     when(sentinelManager.allSentinelsAreHealthy()).thenReturn(false);
     assertFalse(
         healthyProbe.isHealthy(), "Healthy Probe should fail when sentinels report failures");
 
     when(sentinelManager.allSentinelsAreHealthy()).thenReturn(true);
+    assertTrue(healthyProbe.isHealthy(), "Healthy Probe should pass");
+  }
+
+  @Test
+  void testHealthProbeWithDynamicConfigMonitor() {
+    var dynamicConfigMonitor = mock(DynamicConfigMonitor.class);
+    HealthProbe healthyProbe = new HealthProbe(operator, List.of(), dynamicConfigMonitor);
+    isRunning.set(true);
+    when(dynamicConfigMonitor.isRunning()).thenReturn(false);
+    assertFalse(
+        healthyProbe.isHealthy(),
+        "Healthy Probe should fail when dynamic config monitor is not running");
+    when(dynamicConfigMonitor.isRunning()).thenReturn(true);
     assertTrue(healthyProbe.isHealthy(), "Healthy Probe should pass");
   }
 

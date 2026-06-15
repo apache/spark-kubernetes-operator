@@ -33,6 +33,7 @@ import io.javaoperatorsdk.operator.Operator;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
+import org.apache.spark.k8s.operator.config.DynamicConfigMonitor;
 import org.apache.spark.k8s.operator.metrics.healthcheck.SentinelManager;
 import org.apache.spark.k8s.operator.utils.HttpMethodFilter;
 
@@ -47,19 +48,25 @@ public class ProbeService {
   /**
    * Constructs a new ProbeService.
    *
-   * @param operators A list of Operator instances to monitor.
+   * @param operator instance to monitor.
    * @param sentinelManagers A list of SentinelManager instances to monitor.
+   * @param dynamicConfigMonitor optional dynamic config monitor whose running state is included in
+   *     the health and readiness checks. May be {@code null} when dynamic config is disabled.
    * @param executor The Executor to use for the HTTP server.
    */
   public ProbeService(
-      List<Operator> operators, List<SentinelManager<?>> sentinelManagers, Executor executor) {
+      Operator operator,
+      List<SentinelManager<?>> sentinelManagers,
+      DynamicConfigMonitor dynamicConfigMonitor,
+      Executor executor) {
     try {
       this.server = HttpServer.create(new InetSocketAddress(OPERATOR_PROBE_PORT.getValue()), 0);
     } catch (IOException e) {
       throw new IllegalStateException("Failed to create Probe Service Server", e);
     }
-    server.createContext(READYZ, new ReadinessProbe(operators)).getFilters().add(FILTER);
-    server.createContext(HEALTHZ, new HealthProbe(operators, sentinelManagers))
+    server.createContext(READYZ, new ReadinessProbe(operator, dynamicConfigMonitor))
+      .getFilters().add(FILTER);
+    server.createContext(HEALTHZ, new HealthProbe(operator, sentinelManagers, dynamicConfigMonitor))
       .getFilters().add(FILTER);
     server.createContext(
         "/",

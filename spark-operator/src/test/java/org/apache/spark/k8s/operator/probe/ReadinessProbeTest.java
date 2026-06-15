@@ -19,51 +19,74 @@
 
 package org.apache.spark.k8s.operator.probe;
 
+import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.Arrays;
 
 import com.sun.net.httpserver.HttpExchange;
-import io.fabric8.kubernetes.client.KubernetesClient;
 import io.javaoperatorsdk.operator.Operator;
 import io.javaoperatorsdk.operator.RuntimeInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import org.apache.spark.k8s.operator.config.DynamicConfigMonitor;
 import org.apache.spark.k8s.operator.utils.ProbeUtil;
 
 class ReadinessProbeTest {
-  KubernetesClient client;
   HttpExchange httpExchange;
 
   @BeforeEach
   void beforeEach() {
     OutputStream outputStream = mock(OutputStream.class);
     httpExchange = mock(HttpExchange.class);
-    client = mock(KubernetesClient.class);
     when(httpExchange.getResponseBody()).thenReturn(outputStream);
   }
 
   @Test
   void testHandleSucceed() throws IOException {
     Operator operator = mock(Operator.class);
-    Operator sparkConfMonitor = mock(Operator.class);
     RuntimeInfo runtimeInfo = mock(RuntimeInfo.class);
-    RuntimeInfo sparkConfMonitorRuntimeInfo = mock(RuntimeInfo.class);
     when(operator.getRuntimeInfo()).thenReturn(runtimeInfo);
     when(runtimeInfo.isStarted()).thenReturn(true);
-    when(sparkConfMonitor.getRuntimeInfo()).thenReturn(sparkConfMonitorRuntimeInfo);
-    when(sparkConfMonitorRuntimeInfo.isStarted()).thenReturn(true);
-    when(sparkConfMonitor.getKubernetesClient()).thenReturn(client);
-    ReadinessProbe readinessProbe = new ReadinessProbe(Arrays.asList(operator));
+    ReadinessProbe readinessProbe = new ReadinessProbe(operator, null);
     try (var mockedStatic = Mockito.mockStatic(ProbeUtil.class)) {
+      mockedStatic.when(() -> ProbeUtil.isOperatorStarted(operator)).thenReturn(true);
       readinessProbe.handle(httpExchange);
       mockedStatic.verify(() -> ProbeUtil.sendMessage(httpExchange, HTTP_OK, "started"));
+    }
+  }
+
+  @Test
+  void testHandleSucceedWithRunningDynamicConfigMonitor() throws IOException {
+    Operator operator = mock(Operator.class);
+    DynamicConfigMonitor dynamicConfigMonitor = mock(DynamicConfigMonitor.class);
+    when(dynamicConfigMonitor.isRunning()).thenReturn(true);
+    ReadinessProbe readinessProbe = new ReadinessProbe(operator, dynamicConfigMonitor);
+    try (var mockedStatic = Mockito.mockStatic(ProbeUtil.class)) {
+      mockedStatic.when(() -> ProbeUtil.isOperatorStarted(operator)).thenReturn(true);
+      readinessProbe.handle(httpExchange);
+      mockedStatic.verify(() -> ProbeUtil.sendMessage(httpExchange, HTTP_OK, "started"));
+    }
+  }
+
+  @Test
+  void testHandleFailsWhenDynamicConfigMonitorNotRunning() throws IOException {
+    Operator operator = mock(Operator.class);
+    DynamicConfigMonitor dynamicConfigMonitor = mock(DynamicConfigMonitor.class);
+    when(dynamicConfigMonitor.isRunning()).thenReturn(false);
+    ReadinessProbe readinessProbe = new ReadinessProbe(operator, dynamicConfigMonitor);
+    try (var mockedStatic = Mockito.mockStatic(ProbeUtil.class)) {
+      mockedStatic.when(() -> ProbeUtil.isOperatorStarted(operator)).thenReturn(true);
+      readinessProbe.handle(httpExchange);
+      mockedStatic.verify(
+          () ->
+              ProbeUtil.sendMessage(
+                  httpExchange, HTTP_BAD_REQUEST, "dynamic config monitor is not running yet"));
     }
   }
 }

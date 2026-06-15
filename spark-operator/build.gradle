@@ -71,6 +71,7 @@ dependencies {
   testCompileOnly(libs.spotbugs.annotations)
   testImplementation(libs.mockito.core)
   testImplementation(libs.kube.api.test.client.inject)
+  testImplementation(libs.awaitility)
 }
 
 jar.dependsOn shadowJar
