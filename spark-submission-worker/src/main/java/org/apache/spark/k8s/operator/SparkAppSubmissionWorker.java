@@ -40,7 +40,8 @@ import org.apache.spark.deploy.k8s.submit.RMainAppResource;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 import org.apache.spark.k8s.operator.spec.ConfigMapSpec;
 import org.apache.spark.k8s.operator.spec.DriverServiceIngressSpec;
-import org.apache.spark.k8s.operator.spec.ResourceRetainPolicy;
+import org.apache.spark.k8s.operator.spec.RestartConfig;
+import org.apache.spark.k8s.operator.spec.RestartPolicy;
 import org.apache.spark.k8s.operator.spec.RuntimeVersions;
 import org.apache.spark.k8s.operator.utils.ModelUtils;
 import org.apache.spark.k8s.operator.utils.StringUtils;
@@ -169,10 +170,12 @@ public class SparkAppSubmissionWorker {
     effectiveSparkConf.setIfMissing("spark.io.encryption.enabled", "true");
     effectiveSparkConf.setIfMissing("spark.kubernetes.driver.annotateExitException", "true");
     effectiveSparkConf.setIfMissing("spark.kubernetes.executor.useDriverPodIP", "true");
-    // In case of static allocation, use K8s Garbage Collection instead of explicit API invocations
+    // In case of static allocation without restart, use K8s Garbage Collection instead of
+    // explicit API invocations. If the application is configured to restart, the driver pod may be
+    // recreated while executor pods linger, so executors must be deleted on termination explicitly.
+    RestartConfig restartConfig = applicationSpec.getApplicationTolerations().getRestartConfig();
     if (!"true".equalsIgnoreCase(effectiveSparkConf.get("spark.dynamicAllocation.enabled", "false"))
-        && applicationSpec.getApplicationTolerations().getResourceRetainPolicy() !=
-        ResourceRetainPolicy.Always) {
+        && (restartConfig == null || RestartPolicy.Never == restartConfig.getRestartPolicy())) {
       effectiveSparkConf.setIfMissing("spark.kubernetes.executor.deleteOnTermination", "false");
     }
     return SparkAppDriverConf.create(
