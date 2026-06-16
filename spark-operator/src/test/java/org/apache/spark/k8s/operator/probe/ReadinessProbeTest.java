@@ -21,11 +21,14 @@ package org.apache.spark.k8s.operator.probe;
 
 import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
 import static java.net.HttpURLConnection.HTTP_OK;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.List;
+import java.util.Optional;
 
 import com.sun.net.httpserver.HttpExchange;
 import io.javaoperatorsdk.operator.Operator;
@@ -53,9 +56,11 @@ class ReadinessProbeTest {
     RuntimeInfo runtimeInfo = mock(RuntimeInfo.class);
     when(operator.getRuntimeInfo()).thenReturn(runtimeInfo);
     when(runtimeInfo.isStarted()).thenReturn(true);
-    ReadinessProbe readinessProbe = new ReadinessProbe(operator, null);
+    ReadinessProbe readinessProbe = new ReadinessProbe(List.of(operator), null);
     try (var mockedStatic = Mockito.mockStatic(ProbeUtil.class)) {
-      mockedStatic.when(() -> ProbeUtil.isOperatorStarted(operator)).thenReturn(true);
+      mockedStatic
+          .when(() -> ProbeUtil.areOperatorsStarted(any()))
+          .thenReturn(Optional.of(true));
       readinessProbe.handle(httpExchange);
       mockedStatic.verify(() -> ProbeUtil.sendMessage(httpExchange, HTTP_OK, "started"));
     }
@@ -66,9 +71,11 @@ class ReadinessProbeTest {
     Operator operator = mock(Operator.class);
     DynamicConfigMonitor dynamicConfigMonitor = mock(DynamicConfigMonitor.class);
     when(dynamicConfigMonitor.isRunning()).thenReturn(true);
-    ReadinessProbe readinessProbe = new ReadinessProbe(operator, dynamicConfigMonitor);
+    ReadinessProbe readinessProbe = new ReadinessProbe(List.of(operator), dynamicConfigMonitor);
     try (var mockedStatic = Mockito.mockStatic(ProbeUtil.class)) {
-      mockedStatic.when(() -> ProbeUtil.isOperatorStarted(operator)).thenReturn(true);
+      mockedStatic
+          .when(() -> ProbeUtil.areOperatorsStarted(any()))
+          .thenReturn(Optional.of(true));
       readinessProbe.handle(httpExchange);
       mockedStatic.verify(() -> ProbeUtil.sendMessage(httpExchange, HTTP_OK, "started"));
     }
@@ -79,9 +86,11 @@ class ReadinessProbeTest {
     Operator operator = mock(Operator.class);
     DynamicConfigMonitor dynamicConfigMonitor = mock(DynamicConfigMonitor.class);
     when(dynamicConfigMonitor.isRunning()).thenReturn(false);
-    ReadinessProbe readinessProbe = new ReadinessProbe(operator, dynamicConfigMonitor);
+    ReadinessProbe readinessProbe = new ReadinessProbe(List.of(operator), dynamicConfigMonitor);
     try (var mockedStatic = Mockito.mockStatic(ProbeUtil.class)) {
-      mockedStatic.when(() -> ProbeUtil.isOperatorStarted(operator)).thenReturn(true);
+      mockedStatic
+          .when(() -> ProbeUtil.areOperatorsStarted(any()))
+          .thenReturn(Optional.of(true));
       readinessProbe.handle(httpExchange);
       mockedStatic.verify(
           () ->

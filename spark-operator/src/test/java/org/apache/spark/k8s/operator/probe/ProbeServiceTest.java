@@ -54,7 +54,7 @@ class ProbeServiceTest {
         .thenReturn(new HashMap<>());
     when(sentinelManager.allSentinelsAreHealthy()).thenReturn(true);
     ProbeService probeService =
-        new ProbeService(operator, List.of(sentinelManager), null, null);
+        new ProbeService(List.of(operator), List.of(sentinelManager), null, null);
     probeService.start();
     hitHealthyEndpoint();
     probeService.stop();
@@ -74,7 +74,7 @@ class ProbeServiceTest {
         .thenReturn(new HashMap<>());
     when(sentinelManager.allSentinelsAreHealthy()).thenReturn(true);
     ProbeService probeService =
-        new ProbeService(operator, List.of(sentinelManager), null, null);
+        new ProbeService(List.of(operator), List.of(sentinelManager), null, null);
     probeService.start();
     hitHealthyEndpoint();
     probeService.stop();
@@ -93,7 +93,7 @@ class ProbeServiceTest {
     when(runtimeInfo.unhealthyInformerWrappingEventSourceHealthIndicator())
         .thenReturn(new HashMap<>());
     ProbeService probeService =
-        new ProbeService(operator, List.of(sentinelManager), null, null);
+        new ProbeService(List.of(operator), List.of(sentinelManager), null, null);
     probeService.start();
     hitStartedUpEndpoint();
     probeService.stop();

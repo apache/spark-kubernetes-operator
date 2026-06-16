@@ -27,6 +27,7 @@ import io.javaoperatorsdk.operator.processing.event.rate.RateLimiter;
 import io.javaoperatorsdk.operator.processing.retry.GenericRetry;
 import lombok.extern.slf4j.Slf4j;
 
+import org.apache.spark.k8s.operator.utils.Utils;
 
 /** Spark Operator Configuration options. */
 @Slf4j
@@ -234,20 +235,45 @@ public final class SparkOperatorConf {
           .build();
 
   /**
-   * When enabled, operator would use config map as source of truth for config property override.
-   * The config map need to be created in spark.kubernetes.operator.namespace, and labeled with
-   * operator name.
+   * When enabled, operator would load config property overrides dynamically at runtime. The source
+   * of the overrides is controlled by spark.kubernetes.operator.dynamicConfig.source.
    */
   public static final ConfigOption<Boolean> DYNAMIC_CONFIG_ENABLED =
       ConfigOption.<Boolean>builder()
           .key("spark.kubernetes.operator.dynamicConfig.enabled")
           .enableDynamicOverride(false)
           .description(
-              "When enabled, operator periodically reloads property overrides from a "
-                  + "properties file mounted from a ConfigMap. The file path is controlled "
-                  + "by spark.kubernetes.operator.dynamicConfig.filePath.")
+              "When enabled, operator would load config property overrides dynamically at "
+                  + "runtime. The source of the overrides is controlled by "
+                  + "spark.kubernetes.operator.dynamicConfig.source.")
           .typeParameterClass(Boolean.class)
           .defaultValue(false)
+          .build();
+
+  /** Source of dynamic config overrides: {@code configMap} (informer) or {@code file} (mount). */
+  public static final ConfigOption<String> DYNAMIC_CONFIG_SOURCE =
+      ConfigOption.<String>builder()
+          .key("spark.kubernetes.operator.dynamicConfig.source")
+          .enableDynamicOverride(false)
+          .description(
+              "Source of dynamic config overrides when "
+                  + "spark.kubernetes.operator.dynamicConfig.enabled is true. Supported values: "
+                  + "'configMap' (default) watches a ConfigMap via a Kubernetes informer and "
+                  + "requires RBAC to read ConfigMaps; 'file' periodically reloads a properties "
+                  + "file mounted from a ConfigMap and requires no extra RBAC.")
+          .typeParameterClass(String.class)
+          .defaultValue("configMap")
+          .build();
+
+  /** The selector str applied to dynamic config map (used by the {@code configMap} source). */
+  public static final ConfigOption<String> DYNAMIC_CONFIG_SELECTOR =
+      ConfigOption.<String>builder()
+          .key("spark.kubernetes.operator.dynamicConfig.selector")
+          .enableDynamicOverride(false)
+          .description(
+              "The selector str applied to dynamic config map. Used by the 'configMap' source.")
+          .typeParameterClass(String.class)
+          .defaultValue(Utils.labelsAsStr(Utils.defaultOperatorConfigLabels()))
           .build();
 
   /** Path of the properties file that holds dynamic config overrides. */
@@ -256,18 +282,20 @@ public final class SparkOperatorConf {
           .key("spark.kubernetes.operator.dynamicConfig.filePath")
           .enableDynamicOverride(false)
           .description(
-              "Path of the properties file holding dynamic configuration overrides. "
-                  + "Typically populated by mounting a ConfigMap as a volume.")
+              "Path of the properties file holding dynamic configuration overrides. Used by the "
+                  + "'file' source, typically populated by mounting a ConfigMap as a volume.")
           .typeParameterClass(String.class)
           .defaultValue("/opt/spark-operator/dynamic-conf/spark-operator-dynamic.properties")
           .build();
 
-  /** Interval at which the dynamic config file is re-read. */
+  /** Interval at which the dynamic config file is re-read (used by the {@code file} source). */
   public static final ConfigOption<Long> DYNAMIC_CONFIG_RELOAD_INTERVAL_SECONDS =
       ConfigOption.<Long>builder()
           .key("spark.kubernetes.operator.dynamicConfig.reloadIntervalSeconds")
           .enableDynamicOverride(false)
-          .description("Interval (in seconds) at which the dynamic config file is re-read.")
+          .description(
+              "Interval (in seconds) at which the dynamic config file is re-read. Used by the "
+                  + "'file' source.")
           .typeParameterClass(Long.class)
           .defaultValue(60L)
           .build();

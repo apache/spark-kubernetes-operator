@@ -55,10 +55,11 @@ import org.apache.spark.k8s.operator.utils.Utils;
 class SparkOperatorTest {
 
   @Test
-  void testOperatorConstructionWithDynamicConfigEnabled() {
+  void testOperatorConstructionWithDynamicConfigFileSource() {
     MetricsSystem mockMetricsSystem = mock(MetricsSystem.class);
     KubernetesClient mockClient = mock(KubernetesClient.class);
     boolean dynamicConfigEnabled = SparkOperatorConf.DYNAMIC_CONFIG_ENABLED.getValue();
+    String dynamicConfigSource = SparkOperatorConf.DYNAMIC_CONFIG_SOURCE.getValue();
 
     try (MockedStatic<MetricsSystemFactory> mockMetricsSystemFactory =
             mockStatic(MetricsSystemFactory.class);
@@ -77,6 +78,7 @@ class SparkOperatorTest {
         MockedConstruction<KubernetesMetricsInterceptor> interceptorMockedConstruction =
             mockConstruction(KubernetesMetricsInterceptor.class)) {
       setConfigKey(SparkOperatorConf.DYNAMIC_CONFIG_ENABLED, true);
+      setConfigKey(SparkOperatorConf.DYNAMIC_CONFIG_SOURCE, "file");
       mockMetricsSystemFactory
           .when(MetricsSystemFactory::createMetricsSystem)
           .thenReturn(mockMetricsSystem);
@@ -87,6 +89,7 @@ class SparkOperatorTest {
 
       SparkOperator sparkOperator = new SparkOperator();
       Assertions.assertEquals(1, sparkOperator.registeredSparkControllers.size());
+      // Only the main operator is registered; the file source uses a DynamicConfigMonitor.
       Assertions.assertEquals(1, operatorConstruction.constructed().size());
       Assertions.assertEquals(1, sparkAppReconcilerConstruction.constructed().size());
       Assertions.assertEquals(1, probeServiceConstruction.constructed().size());
@@ -100,6 +103,56 @@ class SparkOperatorTest {
       verify(sparkAppOperator).register(eq(sparkAppReconciler), any(Consumer.class));
     } finally {
       setConfigKey(SparkOperatorConf.DYNAMIC_CONFIG_ENABLED, dynamicConfigEnabled);
+      setConfigKey(SparkOperatorConf.DYNAMIC_CONFIG_SOURCE, dynamicConfigSource);
+    }
+  }
+
+  @Test
+  void testOperatorConstructionWithDynamicConfigConfigMapSource() {
+    MetricsSystem mockMetricsSystem = mock(MetricsSystem.class);
+    KubernetesClient mockClient = mock(KubernetesClient.class);
+    boolean dynamicConfigEnabled = SparkOperatorConf.DYNAMIC_CONFIG_ENABLED.getValue();
+    String dynamicConfigSource = SparkOperatorConf.DYNAMIC_CONFIG_SOURCE.getValue();
+
+    try (MockedStatic<MetricsSystemFactory> mockMetricsSystemFactory =
+            mockStatic(MetricsSystemFactory.class);
+        MockedStatic<KubernetesClientFactory> mockKubernetesClientFactory =
+            mockStatic(KubernetesClientFactory.class);
+        MockedStatic<Utils> mockUtils = mockStatic(Utils.class);
+        MockedConstruction<Operator> operatorConstruction = mockConstruction(Operator.class);
+        MockedConstruction<SparkAppReconciler> sparkAppReconcilerConstruction =
+            mockConstruction(SparkAppReconciler.class);
+        MockedConstruction<ProbeService> probeServiceConstruction =
+            mockConstruction(ProbeService.class);
+        MockedConstruction<MetricsService> metricsServiceConstruction =
+            mockConstruction(MetricsService.class);
+        MockedConstruction<DynamicConfigMonitor> dynamicConfigMonitorConstruction =
+            mockConstruction(DynamicConfigMonitor.class);
+        MockedConstruction<KubernetesMetricsInterceptor> interceptorMockedConstruction =
+            mockConstruction(KubernetesMetricsInterceptor.class)) {
+      setConfigKey(SparkOperatorConf.DYNAMIC_CONFIG_ENABLED, true);
+      setConfigKey(SparkOperatorConf.DYNAMIC_CONFIG_SOURCE, "configMap");
+      mockMetricsSystemFactory
+          .when(MetricsSystemFactory::createMetricsSystem)
+          .thenReturn(mockMetricsSystem);
+      mockKubernetesClientFactory
+          .when(() -> KubernetesClientFactory.buildKubernetesClient(any()))
+          .thenReturn(mockClient);
+      mockUtils.when(Utils::getWatchedNamespaces).thenReturn(Set.of("namespace-1"));
+
+      SparkOperator sparkOperator = new SparkOperator();
+      Assertions.assertEquals(1, sparkOperator.registeredSparkControllers.size());
+      // The configMap informer source registers a second Operator and no DynamicConfigMonitor.
+      Assertions.assertEquals(2, operatorConstruction.constructed().size());
+      Assertions.assertEquals(1, sparkAppReconcilerConstruction.constructed().size());
+      Assertions.assertEquals(1, probeServiceConstruction.constructed().size());
+      Assertions.assertEquals(1, metricsServiceConstruction.constructed().size());
+      Assertions.assertEquals(0, dynamicConfigMonitorConstruction.constructed().size());
+      Assertions.assertEquals(1, interceptorMockedConstruction.constructed().size());
+      verify(mockMetricsSystem).registerSource(interceptorMockedConstruction.constructed().get(0));
+    } finally {
+      setConfigKey(SparkOperatorConf.DYNAMIC_CONFIG_ENABLED, dynamicConfigEnabled);
+      setConfigKey(SparkOperatorConf.DYNAMIC_CONFIG_SOURCE, dynamicConfigSource);
     }
   }
 
@@ -152,6 +205,7 @@ class SparkOperatorTest {
     var registeredController = mock(RegisteredController.class);
     when(registeredController.allowsNamespaceChanges()).thenReturn(true);
     boolean dynamicConfigEnabled = SparkOperatorConf.DYNAMIC_CONFIG_ENABLED.getValue();
+    String dynamicConfigSource = SparkOperatorConf.DYNAMIC_CONFIG_SOURCE.getValue();
 
     try (MockedStatic<MetricsSystemFactory> mockMetricsSystemFactory =
             mockStatic(MetricsSystemFactory.class);
@@ -178,6 +232,7 @@ class SparkOperatorTest {
         MockedConstruction<KubernetesMetricsInterceptor> interceptorMockedConstruction =
             mockConstruction(KubernetesMetricsInterceptor.class)) {
       setConfigKey(SparkOperatorConf.DYNAMIC_CONFIG_ENABLED, true);
+      setConfigKey(SparkOperatorConf.DYNAMIC_CONFIG_SOURCE, "file");
       mockMetricsSystemFactory
           .when(MetricsSystemFactory::createMetricsSystem)
           .thenReturn(mockMetricsSystem);
@@ -194,6 +249,7 @@ class SparkOperatorTest {
       verifyNoMoreInteractions(registeredController);
     } finally {
       setConfigKey(SparkOperatorConf.DYNAMIC_CONFIG_ENABLED, dynamicConfigEnabled);
+      setConfigKey(SparkOperatorConf.DYNAMIC_CONFIG_SOURCE, dynamicConfigSource);
     }
   }
 }

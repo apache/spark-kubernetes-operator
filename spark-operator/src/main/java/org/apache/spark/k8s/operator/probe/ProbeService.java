@@ -48,14 +48,15 @@ public class ProbeService {
   /**
    * Constructs a new ProbeService.
    *
-   * @param operator instance to monitor.
+   * @param operators A list of Operator instances to monitor.
    * @param sentinelManagers A list of SentinelManager instances to monitor.
    * @param dynamicConfigMonitor optional dynamic config monitor whose running state is included in
-   *     the health and readiness checks. May be {@code null} when dynamic config is disabled.
+   *     the health and readiness checks. May be {@code null} when dynamic config is disabled or the
+   *     configMap informer source is used.
    * @param executor The Executor to use for the HTTP server.
    */
   public ProbeService(
-      Operator operator,
+      List<Operator> operators,
       List<SentinelManager<?>> sentinelManagers,
       DynamicConfigMonitor dynamicConfigMonitor,
       Executor executor) {
@@ -64,9 +65,11 @@ public class ProbeService {
     } catch (IOException e) {
       throw new IllegalStateException("Failed to create Probe Service Server", e);
     }
-    server.createContext(READYZ, new ReadinessProbe(operator, dynamicConfigMonitor))
+    server.createContext(READYZ, new ReadinessProbe(operators, dynamicConfigMonitor))
       .getFilters().add(FILTER);
-    server.createContext(HEALTHZ, new HealthProbe(operator, sentinelManagers, dynamicConfigMonitor))
+    server
+        .createContext(
+            HEALTHZ, new HealthProbe(operators, sentinelManagers, dynamicConfigMonitor))
       .getFilters().add(FILTER);
     server.createContext(
         "/",

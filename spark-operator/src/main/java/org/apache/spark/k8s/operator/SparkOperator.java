@@ -29,7 +29,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -48,6 +47,7 @@ import org.apache.spark.k8s.operator.client.KubernetesClientFactory;
 import org.apache.spark.k8s.operator.config.DynamicConfigMonitor;
 import org.apache.spark.k8s.operator.config.SparkOperatorConf;
 import org.apache.spark.k8s.operator.config.SparkOperatorConfManager;
+import org.apache.spark.k8s.operator.config.SparkOperatorConfigMapReconciler;
 import org.apache.spark.k8s.operator.metrics.MetricsService;
 import org.apache.spark.k8s.operator.metrics.MetricsSystem;
 import org.apache.spark.k8s.operator.metrics.MetricsSystemFactory;
@@ -70,7 +70,7 @@ import org.apache.spark.k8s.operator.utils.Utils;
  */
 @Slf4j
 public class SparkOperator {
-  private final Operator operator;
+  private final List<Operator> registeredOperators;
   private final KubernetesClient client;
   private final SparkAppSubmissionWorker appSubmissionWorker;
   private final SparkClusterSubmissionWorker clusterSubmissionWorker;
@@ -103,17 +103,18 @@ public class SparkOperator {
     this.watchedNamespaces = getWatchedNamespaces();
     this.sparkApplicationSentinelManager = new SentinelManager<>();
     this.sparkClusterSentinelManager = new SentinelManager<>();
-    this.operator = registerSparkOperator();
+    this.registeredOperators = new ArrayList<>();
+    this.registeredOperators.add(registerSparkOperator());
     if (SparkOperatorConf.LOG_CONF.getValue()) {
       for (var entry : SparkOperatorConfManager.INSTANCE.getAll().entrySet()) {
         log.info("{} = {}", entry.getKey(), entry.getValue());
       }
     }
-    this.dynamicConfigMonitor = registerConfMonitor().orElse(null);
+    this.dynamicConfigMonitor = registerDynamicConfig();
     this.metricsResourcesSingleThreadPool = Executors.newSingleThreadExecutor();
     this.probeService =
         new ProbeService(
-            operator,
+            registeredOperators,
             Arrays.asList(sparkApplicationSentinelManager, sparkClusterSentinelManager),
             dynamicConfigMonitor,
             null);
@@ -177,20 +178,64 @@ public class SparkOperator {
   }
 
   /**
-   * Registers a monitor for dynamic configuration changes via a mounted ConfigMap.
+   * Wires up dynamic configuration loading when enabled. Two sources are supported, selected by
+   * {@code spark.kubernetes.operator.dynamicConfig.source}:
    *
-   * @return The DynamicConfigMonitor wrapped in an Optional, empty if dynamic config is disabled.
+   * <ul>
+   *   <li>{@code configMap} (default) - registers a {@link SparkOperatorConfigMapReconciler} on a
+   *       dedicated {@link Operator} that watches a ConfigMap via a Kubernetes informer. The
+   *       operator is appended to {@link #registeredOperators}.
+   *   <li>{@code file} - returns a {@link DynamicConfigMonitor} that periodically reloads a
+   *       properties file mounted from a ConfigMap, requiring no extra RBAC.
+   * </ul>
+   *
+   * @return a {@link DynamicConfigMonitor} for the {@code file} source, or {@code null} when
+   *     dynamic config is disabled or the {@code configMap} source is used.
    */
-  protected Optional<DynamicConfigMonitor> registerConfMonitor() {
+  protected DynamicConfigMonitor registerDynamicConfig() {
     if (Boolean.FALSE.equals(SparkOperatorConf.DYNAMIC_CONFIG_ENABLED.getValue())) {
-      return Optional.empty();
+      return null;
     }
-    return Optional.of(
-        new DynamicConfigMonitor(
-            Paths.get(SparkOperatorConf.DYNAMIC_CONFIG_FILE_PATH.getValue()),
-            Duration.ofSeconds(SparkOperatorConf.DYNAMIC_CONFIG_RELOAD_INTERVAL_SECONDS.getValue()),
-            Utils::getWatchedNamespaces,
-            this::updateWatchingNamespaces));
+    String source = SparkOperatorConf.DYNAMIC_CONFIG_SOURCE.getValue();
+    if ("file".equalsIgnoreCase(source)) {
+      log.info("Starting dynamic config from mounted file source.");
+      return new DynamicConfigMonitor(
+          Paths.get(SparkOperatorConf.DYNAMIC_CONFIG_FILE_PATH.getValue()),
+          Duration.ofSeconds(SparkOperatorConf.DYNAMIC_CONFIG_RELOAD_INTERVAL_SECONDS.getValue()),
+          Utils::getWatchedNamespaces,
+          this::updateWatchingNamespaces);
+    }
+    if (!"configMap".equalsIgnoreCase(source)) {
+      log.warn(
+          "Unknown dynamic config source '{}', falling back to 'configMap' informer source.",
+          source);
+    }
+    registeredOperators.add(registerSparkOperatorConfMonitor());
+    return null;
+  }
+
+  /**
+   * Registers a monitor for dynamic configuration changes via a ConfigMap informer.
+   *
+   * @return The Operator instance for the config monitor.
+   */
+  protected Operator registerSparkOperatorConfMonitor() {
+    Operator op = new Operator(this::overrideConfigMonitorConfigs);
+    String operatorNamespace = SparkOperatorConf.OPERATOR_NAMESPACE.getValue();
+    String confSelector = SparkOperatorConf.DYNAMIC_CONFIG_SELECTOR.getValue();
+    log.info(
+        "Starting conf monitor in namespace: {}, with selector: {}",
+        operatorNamespace,
+        confSelector);
+    op.register(
+        new SparkOperatorConfigMapReconciler(
+            this::updateWatchingNamespaces, unused -> getWatchedNamespaces()),
+        c -> {
+          c.withRateLimiter(SparkOperatorConf.getOperatorRateLimiter());
+          c.settingNamespaces(operatorNamespace);
+          c.withLabelSelector(confSelector);
+        });
+    return op;
   }
 
   /**
@@ -259,6 +304,23 @@ public class SparkOperator {
   }
 
   /**
+   * Overrides the configuration for the dynamic config monitor (configMap informer source).
+   *
+   * @param overrider The ConfigurationServiceOverrider to apply changes to.
+   */
+  protected void overrideConfigMonitorConfigs(ConfigurationServiceOverrider overrider) {
+    overrider.withKubernetesClient(client);
+    overrider.withConcurrentReconciliationThreads(
+        SparkOperatorConf.DYNAMIC_CONFIG_RECONCILER_PARALLELISM.getValue());
+    overrider.withStopOnInformerErrorDuringStartup(true);
+    overrider.withCloseClientOnStop(false);
+    overrider.withInformerStoppedHandler(
+        (informer, ex) ->
+            log.error("Dynamic config informer stopped: operator will not accept config updates."));
+    overrider.withUseSSAToPatchPrimaryResource(false);
+  }
+
+  /**
    * Overrides the default configuration for individual controllers.
    *
    * @param overrider The ControllerConfigurationOverrider to apply changes to.
@@ -306,7 +368,9 @@ public class SparkOperator {
     log.info("Java Version: {}", Runtime.version().toString());
     log.info("Built-in Spark Version: {}", org.apache.spark.package$.MODULE$.SPARK_VERSION());
     SparkOperator sparkOperator = new SparkOperator();
-    sparkOperator.operator.start();
+    for (Operator operator : sparkOperator.registeredOperators) {
+      operator.start();
+    }
 
     if (sparkOperator.dynamicConfigMonitor != null) {
       sparkOperator.dynamicConfigMonitor.start();

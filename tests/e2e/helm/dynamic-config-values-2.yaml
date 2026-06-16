@@ -28,6 +28,7 @@ workloadResources:
 operatorConfiguration:
   dynamicConfig:
     enable: true
+    source: file
     create: true
     data:
       spark.kubernetes.operator.watchedNamespaces: "spark-3"

@@ -83,7 +83,7 @@ class HealthProbeTest {
 
   @Test
   void testHealthProbeWithInformerHealthWithSingleOperator() {
-    HealthProbe healthyProbe = new HealthProbe(operator, List.of(), null);
+    HealthProbe healthyProbe = new HealthProbe(List.of(operator), List.of(), null);
     assertFalse(healthyProbe.isHealthy(), "Health Probe should fail when operator is not running");
     isRunning.set(true);
     unhealthyEventSources.put(
@@ -97,7 +97,7 @@ class HealthProbeTest {
   @Test
   void testHealthProbeWithSentinelHealthWithMultiOperators() {
     var sentinelManager = mock(SentinelManager.class);
-    HealthProbe healthyProbe = new HealthProbe(operator, List.of(sentinelManager), null);
+    HealthProbe healthyProbe = new HealthProbe(List.of(operator), List.of(sentinelManager), null);
     isRunning.set(true);
     when(sentinelManager.allSentinelsAreHealthy()).thenReturn(false);
     assertFalse(
@@ -110,7 +110,7 @@ class HealthProbeTest {
   @Test
   void testHealthProbeWithDynamicConfigMonitor() {
     var dynamicConfigMonitor = mock(DynamicConfigMonitor.class);
-    HealthProbe healthyProbe = new HealthProbe(operator, List.of(), dynamicConfigMonitor);
+    HealthProbe healthyProbe = new HealthProbe(List.of(operator), List.of(), dynamicConfigMonitor);
     isRunning.set(true);
     when(dynamicConfigMonitor.isRunning()).thenReturn(false);
     assertFalse(

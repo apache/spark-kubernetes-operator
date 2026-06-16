@@ -21,7 +21,7 @@ package org.apache.spark.k8s.operator.probe;
 
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_OK;
-import static org.apache.spark.k8s.operator.utils.ProbeUtil.isOperatorStarted;
+import static org.apache.spark.k8s.operator.utils.ProbeUtil.areOperatorsStarted;
 import static org.apache.spark.k8s.operator.utils.ProbeUtil.sendMessage;
 
 import java.io.IOException;
@@ -48,7 +48,7 @@ import org.apache.spark.k8s.operator.metrics.healthcheck.SentinelManager;
 @Slf4j
 @RequiredArgsConstructor
 public class HealthProbe implements HttpHandler {
-  private final Operator operator;
+  private final List<Operator> operators;
   private final List<SentinelManager<?>> sentinelManagers;
   private final DynamicConfigMonitor dynamicConfigMonitor;
 
@@ -59,10 +59,10 @@ public class HealthProbe implements HttpHandler {
    * @return True if the operator is healthy, false otherwise.
    */
   public boolean isHealthy() {
-    if (!isOperatorStarted(operator)) {
+    if (!areOperatorsStarted(operators).orElse(false)) {
       return false;
     }
-    if (!checkInformersHealth(operator.getRuntimeInfo())) {
+    if (!operators.stream().allMatch(op -> checkInformersHealth(op.getRuntimeInfo()))) {
       return false;
     }
 
