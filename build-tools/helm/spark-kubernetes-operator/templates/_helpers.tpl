@@ -114,6 +114,7 @@ Default property overrides
 spark.kubernetes.operator.namespace={{ .Release.Namespace }}
 spark.kubernetes.operator.name={{- include "spark-operator.name" . }}
 spark.kubernetes.operator.dynamicConfig.enabled={{ .Values.operatorConfiguration.dynamicConfig.enable }}
+spark.kubernetes.operator.dynamicConfig.source={{ .Values.operatorConfiguration.dynamicConfig.source }}
 spark.kubernetes.operator.metrics.port={{ include "spark-operator.metricsPort" . }}
 spark.kubernetes.operator.health.probePort={{ include "spark-operator.probePort" . }}
 {{- if .Values.workloadResources.namespaces.overrideWatchedNamespaces }}
