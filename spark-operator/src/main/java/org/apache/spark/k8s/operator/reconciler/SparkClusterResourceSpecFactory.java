@@ -30,6 +30,7 @@ import org.apache.spark.k8s.operator.SparkCluster;
 import org.apache.spark.k8s.operator.SparkClusterResourceSpec;
 import org.apache.spark.k8s.operator.SparkClusterSubmissionWorker;
 import org.apache.spark.k8s.operator.decorators.OwnerResourceDecorator;
+import org.apache.spark.k8s.operator.decorators.SecurityContextDecorator;
 
 /** Factory for creating SparkClusterResourceSpec objects. */
 @Slf4j
@@ -55,6 +56,9 @@ public final class SparkClusterResourceSpecFactory {
     decorator.decorate(spec.getMasterStatefulSet());
     decorator.decorate(spec.getWorkerStatefulSet());
     decorator.decorate(spec.getWorkerNetworkPolicy());
+    SecurityContextDecorator securityContextDecorator = new SecurityContextDecorator();
+    securityContextDecorator.decorate(spec.getMasterStatefulSet());
+    securityContextDecorator.decorate(spec.getWorkerStatefulSet());
     if (spec.getHorizontalPodAutoscaler().isPresent()) {
       decorator.decorate(spec.getHorizontalPodAutoscaler().get());
     }
