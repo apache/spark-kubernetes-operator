@@ -42,6 +42,7 @@ import org.apache.spark.k8s.operator.SparkAppResourceSpec;
 import org.apache.spark.k8s.operator.SparkAppSubmissionWorker;
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.decorators.OwnerResourceDecorator;
+import org.apache.spark.k8s.operator.decorators.SecurityContextDecorator;
 import org.apache.spark.k8s.operator.spec.BaseApplicationTemplateSpec;
 import org.apache.spark.k8s.operator.utils.ModelUtils;
 
@@ -68,6 +69,7 @@ public final class SparkAppResourceSpecFactory {
     cleanUpTempResourcesForApp(app, confOverrides);
     OwnerResourceDecorator decorator = new OwnerResourceDecorator(app, sparkAppResourceLabels(app));
     decorator.decorate(resourceSpec.getConfiguredPod());
+    new SecurityContextDecorator().decorate(resourceSpec.getConfiguredPod());
     return resourceSpec;
   }
 
