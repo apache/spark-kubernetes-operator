@@ -44,7 +44,8 @@ import org.apache.spark.deploy.k8s.submit.PythonMainAppResource;
 import org.apache.spark.deploy.k8s.submit.RMainAppResource;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 import org.apache.spark.k8s.operator.spec.ApplicationTolerations;
-import org.apache.spark.k8s.operator.spec.ResourceRetainPolicy;
+import org.apache.spark.k8s.operator.spec.RestartConfig;
+import org.apache.spark.k8s.operator.spec.RestartPolicy;
 import org.apache.spark.k8s.operator.spec.RuntimeVersions;
 import org.apache.spark.k8s.operator.status.ApplicationAttemptInfo;
 import org.apache.spark.k8s.operator.status.ApplicationAttemptSummary;
@@ -308,17 +309,28 @@ class SparkAppSubmissionWorkerTest {
     when(mockApp.getMetadata()).thenReturn(appMeta);
 
     SparkAppSubmissionWorker submissionWorker = new SparkAppSubmissionWorker();
-    when(mockTolerations.getResourceRetainPolicy()).thenReturn(ResourceRetainPolicy.Always);
+    // Restart enabled (Always): driver may be recreated, so executors are deleted explicitly.
+    when(mockTolerations.getRestartConfig())
+        .thenReturn(RestartConfig.builder().restartPolicy(RestartPolicy.Always).build());
     SparkAppDriverConf conf1 = submissionWorker.buildDriverConf(mockApp, Map.of());
     assertEquals("true", conf1.get("spark.kubernetes.executor.deleteOnTermination", "true"));
 
-    when(mockTolerations.getResourceRetainPolicy()).thenReturn(ResourceRetainPolicy.Never);
+    // Restart disabled (Never): rely on K8s Garbage Collection.
+    when(mockTolerations.getRestartConfig())
+        .thenReturn(RestartConfig.builder().restartPolicy(RestartPolicy.Never).build());
     SparkAppDriverConf conf2 = submissionWorker.buildDriverConf(mockApp, Map.of());
     assertEquals("false", conf2.get("spark.kubernetes.executor.deleteOnTermination", "true"));
 
-    when(mockTolerations.getResourceRetainPolicy()).thenReturn(ResourceRetainPolicy.OnFailure);
+    // Restart enabled (OnFailure): driver may be recreated, so executors are deleted explicitly.
+    when(mockTolerations.getRestartConfig())
+        .thenReturn(RestartConfig.builder().restartPolicy(RestartPolicy.OnFailure).build());
     SparkAppDriverConf conf3 = submissionWorker.buildDriverConf(mockApp, Map.of());
-    assertEquals("false", conf3.get("spark.kubernetes.executor.deleteOnTermination", "true"));
+    assertEquals("true", conf3.get("spark.kubernetes.executor.deleteOnTermination", "true"));
+
+    // RestartConfig unset: rely on K8s Garbage Collection.
+    when(mockTolerations.getRestartConfig()).thenReturn(null);
+    SparkAppDriverConf conf4 = submissionWorker.buildDriverConf(mockApp, Map.of());
+    assertEquals("false", conf4.get("spark.kubernetes.executor.deleteOnTermination", "true"));
   }
 
   @Test
