@@ -27,7 +27,10 @@ import static org.apache.spark.k8s.operator.utils.SparkExceptionUtils.buildGener
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.NavigableMap;
 import java.util.Optional;
+import java.util.SortedMap;
 
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Pod;
@@ -38,6 +41,7 @@ import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.context.SparkAppContext;
 import org.apache.spark.k8s.operator.decorators.DriverResourceDecorator;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
+import org.apache.spark.k8s.operator.spec.RestartConfig;
 import org.apache.spark.k8s.operator.status.ApplicationAttemptSummary;
 import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
@@ -66,17 +70,30 @@ public final class AppInitStep extends AppReconcileStep {
     if (app.getStatus().getPreviousAttemptSummary() != null) {
       Instant lastTransitionTime = Instant.parse(currentState.getLastTransitionTime());
       ApplicationAttemptSummary attemptSummary = app.getStatus().getPreviousAttemptSummary();
-      ApplicationState lastState = attemptSummary.getStateTransitionHistory()
-          .get(attemptSummary.getStateTransitionHistory().lastKey());
-      Instant restartTime =
-          lastTransitionTime.plusMillis(
-              app.getSpec()
-                  .getApplicationTolerations()
-                  .getRestartConfig()
-                  .getEffectiveRestartBackoffMillis(lastState.getCurrentStateSummary()));
-      Instant now = Instant.now();
-      if (restartTime.isAfter(now)) {
-        return ReconcileProgress.completeAndRequeueAfter(Duration.between(now, restartTime));
+      SortedMap<Long, ApplicationState> attemptHistory = attemptSummary.getStateTransitionHistory();
+      final ApplicationState lastState;
+      if (attemptHistory != null && !attemptHistory.isEmpty()) {
+        lastState = attemptHistory.get(attemptHistory.lastKey());
+      } else {
+        // Non-trim mode: previousAttemptSummary carries null stateTransitionHistory.
+        // Fall back to the main history and pick the state entered just before the current
+        // initializing state (which is the stopping state that triggered the restart).
+        NavigableMap<Long, ApplicationState> mainNav =
+            (NavigableMap<Long, ApplicationState>) app.getStatus().getStateTransitionHistory();
+        Map.Entry<Long, ApplicationState> prevEntry = mainNav.lowerEntry(mainNav.lastKey());
+        lastState = prevEntry != null ? prevEntry.getValue() : mainNav.lastEntry().getValue();
+      }
+      RestartConfig restartConfig =
+          app.getSpec().getApplicationTolerations().getRestartConfig();
+      if (restartConfig != null) {
+        Instant restartTime =
+            lastTransitionTime.plusMillis(
+                restartConfig.getEffectiveRestartBackoffMillis(
+                    lastState.getCurrentStateSummary()));
+        Instant now = Instant.now();
+        if (restartTime.isAfter(now)) {
+          return ReconcileProgress.completeAndRequeueAfter(Duration.between(now, restartTime));
+        }
       }
     }
     try {
