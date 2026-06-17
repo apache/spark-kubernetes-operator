@@ -85,15 +85,14 @@ public final class AppInitStep extends AppReconcileStep {
       }
       RestartConfig restartConfig =
           app.getSpec().getApplicationTolerations().getRestartConfig();
-      if (restartConfig != null) {
-        Instant restartTime =
-            lastTransitionTime.plusMillis(
-                restartConfig.getEffectiveRestartBackoffMillis(
-                    lastState.getCurrentStateSummary()));
-        Instant now = Instant.now();
-        if (restartTime.isAfter(now)) {
-          return ReconcileProgress.completeAndRequeueAfter(Duration.between(now, restartTime));
-        }
+      assert restartConfig != null : "restartConfig must not be null";
+      Instant restartTime =
+          lastTransitionTime.plusMillis(
+              restartConfig.getEffectiveRestartBackoffMillis(
+                  lastState.getCurrentStateSummary()));
+      Instant now = Instant.now();
+      if (restartTime.isAfter(now)) {
+        return ReconcileProgress.completeAndRequeueAfter(Duration.between(now, restartTime));
       }
     }
     try {
