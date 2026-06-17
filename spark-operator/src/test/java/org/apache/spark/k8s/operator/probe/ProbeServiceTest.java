@@ -29,10 +29,12 @@ import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.List;
 
+import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.server.mock.EnableKubernetesMockClient;
 import io.javaoperatorsdk.operator.Operator;
 import io.javaoperatorsdk.operator.RuntimeInfo;
@@ -63,18 +65,23 @@ class ProbeServiceTest {
   @Test
   void testHealthProbeEndpointWithDynamicProperties() throws Exception {
     Operator operator = mock(Operator.class);
+    Operator operator1 = mock(Operator.class);
     RuntimeInfo runtimeInfo = mock(RuntimeInfo.class);
+    RuntimeInfo runtimeInfo1 = mock(RuntimeInfo.class);
     when(operator.getRuntimeInfo()).thenReturn(runtimeInfo);
-
+    when(operator1.getRuntimeInfo()).thenReturn(runtimeInfo1);
 
     when(runtimeInfo.isStarted()).thenReturn(true).thenReturn(true);
+    when(runtimeInfo1.isStarted()).thenReturn(true).thenReturn(true);
 
     var sentinelManager = mock(SentinelManager.class);
     when(runtimeInfo.unhealthyInformerWrappingEventSourceHealthIndicator())
         .thenReturn(new HashMap<>());
+    when(runtimeInfo1.unhealthyInformerWrappingEventSourceHealthIndicator())
+        .thenReturn(new HashMap<>());
     when(sentinelManager.allSentinelsAreHealthy()).thenReturn(true);
     ProbeService probeService =
-        new ProbeService(List.of(operator), List.of(sentinelManager), null, null);
+        new ProbeService(List.of(operator, operator1), List.of(sentinelManager), null, null);
     probeService.start();
     hitHealthyEndpoint();
     probeService.stop();
@@ -83,23 +90,30 @@ class ProbeServiceTest {
   @Test
   void testReadinessProbeEndpointWithDynamicProperties() throws Exception {
     Operator operator = mock(Operator.class);
-
+    Operator operator1 = mock(Operator.class);
     RuntimeInfo runtimeInfo = mock(RuntimeInfo.class);
+    RuntimeInfo runtimeInfo1 = mock(RuntimeInfo.class);
     when(operator.getRuntimeInfo()).thenReturn(runtimeInfo);
+    when(operator1.getRuntimeInfo()).thenReturn(runtimeInfo1);
 
     when(runtimeInfo.isStarted()).thenReturn(true).thenReturn(true);
+    when(runtimeInfo1.isStarted()).thenReturn(true).thenReturn(true);
 
     var sentinelManager = mock(SentinelManager.class);
+    KubernetesClient client = mock(KubernetesClient.class);
     when(runtimeInfo.unhealthyInformerWrappingEventSourceHealthIndicator())
         .thenReturn(new HashMap<>());
+    when(runtimeInfo1.unhealthyInformerWrappingEventSourceHealthIndicator())
+        .thenReturn(new HashMap<>());
+    when(operator1.getKubernetesClient()).thenReturn(client);
     ProbeService probeService =
-        new ProbeService(List.of(operator), List.of(sentinelManager), null, null);
+        new ProbeService(List.of(operator, operator1), List.of(sentinelManager), null, null);
     probeService.start();
     hitStartedUpEndpoint();
     probeService.stop();
   }
 
-  private void hitHealthyEndpoint() throws IOException {
+  private void hitHealthyEndpoint() throws IOException, MalformedURLException {
     URL u = new URL("http://localhost:" + OPERATOR_PROBE_PORT.getValue() + HEALTHZ);
     HttpURLConnection connection = (HttpURLConnection) u.openConnection();
     connection.setConnectTimeout(100000);
@@ -107,7 +121,7 @@ class ProbeServiceTest {
     assertEquals(HTTP_OK, connection.getResponseCode(), "Health Probe should return HTTP_OK");
   }
 
-  private void hitStartedUpEndpoint() throws IOException {
+  private void hitStartedUpEndpoint() throws IOException, MalformedURLException {
     URL u = new URL("http://localhost:" + OPERATOR_PROBE_PORT.getValue() + READYZ);
     HttpURLConnection connection = (HttpURLConnection) u.openConnection();
     connection.setConnectTimeout(100000);
