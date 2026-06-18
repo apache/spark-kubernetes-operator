@@ -32,7 +32,7 @@
  | spark.kubernetes.operator.metrics.sanitizePrometheusMetricsNameEnabled | Boolean | true | false | Whether or not to enable automatic name sanitizing for all metrics based on best-practice guide from Prometheus https://prometheus.io/docs/practices/naming/ | 
  | spark.kubernetes.operator.name | String | spark-kubernetes-operator | false | Name of the operator. | 
  | spark.kubernetes.operator.namespace | String | default | false | Namespace that operator is deployed within. | 
- | spark.kubernetes.operator.periodicGC.intervalSeconds | Long | 1800 | true | Interval (in seconds) between periodic System.gc() invocations. Set to 0 or a negative value to disable. Note that System.gc() is a no-op if JVM is started with -XX:+DisableExplicitGC. | 
+ | spark.kubernetes.operator.periodicGC.intervalSeconds | Long | 1800 | false | Interval (in seconds) between periodic System.gc() invocations. Set to 0 or a negative value to disable. Note that System.gc() is a no-op if JVM is started with -XX:+DisableExplicitGC. | 
  | spark.kubernetes.operator.reconciler.appStatusListenerClassNames | String |  | false | Comma-separated names of SparkAppStatusListener class implementations | 
  | spark.kubernetes.operator.reconciler.clusterStatusListenerClassNames | String |  | false | Comma-separated names of SparkClusterStatusListener class implementations | 
  | spark.kubernetes.operator.reconciler.foregroundRequestTimeoutSeconds | Long | 60 | true | Timeout (in seconds) for requests made to API server. This applies only to foreground requests. | 
@@ -47,5 +47,5 @@
  | spark.kubernetes.operator.reconciler.terminationTimeoutSeconds | Integer | 30 | false | Grace period for operator shutdown before reconciliation threads are killed. | 
  | spark.kubernetes.operator.reconciler.trimStateTransitionHistoryEnabled | Boolean | true | true | When enabled, operator would trim state transition history when a new attempt starts, keeping previous attempt summary only. | 
  | spark.kubernetes.operator.watchedNamespaces | String | default | true | Comma-separated list of namespaces that the operator would be watching for Spark resources. If set to '*', operator would watch all namespaces. | 
- | spark.logConf | Boolean | false | true | When enabled, operator will print configurations | 
+ | spark.logConf | Boolean | false | false | When enabled, operator will print configurations | 
 

@@ -129,10 +129,10 @@ class ConfigOptionTest {
     configOverride.put("foodouble", "10.0");
     configOverride.put("foobool", "true");
     configOverride.put("foo", "barbar");
-    SparkOperatorConfManager.INSTANCE.refresh(configOverride);
     ConfigOption<String> testStrConf =
         ConfigOption.<String>builder()
             .key("foo")
+            .enableDynamicOverride(true)
             .typeParameterClass(String.class)
             .description("foo foo.")
             .defaultValue(defaultStringValue)
@@ -140,6 +140,7 @@ class ConfigOptionTest {
     ConfigOption<Integer> testIntConf =
         ConfigOption.<Integer>builder()
             .key("fooint")
+            .enableDynamicOverride(true)
             .typeParameterClass(Integer.class)
             .description("foo foo.")
             .defaultValue(defaultIntValue)
@@ -147,6 +148,7 @@ class ConfigOptionTest {
     ConfigOption<Short> testShortConf =
         ConfigOption.<Short>builder()
             .key("fooshort")
+            .enableDynamicOverride(true)
             .typeParameterClass(Short.class)
             .description("foo foo.")
             .defaultValue(defaultShortValue)
@@ -154,6 +156,7 @@ class ConfigOptionTest {
     ConfigOption<Long> testLongConf =
         ConfigOption.<Long>builder()
             .key("foolong")
+            .enableDynamicOverride(true)
             .typeParameterClass(Long.class)
             .description("foo foo.")
             .defaultValue(defaultLongValue)
@@ -161,6 +164,7 @@ class ConfigOptionTest {
     ConfigOption<Boolean> testBooleanConf =
         ConfigOption.<Boolean>builder()
             .key("foobool")
+            .enableDynamicOverride(true)
             .typeParameterClass(Boolean.class)
             .description("foo foo.")
             .defaultValue(defaultBooleanValue)
@@ -168,6 +172,7 @@ class ConfigOptionTest {
     ConfigOption<Float> testFloatConf =
         ConfigOption.<Float>builder()
             .key("foofloat")
+            .enableDynamicOverride(true)
             .typeParameterClass(Float.class)
             .description("foo foo.")
             .defaultValue(defaultFloatValue)
@@ -175,6 +180,7 @@ class ConfigOptionTest {
     ConfigOption<Double> testDoubleConf =
         ConfigOption.<Double>builder()
             .key("foodouble")
+            .enableDynamicOverride(true)
             .typeParameterClass(Double.class)
             .description("foo foo.")
             .defaultValue(defaultDoubleValue)
@@ -182,10 +188,14 @@ class ConfigOptionTest {
     ConfigOption<Byte> testByteConf =
         ConfigOption.<Byte>builder()
             .key("foobyte")
+            .enableDynamicOverride(true)
             .typeParameterClass(Byte.class)
             .description("foo foo.")
             .defaultValue(defaultByteValue)
             .build();
+    // The options above opt in to dynamic override, so refreshing after they are built lets the
+    // allow-list filter retain these keys.
+    SparkOperatorConfManager.INSTANCE.refresh(configOverride);
     Assertions.assertEquals(overrideStringValue, testStrConf.getValue());
     Assertions.assertEquals(overrideIntValue, testIntConf.getValue());
     Assertions.assertEquals(overrideLongValue, testLongConf.getValue());
