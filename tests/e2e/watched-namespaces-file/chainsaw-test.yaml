@@ -15,21 +15,21 @@
 # limitations under the License.
 #
 
-# Validates dynamic configuration using the 'configMap' source: the operator watches the dynamic
-# ConfigMap via a Kubernetes informer and applies watched-namespace changes when the ConfigMap is
-# updated. The operator under test is installed by CI with operatorConfiguration.dynamicConfig.
-# source=configMap (see tests/e2e/helm/dynamic-config-values-configmap.yaml).
+# Validates dynamic configuration using the 'file' source: the operator periodically reloads a
+# properties file mounted from a ConfigMap and applies watched-namespace changes when the file
+# content changes. The operator under test is installed by CI with
+# operatorConfiguration.dynamicConfig.source=file (see tests/e2e/helm/dynamic-config-values-file.yaml).
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: spark-operator-dynamic-configuration-configmap-validation
+  name: spark-operator-dynamic-configuration-file-validation
 spec:
   steps:
   - try:
       - apply:
           file: spark-operator-dynamic-config-1.yaml
       - sleep:
-          duration: 60s
+          duration: 150s
       - script:
           content:
             kubectl logs -n default $(kubectl get pods -o=name -l app.kubernetes.io/component=operator-deployment,app.kubernetes.io/name=spark-kubernetes-operator)

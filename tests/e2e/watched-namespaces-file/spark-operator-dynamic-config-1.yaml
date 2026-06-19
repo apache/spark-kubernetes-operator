@@ -17,7 +17,8 @@
 
 apiVersion: v1
 data:
-  spark.kubernetes.operator.watchedNamespaces: default, spark-1
+  spark-operator-dynamic.properties: |
+    spark.kubernetes.operator.watchedNamespaces=default, spark-1
 kind: ConfigMap
 metadata:
   annotations:

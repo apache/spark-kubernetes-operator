@@ -123,8 +123,8 @@ jobs:
             test-group: driver-start-timeout
         include:
           - kubernetes-version: "1.36.0"
-            mode: dynamic-configmap
-            test-group: watched-namespaces-configmap
+            mode: dynamic-file
+            test-group: watched-namespaces-file
           - kubernetes-version: "1.36.0"
             mode: static
             test-group: pi-with-comet
@@ -191,18 +191,18 @@ jobs:
         if: matrix.mode == 'dynamic'
         run: |
           chainsaw test --test-dir ./tests/e2e/${{ matrix.test-group }} --parallel 1
-      - name: Run Spark K8s Operator on K8S with Dynamic Configuration Enabled (ConfigMap source)
-        if: matrix.mode == 'dynamic-configmap'
+      - name: Run Spark K8s Operator on K8S with Dynamic Configuration Enabled (File source)
+        if: matrix.mode == 'dynamic-file'
         run: |
           eval $(minikube docker-env)
           ./gradlew buildDockerImage
           helm install spark --create-namespace -f \
           build-tools/helm/spark-kubernetes-operator/values.yaml -f \
-          tests/e2e/helm/dynamic-config-values-configmap.yaml \
+          tests/e2e/helm/dynamic-config-values-file.yaml \
           build-tools/helm/spark-kubernetes-operator/
           minikube docker-env --unset
-      - name: Run E2E Test with Dynamic Configuration Enabled (ConfigMap source)
-        if: matrix.mode == 'dynamic-configmap'
+      - name: Run E2E Test with Dynamic Configuration Enabled (File source)
+        if: matrix.mode == 'dynamic-file'
         run: |
           chainsaw test --test-dir ./tests/e2e/${{ matrix.test-group }} --parallel 1
       - name: Run Spark K8s Operator on K8S with Resource Selector Enabled

@@ -34,7 +34,6 @@ operatorDeployment:
 operatorConfiguration:
   dynamicConfig:
     enable: true
-    source: file
     create: true
     data:
       spark.kubernetes.operator.watchedNamespaces: "default"
