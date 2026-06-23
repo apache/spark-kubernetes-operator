@@ -35,7 +35,7 @@ checkstyle = "13.4.2"
 pmd = "7.24.0"
 spotbugs-tool = "4.10.2"
 spotbugs-plugin = "6.5.6"
-spotless-plugin = "8.6.0"
+spotless-plugin = "8.7.0"
 
 # Packaging
 cyclonedx = "3.2.4"
