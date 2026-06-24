@@ -69,8 +69,13 @@ class DynamicConfigMonitorTest {
     monitor.start();
 
     assertTrue(monitor.isRunning());
-    assertEquals("60", SparkOperatorConfManager.INSTANCE.getValue(configKey));
-    assertEquals(watchedNamespaces, updaterCalledWith.get());
+    await()
+        .atMost(Duration.ofSeconds(5))
+        .untilAsserted(
+            () -> {
+              assertEquals("60", SparkOperatorConfManager.INSTANCE.getValue(configKey));
+              assertEquals(watchedNamespaces, updaterCalledWith.get());
+            });
   }
 
   @Test
@@ -87,7 +92,10 @@ class DynamicConfigMonitorTest {
             Set::of,
             ns -> updaterCalledWith.set(new HashSet<>(ns)));
     monitor.start();
-    assertEquals("60", SparkOperatorConfManager.INSTANCE.getValue(configKey));
+    await()
+        .atMost(Duration.ofSeconds(5))
+        .untilAsserted(
+            () -> assertEquals("60", SparkOperatorConfManager.INSTANCE.getValue(configKey)));
 
     Files.writeString(configFile, configKey + "=120\n");
 
@@ -128,8 +136,13 @@ class DynamicConfigMonitorTest {
             Set::of,
             ns -> updaterCallCount.updateAndGet(c -> c + 1));
     monitor.start();
+    await()
+        .atMost(Duration.ofSeconds(5))
+        .untilAsserted(
+            () ->
+                assertEquals(
+                    1, updaterCallCount.get(), "namespace updater invoked once on initial load"));
     int countAfterStart = updaterCallCount.get();
-    assertEquals(1, countAfterStart, "namespace updater invoked once on initial load");
 
     await().pollDelay(Duration.ofMillis(300)).until(() -> true);
     assertEquals(

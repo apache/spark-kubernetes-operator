@@ -31,8 +31,8 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -57,7 +57,7 @@ public class DynamicConfigMonitor {
   private final boolean ownsScheduler;
 
   private final AtomicReference<Map<String, String>> lastLoaded = new AtomicReference<>(Map.of());
-  private final AtomicBoolean initialLoadComplete = new AtomicBoolean();
+  private final AtomicReference<ScheduledFuture<?>> scheduledTask = new AtomicReference<>();
 
   public DynamicConfigMonitor(
       Path configFile,
@@ -93,18 +93,18 @@ public class DynamicConfigMonitor {
   }
 
   /**
-   * Performs an initial synchronous load and schedules periodic reloads at the configured
-   * interval.
+   * Schedules periodic reloads at the configured interval. The first reload runs through the
+   * scheduler with no initial delay (rather than synchronously here), so a failing initial load
+   * never blocks operator startup.
    */
   public void start() {
     log.info(
         "Starting dynamic config monitor on {} with reload interval {}",
         configFile,
         reloadInterval);
-    reload();
-    initialLoadComplete.set(true);
     long millis = reloadInterval.toMillis();
-    scheduler.scheduleAtFixedRate(this::reloadSafely, millis, millis, TimeUnit.MILLISECONDS);
+    scheduledTask.set(
+        scheduler.scheduleAtFixedRate(this::reloadSafely, 0, millis, TimeUnit.MILLISECONDS));
   }
 
   /** Stops the scheduler if it was created internally. */
@@ -116,11 +116,13 @@ public class DynamicConfigMonitor {
   }
 
   /**
-   * Returns true once the initial load has completed and the underlying scheduler is still
-   * running.
+   * Returns true once {@link #start()} has scheduled the periodic reload and the underlying
+   * scheduler is still running. Because {@link #reloadSafely()} swallows reload failures, the
+   * scheduled task only becomes done when it is cancelled (e.g. via {@link #stop()}).
    */
   public boolean isRunning() {
-    return initialLoadComplete.get() && !scheduler.isShutdown();
+    ScheduledFuture<?> task = scheduledTask.get();
+    return task != null && !task.isDone() && !scheduler.isShutdown();
   }
 
   private void reloadSafely() {
