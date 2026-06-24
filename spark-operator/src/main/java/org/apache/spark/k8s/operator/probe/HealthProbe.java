@@ -62,6 +62,7 @@ public class HealthProbe implements HttpHandler {
     if (!areOperatorsStarted(operators).orElse(false)) {
       return false;
     }
+
     if (!operators.stream().allMatch(op -> checkInformersHealth(op.getRuntimeInfo()))) {
       return false;
     }
@@ -72,6 +73,7 @@ public class HealthProbe implements HttpHandler {
         return false;
       }
     }
+
     if (dynamicConfigMonitor != null && !dynamicConfigMonitor.isRunning()) {
       log.error("Dynamic config monitor is not running.");
       return false;

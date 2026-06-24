@@ -126,7 +126,7 @@ public class DynamicConfigMonitor {
   private void reloadSafely() {
     try {
       reload();
-    } catch (UncheckedIOException e) {
+    } catch (RuntimeException e) {
       log.error("Failed to reload dynamic config from {}", configFile, e);
     }
   }

@@ -758,6 +758,17 @@ public final class SparkOperatorConf {
   }
 
   /**
+   * Returns the dynamic config file reload interval (in seconds) for the {@code file} source,
+   * ensuring the configured value is positive. A non-positive value would be rejected by the
+   * scheduler; the option's default is used instead in that case.
+   *
+   * @return The validated, positive reload interval in seconds.
+   */
+  public static long getDynamicConfigReloadIntervalSeconds() {
+    return ensurePositiveLongFor(DYNAMIC_CONFIG_RELOAD_INTERVAL_SECONDS);
+  }
+
+  /**
    * Ensures that the integer value of a ConfigOption is non-negative.
    *
    * @param configOption The ConfigOption to check.
@@ -778,6 +789,18 @@ public final class SparkOperatorConf {
   }
 
   /**
+   * Ensures that the long value of a ConfigOption is positive, falling back to the option's
+   * default value when the configured value is non-positive.
+   *
+   * @param configOption The ConfigOption to check.
+   * @return The positive long value, or the option's default if the configured value is invalid.
+   */
+  private static long ensurePositiveLongFor(ConfigOption<Long> configOption) {
+    return ensureValid(
+        configOption.getValue(), configOption.getDescription(), 1L, configOption.getDefaultValue());
+  }
+
+  /**
    * Ensures that a given integer value is within a valid range.
    *
    * @param value The value to validate.
@@ -787,6 +810,33 @@ public final class SparkOperatorConf {
    * @return The validated value, or the default value if invalid.
    */
   private static int ensureValid(int value, String description, int minValue, int defaultValue) {
+    if (value < minValue) {
+      if (defaultValue < minValue) {
+        throw new IllegalArgumentException(
+            "Default value for " + description + " must be greater than " + minValue);
+      }
+      log.warn(
+          "Requested {} should be greater than {}. Requested: {}, using {} (default) instead",
+          description,
+          minValue,
+          value,
+          defaultValue);
+      return defaultValue;
+    }
+    return value;
+  }
+
+  /**
+   * Ensures that a given long value is within a valid range.
+   *
+   * @param value The value to validate.
+   * @param description A description of the value for logging purposes.
+   * @param minValue The minimum allowed value (inclusive).
+   * @param defaultValue The default value to use if the provided value is invalid.
+   * @return The validated value, or the default value if invalid.
+   */
+  private static long ensureValid(
+      long value, String description, long minValue, long defaultValue) {
     if (value < minValue) {
       if (defaultValue < minValue) {
         throw new IllegalArgumentException(

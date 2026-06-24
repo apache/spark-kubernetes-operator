@@ -201,7 +201,7 @@ public class SparkOperator {
       log.info("Starting dynamic config from mounted file source.");
       return new DynamicConfigMonitor(
           Paths.get(SparkOperatorConf.DYNAMIC_CONFIG_FILE_PATH.getValue()),
-          Duration.ofSeconds(SparkOperatorConf.DYNAMIC_CONFIG_RELOAD_INTERVAL_SECONDS.getValue()),
+          Duration.ofSeconds(SparkOperatorConf.getDynamicConfigReloadIntervalSeconds()),
           Utils::getWatchedNamespaces,
           this::updateWatchingNamespaces);
     }
