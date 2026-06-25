@@ -19,6 +19,8 @@
 
 package org.apache.spark.k8s.operator.config;
 
+import static org.apache.spark.k8s.operator.config.SparkOperatorConf.DYNAMIC_CONFIG_MAP_NAME;
+
 import java.util.Set;
 import java.util.function.Function;
 
@@ -69,6 +71,13 @@ public class SparkOperatorConfigMapReconciler implements Reconciler<ConfigMap> {
   @Override
   public UpdateControl<ConfigMap> reconcile(ConfigMap resource, Context<ConfigMap> context)
       throws Exception {
+
+    if (!resource.getMetadata().getName().equals(DYNAMIC_CONFIG_MAP_NAME.getValue())){
+      log.warn("Unexpected ConfigMap for dynamic config change: {}",
+              resource.getMetadata().getName());
+      return UpdateControl.noUpdate();
+    }
+
     SparkOperatorConfManager.INSTANCE.refresh(resource.getData());
     namespaceUpdater.apply(watchedNamespacesGetter.apply(null));
     return UpdateControl.noUpdate();
