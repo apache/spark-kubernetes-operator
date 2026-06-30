@@ -200,12 +200,207 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 
---------------------------------------------------------------------------------
+------------------------------------------------------------------------------------
+This project bundles some components that are also licensed under the Apache
+License Version 2.0:
 
-This product includes a gradle wrapper.
+at.yawk.lz4:lz4-java
+com.clearspring.analytics:stream
+com.fasterxml.jackson.core:jackson-annotations
+com.fasterxml.jackson.core:jackson-core
+com.fasterxml.jackson.core:jackson-databind
+com.fasterxml.jackson.dataformat:jackson-dataformat-yaml
+com.fasterxml.jackson.datatype:jackson-datatype-jsr310
+com.fasterxml.jackson.jaxrs:jackson-jaxrs-base
+com.fasterxml.jackson.jaxrs:jackson-jaxrs-json-provider
+com.fasterxml.jackson.module:jackson-module-jaxb-annotations
+com.fasterxml.jackson.module:jackson-module-scala_2.13
+com.fasterxml.woodstox:woodstox-core
+com.google.code.findbugs:jsr305
+com.google.code.gson:gson
+com.google.crypto.tink:tink
+com.google.errorprone:error_prone_annotations
+com.google.guava:failureaccess
+com.google.guava:guava
+com.google.j2objc:j2objc-annotations
+com.nimbusds:nimbus-jose-jwt
+com.squareup:javapoet
+com.twitter:chill-java
+com.twitter:chill_2.13
+commons-cli:commons-cli
+commons-codec:commons-codec
+commons-io:commons-io
+commons-net:commons-net
+io.dropwizard.metrics:metrics-core
+io.dropwizard.metrics:metrics-graphite
+io.dropwizard.metrics:metrics-jmx
+io.dropwizard.metrics:metrics-json
+io.dropwizard.metrics:metrics-jvm
+io.fabric8:kubernetes-client
+io.fabric8:kubernetes-client-api
+io.fabric8:kubernetes-httpclient-vertx
+io.fabric8:kubernetes-model-admissionregistration
+io.fabric8:kubernetes-model-apiextensions
+io.fabric8:kubernetes-model-apps
+io.fabric8:kubernetes-model-autoscaling
+io.fabric8:kubernetes-model-batch
+io.fabric8:kubernetes-model-certificates
+io.fabric8:kubernetes-model-common
+io.fabric8:kubernetes-model-coordination
+io.fabric8:kubernetes-model-core
+io.fabric8:kubernetes-model-discovery
+io.fabric8:kubernetes-model-events
+io.fabric8:kubernetes-model-extensions
+io.fabric8:kubernetes-model-flowcontrol
+io.fabric8:kubernetes-model-gatewayapi
+io.fabric8:kubernetes-model-metrics
+io.fabric8:kubernetes-model-networking
+io.fabric8:kubernetes-model-node
+io.fabric8:kubernetes-model-policy
+io.fabric8:kubernetes-model-rbac
+io.fabric8:kubernetes-model-resource
+io.fabric8:kubernetes-model-scheduling
+io.fabric8:kubernetes-model-storageclass
+io.fabric8:zjsonpatch
+io.github.java-diff-utils:java-diff-utils
+io.javaoperatorsdk:operator-framework
+io.javaoperatorsdk:operator-framework-core
+io.netty:netty-buffer
+io.netty:netty-codec-base
+io.netty:netty-codec-compression
+io.netty:netty-codec-dns
+io.netty:netty-codec-http
+io.netty:netty-codec-http2
+io.netty:netty-codec-socks
+io.netty:netty-common
+io.netty:netty-handler
+io.netty:netty-handler-proxy
+io.netty:netty-resolver
+io.netty:netty-resolver-dns
+io.netty:netty-transport
+io.netty:netty-transport-classes-epoll
+io.netty:netty-transport-classes-kqueue
+io.netty:netty-transport-native-epoll
+io.netty:netty-transport-native-kqueue
+io.netty:netty-transport-native-unix-common
+io.vertx:vertx-auth-common
+io.vertx:vertx-core
+io.vertx:vertx-uri-template
+io.vertx:vertx-web-client
+io.vertx:vertx-web-common
+jakarta.inject:jakarta.inject-api
+jakarta.validation:jakarta.validation-api
+org.apache.avro:avro
+org.apache.commons:commons-collections4
+org.apache.commons:commons-compress
+org.apache.commons:commons-configuration2
+org.apache.commons:commons-crypto
+org.apache.commons:commons-lang3
+org.apache.commons:commons-math3
+org.apache.commons:commons-text
+org.apache.curator:curator-client
+org.apache.curator:curator-framework
+org.apache.curator:curator-recipes
+org.apache.hadoop.thirdparty:hadoop-shaded-guava
+org.apache.hadoop.thirdparty:hadoop-shaded-protobuf_3_25
+org.apache.hadoop:hadoop-annotations
+org.apache.hadoop:hadoop-auth
+org.apache.hadoop:hadoop-client-api
+org.apache.hadoop:hadoop-client-runtime
+org.apache.hadoop:hadoop-common
+org.apache.hadoop:hadoop-hdfs-client
+org.apache.httpcomponents:httpclient
+org.apache.httpcomponents:httpcore
+org.apache.ivy:ivy
+org.apache.kerby:kerb-core
+org.apache.kerby:kerb-util
+org.apache.kerby:kerby-asn1
+org.apache.logging.log4j:log4j-api
+org.apache.logging.log4j:log4j-core
+org.apache.logging.log4j:log4j-layout-template-json
+org.apache.logging.log4j:log4j-slf4j2-impl
+org.apache.spark:spark-common-utils-java_2.13
+org.apache.spark:spark-common-utils_2.13
+org.apache.spark:spark-core_2.13
+org.apache.spark:spark-kubernetes_2.13
+org.apache.spark:spark-kvstore_2.13
+org.apache.spark:spark-launcher_2.13
+org.apache.spark:spark-network-common_2.13
+org.apache.spark:spark-network-shuffle_2.13
+org.apache.spark:spark-tags_2.13
+org.apache.spark:spark-unsafe_2.13
+org.apache.xbean:xbean-asm9-shaded
+org.apache.yetus:audience-annotations
+org.apache.zookeeper:zookeeper
+org.apache.zookeeper:zookeeper-jute
+org.eclipse.jetty.compression:jetty-compression-common
+org.eclipse.jetty.compression:jetty-compression-server
+org.eclipse.jetty.ee10:jetty-ee10-proxy
+org.eclipse.jetty.ee10:jetty-ee10-servlet
+org.eclipse.jetty:jetty-client
+org.eclipse.jetty:jetty-http
+org.eclipse.jetty:jetty-io
+org.eclipse.jetty:jetty-security
+org.eclipse.jetty:jetty-server
+org.eclipse.jetty:jetty-session
+org.eclipse.jetty:jetty-util
+org.glassfish.jersey.containers:jersey-container-servlet
+org.glassfish.jersey.containers:jersey-container-servlet-core
+org.glassfish.jersey.core:jersey-client
+org.glassfish.jersey.core:jersey-common
+org.glassfish.jersey.core:jersey-server
+org.jctools:jctools-core
+org.json4s:json4s-ast_2.13
+org.json4s:json4s-core_2.13
+org.json4s:json4s-jackson-core_2.13
+org.json4s:json4s-jackson_2.13
+org.json4s:json4s-scalap_2.13
+org.objenesis:objenesis
+org.scala-lang.modules:scala-parallel-collections_2.13
+org.scala-lang.modules:scala-xml_2.13
+org.scala-lang:scala-library
+org.snakeyaml:snakeyaml-engine
+org.yaml:snakeyaml
+oro:oro
 
-* gradlew and gradle/wrapper/gradle-wrapper.properties
 
-Copyright: 2015-2021 Gradle Authors.
-Home page: https://github.com/gradle/gradle
-License: https://www.apache.org/licenses/LICENSE-2.0
+------------------------------------------------------------------------------------
+This product bundles various third-party components under other open source licenses.
+This section summarizes those components and their licenses. See licenses-binary/
+for text of these licenses.
+
+
+BSD 2-Clause
+------------
+org.codehaus.woodstox:stax2-api
+
+
+BSD 3-Clause
+------------
+com.google.re2j:re2j
+com.thoughtworks.paranamer:paranamer
+dnsjava:dnsjava
+
+
+MIT License
+-----------
+org.slf4j:slf4j-api
+
+
+Common Development and Distribution License (CDDL) 1.1
+------------------------------------------------------
+javax.servlet:javax.servlet-api https://oss.oracle.com/licenses/CDDL+GPL-1.1
+
+
+Eclipse Distribution License (EDL) 1.0
+--------------------------------------
+jakarta.xml.bind:jakarta.xml.bind-api
+
+
+Eclipse Public License (EPL) 2.0
+--------------------------------
+jakarta.annotation:jakarta.annotation-api https://projects.eclipse.org/projects/ee4j.ca
+jakarta.servlet:jakarta.servlet-api https://projects.eclipse.org/projects/ee4j.servlet
+jakarta.ws.rs:jakarta.ws.rs-api https://github.com/eclipse-ee4j/jaxrs-api
+org.glassfish.hk2:hk2-api
+org.glassfish.hk2:osgi-resource-locator

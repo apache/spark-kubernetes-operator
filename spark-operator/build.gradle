@@ -115,6 +115,31 @@ shadowJar {
   // Netty io_uring native libraries - not needed for K8s API server communication
   exclude("META-INF/native/libnetty_io_uring*")
   exclude("META-INF/native/netty_io_uring*")
+  // ASF binary-artifact license metadata (Hadoop-style): drop the source
+  // LICENSE/NOTICE and the dependencies' scattered LICENSE/NOTICE, and ship the
+  // aggregated LICENSE-binary/NOTICE-binary plus the bundled non-Apache license
+  // texts under META-INF/licenses-binary/.
+  exclude("LICENSE")
+  exclude("NOTICE")
+  exclude("META-INF/LICENSE")
+  exclude("META-INF/LICENSE.txt")
+  exclude("META-INF/LICENSE.md")
+  exclude("META-INF/NOTICE")
+  exclude("META-INF/NOTICE.txt")
+  exclude("META-INF/NOTICE.md")
+  exclude("META-INF/NOTICE.markdown")
+  exclude("META-INF/NOTICE-binary")
+  from(rootProject.projectDir) {
+    include("LICENSE-binary")
+    include("NOTICE-binary")
+    into("META-INF")
+    rename("LICENSE-binary", "LICENSE")
+    rename("NOTICE-binary", "NOTICE")
+  }
+  from(rootProject.projectDir) {
+    include("licenses-binary/**")
+    into("META-INF")
+  }
   minimize {
     exclude(dependency('com.fasterxml.jackson:.*'))
     exclude(dependency('io.dropwizard.metrics:.*'))

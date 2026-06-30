@@ -13,6 +13,7 @@ header:
     - 'dev/**'
     - 'LICENSE'
     - 'LICENSE-binary'
+    - 'licenses-binary/**'
     - 'NOTICE'
     - 'NOTICE-binary'
     - '.asf.yaml'
