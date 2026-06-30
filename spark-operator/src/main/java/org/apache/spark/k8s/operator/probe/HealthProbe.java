@@ -40,6 +40,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import org.apache.spark.k8s.operator.config.DynamicConfigMonitor;
 import org.apache.spark.k8s.operator.metrics.healthcheck.SentinelManager;
 
 /** Health probe for the operator. */
@@ -49,6 +50,7 @@ import org.apache.spark.k8s.operator.metrics.healthcheck.SentinelManager;
 public class HealthProbe implements HttpHandler {
   private final List<Operator> operators;
   private final List<SentinelManager<?>> sentinelManagers;
+  private final DynamicConfigMonitor dynamicConfigMonitor;
 
   /**
    * Checks the overall health of the operator, including all registered operators and sentinel
@@ -72,6 +74,10 @@ public class HealthProbe implements HttpHandler {
       }
     }
 
+    if (dynamicConfigMonitor != null && !dynamicConfigMonitor.isRunning()) {
+      log.error("Dynamic config monitor is not running.");
+      return false;
+    }
     return true;
   }
 

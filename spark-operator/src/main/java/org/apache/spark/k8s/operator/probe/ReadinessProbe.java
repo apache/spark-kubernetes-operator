@@ -32,18 +32,25 @@ import com.sun.net.httpserver.HttpHandler;
 import io.javaoperatorsdk.operator.Operator;
 import lombok.extern.slf4j.Slf4j;
 
+import org.apache.spark.k8s.operator.config.DynamicConfigMonitor;
+
 /** Readiness probe for the operator. */
 @Slf4j
 public class ReadinessProbe implements HttpHandler {
   private final List<Operator> operators;
+  private final DynamicConfigMonitor dynamicConfigMonitor;
 
   /**
    * Constructs a new ReadinessProbe.
    *
    * @param operators A list of Operator instances to check for readiness.
+   * @param dynamicConfigMonitor optional dynamic config monitor whose running state participates in
+   *     the readiness check. May be {@code null} when dynamic config is disabled or the configMap
+   *     informer source is used.
    */
-  public ReadinessProbe(List<Operator> operators) {
+  public ReadinessProbe(List<Operator> operators, DynamicConfigMonitor dynamicConfigMonitor) {
     this.operators = operators;
+    this.dynamicConfigMonitor = dynamicConfigMonitor;
   }
 
   /**
@@ -57,11 +64,18 @@ public class ReadinessProbe implements HttpHandler {
     Optional<Boolean> operatorsAreReady = areOperatorsStarted(operators);
     if (operatorsAreReady.isEmpty() || !operatorsAreReady.get()) {
       sendMessage(httpExchange, HTTP_BAD_REQUEST, "spark operators are not ready yet");
+      return;
+    }
+
+    if (dynamicConfigMonitor != null && !dynamicConfigMonitor.isRunning()) {
+      sendMessage(httpExchange, HTTP_BAD_REQUEST, "dynamic config monitor is not running yet");
+      return;
     }
 
     if (!passRbacCheck()) {
       sendMessage(
           httpExchange, HTTP_FORBIDDEN, "required rbac test failed, operators are not ready");
+      return;
     }
 
     sendMessage(httpExchange, HTTP_OK, "started");

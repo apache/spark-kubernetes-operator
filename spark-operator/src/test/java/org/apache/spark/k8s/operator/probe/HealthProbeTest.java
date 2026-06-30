@@ -42,6 +42,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import org.apache.spark.k8s.operator.config.DynamicConfigMonitor;
 import org.apache.spark.k8s.operator.metrics.healthcheck.SentinelManager;
 
 @EnableKubernetesMockClient(crud = true)
@@ -107,7 +108,7 @@ class HealthProbeTest {
 
   @Test
   void testHealthProbeWithInformerHealthWithMultiOperators() {
-    HealthProbe healthyProbe = new HealthProbe(operators, List.of());
+    HealthProbe healthyProbe = new HealthProbe(operators, List.of(), null);
     isRunning.set(true);
     assertFalse(
         healthyProbe.isHealthy(),
@@ -127,7 +128,7 @@ class HealthProbeTest {
 
   @Test
   void testHealthProbeWithInformerHealthWithSingleOperator() {
-    HealthProbe healthyProbe = new HealthProbe(List.of(operator), List.of());
+    HealthProbe healthyProbe = new HealthProbe(List.of(operator), List.of(), null);
     assertFalse(healthyProbe.isHealthy(), "Health Probe should fail when operator is not running");
     isRunning.set(true);
     unhealthyEventSources.put(
@@ -141,7 +142,7 @@ class HealthProbeTest {
   @Test
   void testHealthProbeWithSentinelHealthWithMultiOperators() {
     var sentinelManager = mock(SentinelManager.class);
-    HealthProbe healthyProbe = new HealthProbe(operators, List.of(sentinelManager));
+    HealthProbe healthyProbe = new HealthProbe(operators, List.of(sentinelManager), null);
     isRunning.set(true);
     isRunning2.set(true);
     when(sentinelManager.allSentinelsAreHealthy()).thenReturn(false);
@@ -149,6 +150,19 @@ class HealthProbeTest {
         healthyProbe.isHealthy(), "Healthy Probe should fail when sentinels report failures");
 
     when(sentinelManager.allSentinelsAreHealthy()).thenReturn(true);
+    assertTrue(healthyProbe.isHealthy(), "Healthy Probe should pass");
+  }
+
+  @Test
+  void testHealthProbeWithDynamicConfigMonitor() {
+    var dynamicConfigMonitor = mock(DynamicConfigMonitor.class);
+    HealthProbe healthyProbe = new HealthProbe(List.of(operator), List.of(), dynamicConfigMonitor);
+    isRunning.set(true);
+    when(dynamicConfigMonitor.isRunning()).thenReturn(false);
+    assertFalse(
+        healthyProbe.isHealthy(),
+        "Healthy Probe should fail when dynamic config monitor is not running");
+    when(dynamicConfigMonitor.isRunning()).thenReturn(true);
     assertTrue(healthyProbe.isHealthy(), "Healthy Probe should pass");
   }
 

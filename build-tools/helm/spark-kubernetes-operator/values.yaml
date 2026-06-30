@@ -206,6 +206,12 @@ operatorConfiguration:
   dynamicConfig:
     # Enable this for hot properties loading.
     enable: false
+    # Source of the dynamic config overrides when enabled. Supported values:
+    #   configMap - (default) watch a ConfigMap via a Kubernetes informer. Requires the operator
+    #               to have RBAC to read ConfigMaps (created by this chart).
+    #   file      - periodically reload a properties file mounted from a ConfigMap. Requires no
+    #               extra RBAC; the ConfigMap is mounted into the operator pod as a volume.
+    source: configMap
     # Enable this to create a config map for hot property loading
     create: false
     annotations:

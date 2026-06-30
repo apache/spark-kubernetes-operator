@@ -235,30 +235,69 @@ public final class SparkOperatorConf {
           .build();
 
   /**
-   * When enabled, operator would use config map as source of truth for config property override.
-   * The config map need to be created in spark.kubernetes.operator.namespace, and labeled with
-   * operator name.
+   * When enabled, operator would load config property overrides dynamically at runtime. The source
+   * of the overrides is controlled by spark.kubernetes.operator.dynamicConfig.source.
    */
   public static final ConfigOption<Boolean> DYNAMIC_CONFIG_ENABLED =
       ConfigOption.<Boolean>builder()
           .key("spark.kubernetes.operator.dynamicConfig.enabled")
           .enableDynamicOverride(false)
           .description(
-              "When enabled, operator would use config map as source of truth for config "
-                  + "property override. The config map need to be created in "
-                  + "spark.kubernetes.operator.namespace, and labeled with operator name.")
+              "When enabled, operator would load config property overrides dynamically at "
+                  + "runtime. The source of the overrides is controlled by "
+                  + "spark.kubernetes.operator.dynamicConfig.source.")
           .typeParameterClass(Boolean.class)
           .defaultValue(false)
           .build();
 
-  /** The selector str applied to dynamic config map. */
+  /** Source of dynamic config overrides: {@code configMap} (informer) or {@code file} (mount). */
+  public static final ConfigOption<String> DYNAMIC_CONFIG_SOURCE =
+      ConfigOption.<String>builder()
+          .key("spark.kubernetes.operator.dynamicConfig.source")
+          .enableDynamicOverride(false)
+          .description(
+              "Source of dynamic config overrides when "
+                  + "spark.kubernetes.operator.dynamicConfig.enabled is true. Supported values: "
+                  + "'configMap' (default) watches a ConfigMap via a Kubernetes informer and "
+                  + "requires RBAC to read ConfigMaps; 'file' periodically reloads a properties "
+                  + "file mounted from a ConfigMap and requires no extra RBAC.")
+          .typeParameterClass(String.class)
+          .defaultValue("configMap")
+          .build();
+
+  /** The selector str applied to dynamic config map (used by the {@code configMap} source). */
   public static final ConfigOption<String> DYNAMIC_CONFIG_SELECTOR =
       ConfigOption.<String>builder()
           .key("spark.kubernetes.operator.dynamicConfig.selector")
           .enableDynamicOverride(false)
-          .description("The selector str applied to dynamic config map.")
+          .description(
+              "The selector str applied to dynamic config map. Used by the 'configMap' source.")
           .typeParameterClass(String.class)
           .defaultValue(Utils.labelsAsStr(Utils.defaultOperatorConfigLabels()))
+          .build();
+
+  /** Path of the properties file that holds dynamic config overrides. */
+  public static final ConfigOption<String> DYNAMIC_CONFIG_FILE_PATH =
+      ConfigOption.<String>builder()
+          .key("spark.kubernetes.operator.dynamicConfig.filePath")
+          .enableDynamicOverride(false)
+          .description(
+              "Path of the properties file holding dynamic configuration overrides. Used by the "
+                  + "'file' source, typically populated by mounting a ConfigMap as a volume.")
+          .typeParameterClass(String.class)
+          .defaultValue("/opt/spark-operator/dynamic-conf/spark-operator-dynamic.properties")
+          .build();
+
+  /** Interval at which the dynamic config file is re-read (used by the {@code file} source). */
+  public static final ConfigOption<Long> DYNAMIC_CONFIG_RELOAD_INTERVAL_SECONDS =
+      ConfigOption.<Long>builder()
+          .key("spark.kubernetes.operator.dynamicConfig.reloadIntervalSeconds")
+          .enableDynamicOverride(false)
+          .description(
+              "Interval (in seconds) at which the dynamic config file is re-read. Used by the "
+                  + "'file' source.")
+          .typeParameterClass(Long.class)
+          .defaultValue(60L)
           .build();
 
   /**
@@ -719,6 +758,17 @@ public final class SparkOperatorConf {
   }
 
   /**
+   * Returns the dynamic config file reload interval (in seconds) for the {@code file} source,
+   * ensuring the configured value is positive. A non-positive value would be rejected by the
+   * scheduler; the option's default is used instead in that case.
+   *
+   * @return The validated, positive reload interval in seconds.
+   */
+  public static long getDynamicConfigReloadIntervalSeconds() {
+    return ensurePositiveLongFor(DYNAMIC_CONFIG_RELOAD_INTERVAL_SECONDS);
+  }
+
+  /**
    * Ensures that the integer value of a ConfigOption is non-negative.
    *
    * @param configOption The ConfigOption to check.
@@ -739,6 +789,18 @@ public final class SparkOperatorConf {
   }
 
   /**
+   * Ensures that the long value of a ConfigOption is positive, falling back to the option's
+   * default value when the configured value is non-positive.
+   *
+   * @param configOption The ConfigOption to check.
+   * @return The positive long value, or the option's default if the configured value is invalid.
+   */
+  private static long ensurePositiveLongFor(ConfigOption<Long> configOption) {
+    return ensureValid(
+        configOption.getValue(), configOption.getDescription(), 1L, configOption.getDefaultValue());
+  }
+
+  /**
    * Ensures that a given integer value is within a valid range.
    *
    * @param value The value to validate.
@@ -748,6 +810,33 @@ public final class SparkOperatorConf {
    * @return The validated value, or the default value if invalid.
    */
   private static int ensureValid(int value, String description, int minValue, int defaultValue) {
+    if (value < minValue) {
+      if (defaultValue < minValue) {
+        throw new IllegalArgumentException(
+            "Default value for " + description + " must be greater than " + minValue);
+      }
+      log.warn(
+          "Requested {} should be greater than {}. Requested: {}, using {} (default) instead",
+          description,
+          minValue,
+          value,
+          defaultValue);
+      return defaultValue;
+    }
+    return value;
+  }
+
+  /**
+   * Ensures that a given long value is within a valid range.
+   *
+   * @param value The value to validate.
+   * @param description A description of the value for logging purposes.
+   * @param minValue The minimum allowed value (inclusive).
+   * @param defaultValue The default value to use if the provided value is invalid.
+   * @return The validated value, or the default value if invalid.
+   */
+  private static long ensureValid(
+      long value, String description, long minValue, long defaultValue) {
     if (value < minValue) {
       if (defaultValue < minValue) {
         throw new IllegalArgumentException(

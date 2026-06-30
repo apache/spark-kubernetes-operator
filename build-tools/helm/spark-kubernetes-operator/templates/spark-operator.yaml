@@ -148,6 +148,11 @@ spec:
               mountPath: /opt/spark-operator/conf
             - name: logs-volume
               mountPath: /opt/spark-operator/logs
+            {{- if and .Values.operatorConfiguration.dynamicConfig.enable (eq .Values.operatorConfiguration.dynamicConfig.source "file") }}
+            - name: spark-operator-dynamic-config-volume
+              mountPath: /opt/spark-operator/dynamic-conf
+              readOnly: true
+            {{- end }}
             {{- with .Values.operatorDeployment.operatorPod.operatorContainer.volumeMounts }}
               {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -170,6 +175,11 @@ spec:
             name: spark-kubernetes-operator-configuration
         - name: logs-volume
           emptyDir: { }
+        {{- if and .Values.operatorConfiguration.dynamicConfig.enable (eq .Values.operatorConfiguration.dynamicConfig.source "file") }}
+        - name: spark-operator-dynamic-config-volume
+          configMap:
+            name: spark-kubernetes-operator-dynamic-configuration
+        {{- end }}
         {{- with .Values.operatorDeployment.operatorPod.volumes }}
           {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -215,8 +225,16 @@ metadata:
     {{- include "spark-operator.dynamicConfigLabels" . | nindent 4 }}
   annotations:
     {{- toYaml .Values.operatorConfiguration.dynamicConfig.annotations | nindent 4 }}
+{{- if eq .Values.operatorConfiguration.dynamicConfig.source "file" }}
+data:
+  spark-operator-dynamic.properties: |
+    {{- range $key, $value := .Values.operatorConfiguration.dynamicConfig.data }}
+    {{ $key }}={{ $value }}
+    {{- end }}
+{{- else }}
 {{- with .Values.operatorConfiguration.dynamicConfig.data }}
 data:
   {{- toYaml . | nindent 2 }}
+{{- end }}
 {{- end }}
 {{- end }}

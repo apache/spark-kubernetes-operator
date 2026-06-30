@@ -118,7 +118,7 @@ metadata:
 {{- template "spark-operator.operatorRbacRules" $ }}
 ---
 {{- end }}
-{{- if .Values.operatorConfiguration.dynamicConfig.enable }}
+{{- if and .Values.operatorConfiguration.dynamicConfig.enable (eq .Values.operatorConfiguration.dynamicConfig.source "configMap") }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
