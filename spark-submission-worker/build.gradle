@@ -30,6 +30,7 @@ dependencies {
     exclude group: "commons-codec"
     exclude group: "commons-collections", module: "commons-collections"
     exclude group: "io.fabric8"
+    exclude group: "net.sf.py4j"
     exclude group: "org.apache.avro"
     exclude group: "org.apache.commons", module: "commons-compress"
     exclude group: "org.apache.logging.log4j"
