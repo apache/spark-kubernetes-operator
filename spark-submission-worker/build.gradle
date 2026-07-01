@@ -33,6 +33,7 @@ dependencies {
     exclude group: "org.apache.avro"
     exclude group: "org.apache.commons", module: "commons-compress"
     exclude group: "org.apache.logging.log4j"
+    exclude group: "org.checkerframework"
     exclude group: "org.fusesource.leveldbjni"
     exclude group: "org.lz4"
     exclude group: "org.rocksdb"
