@@ -96,6 +96,8 @@ shadowJar {
   exclude("org/apache/spark/ui/static/**")
   // Hadoop webapps (HDFS/YARN UI)
   exclude("webapps/**")
+  // Hadoop YARN classes - not used for K8s deployment
+  exclude("org/apache/hadoop/yarn/**")
   // Exclude 3rd party metadata to avoid conflicts
   exclude("META-INF/maven/**")
   // Netty QUIC native libraries - not needed for K8s API server communication (HTTP/1.1 & HTTP/2)
