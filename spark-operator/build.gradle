@@ -49,6 +49,7 @@ dependencies {
     exclude group: "org.checkerframework"
     exclude group: "org.fusesource.leveldbjni"
     exclude group: "org.lz4"
+    exclude group: "org.roaringbitmap"
     exclude group: "org.rocksdb"
     exclude group: "org.slf4j"
     exclude group: "org.xerial.snappy"
