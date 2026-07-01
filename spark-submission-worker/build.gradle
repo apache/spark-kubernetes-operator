@@ -27,6 +27,7 @@ dependencies {
   implementation(libs.spark.kubernetes) {
     exclude group: "com.github.luben"
     exclude group: "com.ibm.icu"
+    exclude group: "com.ning"
     exclude group: "commons-codec"
     exclude group: "commons-collections", module: "commons-collections"
     exclude group: "io.fabric8"
