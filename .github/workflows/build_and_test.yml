@@ -148,6 +148,8 @@ jobs:
           cache-provider: basic
       - name: Set up Minikube
         uses: medyagh/setup-minikube@v0.0.21
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           cache: true
           kubernetes-version: ${{ matrix.kubernetes-version }}
@@ -245,6 +247,8 @@ jobs:
           cache-provider: basic
       - name: Set up Minikube
         uses: medyagh/setup-minikube@v0.0.21
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           cache: true
           kubernetes-version: ${{ matrix.kubernetes-version }}
