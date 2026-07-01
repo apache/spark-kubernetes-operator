@@ -43,6 +43,7 @@ dependencies {
     exclude group: "com.ibm.icu"
     exclude group: "commons-codec"
     exclude group: "commons-collections", module: "commons-collections"
+    exclude group: "net.razorvine"
     exclude group: "org.apache.commons", module: "commons-compress"
     exclude group: "org.apache.logging.log4j"
     exclude group: "org.checkerframework"
