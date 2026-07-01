@@ -25,6 +25,7 @@ dependencies {
   implementation(libs.slf4j.api)
 
   implementation(libs.spark.kubernetes) {
+    exclude group: "com.esotericsoftware"
     exclude group: "com.github.luben"
     exclude group: "com.ibm.icu"
     exclude group: "com.ning"

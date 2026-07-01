@@ -39,6 +39,7 @@ dependencies {
   implementation(libs.metrics.core)
   implementation(libs.metrics.jvm)
   compileOnly(libs.spark.core) {
+    exclude group: "com.esotericsoftware"
     exclude group: "com.github.luben"
     exclude group: "com.ibm.icu"
     exclude group: "com.ning"
