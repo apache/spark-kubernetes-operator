@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 [versions]
-fabric8 = "7.7.0"
+fabric8 = "7.8.0"
 lombok = "1.18.46"
 netty = "4.2.15.Final"
 operator-sdk = "5.3.5"
