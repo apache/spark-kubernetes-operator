@@ -102,6 +102,7 @@ shadowJar {
   // Hadoop YARN classes - not used for K8s deployment
   exclude("org/apache/hadoop/yarn/**")
   // Hadoop MapReduce classes - not used for K8s deployment
+  exclude("org/apache/hadoop/filecache/**")
   exclude("org/apache/hadoop/mapred/**")
   exclude("org/apache/hadoop/mapreduce/**")
   exclude("mapred-default.xml")
