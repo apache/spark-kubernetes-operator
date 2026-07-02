@@ -104,6 +104,8 @@ shadowJar {
   // Hadoop MapReduce classes - not used for K8s deployment
   exclude("org/apache/hadoop/mapred/**")
   exclude("org/apache/hadoop/mapreduce/**")
+  exclude("mapred-default.xml")
+  exclude("META-INF/services/org.apache.hadoop.mapreduce.protocol.ClientProtocolProvider")
   // Exclude 3rd party metadata to avoid conflicts
   exclude("META-INF/maven/**")
   // Netty QUIC native libraries - not needed for K8s API server communication (HTTP/1.1 & HTTP/2)
