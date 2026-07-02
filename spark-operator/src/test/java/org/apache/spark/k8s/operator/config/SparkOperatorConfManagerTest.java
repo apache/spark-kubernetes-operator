@@ -54,6 +54,7 @@ class SparkOperatorConfManagerTest {
     String propBackUp = System.getProperty("spark.kubernetes.operator.foo");
     System.setProperty("spark.kubernetes.operator.foo", "bar");
     try {
+      registerDynamicOption("spark.kubernetes.operator.foo");
       SparkOperatorConfManager confManager = new SparkOperatorConfManager();
       Assertions.assertEquals("bar", confManager.getInitialValue("spark.kubernetes.operator.foo"));
       Assertions.assertEquals("bar", confManager.getValue("spark.kubernetes.operator.foo"));
@@ -80,8 +81,10 @@ class SparkOperatorConfManagerTest {
     String propBackUp = System.getProperty("spark.kubernetes.operator.foo");
     System.setProperty("spark.kubernetes.operator.foo", "bar");
     try {
+      registerDynamicOption("spark.kubernetes.operator.foo");
+      registerDynamicOption("k1");
+      registerDynamicOption("k2");
       SparkOperatorConfManager confManager = new SparkOperatorConfManager();
-
       // Check initial configurations.
       int initialSize = confManager.getAll().size();
       Assertions.assertEquals(initialSize, confManager.initialConfig.size());
@@ -110,5 +113,39 @@ class SparkOperatorConfManagerTest {
         System.clearProperty("spark.kubernetes.operator.foo");
       }
     }
+  }
+
+  @Test
+  void testRefreshDropsUnknownAndNonOverridableKeys() {
+    String overridableKey = "spark.kubernetes.operator.test.overridable";
+    String nonOverridableKey = "spark.kubernetes.operator.test.nonOverridable";
+    String unknownKey = "spark.kubernetes.operator.test.unknown";
+    registerDynamicOption(overridableKey);
+    ConfigOption.<String>builder()
+        .key(nonOverridableKey)
+        .enableDynamicOverride(false)
+        .typeParameterClass(String.class)
+        .build();
+
+    SparkOperatorConfManager confManager = new SparkOperatorConfManager();
+    confManager.refresh(
+        Map.of(
+            overridableKey, "kept",
+            nonOverridableKey, "dropped",
+            unknownKey, "dropped"));
+
+    Assertions.assertEquals(1, confManager.configOverrides.size());
+    Assertions.assertEquals("kept", confManager.getValue(overridableKey));
+    Assertions.assertNull(confManager.getValue(nonOverridableKey));
+    Assertions.assertNull(confManager.getValue(unknownKey));
+  }
+
+  /** Builds a throwaway {@link ConfigOption} so {@code key} is registered as overridable. */
+  private static void registerDynamicOption(String key) {
+    ConfigOption.<String>builder()
+        .key(key)
+        .enableDynamicOverride(true)
+        .typeParameterClass(String.class)
+        .build();
   }
 }

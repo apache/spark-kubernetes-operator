@@ -35,6 +35,7 @@ public final class SparkOperatorConf {
   public static final ConfigOption<Boolean> LOG_CONF =
       ConfigOption.<Boolean>builder()
           .key("spark.logConf")
+          .enableDynamicOverride(false)
           .description("When enabled, operator will print configurations")
           .typeParameterClass(Boolean.class)
           .defaultValue(false)
@@ -47,6 +48,7 @@ public final class SparkOperatorConf {
   public static final ConfigOption<Long> PERIODIC_GC_INTERVAL_SECONDS =
       ConfigOption.<Long>builder()
           .key("spark.kubernetes.operator.periodicGC.intervalSeconds")
+          .enableDynamicOverride(false)
           .description(
               "Interval (in seconds) between periodic System.gc() invocations. "
                   + "Set to 0 or a negative value to disable. Note that System.gc() is a no-op "

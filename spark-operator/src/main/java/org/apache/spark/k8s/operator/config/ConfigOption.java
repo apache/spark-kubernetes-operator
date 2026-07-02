@@ -19,12 +19,15 @@
 
 package org.apache.spark.k8s.operator.config;
 
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
@@ -34,20 +37,59 @@ import org.apache.spark.k8s.operator.utils.StringUtils;
 /**
  * Config options for Spark Operator. Supports primitive and serialized JSON.
  *
+ * <p>Every option registers itself, keyed by {@link #key}, into a static registry on construction.
+ * {@link SparkOperatorConfManager#refresh(Map)} consults {@link #dynamicOverrideEnabledKeys()} to
+ * drop any dynamic-config update that targets an unknown key or one whose {@link
+ * #enableDynamicOverride} is {@code false}.
+ *
  * @param <T> The type of the config option's value.
  */
-@RequiredArgsConstructor
-@AllArgsConstructor
 @EqualsAndHashCode
 @ToString
-@Builder
 @Slf4j
 public class ConfigOption<T> {
-  @Getter @Builder.Default private final boolean enableDynamicOverride = true;
-  @Getter private String key;
-  @Getter private String description;
-  @Getter private T defaultValue;
-  @Getter private Class<T> typeParameterClass;
+  /** Indexes every declared option so dynamic-config refresh can check overridability. */
+  private static final Map<String, ConfigOption<?>> REGISTRY = new ConcurrentHashMap<>();
+
+  /**
+   * Whether this option may be overridden at runtime via dynamic config. Defaults to {@code false}
+   * (opt-in): dynamic override must be explicitly enabled through the builder.
+   */
+  @Getter private final boolean enableDynamicOverride;
+  @Getter private final String key;
+  @Getter private final String description;
+  @Getter private final T defaultValue;
+  @Getter private final Class<T> typeParameterClass;
+
+  @Builder
+  ConfigOption(
+      boolean enableDynamicOverride,
+      String key,
+      String description,
+      T defaultValue,
+      Class<T> typeParameterClass) {
+    this.enableDynamicOverride = enableDynamicOverride;
+    this.key = key;
+    this.description = description;
+    this.defaultValue = defaultValue;
+    this.typeParameterClass = typeParameterClass;
+    if (StringUtils.isNotEmpty(key)) {
+      REGISTRY.put(key, this);
+    }
+  }
+
+  /**
+   * Returns the keys of all declared options that permit runtime dynamic override. Used as the
+   * allow-list when refreshing dynamic config.
+   *
+   * @return An immutable set of dynamically overridable config keys.
+   */
+  public static Set<String> dynamicOverrideEnabledKeys() {
+    return REGISTRY.values().stream()
+        .filter(ConfigOption::isEnableDynamicOverride)
+        .map(ConfigOption::getKey)
+        .collect(Collectors.toUnmodifiableSet());
+  }
 
   /**
    * Returns the resolved value of the config option.
