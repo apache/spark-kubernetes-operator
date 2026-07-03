@@ -30,6 +30,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -203,7 +204,7 @@ public final class SparkAppResourceSpecFactory {
   private static String createLocalFileForPodTemplateSpec(
       final PodTemplateSpec podTemplateSpec, final String tempFilePrefix) {
     try {
-      File tmpFile = File.createTempFile(tempFilePrefix, ".json");
+      File tmpFile = Files.createTempFile(tempFilePrefix, ".json").toFile();
       try (OutputStreamWriter writer =
           new OutputStreamWriter(new FileOutputStream(tmpFile), StandardCharsets.UTF_8)) {
         writer.write(ModelUtils.asJsonString(ModelUtils.getPodFromTemplateSpec(podTemplateSpec)));
