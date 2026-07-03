@@ -39,6 +39,17 @@ To build, run:
 ./gradlew build
 ```
 
+## Updating Dependency Verification Metadata
+
+When upgrading dependencies, regenerate `gradle/verification-metadata.xml`:
+
+```bash
+./gradlew --write-verification-metadata sha512 build
+```
+
+Note that Gradle rewrites the file without the ASF license header,
+so restore the header after regeneration.
+
 ## Build Docker Image
 
 ```bash
