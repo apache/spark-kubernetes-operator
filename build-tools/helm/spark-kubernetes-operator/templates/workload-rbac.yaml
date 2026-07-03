@@ -144,7 +144,7 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ $workloadResources.serviceAccount.name }}
+  name: {{ $workloadResources.roleBinding.name }}
   namespace: {{ $systemNs }}
 {{- template "spark-operator.workloadLabelsAnnotations" $ }}
 {{- template "spark-operator.workloadRoleRef" $ }}
