@@ -1,0 +1,85 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+{{- if .Values.operatorDeployment.networkPolicy.enable }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "spark-operator.name" . }}-test-network-policy"
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "spark-operator.commonLabels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  containers:
+    - name: kubectl
+      image: bitnamisecure/kubectl:latest
+      command: ['bash', '-c']
+      args:
+        - |
+          set -e
+          echo "Testing operator NetworkPolicy..."
+
+          NP_JSON=$(kubectl get networkpolicy {{ include "spark-operator.name" . }} -n {{ .Release.Namespace }} -o json)
+
+          echo "Validating policyTypes..."
+          POLICY_TYPES=$(echo "$NP_JSON" | jq -r '.spec.policyTypes | join(",")')
+          if [ "$POLICY_TYPES" != "Ingress" ]; then
+            echo "ERROR: Expected policyTypes [Ingress], Got: $POLICY_TYPES"
+            exit 1
+          fi
+
+          echo "Validating podSelector..."
+          SELECTOR_NAME=$(echo "$NP_JSON" | jq -r '.spec.podSelector.matchLabels["app.kubernetes.io/name"]')
+          SELECTOR_COMPONENT=$(echo "$NP_JSON" | jq -r '.spec.podSelector.matchLabels["app.kubernetes.io/component"]')
+          if [ "$SELECTOR_NAME" != "{{ include "spark-operator.name" . }}" ] || [ "$SELECTOR_COMPONENT" != "operator-deployment" ]; then
+            echo "ERROR: podSelector does not match operator deployment labels. Got: $SELECTOR_NAME/$SELECTOR_COMPONENT"
+            exit 1
+          fi
+
+          echo "Validating probe port ingress rule..."
+          PROBE_PORT=$(echo "$NP_JSON" | jq -r '[.spec.ingress[] | select(has("from") | not)][0].ports[0].port')
+          if [ "$PROBE_PORT" != "{{ include "spark-operator.probePort" . }}" ]; then
+            echo "ERROR: Expected probe port {{ include "spark-operator.probePort" . }} open to all sources, Got: $PROBE_PORT"
+            exit 1
+          fi
+
+          {{- if .Values.operatorDeployment.networkPolicy.metricsIngress }}
+          echo "Validating metrics port ingress rule..."
+          METRICS_PORT=$(echo "$NP_JSON" | jq -r '[.spec.ingress[] | select(has("from"))][0].ports[0].port')
+          if [ "$METRICS_PORT" != "{{ include "spark-operator.metricsPort" . }}" ]; then
+            echo "ERROR: Expected metrics port {{ include "spark-operator.metricsPort" . }} in the restricted rule, Got: $METRICS_PORT"
+            exit 1
+          fi
+          FROM_MATCHES=$(echo "$NP_JSON" | jq --argjson expected '{{ toJson .Values.operatorDeployment.networkPolicy.metricsIngress }}' '[.spec.ingress[] | select(has("from"))][0].from == $expected')
+          if [ "$FROM_MATCHES" != "true" ]; then
+            echo "ERROR: Metrics ingress sources do not match values. Got: $(echo "$NP_JSON" | jq -c '[.spec.ingress[] | select(has("from"))][0].from')"
+            exit 1
+          fi
+          {{- else }}
+          echo "Validating that the metrics port is denied..."
+          RESTRICTED_RULES=$(echo "$NP_JSON" | jq '[.spec.ingress[] | select(has("from"))] | length')
+          if [ "$RESTRICTED_RULES" != "0" ]; then
+            echo "ERROR: Expected no ingress rule with sources when metricsIngress is empty, Got: $RESTRICTED_RULES"
+            exit 1
+          fi
+          {{- end }}
+
+          echo "All NetworkPolicy tests passed!"
+  restartPolicy: Never
+  serviceAccountName: {{ .Values.operatorRbac.serviceAccount.name }}
+{{- end }}

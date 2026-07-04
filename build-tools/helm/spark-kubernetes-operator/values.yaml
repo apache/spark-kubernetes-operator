@@ -87,6 +87,19 @@ operatorDeployment:
     securityContext: { }
     dnsPolicy:
     dnsConfig:
+  # When enabled, a NetworkPolicy is created for the operator pod that allows ingress only to
+  # the health probe port (from any source, for kubelet probes) and to the metrics port from
+  # the sources listed in {networkPolicy.metricsIngress}. All other ingress traffic to the
+  # operator pod is denied. Note that this requires a CNI plugin with NetworkPolicy support,
+  # and that egress traffic is not restricted.
+  networkPolicy:
+    enable: false
+    # List of NetworkPolicyPeer(s) allowed to reach the metrics port, e.g. the Prometheus
+    # scraper. When empty, ingress to the metrics port is denied.
+    metricsIngress: [ ]
+    #  - namespaceSelector:
+    #      matchLabels:
+    #        kubernetes.io/metadata.name: "monitoring"
 
 operatorRbac:
   serviceAccount:

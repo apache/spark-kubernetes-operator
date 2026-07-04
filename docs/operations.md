@@ -132,6 +132,37 @@ __Notice__: The pod resources should be set as your workload in different enviro
 achieve a matched K8s pod QoS. See
 also [Pod Quality of Service Classes](https://kubernetes.io/docs/concepts/workloads/pods/pod-qos/#quality-of-service-classes).
 
+## Restricting Network Access to the Operator
+
+The operator serves two plain-HTTP endpoints without authentication: the health probes
+(port 19091 by default) and the Prometheus metrics (port 19090 by default). To restrict
+in-cluster access to them, the chart can create a
+[NetworkPolicy](https://kubernetes.io/docs/concepts/services-networking/network-policies/)
+for the operator pod:
+
+```yaml
+operatorDeployment:
+  networkPolicy:
+    enable: true
+    metricsIngress:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: "monitoring"
+```
+
+When enabled, all ingress traffic to the operator pod is denied except:
+
+- the health probe port, reachable from any source — kubelet probe traffic originates from
+  the node and cannot be matched by pod or namespace selectors, and
+- the metrics port, reachable only from the `NetworkPolicyPeer`(s) listed in
+  `metricsIngress`. When the list is empty, ingress to the metrics port is denied, so make
+  sure your metrics scraper is listed before enabling this in an environment that collects
+  operator metrics.
+
+Note that this requires a CNI plugin that enforces NetworkPolicy; on clusters without such
+a plugin the policy is silently ignored. Egress traffic of the operator (Kubernetes API
+server, DNS) is not restricted by this policy.
+
 ## Operator Health(Liveness) Probe with Sentinel Resource
 
 Learning
