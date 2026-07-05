@@ -78,6 +78,7 @@ operatorDeployment:
         capabilities:
           drop:
             - ALL
+        readOnlyRootFilesystem: true
         runAsNonRoot: true
         runAsUser: 185
         seccompProfile:
