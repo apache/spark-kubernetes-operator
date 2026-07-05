@@ -110,7 +110,7 @@ public class MetricsSystem {
    * via reflection.
    */
   protected void registerSinks() {
-    log.info("sinkPropertiesMap: {}", sinkPropertiesMap);
+    log.info("Configured metrics sinks: {}", sinkPropertiesMap.keySet());
     sinkPropertiesMap
         .values()
         .forEach(
@@ -130,12 +130,7 @@ public class MetricsSystem {
                   | NoSuchMethodException
                   | SecurityException
                   | ClassNotFoundException e) {
-                if (log.isErrorEnabled()) {
-                  log.error(
-                      "Fail to create metrics sink for sink name {}, sink properties {}",
-                      sinkProp.getClassName(),
-                      sinkProp.getProperties());
-                }
+                log.error("Fail to create metrics sink for sink class {}", sinkProp.getClassName());
                 throw new IllegalStateException("Fail to create metrics sink", e);
               }
             });
