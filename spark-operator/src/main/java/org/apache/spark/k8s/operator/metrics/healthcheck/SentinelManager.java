@@ -54,7 +54,8 @@ public class SentinelManager<CR extends BaseResource<?, ?, ?, ?, ?>> {
 
   private final ScheduledExecutorService executorService =
       Executors.newScheduledThreadPool(
-          SparkOperatorConf.SENTINEL_EXECUTOR_SERVICE_POOL_SIZE.getValue());
+          SparkOperatorConf.SENTINEL_EXECUTOR_SERVICE_POOL_SIZE.getValue(),
+          Thread.ofVirtual().name("sentinel-", 0).factory());
 
   /**
    * Checks if a given resource is a sentinel resource.
