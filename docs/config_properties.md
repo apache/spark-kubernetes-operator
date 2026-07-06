@@ -51,4 +51,5 @@
  | spark.kubernetes.operator.reconciler.trimStateTransitionHistoryEnabled | Boolean | true | true | When enabled, operator would trim state transition history when a new attempt starts, keeping previous attempt summary only. | 
  | spark.kubernetes.operator.watchedNamespaces | String | default | true | Comma-separated list of namespaces that the operator would be watching for Spark resources. If set to '*', operator would watch all namespaces. | 
  | spark.logConf | Boolean | false | true | When enabled, operator will print configurations | 
+ | spark.redaction.regex | String | (?i)secret\|password\|token\|access[.]?key | true | Regex to decide which parts of configuration properties contain sensitive information, whose values would be redacted in operator logs. This reuses Spark's redaction configuration key and default pattern. | 
 

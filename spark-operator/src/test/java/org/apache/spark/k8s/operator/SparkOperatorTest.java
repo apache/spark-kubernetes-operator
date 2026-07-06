@@ -29,12 +29,24 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.javaoperatorsdk.operator.Operator;
 import io.javaoperatorsdk.operator.RegisteredController;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.Filter;
+import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.LoggerContext;
+import org.apache.logging.log4j.core.appender.AbstractAppender;
+import org.apache.logging.log4j.core.config.Configuration;
+import org.apache.logging.log4j.core.config.Property;
+import org.apache.logging.log4j.core.layout.PatternLayout;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedConstruction;
@@ -43,6 +55,7 @@ import org.mockito.MockedStatic;
 import org.apache.spark.k8s.operator.client.KubernetesClientFactory;
 import org.apache.spark.k8s.operator.config.DynamicConfigMonitor;
 import org.apache.spark.k8s.operator.config.SparkOperatorConf;
+import org.apache.spark.k8s.operator.config.SparkOperatorConfManager;
 import org.apache.spark.k8s.operator.metrics.MetricsService;
 import org.apache.spark.k8s.operator.metrics.MetricsSystem;
 import org.apache.spark.k8s.operator.metrics.MetricsSystemFactory;
@@ -250,6 +263,100 @@ class SparkOperatorTest {
     } finally {
       setConfigKey(SparkOperatorConf.DYNAMIC_CONFIG_ENABLED, dynamicConfigEnabled);
       setConfigKey(SparkOperatorConf.DYNAMIC_CONFIG_SOURCE, dynamicConfigSource);
+    }
+  }
+
+  @Test
+  void testLogConfRedactsSensitiveValues() {
+    MetricsSystem mockMetricsSystem = mock(MetricsSystem.class);
+    KubernetesClient mockClient = mock(KubernetesClient.class);
+    TestLogAppender appender = installAppender();
+    try (MockedStatic<MetricsSystemFactory> mockMetricsSystemFactory =
+            mockStatic(MetricsSystemFactory.class);
+        MockedStatic<KubernetesClientFactory> mockKubernetesClientFactory =
+            mockStatic(KubernetesClientFactory.class);
+        MockedConstruction<Operator> operatorConstruction = mockConstruction(Operator.class);
+        MockedConstruction<SparkAppReconciler> sparkAppReconcilerConstruction =
+            mockConstruction(SparkAppReconciler.class);
+        MockedConstruction<ProbeService> probeServiceConstruction =
+            mockConstruction(ProbeService.class);
+        MockedConstruction<MetricsService> metricsServiceConstruction =
+            mockConstruction(MetricsService.class);
+        MockedConstruction<KubernetesMetricsInterceptor> interceptorMockedConstruction =
+            mockConstruction(KubernetesMetricsInterceptor.class)) {
+      setConfigKey(SparkOperatorConf.LOG_CONF, true);
+      SparkOperatorConfManager.INSTANCE.refresh(
+          Map.of("spark.dummy.db.password", "super-sensitive-value"));
+      mockMetricsSystemFactory
+          .when(MetricsSystemFactory::createMetricsSystem)
+          .thenReturn(mockMetricsSystem);
+      mockKubernetesClientFactory
+          .when(() -> KubernetesClientFactory.buildKubernetesClient(any()))
+          .thenReturn(mockClient);
+
+      SparkOperator sparkOperator = new SparkOperator();
+      Assertions.assertNotNull(sparkOperator);
+      Assertions.assertEquals(1, operatorConstruction.constructed().size());
+      Assertions.assertEquals(1, sparkAppReconcilerConstruction.constructed().size());
+      Assertions.assertEquals(1, probeServiceConstruction.constructed().size());
+      Assertions.assertEquals(1, metricsServiceConstruction.constructed().size());
+      Assertions.assertEquals(1, interceptorMockedConstruction.constructed().size());
+
+      String redactedText = org.apache.spark.util.Utils$.MODULE$.REDACTION_REPLACEMENT_TEXT();
+      Assertions.assertTrue(
+          appender.messages.stream()
+              .anyMatch(m -> m.equals("spark.dummy.db.password = " + redactedText)),
+          "Expected redacted log for the sensitive key, got: " + appender.messages);
+      Assertions.assertTrue(
+          appender.messages.stream().noneMatch(m -> m.contains("super-sensitive-value")),
+          "Sensitive value must not appear in operator logs");
+    } finally {
+      setConfigKey(SparkOperatorConf.LOG_CONF, false);
+      SparkOperatorConfManager.INSTANCE.refresh(Map.of());
+      removeAppender(appender);
+    }
+  }
+
+  private static TestLogAppender installAppender() {
+    TestLogAppender appender = new TestLogAppender("SparkOperatorTestLogAppender");
+    appender.start();
+    LoggerContext ctx = (LoggerContext) LogManager.getContext(false);
+    Configuration config = ctx.getConfiguration();
+    // The test log4j2 configuration has a global WARN threshold filter; detach it so that the
+    // INFO level configuration logging can reach the appender.
+    appender.removedGlobalFilter = config.getFilter();
+    if (appender.removedGlobalFilter != null) {
+      config.removeFilter(appender.removedGlobalFilter);
+    }
+    config.getRootLogger().addAppender(appender, Level.ALL, null);
+    ctx.updateLoggers();
+    return appender;
+  }
+
+  private static void removeAppender(TestLogAppender appender) {
+    LoggerContext ctx = (LoggerContext) LogManager.getContext(false);
+    Configuration config = ctx.getConfiguration();
+    config.getRootLogger().removeAppender(appender.getName());
+    if (appender.removedGlobalFilter != null) {
+      config.addFilter(appender.removedGlobalFilter);
+    }
+    ctx.updateLoggers();
+    appender.stop();
+  }
+
+  private static final class TestLogAppender extends AbstractAppender {
+    private final List<String> messages = new CopyOnWriteArrayList<>();
+    private Filter removedGlobalFilter;
+
+    private TestLogAppender(String name) {
+      super(name, null, PatternLayout.createDefaultLayout(), false, Property.EMPTY_ARRAY);
+    }
+
+    @Override
+    public void append(LogEvent event) {
+      if (SparkOperator.class.getName().equals(event.getLoggerName())) {
+        messages.add(event.getMessage().getFormattedMessage());
+      }
     }
   }
 }

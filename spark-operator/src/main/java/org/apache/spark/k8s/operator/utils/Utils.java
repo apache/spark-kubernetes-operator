@@ -35,6 +35,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import io.fabric8.kubernetes.api.model.HasMetadata;
@@ -50,6 +51,9 @@ import org.apache.spark.k8s.operator.listeners.SparkClusterStatusListener;
 
 /** Utility class for common operations. */
 public final class Utils {
+
+  /** Replacement text for redacted sensitive values, same as Spark's redaction utility. */
+  public static final String REDACTION_REPLACEMENT_TEXT = "*********(redacted)";
 
   private Utils() {}
 
@@ -230,6 +234,36 @@ public final class Utils {
           SparkOperatorConf.OPERATOR_RECONCILER_LABEL_SELECTOR.getValue());
     }
     return commonLabels;
+  }
+
+  /**
+   * Redacts sensitive values (e.g. secrets, passwords, tokens) in the given properties for safe
+   * logging, following the semantics of Spark's {@code spark.redaction.regex} based redaction. The
+   * redaction pattern is resolved from the {@code spark.redaction.regex} entry of the given
+   * properties, falling back to the operator configuration ({@link
+   * SparkOperatorConf#REDACTION_REGEX}). An entry is redacted when its key or value matches the
+   * pattern.
+   *
+   * @param props The properties to redact.
+   * @return A Map containing the given entries with sensitive values redacted.
+   */
+  public static Map<String, String> redactSensitiveInfo(Map<?, ?> props) {
+    Map<String, String> conf = new HashMap<>();
+    props.forEach((k, v) -> conf.put(String.valueOf(k), String.valueOf(v)));
+    String regex =
+        conf.getOrDefault(
+            SparkOperatorConf.REDACTION_REGEX.getKey(),
+            SparkOperatorConf.REDACTION_REGEX.getValue());
+    Pattern pattern = Pattern.compile(regex);
+    Map<String, String> redacted = new HashMap<>();
+    for (Map.Entry<String, String> entry : conf.entrySet()) {
+      if (pattern.matcher(entry.getKey()).find() || pattern.matcher(entry.getValue()).find()) {
+        redacted.put(entry.getKey(), REDACTION_REPLACEMENT_TEXT);
+      } else {
+        redacted.put(entry.getKey(), entry.getValue());
+      }
+    }
+    return redacted;
   }
 
   /**
