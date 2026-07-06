@@ -148,6 +148,8 @@ spec:
               mountPath: /opt/spark-operator/conf
             - name: logs-volume
               mountPath: /opt/spark-operator/logs
+            - name: tmp-volume
+              mountPath: /tmp
             {{- if and .Values.operatorConfiguration.dynamicConfig.enable (eq .Values.operatorConfiguration.dynamicConfig.source "file") }}
             - name: spark-operator-dynamic-config-volume
               mountPath: /opt/spark-operator/dynamic-conf
@@ -174,6 +176,8 @@ spec:
           configMap:
             name: spark-kubernetes-operator-configuration
         - name: logs-volume
+          emptyDir: { }
+        - name: tmp-volume
           emptyDir: { }
         {{- if and .Values.operatorConfiguration.dynamicConfig.enable (eq .Values.operatorConfiguration.dynamicConfig.source "file") }}
         - name: spark-operator-dynamic-config-volume
