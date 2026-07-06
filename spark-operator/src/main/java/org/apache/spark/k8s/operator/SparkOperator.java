@@ -106,7 +106,8 @@ public class SparkOperator {
     this.registeredOperators = new ArrayList<>();
     this.registeredOperators.add(registerSparkOperator());
     if (SparkOperatorConf.LOG_CONF.getValue()) {
-      for (var entry : SparkOperatorConfManager.INSTANCE.getAll().entrySet()) {
+      for (var entry :
+          Utils.redactSensitiveInfo(SparkOperatorConfManager.INSTANCE.getAll()).entrySet()) {
         log.info("{} = {}", entry.getKey(), entry.getValue());
       }
     }

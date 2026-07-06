@@ -41,6 +41,22 @@ public final class SparkOperatorConf {
           .build();
 
   /**
+   * Regex to decide which parts of configuration properties contain sensitive information, whose
+   * values are redacted in operator logs. Reuses Spark's {@code spark.redaction.regex}
+   * configuration key and default pattern.
+   */
+  public static final ConfigOption<String> REDACTION_REGEX =
+      ConfigOption.<String>builder()
+          .key("spark.redaction.regex")
+          .description(
+              "Regex to decide which parts of configuration properties contain sensitive "
+                  + "information, whose values would be redacted in operator logs. This reuses "
+                  + "Spark's redaction configuration key and default pattern.")
+          .typeParameterClass(String.class)
+          .defaultValue("(?i)secret|password|token|access[.]?key")
+          .build();
+
+  /**
    * Interval (in seconds) between periodic System.gc() invocations. Set to 0 or a negative value
    * to disable.
    */

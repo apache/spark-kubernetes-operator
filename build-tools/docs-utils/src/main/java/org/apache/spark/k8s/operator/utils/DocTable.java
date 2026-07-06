@@ -63,7 +63,8 @@ public class DocTable {
   private String joinRow(List<String> elements) {
     StringBuilder stringBuilder = new StringBuilder(ROW_SEPARATOR);
     for (String element : elements) {
-      stringBuilder.append(element).append(ROW_SEPARATOR);
+      // Escape pipes in cell content so that they do not break the Markdown table layout
+      stringBuilder.append(element.replace("|", "\\|")).append(ROW_SEPARATOR);
     }
     if (elements.size() < columns) {
       // Append empty cells to end if needed
