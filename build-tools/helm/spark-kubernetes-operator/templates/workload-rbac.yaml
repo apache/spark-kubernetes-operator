@@ -26,13 +26,25 @@ rules:
       - configmaps
       - persistentvolumeclaims
     verbs:
-      - '*'
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
   - apiGroups:
       - "apps"
     resources:
       - statefulsets
     verbs:
-      - '*'
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
 {{- end }}
 
 {{/*

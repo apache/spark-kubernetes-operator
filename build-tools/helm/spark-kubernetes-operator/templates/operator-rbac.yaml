@@ -27,45 +27,87 @@ rules:
       - persistentvolumeclaims
       - events
     verbs:
-      - '*'
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
   - apiGroups:
       - "apps"
     resources:
       - statefulsets
     verbs:
-      - '*'
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
   - apiGroups:
       - "autoscaling"
     resources:
       - horizontalpodautoscalers
     verbs:
-      - '*'
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
   - apiGroups:
       - "spark.apache.org"
     resources:
       - '*'
     verbs:
-      - '*'
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
   - apiGroups:
       - "networking.k8s.io"
     resources:
       - ingresses
       - networkpolicies
     verbs:
-      - '*'
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
   - apiGroups:
       - "policy"
     resources:
       - poddisruptionbudgets
     verbs:
-      - '*'
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
 {{- if gt (int .Values.operatorDeployment.replicas) 1 }}
   - apiGroups:
       - "coordination.k8s.io"
     resources:
       - leases
     verbs:
-      - '*'
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
 {{- end }}
 {{- end }}
 
@@ -131,7 +173,13 @@ rules:
     resources:
       - configmaps
     verbs:
-      - '*'
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
