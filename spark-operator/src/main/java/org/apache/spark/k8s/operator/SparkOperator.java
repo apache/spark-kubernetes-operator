@@ -124,11 +124,7 @@ public class SparkOperator {
     if (periodicGcIntervalSeconds > 0L) {
       this.periodicGcScheduler =
           Executors.newSingleThreadScheduledExecutor(
-              r -> {
-                Thread t = new Thread(r, "spark-operator-periodic-gc");
-                t.setDaemon(true);
-                return t;
-              });
+              Thread.ofVirtual().name("periodic-gc").factory());
       this.periodicGcScheduler.scheduleAtFixedRate(
           SparkOperator::runSystemGc,
           periodicGcIntervalSeconds,
