@@ -49,6 +49,9 @@ public final class SparkOperatorConf {
   public static final ConfigOption<String> REDACTION_REGEX =
       ConfigOption.<String>builder()
           .key("spark.redaction.regex")
+          // Intentionally not dynamically overridable: a runtime override of the redaction
+          // pattern could weaken or disable log redaction, so this is only read at startup.
+          .enableDynamicOverride(false)
           .description(
               "Regex to decide which parts of configuration properties contain sensitive "
                   + "information, whose values would be redacted in operator logs. This reuses "
