@@ -220,21 +220,21 @@ public final class SparkOperatorConf {
           .build();
 
   /**
-   * Default requeue interval (in seconds) used for short-lived requeues while waiting for a
-   * transient condition to clear (e.g., for the pod informer cache to catch up during the
-   * missing-driver grace period). Distinct from {@link #RECONCILER_INTERVAL_SECONDS}, which
-   * controls the steady-state periodic reconcile cadence.
+   * Requeue interval (in seconds) used to re-check a driver pod that is missing from the informer
+   * cache, while waiting for the cache to catch up during the missing-driver grace period. This is
+   * specific to the missing-driver flow and is not the operator's default requeue cadence; the
+   * steady-state periodic reconcile interval is {@link #RECONCILER_INTERVAL_SECONDS}.
    */
-  public static final ConfigOption<Integer> DEFAULT_REQUEUE_INTERVAL_SECONDS =
+  public static final ConfigOption<Integer> MISSING_DRIVER_REQUEUE_INTERVAL_SECONDS =
       ConfigOption.<Integer>builder()
-          .key("spark.kubernetes.operator.reconciler.defaultRequeueIntervalSeconds")
+          .key("spark.kubernetes.operator.reconciler.missingDriverRequeueIntervalSeconds")
           .enableDynamicOverride(true)
           .description(
-              "Default requeue interval (in seconds) used for short-lived requeues while waiting "
-                  + "for a transient condition to clear, e.g., for the pod informer cache to "
-                  + "catch up during the missing-driver grace period. Distinct from "
-                  + "spark.kubernetes.operator.reconciler.intervalSeconds, which controls the "
-                  + "steady-state periodic reconcile cadence.")
+              "Requeue interval (in seconds) used to re-check a driver pod that is missing from "
+                  + "the informer cache, while waiting for the cache to catch up during the "
+                  + "missing-driver grace period. Specific to the missing-driver flow; this is "
+                  + "not the operator's default requeue cadence. The steady-state periodic "
+                  + "reconcile interval is spark.kubernetes.operator.reconciler.intervalSeconds.")
           .typeParameterClass(Integer.class)
           .defaultValue(15)
           .build();

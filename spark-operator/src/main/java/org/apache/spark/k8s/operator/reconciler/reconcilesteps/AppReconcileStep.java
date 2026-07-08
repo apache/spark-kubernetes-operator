@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Optional;
 
 import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.client.KubernetesClientException;
 import lombok.extern.log4j.Log4j2;
 
 import org.apache.spark.k8s.operator.SparkApplication;
@@ -84,7 +85,8 @@ public abstract sealed class AppReconcileStep
                 + "deferring verification.",
             observedState.getCurrentStateSummary(), stateAge.toSeconds());
         return ReconcileProgress.completeAndRequeueAfter(
-            Duration.ofSeconds(SparkOperatorConf.DEFAULT_REQUEUE_INTERVAL_SECONDS.getValue()));
+            Duration.ofSeconds(
+                SparkOperatorConf.MISSING_DRIVER_REQUEUE_INTERVAL_SECONDS.getValue()));
       }
 
       try {
@@ -104,14 +106,15 @@ public abstract sealed class AppReconcileStep
           return attemptStatusUpdate(
               context, statusRecorder, updatedStatus, completeAndImmediateRequeue());
         }
-      } catch (RuntimeException e) {
-          log.error(
+      } catch (KubernetesClientException e) {
+        log.error(
             "Driver pod missing from informer cache and live API verification failed "
                 + "after {}s; deferring removal verdict and requeuing.",
             stateAge.toSeconds(),
             e);
         return ReconcileProgress.completeAndRequeueAfter(
-            Duration.ofSeconds(SparkOperatorConf.DEFAULT_REQUEUE_INTERVAL_SECONDS.getValue()));
+            Duration.ofSeconds(
+                SparkOperatorConf.MISSING_DRIVER_REQUEUE_INTERVAL_SECONDS.getValue()));
       }
     }
 
