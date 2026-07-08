@@ -53,6 +53,7 @@ import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 
 import org.apache.spark.k8s.operator.client.KubernetesClientFactory;
+import org.apache.spark.k8s.operator.config.ConfigOption;
 import org.apache.spark.k8s.operator.config.DynamicConfigMonitor;
 import org.apache.spark.k8s.operator.config.SparkOperatorConf;
 import org.apache.spark.k8s.operator.config.SparkOperatorConfManager;
@@ -285,6 +286,13 @@ class SparkOperatorTest {
         MockedConstruction<KubernetesMetricsInterceptor> interceptorMockedConstruction =
             mockConstruction(KubernetesMetricsInterceptor.class)) {
       setConfigKey(SparkOperatorConf.LOG_CONF, true);
+      // Register the sensitive key as dynamically overridable so refresh() keeps it; refresh now
+      // drops any key that is not in the dynamic-override allow-list.
+      ConfigOption.<String>builder()
+          .key("spark.dummy.db.password")
+          .enableDynamicOverride(true)
+          .typeParameterClass(String.class)
+          .build();
       SparkOperatorConfManager.INSTANCE.refresh(
           Map.of("spark.dummy.db.password", "super-sensitive-value"));
       mockMetricsSystemFactory

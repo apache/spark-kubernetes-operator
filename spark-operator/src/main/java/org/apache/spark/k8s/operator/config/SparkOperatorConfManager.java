@@ -23,8 +23,11 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -99,14 +102,36 @@ public class SparkOperatorConfManager {
   }
 
   /**
-   * Refreshes the configuration overrides with new values from a map.
+   * Refreshes the configuration overrides with new values from a map. Only keys that are declared
+   * as dynamically overridable options (see {@link ConfigOption#dynamicOverrideEnabledKeys()}) are
+   * applied; unknown keys and keys whose option disables dynamic override are dropped and logged so
+   * an ineffective update is not silently ignored.
    *
    * @param updatedConfig A map containing the updated configuration properties.
    */
   public void refresh(Map<String, String> updatedConfig) {
+    // Ensure every ConfigOption has registered before we read the allow-list. The options are
+    // static final fields on SparkOperatorConf and register lazily on class init, so without this
+    // the allow-list could be empty or partial if refresh() runs before SparkOperatorConf is
+    // touched, silently dropping every override. Forcing init here makes correctness independent
+    // of boot ordering rather than relying on an earlier incidental read of SparkOperatorConf.
+    SparkOperatorConf.ensureOptionsRegistered();
+    Set<String> allowedKeys = ConfigOption.dynamicOverrideEnabledKeys();
+    Properties filtered = new Properties();
+    List<String> droppedKeys = new ArrayList<>();
+    for (Map.Entry<String, String> entry : updatedConfig.entrySet()) {
+      if (allowedKeys.contains(entry.getKey())) {
+        filtered.put(entry.getKey(), entry.getValue());
+      } else {
+        droppedKeys.add(entry.getKey());
+      }
+    }
+    if (!droppedKeys.isEmpty()) {
+      log.warn(
+          "Ignoring dynamic config override for unknown or non-overridable keys: {}", droppedKeys);
+    }
     synchronized (this) {
-      this.configOverrides = new Properties();
-      configOverrides.putAll(updatedConfig);
+      this.configOverrides = filtered;
     }
   }
 

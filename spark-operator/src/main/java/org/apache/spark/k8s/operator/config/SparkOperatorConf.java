@@ -35,6 +35,7 @@ public final class SparkOperatorConf {
   public static final ConfigOption<Boolean> LOG_CONF =
       ConfigOption.<Boolean>builder()
           .key("spark.logConf")
+          .enableDynamicOverride(false)
           .description("When enabled, operator will print configurations")
           .typeParameterClass(Boolean.class)
           .defaultValue(false)
@@ -48,6 +49,9 @@ public final class SparkOperatorConf {
   public static final ConfigOption<String> REDACTION_REGEX =
       ConfigOption.<String>builder()
           .key("spark.redaction.regex")
+          // Intentionally not dynamically overridable: a runtime override of the redaction
+          // pattern could weaken or disable log redaction, so this is only read at startup.
+          .enableDynamicOverride(false)
           .description(
               "Regex to decide which parts of configuration properties contain sensitive "
                   + "information, whose values would be redacted in operator logs. This reuses "
@@ -63,6 +67,7 @@ public final class SparkOperatorConf {
   public static final ConfigOption<Long> PERIODIC_GC_INTERVAL_SECONDS =
       ConfigOption.<Long>builder()
           .key("spark.kubernetes.operator.periodicGC.intervalSeconds")
+          .enableDynamicOverride(false)
           .description(
               "Interval (in seconds) between periodic System.gc() invocations. "
                   + "Set to 0 or a negative value to disable. Note that System.gc() is a no-op "
@@ -867,5 +872,20 @@ public final class SparkOperatorConf {
       return defaultValue;
     }
     return value;
+  }
+
+  /**
+   * Forces static initialization of this class so that every {@link ConfigOption} declared here
+   * has registered itself with {@link ConfigOption}'s registry.
+   *
+   * <p>{@link ConfigOption#dynamicOverrideEnabledKeys()} only reflects options that have already
+   * been constructed, and the options are {@code static final} fields that register lazily on
+   * class init. Invoking this method (an active use of the class) guarantees the allow-list is
+   * complete before dynamic config is refreshed, independent of operator boot ordering — see
+   * {@link SparkOperatorConfManager#refresh(java.util.Map)}. This method is intentionally a no-op;
+   * the side effect is triggering class initialization.
+   */
+  public static void ensureOptionsRegistered() {
+    // No-op: the mere invocation triggers this class's static initializer.
   }
 }

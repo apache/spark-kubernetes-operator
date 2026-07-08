@@ -94,14 +94,18 @@ class UtilsTest {
   }
 
   @Test
-  void redactSensitiveInfoHonorsRedactionRegexFromOperatorConfig() {
+  void redactSensitiveInfoIgnoresDynamicRedactionRegexOverride() {
+    // spark.redaction.regex is intentionally not dynamically overridable: a runtime override
+    // could weaken or disable redaction, so refresh() drops it and the startup default pattern
+    // continues to apply.
     SparkOperatorConfManager.INSTANCE.refresh(Map.of(REDACTION_REGEX_KEY, "(?i)confidential"));
     Map<String, String> props =
         Map.of(
             "custom.confidential.conf", "custom-value",
             "spark.kubernetes.operator.namespace", "default");
     Map<String, String> redacted = Utils.redactSensitiveInfo(props);
-    assertEquals(REDACTED_TEXT, redacted.get("custom.confidential.conf"));
+    // The override is ignored, so "confidential" is not treated as sensitive.
+    assertEquals("custom-value", redacted.get("custom.confidential.conf"));
     assertEquals("default", redacted.get("spark.kubernetes.operator.namespace"));
     assertEquals(props.keySet(), redacted.keySet());
   }
