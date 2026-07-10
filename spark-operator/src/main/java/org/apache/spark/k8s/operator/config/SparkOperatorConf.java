@@ -223,7 +223,8 @@ public final class SparkOperatorConf {
    * Requeue interval (in seconds) used to re-check a driver pod that is missing from the informer
    * cache, while waiting for the cache to catch up during the missing-driver grace period. This is
    * specific to the missing-driver flow and is not the operator's default requeue cadence; the
-   * steady-state periodic reconcile interval is {@link #RECONCILER_INTERVAL_SECONDS}.
+   * steady-state periodic reconcile interval is {@link #RECONCILER_INTERVAL_SECONDS}. Set to 0 to
+   * requeue immediately (no delay). Values below 0 are treated as 0.
    */
   public static final ConfigOption<Integer> MISSING_DRIVER_REQUEUE_INTERVAL_SECONDS =
       ConfigOption.<Integer>builder()
@@ -234,11 +235,11 @@ public final class SparkOperatorConf {
                   + "the informer cache, while waiting for the cache to catch up during the "
                   + "missing-driver grace period. Specific to the missing-driver flow; this is "
                   + "not the operator's default requeue cadence. The steady-state periodic "
-                  + "reconcile interval is spark.kubernetes.operator.reconciler.intervalSeconds.")
+                  + "reconcile interval is spark.kubernetes.operator.reconciler.intervalSeconds. "
+                  + "Set to 0 to requeue immediately (no delay); values below 0 are treated as 0.")
           .typeParameterClass(Integer.class)
           .defaultValue(15)
           .build();
-
 
   /**
    * When enabled, operator would trim state transition history when a new attempt starts, keeping
