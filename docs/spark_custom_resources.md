@@ -29,6 +29,10 @@ kubectl by the user, orchestrate secondary resources (pods, configmaps .etc).
 
 Please check out the [quickstart](../README.md) as well for installing operator.
 
+The full CRD schemas (all `spec` and `status` fields with types and descriptions) can be
+browsed on the web at
+[doc.crds.dev](https://doc.crds.dev/github.com/apache/spark-kubernetes-operator).
+
 ## SparkApplication
 
 SparkApplication can be defined in YAML format. User may configure the application entrypoint
