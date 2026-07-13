@@ -24,13 +24,16 @@ import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.proceed
 import static org.apache.spark.k8s.operator.utils.SparkAppStatusUtils.driverUnexpectedRemoved;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
 import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.client.KubernetesClientException;
 import lombok.extern.log4j.Log4j2;
 
 import org.apache.spark.k8s.operator.SparkApplication;
+import org.apache.spark.k8s.operator.config.SparkOperatorConf;
 import org.apache.spark.k8s.operator.context.SparkAppContext;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.reconciler.observers.BaseAppDriverObserver;
@@ -65,30 +68,70 @@ public abstract sealed class AppReconcileStep
       final SparkAppContext context,
       final SparkAppStatusRecorder statusRecorder,
       final List<BaseAppDriverObserver> observers) {
-    Optional<Pod> driverPodOptional = context.getDriverPod();
     SparkApplication app = context.getResource();
     ApplicationStatus currentStatus = app.getStatus();
-    if (driverPodOptional.isPresent()) {
-      List<ApplicationState> stateUpdates =
-          observers.stream()
-              .map(o -> o.observe(driverPodOptional.get(), app.getSpec(), app.getStatus()))
-              .filter(Optional::isPresent)
-              .map(Optional::get)
-              .toList();
-      if (stateUpdates.isEmpty()) {
-        return proceed();
-      } else {
-        for (ApplicationState state : stateUpdates) {
-          currentStatus = currentStatus.appendNewState(state);
-        }
-        return attemptStatusUpdate(
-            context, statusRecorder, currentStatus, completeAndImmediateRequeue());
+    Optional<Pod> driverPodOptional = context.getDriverPod();
+
+    if (driverPodOptional.isEmpty()) {
+      Duration verifyAfter =
+          Duration.ofSeconds(SparkOperatorConf.MISSING_DRIVER_GRACE_PERIOD_SECONDS.getValue());
+      Duration requeueAfter =
+          Duration.ofSeconds(
+              Math.max(0, SparkOperatorConf.MISSING_DRIVER_REQUEUE_INTERVAL_SECONDS.getValue()));
+      ApplicationState observedState = currentStatus.getCurrentState();
+      Instant transitionedAt = Instant.parse(observedState.getLastTransitionTime());
+      Duration stateAge = Duration.between(transitionedAt, Instant.now());
+
+      if (stateAge.compareTo(verifyAfter) < 0) {
+        log.debug(
+            "Driver pod missing from informer cache; state {} is only {}s old, "
+                + "deferring verification.",
+            observedState.getCurrentStateSummary(), stateAge.toSeconds());
+        return ReconcileProgress.completeAndRequeueAfter(requeueAfter);
       }
-    } else {
-      ApplicationStatus updatedStatus = currentStatus.appendNewState(driverUnexpectedRemoved());
-      return attemptStatusUpdate(
-          context, statusRecorder, updatedStatus, completeAndImmediateRequeue());
+
+      try {
+        Optional<Pod> liveDriver = context.getDriverPodFromApi();
+        if (liveDriver.isPresent()) {
+          log.warn(
+              "Driver pod {} missing from informer cache after {}s in state {} but "
+                  + "present on apiserver; informer is likely stale. Using live pod "
+                  + "for this reconcile.",
+              liveDriver.get().getMetadata().getName(),
+              stateAge.toSeconds(),
+              observedState.getCurrentStateSummary());
+          driverPodOptional = liveDriver;
+        } else {
+          ApplicationStatus updatedStatus =
+              currentStatus.appendNewState(driverUnexpectedRemoved());
+          return attemptStatusUpdate(
+              context, statusRecorder, updatedStatus, completeAndImmediateRequeue());
+        }
+      } catch (KubernetesClientException e) {
+        log.error(
+            "Driver pod missing from informer cache and live API verification failed "
+                + "after {}s; deferring removal verdict and requeuing.",
+            stateAge.toSeconds(),
+            e);
+        return ReconcileProgress.completeAndRequeueAfter(requeueAfter);
+      }
     }
+
+    Pod driverPod = driverPodOptional.get();
+    List<ApplicationState> stateUpdates =
+        observers.stream()
+            .map(o -> o.observe(driverPod, app.getSpec(), app.getStatus()))
+            .filter(Optional::isPresent)
+            .map(Optional::get)
+            .toList();
+    if (stateUpdates.isEmpty()) {
+      return proceed();
+    }
+    for (ApplicationState state : stateUpdates) {
+      currentStatus = currentStatus.appendNewState(state);
+    }
+    return attemptStatusUpdate(
+        context, statusRecorder, currentStatus, completeAndImmediateRequeue());
   }
 
   /**

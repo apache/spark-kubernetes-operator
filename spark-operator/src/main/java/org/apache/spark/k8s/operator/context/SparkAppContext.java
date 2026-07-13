@@ -53,6 +53,9 @@ public class SparkAppContext extends BaseContext<SparkApplication> {
   /** secondaryResourceSpec is initialized in a lazy fashion - built upon the first attempt */
   private SparkAppResourceSpec secondaryResourceSpec;
 
+  /** driverPodFromApi is initialized in a lazy fashion - built upon the first attempt */
+  private Optional<Pod> driverPodFromApi;
+
   /**
    * Returns the driver pod for the Spark application, if present.
    *
@@ -68,6 +71,30 @@ public class SparkAppContext extends BaseContext<SparkApplication> {
                     .entrySet()
                     .containsAll(driverLabels(sparkApplication).entrySet()))
         .findAny();
+  }
+
+  /**
+   * Live lookup of the driver pod against the API server, bypassing the informer cache. The result
+   * is memoized for the lifetime of this context so that multiple observe steps share a single
+   * API call.
+   * @return An Optional containing the driver Pod as known to the API server.
+   */
+  public Optional<Pod> getDriverPodFromApi() {
+    synchronized (this) {
+      if (driverPodFromApi == null) {
+        driverPodFromApi =
+            josdkContext
+                .getClient()
+                .pods()
+                .inNamespace(sparkApplication.getMetadata().getNamespace())
+                .withLabels(driverLabels(sparkApplication))
+                .list()
+                .getItems()
+                .stream()
+                .findAny();
+      }
+      return driverPodFromApi;
+    }
   }
 
   /**
