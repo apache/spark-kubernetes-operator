@@ -41,9 +41,13 @@ To build, run:
 
 ## Updating Dependency Verification Metadata
 
-When upgrading dependencies, regenerate `gradle/verification-metadata.xml`:
+When upgrading dependencies, regenerate `gradle/verification-metadata.xml` from scratch.
+Since `--write-verification-metadata` is append-only and keeps stale entries of removed or
+old dependencies, delete the existing file first so that the regenerated file contains
+only the checksums of the current dependencies:
 
 ```bash
+rm gradle/verification-metadata.xml
 ./gradlew --write-verification-metadata sha512 build
 ```
 
