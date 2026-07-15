@@ -34,7 +34,7 @@ awaitility = "4.3.0"
 # Build Analysis
 checkstyle = "13.4.2"
 pmd = "7.24.0"
-spotbugs-tool = "4.10.2"
+spotbugs-tool = "4.10.3"
 spotbugs-plugin = "6.5.9"
 spotless-plugin = "8.8.0"
 
