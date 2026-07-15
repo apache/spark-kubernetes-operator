@@ -19,6 +19,7 @@
 dependencies {
   // fabric8
   implementation(libs.kubernetes.client)
+  implementation(libs.kubernetes.model.gatewayapi)
   compileOnly(libs.crd.generator.annotations)
 
   testImplementation(platform(libs.junit.bom))

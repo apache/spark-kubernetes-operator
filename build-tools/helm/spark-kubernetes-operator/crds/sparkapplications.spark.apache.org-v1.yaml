@@ -8811,6 +8811,1237 @@ spec:
                   items:
                     type: string
                   type: array
+                driverGrpcRouteList:
+                  items:
+                    properties:
+                      grpcRouteMetadata:
+                        properties:
+                          annotations:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          creationTimestamp:
+                            type: string
+                          deletionGracePeriodSeconds:
+                            type: integer
+                          deletionTimestamp:
+                            type: string
+                          finalizers:
+                            items:
+                              type: string
+                            type: array
+                          generateName:
+                            type: string
+                          generation:
+                            type: integer
+                          labels:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          managedFields:
+                            items:
+                              properties:
+                                apiVersion:
+                                  type: string
+                                fieldsType:
+                                  type: string
+                                fieldsV1:
+                                  type: object
+                                manager:
+                                  type: string
+                                operation:
+                                  type: string
+                                subresource:
+                                  type: string
+                                time:
+                                  type: string
+                              type: object
+                            type: array
+                          name:
+                            type: string
+                          namespace:
+                            type: string
+                          ownerReferences:
+                            items:
+                              properties:
+                                apiVersion:
+                                  type: string
+                                blockOwnerDeletion:
+                                  type: boolean
+                                controller:
+                                  type: boolean
+                                kind:
+                                  type: string
+                                name:
+                                  type: string
+                                uid:
+                                  type: string
+                              type: object
+                            type: array
+                          resourceVersion:
+                            type: string
+                          selfLink:
+                            type: string
+                          uid:
+                            type: string
+                        type: object
+                      grpcRouteSpec:
+                        properties:
+                          hostnames:
+                            items:
+                              type: string
+                            type: array
+                          parentRefs:
+                            items:
+                              properties:
+                                group:
+                                  type: string
+                                kind:
+                                  type: string
+                                name:
+                                  type: string
+                                namespace:
+                                  type: string
+                                port:
+                                  type: integer
+                                sectionName:
+                                  type: string
+                              type: object
+                            type: array
+                          rules:
+                            items:
+                              properties:
+                                backendRefs:
+                                  items:
+                                    properties:
+                                      filters:
+                                        items:
+                                          properties:
+                                            extensionRef:
+                                              properties:
+                                                group:
+                                                  type: string
+                                                kind:
+                                                  type: string
+                                                name:
+                                                  type: string
+                                              type: object
+                                            requestHeaderModifier:
+                                              properties:
+                                                add:
+                                                  items:
+                                                    properties:
+                                                      name:
+                                                        type: string
+                                                      value:
+                                                        type: string
+                                                    type: object
+                                                  type: array
+                                                remove:
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                                set:
+                                                  items:
+                                                    properties:
+                                                      name:
+                                                        type: string
+                                                      value:
+                                                        type: string
+                                                    type: object
+                                                  type: array
+                                              type: object
+                                            requestMirror:
+                                              properties:
+                                                backendRef:
+                                                  properties:
+                                                    group:
+                                                      type: string
+                                                    kind:
+                                                      type: string
+                                                    name:
+                                                      type: string
+                                                    namespace:
+                                                      type: string
+                                                    port:
+                                                      type: integer
+                                                  type: object
+                                                fraction:
+                                                  properties:
+                                                    denominator:
+                                                      type: integer
+                                                    numerator:
+                                                      type: integer
+                                                  type: object
+                                                percent:
+                                                  type: integer
+                                              type: object
+                                            responseHeaderModifier:
+                                              properties:
+                                                add:
+                                                  items:
+                                                    properties:
+                                                      name:
+                                                        type: string
+                                                      value:
+                                                        type: string
+                                                    type: object
+                                                  type: array
+                                                remove:
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                                set:
+                                                  items:
+                                                    properties:
+                                                      name:
+                                                        type: string
+                                                      value:
+                                                        type: string
+                                                    type: object
+                                                  type: array
+                                              type: object
+                                            type:
+                                              type: string
+                                          type: object
+                                        type: array
+                                      group:
+                                        type: string
+                                      kind:
+                                        type: string
+                                      name:
+                                        type: string
+                                      namespace:
+                                        type: string
+                                      port:
+                                        type: integer
+                                      weight:
+                                        type: integer
+                                    type: object
+                                  type: array
+                                filters:
+                                  items:
+                                    properties:
+                                      extensionRef:
+                                        properties:
+                                          group:
+                                            type: string
+                                          kind:
+                                            type: string
+                                          name:
+                                            type: string
+                                        type: object
+                                      requestHeaderModifier:
+                                        properties:
+                                          add:
+                                            items:
+                                              properties:
+                                                name:
+                                                  type: string
+                                                value:
+                                                  type: string
+                                              type: object
+                                            type: array
+                                          remove:
+                                            items:
+                                              type: string
+                                            type: array
+                                          set:
+                                            items:
+                                              properties:
+                                                name:
+                                                  type: string
+                                                value:
+                                                  type: string
+                                              type: object
+                                            type: array
+                                        type: object
+                                      requestMirror:
+                                        properties:
+                                          backendRef:
+                                            properties:
+                                              group:
+                                                type: string
+                                              kind:
+                                                type: string
+                                              name:
+                                                type: string
+                                              namespace:
+                                                type: string
+                                              port:
+                                                type: integer
+                                            type: object
+                                          fraction:
+                                            properties:
+                                              denominator:
+                                                type: integer
+                                              numerator:
+                                                type: integer
+                                            type: object
+                                          percent:
+                                            type: integer
+                                        type: object
+                                      responseHeaderModifier:
+                                        properties:
+                                          add:
+                                            items:
+                                              properties:
+                                                name:
+                                                  type: string
+                                                value:
+                                                  type: string
+                                              type: object
+                                            type: array
+                                          remove:
+                                            items:
+                                              type: string
+                                            type: array
+                                          set:
+                                            items:
+                                              properties:
+                                                name:
+                                                  type: string
+                                                value:
+                                                  type: string
+                                              type: object
+                                            type: array
+                                        type: object
+                                      type:
+                                        type: string
+                                    type: object
+                                  type: array
+                                matches:
+                                  items:
+                                    properties:
+                                      headers:
+                                        items:
+                                          properties:
+                                            name:
+                                              type: string
+                                            type:
+                                              type: string
+                                            value:
+                                              type: string
+                                          type: object
+                                        type: array
+                                      method:
+                                        properties:
+                                          method:
+                                            type: string
+                                          service:
+                                            type: string
+                                          type:
+                                            type: string
+                                        type: object
+                                    type: object
+                                  type: array
+                                name:
+                                  type: string
+                                sessionPersistence:
+                                  properties:
+                                    absoluteTimeout:
+                                      type: string
+                                    cookieConfig:
+                                      properties:
+                                        lifetimeType:
+                                          type: string
+                                      type: object
+                                    idleTimeout:
+                                      type: string
+                                    sessionName:
+                                      type: string
+                                    type:
+                                      type: string
+                                  type: object
+                              type: object
+                            type: array
+                          useDefaultGateways:
+                            type: string
+                        type: object
+                      serviceMetadata:
+                        properties:
+                          annotations:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          creationTimestamp:
+                            type: string
+                          deletionGracePeriodSeconds:
+                            type: integer
+                          deletionTimestamp:
+                            type: string
+                          finalizers:
+                            items:
+                              type: string
+                            type: array
+                          generateName:
+                            type: string
+                          generation:
+                            type: integer
+                          labels:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          managedFields:
+                            items:
+                              properties:
+                                apiVersion:
+                                  type: string
+                                fieldsType:
+                                  type: string
+                                fieldsV1:
+                                  type: object
+                                manager:
+                                  type: string
+                                operation:
+                                  type: string
+                                subresource:
+                                  type: string
+                                time:
+                                  type: string
+                              type: object
+                            type: array
+                          name:
+                            type: string
+                          namespace:
+                            type: string
+                          ownerReferences:
+                            items:
+                              properties:
+                                apiVersion:
+                                  type: string
+                                blockOwnerDeletion:
+                                  type: boolean
+                                controller:
+                                  type: boolean
+                                kind:
+                                  type: string
+                                name:
+                                  type: string
+                                uid:
+                                  type: string
+                              type: object
+                            type: array
+                          resourceVersion:
+                            type: string
+                          selfLink:
+                            type: string
+                          uid:
+                            type: string
+                        type: object
+                      serviceSpec:
+                        properties:
+                          allocateLoadBalancerNodePorts:
+                            type: boolean
+                          clusterIP:
+                            type: string
+                          clusterIPs:
+                            items:
+                              type: string
+                            type: array
+                          externalIPs:
+                            items:
+                              type: string
+                            type: array
+                          externalName:
+                            type: string
+                          externalTrafficPolicy:
+                            type: string
+                          healthCheckNodePort:
+                            type: integer
+                          internalTrafficPolicy:
+                            type: string
+                          ipFamilies:
+                            items:
+                              type: string
+                            type: array
+                          ipFamilyPolicy:
+                            type: string
+                          loadBalancerClass:
+                            type: string
+                          loadBalancerIP:
+                            type: string
+                          loadBalancerSourceRanges:
+                            items:
+                              type: string
+                            type: array
+                          ports:
+                            items:
+                              properties:
+                                appProtocol:
+                                  type: string
+                                name:
+                                  type: string
+                                nodePort:
+                                  type: integer
+                                port:
+                                  type: integer
+                                protocol:
+                                  type: string
+                                targetPort:
+                                  anyOf:
+                                    - type: integer
+                                    - type: string
+                                  x-kubernetes-int-or-string: true
+                              type: object
+                            type: array
+                          publishNotReadyAddresses:
+                            type: boolean
+                          selector:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          sessionAffinity:
+                            type: string
+                          sessionAffinityConfig:
+                            properties:
+                              clientIP:
+                                properties:
+                                  timeoutSeconds:
+                                    type: integer
+                                type: object
+                            type: object
+                          trafficDistribution:
+                            type: string
+                          type:
+                            type: string
+                        type: object
+                    required:
+                      - grpcRouteMetadata
+                      - serviceMetadata
+                      - serviceSpec
+                    type: object
+                  type: array
+                driverHttpRouteList:
+                  items:
+                    properties:
+                      httpRouteMetadata:
+                        properties:
+                          annotations:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          creationTimestamp:
+                            type: string
+                          deletionGracePeriodSeconds:
+                            type: integer
+                          deletionTimestamp:
+                            type: string
+                          finalizers:
+                            items:
+                              type: string
+                            type: array
+                          generateName:
+                            type: string
+                          generation:
+                            type: integer
+                          labels:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          managedFields:
+                            items:
+                              properties:
+                                apiVersion:
+                                  type: string
+                                fieldsType:
+                                  type: string
+                                fieldsV1:
+                                  type: object
+                                manager:
+                                  type: string
+                                operation:
+                                  type: string
+                                subresource:
+                                  type: string
+                                time:
+                                  type: string
+                              type: object
+                            type: array
+                          name:
+                            type: string
+                          namespace:
+                            type: string
+                          ownerReferences:
+                            items:
+                              properties:
+                                apiVersion:
+                                  type: string
+                                blockOwnerDeletion:
+                                  type: boolean
+                                controller:
+                                  type: boolean
+                                kind:
+                                  type: string
+                                name:
+                                  type: string
+                                uid:
+                                  type: string
+                              type: object
+                            type: array
+                          resourceVersion:
+                            type: string
+                          selfLink:
+                            type: string
+                          uid:
+                            type: string
+                        type: object
+                      httpRouteSpec:
+                        properties:
+                          hostnames:
+                            items:
+                              type: string
+                            type: array
+                          parentRefs:
+                            items:
+                              properties:
+                                group:
+                                  type: string
+                                kind:
+                                  type: string
+                                name:
+                                  type: string
+                                namespace:
+                                  type: string
+                                port:
+                                  type: integer
+                                sectionName:
+                                  type: string
+                              type: object
+                            type: array
+                          rules:
+                            items:
+                              properties:
+                                backendRefs:
+                                  items:
+                                    properties:
+                                      filters:
+                                        items:
+                                          properties:
+                                            cors:
+                                              properties:
+                                                allowCredentials:
+                                                  type: boolean
+                                                allowHeaders:
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                                allowMethods:
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                                allowOrigins:
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                                exposeHeaders:
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                                maxAge:
+                                                  type: integer
+                                              type: object
+                                            extensionRef:
+                                              properties:
+                                                group:
+                                                  type: string
+                                                kind:
+                                                  type: string
+                                                name:
+                                                  type: string
+                                              type: object
+                                            externalAuth:
+                                              properties:
+                                                backendRef:
+                                                  properties:
+                                                    group:
+                                                      type: string
+                                                    kind:
+                                                      type: string
+                                                    name:
+                                                      type: string
+                                                    namespace:
+                                                      type: string
+                                                    port:
+                                                      type: integer
+                                                  type: object
+                                                forwardBody:
+                                                  properties:
+                                                    maxSize:
+                                                      type: integer
+                                                  type: object
+                                                grpc:
+                                                  properties:
+                                                    allowedHeaders:
+                                                      items:
+                                                        type: string
+                                                      type: array
+                                                  type: object
+                                                http:
+                                                  properties:
+                                                    allowedHeaders:
+                                                      items:
+                                                        type: string
+                                                      type: array
+                                                    allowedResponseHeaders:
+                                                      items:
+                                                        type: string
+                                                      type: array
+                                                    path:
+                                                      type: string
+                                                  type: object
+                                                protocol:
+                                                  type: string
+                                              type: object
+                                            requestHeaderModifier:
+                                              properties:
+                                                add:
+                                                  items:
+                                                    properties:
+                                                      name:
+                                                        type: string
+                                                      value:
+                                                        type: string
+                                                    type: object
+                                                  type: array
+                                                remove:
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                                set:
+                                                  items:
+                                                    properties:
+                                                      name:
+                                                        type: string
+                                                      value:
+                                                        type: string
+                                                    type: object
+                                                  type: array
+                                              type: object
+                                            requestMirror:
+                                              properties:
+                                                backendRef:
+                                                  properties:
+                                                    group:
+                                                      type: string
+                                                    kind:
+                                                      type: string
+                                                    name:
+                                                      type: string
+                                                    namespace:
+                                                      type: string
+                                                    port:
+                                                      type: integer
+                                                  type: object
+                                                fraction:
+                                                  properties:
+                                                    denominator:
+                                                      type: integer
+                                                    numerator:
+                                                      type: integer
+                                                  type: object
+                                                percent:
+                                                  type: integer
+                                              type: object
+                                            requestRedirect:
+                                              properties:
+                                                hostname:
+                                                  type: string
+                                                path:
+                                                  properties:
+                                                    replaceFullPath:
+                                                      type: string
+                                                    replacePrefixMatch:
+                                                      type: string
+                                                    type:
+                                                      type: string
+                                                  type: object
+                                                port:
+                                                  type: integer
+                                                scheme:
+                                                  type: string
+                                                statusCode:
+                                                  type: integer
+                                              type: object
+                                            responseHeaderModifier:
+                                              properties:
+                                                add:
+                                                  items:
+                                                    properties:
+                                                      name:
+                                                        type: string
+                                                      value:
+                                                        type: string
+                                                    type: object
+                                                  type: array
+                                                remove:
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                                set:
+                                                  items:
+                                                    properties:
+                                                      name:
+                                                        type: string
+                                                      value:
+                                                        type: string
+                                                    type: object
+                                                  type: array
+                                              type: object
+                                            type:
+                                              type: string
+                                            urlRewrite:
+                                              properties:
+                                                hostname:
+                                                  type: string
+                                                path:
+                                                  properties:
+                                                    replaceFullPath:
+                                                      type: string
+                                                    replacePrefixMatch:
+                                                      type: string
+                                                    type:
+                                                      type: string
+                                                  type: object
+                                              type: object
+                                          type: object
+                                        type: array
+                                      group:
+                                        type: string
+                                      kind:
+                                        type: string
+                                      name:
+                                        type: string
+                                      namespace:
+                                        type: string
+                                      port:
+                                        type: integer
+                                      weight:
+                                        type: integer
+                                    type: object
+                                  type: array
+                                filters:
+                                  items:
+                                    properties:
+                                      cors:
+                                        properties:
+                                          allowCredentials:
+                                            type: boolean
+                                          allowHeaders:
+                                            items:
+                                              type: string
+                                            type: array
+                                          allowMethods:
+                                            items:
+                                              type: string
+                                            type: array
+                                          allowOrigins:
+                                            items:
+                                              type: string
+                                            type: array
+                                          exposeHeaders:
+                                            items:
+                                              type: string
+                                            type: array
+                                          maxAge:
+                                            type: integer
+                                        type: object
+                                      extensionRef:
+                                        properties:
+                                          group:
+                                            type: string
+                                          kind:
+                                            type: string
+                                          name:
+                                            type: string
+                                        type: object
+                                      externalAuth:
+                                        properties:
+                                          backendRef:
+                                            properties:
+                                              group:
+                                                type: string
+                                              kind:
+                                                type: string
+                                              name:
+                                                type: string
+                                              namespace:
+                                                type: string
+                                              port:
+                                                type: integer
+                                            type: object
+                                          forwardBody:
+                                            properties:
+                                              maxSize:
+                                                type: integer
+                                            type: object
+                                          grpc:
+                                            properties:
+                                              allowedHeaders:
+                                                items:
+                                                  type: string
+                                                type: array
+                                            type: object
+                                          http:
+                                            properties:
+                                              allowedHeaders:
+                                                items:
+                                                  type: string
+                                                type: array
+                                              allowedResponseHeaders:
+                                                items:
+                                                  type: string
+                                                type: array
+                                              path:
+                                                type: string
+                                            type: object
+                                          protocol:
+                                            type: string
+                                        type: object
+                                      requestHeaderModifier:
+                                        properties:
+                                          add:
+                                            items:
+                                              properties:
+                                                name:
+                                                  type: string
+                                                value:
+                                                  type: string
+                                              type: object
+                                            type: array
+                                          remove:
+                                            items:
+                                              type: string
+                                            type: array
+                                          set:
+                                            items:
+                                              properties:
+                                                name:
+                                                  type: string
+                                                value:
+                                                  type: string
+                                              type: object
+                                            type: array
+                                        type: object
+                                      requestMirror:
+                                        properties:
+                                          backendRef:
+                                            properties:
+                                              group:
+                                                type: string
+                                              kind:
+                                                type: string
+                                              name:
+                                                type: string
+                                              namespace:
+                                                type: string
+                                              port:
+                                                type: integer
+                                            type: object
+                                          fraction:
+                                            properties:
+                                              denominator:
+                                                type: integer
+                                              numerator:
+                                                type: integer
+                                            type: object
+                                          percent:
+                                            type: integer
+                                        type: object
+                                      requestRedirect:
+                                        properties:
+                                          hostname:
+                                            type: string
+                                          path:
+                                            properties:
+                                              replaceFullPath:
+                                                type: string
+                                              replacePrefixMatch:
+                                                type: string
+                                              type:
+                                                type: string
+                                            type: object
+                                          port:
+                                            type: integer
+                                          scheme:
+                                            type: string
+                                          statusCode:
+                                            type: integer
+                                        type: object
+                                      responseHeaderModifier:
+                                        properties:
+                                          add:
+                                            items:
+                                              properties:
+                                                name:
+                                                  type: string
+                                                value:
+                                                  type: string
+                                              type: object
+                                            type: array
+                                          remove:
+                                            items:
+                                              type: string
+                                            type: array
+                                          set:
+                                            items:
+                                              properties:
+                                                name:
+                                                  type: string
+                                                value:
+                                                  type: string
+                                              type: object
+                                            type: array
+                                        type: object
+                                      type:
+                                        type: string
+                                      urlRewrite:
+                                        properties:
+                                          hostname:
+                                            type: string
+                                          path:
+                                            properties:
+                                              replaceFullPath:
+                                                type: string
+                                              replacePrefixMatch:
+                                                type: string
+                                              type:
+                                                type: string
+                                            type: object
+                                        type: object
+                                    type: object
+                                  type: array
+                                matches:
+                                  items:
+                                    properties:
+                                      headers:
+                                        items:
+                                          properties:
+                                            name:
+                                              type: string
+                                            type:
+                                              type: string
+                                            value:
+                                              type: string
+                                          type: object
+                                        type: array
+                                      method:
+                                        type: string
+                                      path:
+                                        properties:
+                                          type:
+                                            type: string
+                                          value:
+                                            type: string
+                                        type: object
+                                      queryParams:
+                                        items:
+                                          properties:
+                                            name:
+                                              type: string
+                                            type:
+                                              type: string
+                                            value:
+                                              type: string
+                                          type: object
+                                        type: array
+                                    type: object
+                                  type: array
+                                name:
+                                  type: string
+                                retry:
+                                  properties:
+                                    attempts:
+                                      type: integer
+                                    backoff:
+                                      type: string
+                                    codes:
+                                      items:
+                                        type: integer
+                                      type: array
+                                  type: object
+                                sessionPersistence:
+                                  properties:
+                                    absoluteTimeout:
+                                      type: string
+                                    cookieConfig:
+                                      properties:
+                                        lifetimeType:
+                                          type: string
+                                      type: object
+                                    idleTimeout:
+                                      type: string
+                                    sessionName:
+                                      type: string
+                                    type:
+                                      type: string
+                                  type: object
+                                timeouts:
+                                  properties:
+                                    backendRequest:
+                                      type: string
+                                    request:
+                                      type: string
+                                  type: object
+                              type: object
+                            type: array
+                          useDefaultGateways:
+                            type: string
+                        type: object
+                      serviceMetadata:
+                        properties:
+                          annotations:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          creationTimestamp:
+                            type: string
+                          deletionGracePeriodSeconds:
+                            type: integer
+                          deletionTimestamp:
+                            type: string
+                          finalizers:
+                            items:
+                              type: string
+                            type: array
+                          generateName:
+                            type: string
+                          generation:
+                            type: integer
+                          labels:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          managedFields:
+                            items:
+                              properties:
+                                apiVersion:
+                                  type: string
+                                fieldsType:
+                                  type: string
+                                fieldsV1:
+                                  type: object
+                                manager:
+                                  type: string
+                                operation:
+                                  type: string
+                                subresource:
+                                  type: string
+                                time:
+                                  type: string
+                              type: object
+                            type: array
+                          name:
+                            type: string
+                          namespace:
+                            type: string
+                          ownerReferences:
+                            items:
+                              properties:
+                                apiVersion:
+                                  type: string
+                                blockOwnerDeletion:
+                                  type: boolean
+                                controller:
+                                  type: boolean
+                                kind:
+                                  type: string
+                                name:
+                                  type: string
+                                uid:
+                                  type: string
+                              type: object
+                            type: array
+                          resourceVersion:
+                            type: string
+                          selfLink:
+                            type: string
+                          uid:
+                            type: string
+                        type: object
+                      serviceSpec:
+                        properties:
+                          allocateLoadBalancerNodePorts:
+                            type: boolean
+                          clusterIP:
+                            type: string
+                          clusterIPs:
+                            items:
+                              type: string
+                            type: array
+                          externalIPs:
+                            items:
+                              type: string
+                            type: array
+                          externalName:
+                            type: string
+                          externalTrafficPolicy:
+                            type: string
+                          healthCheckNodePort:
+                            type: integer
+                          internalTrafficPolicy:
+                            type: string
+                          ipFamilies:
+                            items:
+                              type: string
+                            type: array
+                          ipFamilyPolicy:
+                            type: string
+                          loadBalancerClass:
+                            type: string
+                          loadBalancerIP:
+                            type: string
+                          loadBalancerSourceRanges:
+                            items:
+                              type: string
+                            type: array
+                          ports:
+                            items:
+                              properties:
+                                appProtocol:
+                                  type: string
+                                name:
+                                  type: string
+                                nodePort:
+                                  type: integer
+                                port:
+                                  type: integer
+                                protocol:
+                                  type: string
+                                targetPort:
+                                  anyOf:
+                                    - type: integer
+                                    - type: string
+                                  x-kubernetes-int-or-string: true
+                              type: object
+                            type: array
+                          publishNotReadyAddresses:
+                            type: boolean
+                          selector:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          sessionAffinity:
+                            type: string
+                          sessionAffinityConfig:
+                            properties:
+                              clientIP:
+                                properties:
+                                  timeoutSeconds:
+                                    type: integer
+                                type: object
+                            type: object
+                          trafficDistribution:
+                            type: string
+                          type:
+                            type: string
+                        type: object
+                    required:
+                      - httpRouteMetadata
+                      - serviceMetadata
+                      - serviceSpec
+                    type: object
+                  type: array
                 driverServiceIngressList:
                   items:
                     properties:

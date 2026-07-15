@@ -27,6 +27,17 @@ under the License.
       patch support will not be performed on k8s versions that reached EOL.
 - Spark versions 4.0 or above.
 
+## Optional Prerequisites
+
+- **Gateway API v1 CRDs** (`httproutes.gateway.networking.k8s.io`,
+  `grpcroutes.gateway.networking.k8s.io`) — required only when SparkApplications use
+  `spec.driverHttpRouteList` or `spec.driverGrpcRouteList`. These CRDs are not bundled with the
+  operator; install them from
+  [sigs.k8s.io/gateway-api](https://gateway-api.sigs.k8s.io/guides/) (or a Gateway API
+  implementation such as Istio) before submitting SparkApplications that request Gateway API
+  routing. If the CRDs are missing, reconciliation of such SparkApplications will fail with a
+  `no matches for kind "HTTPRoute"` error from the Kubernetes API.
+
 ## Spark Application Namespaces
 
 By default, Spark applications are created in the same namespace as the operator deployment.

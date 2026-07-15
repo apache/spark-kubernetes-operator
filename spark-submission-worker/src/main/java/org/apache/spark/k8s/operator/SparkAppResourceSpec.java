@@ -37,8 +37,11 @@ import org.apache.spark.deploy.k8s.KubernetesDriverSpec;
 import org.apache.spark.deploy.k8s.SparkPod;
 import org.apache.spark.deploy.k8s.submit.KubernetesClientUtils;
 import org.apache.spark.k8s.operator.spec.ConfigMapSpec;
+import org.apache.spark.k8s.operator.spec.DriverGrpcRouteSpec;
+import org.apache.spark.k8s.operator.spec.DriverHttpRouteSpec;
 import org.apache.spark.k8s.operator.spec.DriverServiceIngressSpec;
 import org.apache.spark.k8s.operator.utils.ConfigMapSpecUtils;
+import org.apache.spark.k8s.operator.utils.DriverGatewayRouteUtils;
 import org.apache.spark.k8s.operator.utils.DriverServiceIngressUtils;
 import org.apache.spark.k8s.operator.utils.StringUtils;
 
@@ -65,12 +68,16 @@ public class SparkAppResourceSpec {
    * @param kubernetesDriverConf The KubernetesDriverConf for the application.
    * @param kubernetesDriverSpec The KubernetesDriverSpec for the application.
    * @param driverServiceIngressList A list of DriverServiceIngressSpec for the driver service.
+   * @param driverHttpRouteList A list of DriverHttpRouteSpec for Gateway API HTTPRoutes.
+   * @param driverGrpcRouteList A list of DriverGrpcRouteSpec for Gateway API GRPCRoutes.
    * @param configMapSpecs A list of ConfigMapSpec for additional config maps.
    */
   public SparkAppResourceSpec(
       SparkAppDriverConf kubernetesDriverConf,
       KubernetesDriverSpec kubernetesDriverSpec,
       List<DriverServiceIngressSpec> driverServiceIngressList,
+      List<DriverHttpRouteSpec> driverHttpRouteList,
+      List<DriverGrpcRouteSpec> driverGrpcRouteList,
       List<ConfigMapSpec> configMapSpecs) {
     this.kubernetesDriverConf = kubernetesDriverConf;
     String namespace = kubernetesDriverConf.sparkConf().get(Config.KUBERNETES_NAMESPACE().key());
@@ -98,6 +105,8 @@ public class SparkAppResourceSpec {
     this.driverPreResources.addAll(ConfigMapSpecUtils.buildConfigMaps(configMapSpecs));
     this.driverPreResources.add(buildNetworkPolicy(kubernetesDriverConf.appId(), namespace));
     this.driverResources.addAll(configureDriverServerIngress(sparkPod, driverServiceIngressList));
+    this.driverResources.addAll(configureDriverHttpRoutes(sparkPod, driverHttpRouteList));
+    this.driverResources.addAll(configureDriverGrpcRoutes(sparkPod, driverGrpcRouteList));
     this.driverPreResources.forEach(r -> setNamespaceIfMissing(r, namespace));
     this.driverResources.forEach(r -> setNamespaceIfMissing(r, namespace));
   }
@@ -163,6 +172,42 @@ public class SparkAppResourceSpec {
     }
     return driverServiceIngressList.stream()
         .map(spec -> DriverServiceIngressUtils.buildIngressService(spec, pod.pod().getMetadata()))
+        .flatMap(Collection::stream)
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * Configures driver Gateway API HTTPRoute resources.
+   *
+   * @param pod The SparkPod for the driver.
+   * @param driverHttpRouteList A list of DriverHttpRouteSpec.
+   * @return A List of HasMetadata objects representing the HTTPRoute + Service resources.
+   */
+  private List<HasMetadata> configureDriverHttpRoutes(
+      SparkPod pod, List<DriverHttpRouteSpec> driverHttpRouteList) {
+    if (driverHttpRouteList == null || driverHttpRouteList.isEmpty()) {
+      return List.of();
+    }
+    return driverHttpRouteList.stream()
+        .map(spec -> DriverGatewayRouteUtils.buildHttpRouteService(spec, pod.pod().getMetadata()))
+        .flatMap(Collection::stream)
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * Configures driver Gateway API GRPCRoute resources.
+   *
+   * @param pod The SparkPod for the driver.
+   * @param driverGrpcRouteList A list of DriverGrpcRouteSpec.
+   * @return A List of HasMetadata objects representing the GRPCRoute + Service resources.
+   */
+  private List<HasMetadata> configureDriverGrpcRoutes(
+      SparkPod pod, List<DriverGrpcRouteSpec> driverGrpcRouteList) {
+    if (driverGrpcRouteList == null || driverGrpcRouteList.isEmpty()) {
+      return List.of();
+    }
+    return driverGrpcRouteList.stream()
+        .map(spec -> DriverGatewayRouteUtils.buildGrpcRouteService(spec, pod.pod().getMetadata()))
         .flatMap(Collection::stream)
         .collect(Collectors.toList());
   }

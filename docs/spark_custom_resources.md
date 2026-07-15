@@ -142,6 +142,53 @@ default rule backed by the associated Service. It's recommended to always provid
 to make sure it's compatible with your
 [IngressController](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/).
 
+## Enable Gateway API Route for Driver
+
+As an alternative to `Ingress`, the operator can expose driver endpoints via the Kubernetes
+[Gateway API](https://gateway-api.sigs.k8s.io/) by creating `HTTPRoute` or `GRPCRoute` resources
+alongside a backing Service. Use `driverHttpRouteList` for HTTP endpoints (for example the Spark
+UI) and `driverGrpcRouteList` for gRPC endpoints (for example Spark Connect).
+
+```yaml
+spec:
+  driverHttpRouteList:
+    - serviceMetadata:
+        name: "spark-ui-service"
+      serviceSpec:
+        ports:
+          - protocol: TCP
+            port: 80
+            targetPort: 4040
+      httpRouteMetadata:
+        name: "spark-ui-route"
+      httpRouteSpec:
+        parentRefs:
+          - group: gateway.networking.k8s.io
+            kind: Gateway
+            name: my-gateway
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: "/"
+            backendRefs:
+              - name: spark-ui-service
+                port: 80
+```
+
+Prerequisites and behavior:
+
+- The Gateway API v1 CRDs (`httproutes.gateway.networking.k8s.io`,
+  `grpcroutes.gateway.networking.k8s.io`) must be installed on the cluster. If a CRD is missing,
+  reconciliation of a SparkApplication that references the corresponding route list will fail
+  with a `no matches for kind "HTTPRoute"` (or `"GRPCRoute"`) error from the Kubernetes API.
+- `httpRouteSpec.parentRefs` (and `grpcRouteSpec.parentRefs`) is required — without at least one
+  `parentRef` the route object would be orphaned from any `Gateway` and receive no traffic. The
+  operator rejects SparkApplications where any route-list entry omits `parentRefs`.
+- As with Ingress, the Service's `.spec.selector` defaults to the driver labels, and if
+  `httpRouteSpec.rules` / `grpcRouteSpec.rules` is not provided the operator populates a single
+  default rule that backends to the first port of the associated Service.
+
 ## Create and Mount ConfigMap
 
 It is possible to ask operator to create configmap so they can be used by driver and/or executor

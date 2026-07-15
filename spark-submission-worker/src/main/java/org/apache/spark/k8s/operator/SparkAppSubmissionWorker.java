@@ -39,6 +39,8 @@ import org.apache.spark.deploy.k8s.submit.PythonMainAppResource;
 import org.apache.spark.deploy.k8s.submit.RMainAppResource;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 import org.apache.spark.k8s.operator.spec.ConfigMapSpec;
+import org.apache.spark.k8s.operator.spec.DriverGrpcRouteSpec;
+import org.apache.spark.k8s.operator.spec.DriverHttpRouteSpec;
 import org.apache.spark.k8s.operator.spec.DriverServiceIngressSpec;
 import org.apache.spark.k8s.operator.spec.RestartConfig;
 import org.apache.spark.k8s.operator.spec.RestartPolicy;
@@ -111,6 +113,8 @@ public class SparkAppSubmissionWorker {
     return buildResourceSpec(
         appDriverConf,
         app.getSpec().getDriverServiceIngressList(),
+        app.getSpec().getDriverHttpRouteList(),
+        app.getSpec().getDriverGrpcRouteList(),
         app.getSpec().getConfigMapSpecs(),
         client);
   }
@@ -193,6 +197,8 @@ public class SparkAppSubmissionWorker {
    *
    * @param kubernetesDriverConf The SparkAppDriverConf.
    * @param driverServiceIngressList A list of DriverServiceIngressSpec.
+   * @param driverHttpRouteList A list of DriverHttpRouteSpec.
+   * @param driverGrpcRouteList A list of DriverGrpcRouteSpec.
    * @param configMapSpecs A list of ConfigMapSpec.
    * @param client The KubernetesClient.
    * @return A SparkAppResourceSpec instance.
@@ -200,13 +206,20 @@ public class SparkAppSubmissionWorker {
   protected SparkAppResourceSpec buildResourceSpec(
       SparkAppDriverConf kubernetesDriverConf,
       List<DriverServiceIngressSpec> driverServiceIngressList,
+      List<DriverHttpRouteSpec> driverHttpRouteList,
+      List<DriverGrpcRouteSpec> driverGrpcRouteList,
       List<ConfigMapSpec> configMapSpecs,
       KubernetesClient client) {
     KubernetesDriverBuilder builder = new KubernetesDriverBuilder();
     KubernetesDriverSpec kubernetesDriverSpec =
         builder.buildFromFeatures(kubernetesDriverConf, client);
     return new SparkAppResourceSpec(
-        kubernetesDriverConf, kubernetesDriverSpec, driverServiceIngressList, configMapSpecs);
+        kubernetesDriverConf,
+        kubernetesDriverSpec,
+        driverServiceIngressList,
+        driverHttpRouteList,
+        driverGrpcRouteList,
+        configMapSpecs);
   }
 
   /**
