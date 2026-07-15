@@ -51,6 +51,7 @@ dependencies {
     exclude group: "org.checkerframework"
     exclude group: "org.fusesource.leveldbjni"
     exclude group: "org.lz4"
+    exclude group: "org.openlabtesting.leveldbjni"
     exclude group: "org.roaringbitmap"
     exclude group: "org.rocksdb"
     exclude group: "org.slf4j"
@@ -67,6 +68,7 @@ dependencies {
   }
   testImplementation(libs.spark.core) {
     exclude group: "org.apache.logging.log4j"
+    exclude group: "org.openlabtesting.leveldbjni"
     exclude group: "org.slf4j"
   }
   testImplementation platform(libs.junit.bom)
