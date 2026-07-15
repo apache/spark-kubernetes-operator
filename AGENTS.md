@@ -83,6 +83,20 @@ toolchain provisions JDK 26, so a JDK 21+ is required.
 ./gradlew dependencyUpdates      # Report newer dependency versions
 ```
 
+When upgrading dependencies, regenerate `gradle/verification-metadata.xml` from scratch.
+Since `--write-verification-metadata` is append-only and keeps stale entries of removed or
+old dependencies, delete the existing file first so that the regenerated file contains
+only the checksums of the current dependencies, then restore the ASF license header
+(Gradle rewrites the file without it). Pass `--refresh-dependencies` so that metadata
+files (BOM / parent POMs) already present in the local Gradle cache are downloaded and
+recorded again — without it their checksums are silently dropped and CI fails with a
+cold cache:
+
+```bash
+rm gradle/verification-metadata.xml
+./gradlew --write-verification-metadata sha512 build --refresh-dependencies
+```
+
 Helm chart (the lint mirrors CI):
 
 ```bash
