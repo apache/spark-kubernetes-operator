@@ -44,11 +44,14 @@ To build, run:
 When upgrading dependencies, regenerate `gradle/verification-metadata.xml` from scratch.
 Since `--write-verification-metadata` is append-only and keeps stale entries of removed or
 old dependencies, delete the existing file first so that the regenerated file contains
-only the checksums of the current dependencies:
+only the checksums of the current dependencies. Pass `--refresh-dependencies` so that
+metadata files (BOM / parent POMs) already present in the local Gradle cache are
+downloaded and recorded again — without it their checksums are silently dropped and
+CI fails with a cold cache:
 
 ```bash
 rm gradle/verification-metadata.xml
-./gradlew --write-verification-metadata sha512 build
+./gradlew --write-verification-metadata sha512 build --refresh-dependencies
 ```
 
 Note that Gradle rewrites the file without the ASF license header,
