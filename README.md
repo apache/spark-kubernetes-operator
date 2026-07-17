@@ -96,7 +96,7 @@ $ ./examples/submit-pi-to-prod.sh
 {
   "action" : "CreateSubmissionResponse",
   "message" : "Driver successfully submitted as driver-20260110030233-0000",
-  "serverSparkVersion" : "4.1.2",
+  "serverSparkVersion" : "4.2.0",
   "submissionId" : "driver-20260110030233-0000",
   "success" : true
 }
@@ -105,7 +105,7 @@ $ curl http://localhost:6066/v1/submissions/status/driver-20260110030233-0000/
 {
   "action" : "SubmissionStatusResponse",
   "driverState" : "FINISHED",
-  "serverSparkVersion" : "4.1.2",
+  "serverSparkVersion" : "4.2.0",
   "submissionId" : "driver-20260110030233-0000",
   "success" : true,
   "workerHostPort" : "10.1.1.172:44233",
@@ -142,7 +142,7 @@ Events:
   Normal  Scheduling         1s    yunikorn  default/pi-on-yunikorn-0-driver is queued and waiting for allocation
   Normal  Scheduled          1s    yunikorn  Successfully assigned default/pi-on-yunikorn-0-driver to node docker-desktop
   Normal  PodBindSuccessful  1s    yunikorn  Pod default/pi-on-yunikorn-0-driver is successfully bound to node docker-desktop
-  Normal  Pulled             0s    kubelet   Container image "apache/spark:4.1.2-scala" already present on machine
+  Normal  Pulled             0s    kubelet   Container image "apache/spark:4.2.0-scala" already present on machine
   Normal  Created            0s    kubelet   Created container: spark-kubernetes-driver
   Normal  Started            0s    kubelet   Started container spark-kubernetes-driver
 

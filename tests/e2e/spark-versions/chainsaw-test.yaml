@@ -23,22 +23,22 @@ spec:
   scenarios:
   - bindings:
       - name: "SPARK_VERSION"
-        value: "4.1.2"
+        value: "4.2.0"
       - name: "SCALA_VERSION"
         value: "2.13"
       - name: "JAVA_VERSION"
         value: "17"
       - name: "IMAGE"
-        value: "apache/spark:4.1.2-scala-java17"
+        value: "apache/spark:4.2.0-scala-java17"
   - bindings:
       - name: "SPARK_VERSION"
-        value: "4.1.2"
+        value: "4.2.0"
       - name: "SCALA_VERSION"
         value: "2.13"
       - name: "JAVA_VERSION"
         value: "21"
       - name: "IMAGE"
-        value: 'apache/spark:4.1.2-scala'
+        value: 'apache/spark:4.2.0-scala'
   steps:
     - name: install-spark-application
       try:
