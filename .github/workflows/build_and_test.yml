@@ -133,7 +133,7 @@ jobs:
             test-group: pi-with-gluten
           - kubernetes-version: "1.36.0"
             mode: static
-            test-group: pi-preview
+            test-group: pi-java25
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6

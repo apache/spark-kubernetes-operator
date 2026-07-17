@@ -23,11 +23,11 @@ spec:
   scenarios:
     - bindings:
         - name: "SPARK_VERSION"
-          value: "4.1.2"
+          value: "4.2.0"
         - name: "SCALA_VERSION"
           value: "2.13"
         - name: "IMAGE"
-          value: "apache/spark:4.1.2-python3"
+          value: "apache/spark:4.2.0-python3"
   steps:
     - name: install-spark-application
       try:

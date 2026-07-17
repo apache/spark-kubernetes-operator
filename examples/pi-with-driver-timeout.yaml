@@ -32,4 +32,4 @@ spec:
     resourceRetainPolicy: OnFailure
     ttlAfterStopMillis: 10000
   runtimeVersions:
-    sparkVersion: "4.1.2"
+    sparkVersion: "4.2.0"

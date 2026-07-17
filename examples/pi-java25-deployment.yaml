@@ -15,18 +15,18 @@
 apiVersion: spark.apache.org/v1
 kind: SparkApplication
 metadata:
-  name: pi-preview
+  name: pi-java25-deployment
 spec:
   mainClass: "org.apache.spark.examples.SparkPi"
+  driverArgs: ["20000"]
   jars: "local:///opt/spark/examples/jars/spark-examples.jar"
   sparkConf:
-    spark.dynamicAllocation.enabled: "true"
-    spark.dynamicAllocation.shuffleTracking.enabled: "true"
-    spark.dynamicAllocation.maxExecutors: "3"
+    spark.executor.instances: "3"
+    spark.kubernetes.allocation.pods.allocator: "deployment"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
-    spark.kubernetes.container.image: "apache/spark:4.2.0-preview5-scala"
+    spark.kubernetes.container.image: "apache/spark:4.2.0-scala-java25"
   applicationTolerations:
     resourceRetainPolicy: OnFailure
     ttlAfterStopMillis: 10000
   runtimeVersions:
-    sparkVersion: "4.2.0-preview5"
+    sparkVersion: "4.2.0"

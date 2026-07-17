@@ -18,13 +18,13 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: spark-operator-pi-preview-validation
+  name: spark-operator-pi-java25-validation
 spec:
   namespace: default
   steps:
   - try:
     - apply:
-        file: ../../../examples/pi-preview.yaml
+        file: ../../../examples/pi-java25.yaml
     - assert:
         bindings:
           - name: SPARK_APP_NAMESPACE
@@ -37,7 +37,7 @@ spec:
         kind: SparkApplication
         namespace: default
     - podLogs:
-        selector: spark-app-name=pi-preview
+        selector: spark-app-name=pi-java25
         namespace: default
     - podLogs:
         selector: app.kubernetes.io/name=spark-kubernetes-operator
@@ -46,4 +46,4 @@ spec:
     - script:
         timeout: 120s
         content: |
-          kubectl delete sparkapplication pi-preview --ignore-not-found=true
+          kubectl delete sparkapplication pi-java25 --ignore-not-found=true

@@ -19,7 +19,7 @@ metadata:
   namespace: default
 spec:
   runtimeVersions:
-    sparkVersion: "4.1.2"
+    sparkVersion: "4.2.0"
   clusterTolerations:
     instanceConfig:
       initWorkers: 1
