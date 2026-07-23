@@ -16,6 +16,7 @@
 # under the License.
 [versions]
 fabric8 = "7.8.0"
+
 lombok = "1.18.46"
 netty = "4.2.16.Final"
 operator-sdk = "5.5.0"
