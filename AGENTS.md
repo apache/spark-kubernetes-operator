@@ -49,7 +49,7 @@ there, never inline in a module.
 ## Module Layout
 
 Gradle multi-project build (see [settings.gradle](settings.gradle)); root group is
-`org.apache.spark.k8s.operator`, version `1.0.0-SNAPSHOT`.
+`org.apache.spark.k8s.operator`, version `1.0.0`.
 
 - `spark-operator-api/` — CRD model: `SparkApplication` / `SparkCluster` spec, status, and diff
   types. Minimal dependencies (fabric8 `kubernetes-client` only); CRDs are generated here.
