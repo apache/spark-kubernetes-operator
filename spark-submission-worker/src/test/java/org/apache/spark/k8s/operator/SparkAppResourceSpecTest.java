@@ -63,7 +63,7 @@ class SparkAppResourceSpecTest {
         KubernetesDriverSpec.create(sparkPod, preResourceList, resourceList, Map.of());
 
     SparkAppResourceSpec appResourceSpec =
-        new SparkAppResourceSpec(mockConf, spec, List.of(), List.of());
+        new SparkAppResourceSpec(mockConf, spec, List.of(), List.of(), List.of(), List.of());
 
     Assertions.assertEquals(2, appResourceSpec.getDriverResources().size());
     Assertions.assertEquals(2, appResourceSpec.getDriverPreResources().size());
@@ -119,7 +119,7 @@ class SparkAppResourceSpecTest {
         KubernetesDriverSpec.create(sparkPod, List.of(), List.of(), Map.of());
 
     SparkAppResourceSpec appResourceSpec =
-        new SparkAppResourceSpec(mockConf, spec, List.of(), List.of());
+        new SparkAppResourceSpec(mockConf, spec, List.of(), List.of(), List.of(), List.of());
 
     Assertions.assertEquals(1, appResourceSpec.getDriverPreResources().size());
     Assertions.assertEquals(NetworkPolicy.class,

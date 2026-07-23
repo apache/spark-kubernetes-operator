@@ -19,49 +19,37 @@
 
 package org.apache.spark.k8s.operator.spec;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.fabric8.generator.annotation.Required;
+import io.fabric8.kubernetes.api.model.ObjectMeta;
+import io.fabric8.kubernetes.api.model.ServiceSpec;
+import io.fabric8.kubernetes.api.model.gatewayapi.v1.HTTPRouteSpec;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
 /**
- * Spec for a Spark application.
+ * Spec for a driver service exposed via a Gateway API {@code HTTPRoute}.
  *
- * @since 0.1.0
+ * <p>Parallel to {@link DriverServiceIngressSpec} but emits a {@code HTTPRoute}
+ * ({@code gateway.networking.k8s.io/v1}) instead of a {@code networking.k8s.io/v1 Ingress}.
+ * If {@code httpRouteSpec.rules} is not provided, a single default rule is populated that routes
+ * all traffic to the first port of the backing Service.
+ *
+ * @since 1.0.0
  */
 @Data
+@Builder
+@JsonInclude(JsonInclude.Include.NON_NULL)
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-@EqualsAndHashCode(callSuper = true)
-@JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
-@SuppressWarnings("PMD.TooManyFields")
-public class ApplicationSpec extends BaseSpec {
-  protected String mainClass;
-  @Required protected RuntimeVersions runtimeVersions;
-  protected String jars;
-  protected String pyFiles;
-  protected String sparkRFiles;
-  protected String files;
-  @Builder.Default protected DeploymentMode deploymentMode = DeploymentMode.ClusterMode;
-  protected String proxyUser;
-  @Builder.Default protected List<String> driverArgs = new ArrayList<>();
+public class DriverHttpRouteSpec {
+  @Required protected ObjectMeta serviceMetadata;
+  @Required protected ServiceSpec serviceSpec;
 
-  @Builder.Default
-  protected ApplicationTolerations applicationTolerations = new ApplicationTolerations();
-
-  protected BaseApplicationTemplateSpec driverSpec;
-  protected BaseApplicationTemplateSpec executorSpec;
-  protected List<DriverServiceIngressSpec> driverServiceIngressList;
-  protected List<DriverHttpRouteSpec> driverHttpRouteList;
-  protected List<DriverGrpcRouteSpec> driverGrpcRouteList;
-  protected List<ConfigMapSpec> configMapSpecs;
+  @Required protected ObjectMeta httpRouteMetadata;
+  protected HTTPRouteSpec httpRouteSpec;
 }
