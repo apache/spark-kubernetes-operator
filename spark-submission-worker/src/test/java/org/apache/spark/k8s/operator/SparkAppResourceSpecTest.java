@@ -33,8 +33,6 @@ import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.api.model.Volume;
 import io.fabric8.kubernetes.api.model.VolumeMount;
-import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicy;
-import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicyBuilder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -66,7 +64,7 @@ class SparkAppResourceSpecTest {
         new SparkAppResourceSpec(mockConf, spec, List.of(), List.of(), List.of(), List.of());
 
     Assertions.assertEquals(2, appResourceSpec.getDriverResources().size());
-    Assertions.assertEquals(2, appResourceSpec.getDriverPreResources().size());
+    Assertions.assertEquals(1, appResourceSpec.getDriverPreResources().size());
     Assertions.assertEquals(Pod.class, appResourceSpec.getDriverResources().get(0).getClass());
     Assertions.assertEquals(
         ConfigMap.class, appResourceSpec.getDriverResources().get(1).getClass());
@@ -102,52 +100,6 @@ class SparkAppResourceSpecTest {
             .getVolumeMounts()
             .get(1);
     Assertions.assertEquals(proposedConfigVolume.getName(), proposedConfigVolumeMount.getName());
-  }
-
-  @Test
-  void testNetworkPolicy() {
-    SparkAppDriverConf mockConf = mock(SparkAppDriverConf.class);
-    when(mockConf.appId()).thenReturn("app1");
-    when(mockConf.configMapNameDriver()).thenReturn("foo-network-policy");
-    when(mockConf.sparkConf())
-        .thenReturn(new SparkConf().set("spark.kubernetes.namespace", "foo-namespace"));
-
-    Pod driver = buildBasicPod("driver");
-    SparkPod sparkPod = new SparkPod(driver, buildBasicContainer());
-
-    KubernetesDriverSpec spec =
-        KubernetesDriverSpec.create(sparkPod, List.of(), List.of(), Map.of());
-
-    SparkAppResourceSpec appResourceSpec =
-        new SparkAppResourceSpec(mockConf, spec, List.of(), List.of(), List.of(), List.of());
-
-    Assertions.assertEquals(1, appResourceSpec.getDriverPreResources().size());
-    Assertions.assertEquals(NetworkPolicy.class,
-        appResourceSpec.getDriverPreResources().get(0).getClass());
-
-    NetworkPolicy expected = new NetworkPolicyBuilder()
-        .withNewMetadata()
-        .withName("app1-network-policy")
-        .withNamespace("foo-namespace")
-        .addToLabels(Constants.LABEL_SPARK_APPLICATION_NAME, "app1")
-        .endMetadata()
-        .withNewSpec()
-        .withNewPodSelector()
-        .addToMatchLabels(Constants.LABEL_SPARK_ROLE_NAME,
-            Constants.LABEL_SPARK_ROLE_EXECUTOR_VALUE)
-        .addToMatchLabels("spark-app-selector", "app1")
-        .endPodSelector()
-        .addNewIngress()
-        .addNewFrom()
-        .withNewPodSelector()
-        .addToMatchLabels("spark-app-selector", "app1")
-        .endPodSelector()
-        .endFrom()
-        .endIngress()
-        .endSpec()
-        .build();
-    Assertions.assertEquals(1, appResourceSpec.getDriverPreResources().size());
-    Assertions.assertEquals(expected, appResourceSpec.getDriverPreResources().get(0));
   }
 
   protected Container buildBasicContainer() {
