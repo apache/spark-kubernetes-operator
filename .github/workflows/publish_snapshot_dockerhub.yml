@@ -12,6 +12,9 @@ on:
         # keep in sync with default value of strategy matrix 'branch'
         default: '["main"]'
 
+permissions:
+  contents: read
+
 jobs:
   publish-snapshot-image:
     if: ${{ startsWith(github.repository, 'apache/') }}
