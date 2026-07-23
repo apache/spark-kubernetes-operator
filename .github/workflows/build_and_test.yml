@@ -6,7 +6,7 @@ on:
 jobs:
   license-check:
     name: "License Check"
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     steps:
       - name: Checkout repository
@@ -25,7 +25,7 @@ jobs:
       fail-fast: false
       max-parallel: 20
       matrix:
-        os: [ 'ubuntu-slim', 'ubuntu-24.04-arm' ]
+        os: [ 'ubuntu-26.04', 'ubuntu-26.04-arm' ]
         java-version: [ 21, 25, 26 ]
     steps:
       - name: Checkout repository
@@ -47,7 +47,7 @@ jobs:
           ./gradlew build
   build-image:
     name: "Build Operator Image CI"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     steps:
       - name: Checkout repository
@@ -66,7 +66,7 @@ jobs:
           ./gradlew buildDockerImage
   k8s-integration-tests:
     name: "K8s Integration Tests"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -223,7 +223,7 @@ jobs:
           chainsaw test --test-dir ./tests/e2e/${{ matrix.test-group }} --parallel 1
   helm-tests:
     name: "Helm Tests"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -271,7 +271,7 @@ jobs:
           helm test spark
   lint:
     name: "Linter and documentation"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     steps:
       - name: Checkout repository
