@@ -3,6 +3,9 @@ name: Build and test
 on:
   workflow_call:
 
+permissions:
+  contents: read
+
 jobs:
   license-check:
     name: "License Check"
