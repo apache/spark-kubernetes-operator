@@ -30,7 +30,7 @@ on:
 jobs:
   notify:
     name: Notify test workflow
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-26.04
     permissions:
       actions: read
       checks: write
