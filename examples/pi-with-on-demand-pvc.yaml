@@ -21,9 +21,6 @@ spec:
   jars: "local:///opt/spark/examples/jars/spark-examples.jar"
   driverArgs: [ "20000" ]
   sparkConf:
-    spark.dynamicAllocation.enabled: "true"
-    spark.dynamicAllocation.shuffleTracking.enabled: "true"
-    spark.dynamicAllocation.maxExecutors: "3"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
     spark.kubernetes.container.image: "apache/spark:{{SPARK_VERSION}}-scala"
     spark.kubernetes.executor.volumes.persistentVolumeClaim.spark-local-dir-1.mount.path: "/data"
@@ -31,8 +28,5 @@ spec:
     spark.kubernetes.executor.volumes.persistentVolumeClaim.spark-local-dir-1.options.claimName: "OnDemand"
     spark.kubernetes.executor.volumes.persistentVolumeClaim.spark-local-dir-1.options.sizeLimit: "1Gi"
     spark.kubernetes.executor.volumes.persistentVolumeClaim.spark-local-dir-1.options.storageClass: "local-path"
-  applicationTolerations:
-    resourceRetainPolicy: OnFailure
-    ttlAfterStopMillis: 10000
   runtimeVersions:
     sparkVersion: "4.2.0"

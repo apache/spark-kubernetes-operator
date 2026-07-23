@@ -21,9 +21,6 @@ spec:
   jars: "local:///opt/spark/examples/jars/spark-examples.jar"
   driverArgs: [ "20000" ]
   sparkConf:
-    spark.dynamicAllocation.enabled: "true"
-    spark.dynamicAllocation.shuffleTracking.enabled: "true"
-    spark.dynamicAllocation.maxExecutors: "3"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
     spark.kubernetes.container.image: "apache/spark:{{SPARK_VERSION}}-scala"
     spark.kubernetes.scheduler.name: "yunikorn"
@@ -31,7 +28,5 @@ spec:
     spark.kubernetes.executor.label.queue: "root.default"
     spark.kubernetes.driver.annotation.yunikorn.apache.org/app-id: "{{APP_ID}}"
     spark.kubernetes.executor.annotation.yunikorn.apache.org/app-id: "{{APP_ID}}"
-  applicationTolerations:
-    resourceRetainPolicy: OnFailure
   runtimeVersions:
     sparkVersion: "4.2.0"

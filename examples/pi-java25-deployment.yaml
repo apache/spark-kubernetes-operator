@@ -25,8 +25,5 @@ spec:
     spark.kubernetes.allocation.pods.allocator: "deployment"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
     spark.kubernetes.container.image: "apache/spark:4.2.0-scala-java25"
-  applicationTolerations:
-    resourceRetainPolicy: OnFailure
-    ttlAfterStopMillis: 10000
   runtimeVersions:
     sparkVersion: "4.2.0"

@@ -19,10 +19,6 @@ metadata:
 spec:
   mainClass: "org.apache.spark.sql.connect.service.SparkConnectServer"
   sparkConf:
-    spark.dynamicAllocation.enabled: "true"
-    spark.dynamicAllocation.maxExecutors: "3"
-    spark.dynamicAllocation.minExecutors: "3"
-    spark.dynamicAllocation.shuffleTracking.enabled: "true"
     spark.hadoop.fs.s3a.access.key: "test"
     spark.hadoop.fs.s3a.endpoint: "http://localstack:4566"
     spark.hadoop.fs.s3a.path.style.access: "true"
@@ -38,7 +34,5 @@ spec:
     spark.sql.catalog.s3: "org.apache.iceberg.spark.SparkCatalog"
     spark.sql.defaultCatalog: "s3"
     spark.sql.extensions: "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions"
-  applicationTolerations:
-    resourceRetainPolicy: OnFailure
   runtimeVersions:
     sparkVersion: "4.1.2"
