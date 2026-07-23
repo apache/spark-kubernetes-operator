@@ -21,9 +21,6 @@ spec:
   jars: "local:///opt/spark/examples/jars/spark-examples.jar"
   sparkConf:
     spark.driver.extraClassPath: "local:///gluten/gluten.jar"
-    spark.dynamicAllocation.enabled: "true"
-    spark.dynamicAllocation.maxExecutors: "3"
-    spark.dynamicAllocation.shuffleTracking.enabled: "true"
     spark.executor.extraClassPath: "local:///gluten/gluten.jar"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
     spark.kubernetes.container.image: "apache/spark:4.0.3-scala"

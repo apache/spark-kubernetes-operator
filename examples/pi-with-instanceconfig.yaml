@@ -28,7 +28,5 @@ spec:
     instanceConfig:
       maxExecutors: 3
       minExecutors: 3
-    resourceRetainPolicy: OnFailure
-    ttlAfterStopMillis: 10000
   runtimeVersions:
     sparkVersion: "4.2.0"

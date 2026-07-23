@@ -33,8 +33,5 @@ spec:
     spark.shuffle.service.enabled: "false"
     spark.sql.adaptive.localShuffleReader.enabled: "false"
     spark.serializer: "org.apache.spark.serializer.KryoSerializer"
-  applicationTolerations:
-    resourceRetainPolicy: OnFailure
-    ttlAfterStopMillis: 10000
   runtimeVersions:
     sparkVersion: "4.0.3"
