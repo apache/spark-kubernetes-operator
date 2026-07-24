@@ -19,8 +19,6 @@
 
 package org.apache.spark.k8s.operator;
 
-import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_VERSION_NAME;
-
 import java.util.Optional;
 
 import org.apache.spark.SparkConf;
@@ -90,13 +88,13 @@ public final class SparkAppDriverConf extends KubernetesDriverConf {
   }
 
   /**
-   * Returns the driver label key and value map.
+   * Returns the Spark version of the application.
    *
-   * @return The label key-value pair map.
+   * @return The Spark version.
    */
   @Override
-  public scala.collection.immutable.Map<String, String> labels() {
-    return super.labels().updated(LABEL_SPARK_VERSION_NAME, sparkVersion);
+  public String sparkVersion() {
+    return sparkVersion;
   }
 
   /**
