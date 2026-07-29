@@ -301,5 +301,7 @@ jobs:
           helm lint --strict build-tools/helm/spark-kubernetes-operator
       - name: Run helm chart unit tests
         run: |
-          helm plugin install https://github.com/helm-unittest/helm-unittest --version v1.0.3
+          # Helm 4 verifies plugin provenance on install, which a VCS source cannot
+          # support, so verification is skipped as upstream documents for Helm 4
+          helm plugin install https://github.com/helm-unittest/helm-unittest --version v1.0.3 --verify=false
           helm unittest build-tools/helm/spark-kubernetes-operator
