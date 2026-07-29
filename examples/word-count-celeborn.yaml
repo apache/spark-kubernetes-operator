@@ -25,7 +25,7 @@ spec:
     spark.jars.ivy: "/tmp/.ivy2.5.2"
     spark.jars.packages: "org.apache.celeborn:celeborn-client-spark-4-shaded_2.13:0.6.3"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
-    spark.kubernetes.container.image: "apache/spark:4.0.3-scala"
+    spark.kubernetes.container.image: "apache/spark:4.0.4-scala"
     spark.kubernetes.driver.limit.cores: "5"
     spark.kubernetes.driver.master: "local[10]"
     spark.kubernetes.driver.request.cores: "5"
@@ -34,4 +34,4 @@ spec:
     spark.sql.adaptive.localShuffleReader.enabled: "false"
     spark.serializer: "org.apache.spark.serializer.KryoSerializer"
   runtimeVersions:
-    sparkVersion: "4.0.3"
+    sparkVersion: "4.0.4"

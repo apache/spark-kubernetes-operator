@@ -26,7 +26,7 @@ spec:
     spark.jars.ivy: "/tmp/.ivy2.5.2"
     spark.jars.packages: "org.apache.hadoop:hadoop-aws:3.4.2,org.apache.iceberg:iceberg-spark-runtime-4.1_2.13:1.11.0"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
-    spark.kubernetes.container.image: "apache/spark:4.1.2"
+    spark.kubernetes.container.image: "apache/spark:4.1.3"
     spark.kubernetes.executor.podNamePrefix: "spark-connect-server-iceberg"
     spark.scheduler.mode: "FAIR"
     spark.sql.catalog.s3.type: "hadoop"
@@ -35,4 +35,4 @@ spec:
     spark.sql.defaultCatalog: "s3"
     spark.sql.extensions: "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions"
   runtimeVersions:
-    sparkVersion: "4.1.2"
+    sparkVersion: "4.1.3"
