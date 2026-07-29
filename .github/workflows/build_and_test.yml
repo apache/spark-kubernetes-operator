@@ -299,3 +299,7 @@ jobs:
       - name: Validate helm chart linting
         run: |
           helm lint --strict build-tools/helm/spark-kubernetes-operator
+      - name: Run helm chart unit tests
+        run: |
+          helm plugin install https://github.com/helm-unittest/helm-unittest --version v1.0.3
+          helm unittest build-tools/helm/spark-kubernetes-operator
