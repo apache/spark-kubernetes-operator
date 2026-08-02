@@ -260,7 +260,7 @@ public class SparkClusterResourceSpec {
         .endPort()
         .addNewPort()
         .withName("spark")
-        .withContainerPort(7070)
+        .withContainerPort(7077)
         .endPort()
         .addNewPort()
         .withName("rest")
