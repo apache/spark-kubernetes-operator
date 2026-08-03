@@ -10,5 +10,3 @@
 .idea/
 *.tmproj
 .vscode/
-# helm-unittest suites; anchored so it does not also match templates/tests/ (helm test hooks)
-/tests/

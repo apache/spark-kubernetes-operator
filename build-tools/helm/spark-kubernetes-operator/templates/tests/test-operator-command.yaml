@@ -1,0 +1,114 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "spark-operator.name" . }}-test-operator-command"
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "spark-operator.commonLabels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  containers:
+    - name: kubectl
+      image: bitnamisecure/kubectl:latest
+      command: ['bash', '-c']
+      args:
+        - |
+          set -e
+          echo "Testing operator container command..."
+
+          # The operator pod is selected by the deployment selector labels rather than by
+          # spark-role, because commonLabels puts spark-role=operator on these test pods too.
+          SELECTOR="app.kubernetes.io/name={{ include "spark-operator.name" . }},app.kubernetes.io/component=operator-deployment"
+
+          # Kubernetes stores command as authored and expands $(VAR) only when the container
+          # starts, so waiting for readiness is what proves the JVM accepted the options it was
+          # actually handed. Whether a bundled element makes the JVM exit depends on the leading
+          # option, so this wait complements rather than replaces the argv assertions below.
+          echo "Waiting for the operator pod to become ready..."
+          kubectl wait --for=condition=Ready pod -l "$SELECTOR" -n {{ .Release.Namespace }} --timeout=180s
+
+          POD_JSON=$(kubectl get pods -l "$SELECTOR" -n {{ .Release.Namespace }} -o json)
+          CONTAINER=$(echo "$POD_JSON" | jq '.items[0].spec.containers[] | select(.name == "{{ .Chart.Name }}")')
+
+          # jq splits jvmArgs here instead of reusing the chart's splitList so that the
+          # expectation is derived independently of the template under test.
+          JVM_ARGS=$(echo "$CONTAINER" | jq -c --argjson jvmArgs '{{ toJson .Values.operatorDeployment.operatorPod.operatorContainer.jvmArgs }}' \
+            '[$jvmArgs | splits("[ \t]+") | select(length > 0)]')
+
+          echo "Validating the fixed leading arguments..."
+          HEAD=$(echo "$CONTAINER" | jq -c '.command[0:4]')
+          EXPECTED_HEAD='["java","-cp","./spark-kubernetes-operator.jar","$(LOG_CONFIG)"]'
+          if [ "$HEAD" != "$EXPECTED_HEAD" ]; then
+            echo "ERROR: Expected command to start with $EXPECTED_HEAD, Got: $HEAD"
+            exit 1
+          fi
+
+          echo "Validating the main class..."
+          MAIN_CLASS=$(echo "$CONTAINER" | jq -r '.command[-1]')
+          if [ "$MAIN_CLASS" != "org.apache.spark.k8s.operator.SparkOperator" ]; then
+            echo "ERROR: Expected the last element to be the operator main class, Got: $MAIN_CLASS"
+            exit 1
+          fi
+
+          # Covers splitting, ordering, whitespace collapse and metacharacter preservation:
+          # re-splitting jvmArgs must reproduce the argv slice exactly.
+          echo "Validating that each jvmArg is its own argv element..."
+          ACTUAL_JVM_ARGS=$(echo "$CONTAINER" | jq -c '.command[4:-1]')
+          if [ "$ACTUAL_JVM_ARGS" != "$JVM_ARGS" ]; then
+            echo "ERROR: Expected jvmArgs elements $JVM_ARGS, Got: $ACTUAL_JVM_ARGS"
+            exit 1
+          fi
+
+          echo "Validating that no element bundles multiple options..."
+          BUNDLED=$(echo "$CONTAINER" | jq -c '[.command[] | select(test("[ \t]"))]')
+          if [ "$BUNDLED" != "[]" ]; then
+            echo "ERROR: Expected no command element to contain whitespace, Got: $BUNDLED"
+            exit 1
+          fi
+
+          # An empty element would make the JVM fail to start, so spaces must not produce one.
+          echo "Validating that no element is empty..."
+          EMPTY_COUNT=$(echo "$CONTAINER" | jq '[.command[] | select(length == 0)] | length')
+          if [ "$EMPTY_COUNT" != "0" ]; then
+            echo "ERROR: Expected no empty command element, Got: $EMPTY_COUNT"
+            exit 1
+          fi
+
+          echo "Validating that jvmArgs is not passed as an unsplit \$(OPERATOR_JAVA_OPTS)..."
+          PLACEHOLDER=$(echo "$CONTAINER" | jq '.command | index("$(OPERATOR_JAVA_OPTS)")')
+          if [ "$PLACEHOLDER" != "null" ]; then
+            echo "ERROR: Found \$(OPERATOR_JAVA_OPTS) in the command at index $PLACEHOLDER"
+            exit 1
+          fi
+
+          # Documented in docs/operations.md, so it stays exported though the command no longer
+          # uses it. Both sides are trimmed because the env value is rendered as a plain YAML
+          # scalar, which drops surrounding whitespace before the API server ever sees it.
+          echo "Validating that OPERATOR_JAVA_OPTS is still exported..."
+          EXPECTED_OPTS=$(jq -rn --argjson jvmArgs '{{ toJson .Values.operatorDeployment.operatorPod.operatorContainer.jvmArgs }}' \
+            '$jvmArgs | sub("^[ \t]+"; "") | sub("[ \t]+$"; "")')
+          ACTUAL_OPTS=$(echo "$CONTAINER" | jq -r '[.env[] | select(.name == "OPERATOR_JAVA_OPTS")] | if length == 1 then (.[0].value // "") else "<missing>" end')
+          if [ "$ACTUAL_OPTS" != "$EXPECTED_OPTS" ]; then
+            echo "ERROR: Expected OPERATOR_JAVA_OPTS to carry the full jvmArgs string '$EXPECTED_OPTS', Got: '$ACTUAL_OPTS'"
+            exit 1
+          fi
+
+          echo "All operator container command tests passed!"
+  restartPolicy: Never
+  serviceAccountName: {{ .Values.operatorRbac.serviceAccount.name }}
