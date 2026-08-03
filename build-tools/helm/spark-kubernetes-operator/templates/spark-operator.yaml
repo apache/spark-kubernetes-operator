@@ -76,7 +76,19 @@ spec:
         - name: {{ .Chart.Name }}
           image: {{ include "spark-operator.imagePath" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command: ["java", "-cp", "./spark-kubernetes-operator.jar", "$(LOG_CONFIG)", "$(OPERATOR_JAVA_OPTS)", "org.apache.spark.k8s.operator.SparkOperator"]
+          # Kubernetes $(VAR) expansion never splits on whitespace: passing jvmArgs as one
+          # "$(OPERATOR_JAVA_OPTS)" element makes the JVM silently drop all but the first option.
+          command:
+            - "java"
+            - "-cp"
+            - "./spark-kubernetes-operator.jar"
+            - "$(LOG_CONFIG)"
+            {{- range splitList " " (default "" .Values.operatorDeployment.operatorPod.operatorContainer.jvmArgs) }}
+            {{- with . }}
+            - {{ . | quote }}
+            {{- end }}
+            {{- end }}
+            - "org.apache.spark.k8s.operator.SparkOperator"
           ports:
             - containerPort: {{ include "spark-operator.probePort" . }}
               name: probe-port

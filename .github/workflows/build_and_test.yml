@@ -237,6 +237,7 @@ jobs:
         test-group:
           - configmap-metadata
           - network-policy
+          - operator-command
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6

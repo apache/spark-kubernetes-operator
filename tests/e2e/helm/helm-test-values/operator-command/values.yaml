@@ -1,0 +1,35 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Test values for validating how jvmArgs is rendered into the operator container command
+#
+# Usage:
+#   helm install spark-operator . -f tests/e2e/helm/helm-test-values/operator-command/values.yaml
+#   helm test spark-operator
+#
+# jvmArgs is quoted and deliberately awkward: surrounding and repeated separators must not
+# produce empty argv elements, and the '#' / '{' / ':' metacharacters must survive rendering.
+# Every option stays valid on its own so that the operator pod still starts.
+#
+# Keep '-XX:+UseParallelGC' first. If the options were ever bundled back into a single argv
+# element, the JVM would read the whole element as one option and reject it, so the pod fails
+# to start and the readiness wait in the test fails too. A leading '-Dkey=value' would instead
+# be accepted as one oversized property definition and the operator would come up silently
+# misconfigured, leaving only the argv assertions to catch the regression.
+
+operatorDeployment:
+  operatorPod:
+    operatorContainer:
+      jvmArgs: "  -XX:+UseParallelGC   -Dfile.encoding=UTF8 -Dtest.comment=#no -Dtest.map={a:b} -Dtest.quoted=yes  "
