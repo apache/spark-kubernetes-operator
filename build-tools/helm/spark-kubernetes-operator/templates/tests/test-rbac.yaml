@@ -21,21 +21,69 @@ metadata:
     {{- include "spark-operator.commonLabels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": test
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded,hook-failed
+    # Keep a failed pod so its log can be read; a passing one is cleaned up.
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:
   containers:
     - name: kubectl
       image: bitnamisecure/kubectl:latest
-      command: ['bash', '-c' ]
-      args: [
-        'kubectl auth can-i list sparkapplications --all-namespaces',
-        'kubectl auth can-i list sparkclusters --all-namespaces',
-        'kubectl auth can-i create pods --all-namespaces',
-        'kubectl auth can-i create services --all-namespaces',
-        'kubectl auth can-i create configmaps --all-namespaces',
-        'kubectl auth can-i create persistentvolumeclaims',
-        'kubectl auth can-i create events --all-namespaces'
-      ]
+      command: ['bash', '-c']
+      args:
+        - |
+          # Every assertion must live in this one script: `bash -c` runs only its
+          # first operand and turns the rest into positional parameters.
+          # -e fails the pod on the first "no", which is what `kubectl auth can-i`
+          # exits with; -x echoes each assertion into the log beside its answer.
+          set -ex
+
+          kubectl auth can-i watch  pods --all-namespaces
+          kubectl auth can-i create pods --all-namespaces
+          kubectl auth can-i watch  services --all-namespaces
+          kubectl auth can-i create services --all-namespaces
+          kubectl auth can-i watch  configmaps --all-namespaces
+          kubectl auth can-i create configmaps --all-namespaces
+          kubectl auth can-i watch  persistentvolumeclaims --all-namespaces
+          kubectl auth can-i create persistentvolumeclaims --all-namespaces
+          kubectl auth can-i watch  events --all-namespaces
+          kubectl auth can-i create events --all-namespaces
+          kubectl auth can-i watch  statefulsets.apps --all-namespaces
+          kubectl auth can-i create statefulsets.apps --all-namespaces
+          kubectl auth can-i watch  horizontalpodautoscalers.autoscaling --all-namespaces
+          kubectl auth can-i create horizontalpodautoscalers.autoscaling --all-namespaces
+          kubectl auth can-i watch  sparkapplications.spark.apache.org --all-namespaces
+          kubectl auth can-i create sparkapplications.spark.apache.org --all-namespaces
+          kubectl auth can-i watch  sparkclusters.spark.apache.org --all-namespaces
+          kubectl auth can-i create sparkclusters.spark.apache.org --all-namespaces
+          kubectl auth can-i watch  ingresses.networking.k8s.io --all-namespaces
+          kubectl auth can-i create ingresses.networking.k8s.io --all-namespaces
+          kubectl auth can-i watch  networkpolicies.networking.k8s.io --all-namespaces
+          kubectl auth can-i create networkpolicies.networking.k8s.io --all-namespaces
+          kubectl auth can-i watch  poddisruptionbudgets.policy --all-namespaces
+          kubectl auth can-i create poddisruptionbudgets.policy --all-namespaces
+          {{- if gt (int .Values.operatorDeployment.replicas) 1 }}
+
+          # Leases back leader election, so the rules only grant them for a
+          # replicated operator.
+          kubectl auth can-i watch  leases.coordination.k8s.io --all-namespaces
+          kubectl auth can-i create leases.coordination.k8s.io --all-namespaces
+          {{- end }}
+
+          # The Gateway API grant is unconditional, but `kubectl auth can-i`
+          # answers "no" for a resource type the cluster does not serve, so only
+          # assert it where the CRDs are installed.
+          if kubectl api-resources --api-group=gateway.networking.k8s.io --no-headers -o name | grep -q httproutes; then
+            kubectl auth can-i watch  httproutes.gateway.networking.k8s.io --all-namespaces
+            kubectl auth can-i create httproutes.gateway.networking.k8s.io --all-namespaces
+            kubectl auth can-i watch  grpcroutes.gateway.networking.k8s.io --all-namespaces
+            kubectl auth can-i create grpcroutes.gateway.networking.k8s.io --all-namespaces
+          fi
+
+          # The operator must not be cluster-admin. These also prove the suite is
+          # able to observe a denial at all. `set -e` ignores a failing `!`
+          # pipeline, so each denial must be asserted with an explicit exit.
+          if kubectl auth can-i create clusterroles.rbac.authorization.k8s.io; then exit 1; fi
+          if kubectl auth can-i delete nodes; then exit 1; fi
+          if kubectl auth can-i '*' '*' --all-namespaces; then exit 1; fi
   serviceAccountName: {{ .Values.operatorRbac.serviceAccount.name }}
   restartPolicy: Never
 ---
@@ -48,17 +96,30 @@ metadata:
     {{- include "spark-operator.commonLabels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": test
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded,hook-failed
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:
   containers:
     - name: kubectl
       image: bitnamisecure/kubectl:latest
-      command: ['bash', '-c' ]
-      args: [
-        'kubectl auth can-i create pods -n {{ .Release.Namespace }}',
-        'kubectl auth can-i create configmaps -n {{ .Release.Namespace }}',
-        'kubectl auth can-i create services -n {{ .Release.Namespace }}',
-        'kubectl auth can-i create persistentvolumeclaims -n {{ .Release.Namespace }}'
-      ]
+      command: ['bash', '-c']
+      args:
+        - |
+          set -ex
+
+          kubectl auth can-i watch  pods --namespace={{ .Release.Namespace }}
+          kubectl auth can-i create pods --namespace={{ .Release.Namespace }}
+          kubectl auth can-i watch  services --namespace={{ .Release.Namespace }}
+          kubectl auth can-i create services --namespace={{ .Release.Namespace }}
+          kubectl auth can-i watch  configmaps --namespace={{ .Release.Namespace }}
+          kubectl auth can-i create configmaps --namespace={{ .Release.Namespace }}
+          kubectl auth can-i watch  persistentvolumeclaims --namespace={{ .Release.Namespace }}
+          kubectl auth can-i create persistentvolumeclaims --namespace={{ .Release.Namespace }}
+          kubectl auth can-i watch  statefulsets.apps --namespace={{ .Release.Namespace }}
+          kubectl auth can-i create statefulsets.apps --namespace={{ .Release.Namespace }}
+
+          # Spark workloads must not reach beyond their own namespace. `set -e`
+          # ignores a failing `!` pipeline, so assert each denial explicitly.
+          if kubectl auth can-i create clusterroles.rbac.authorization.k8s.io; then exit 1; fi
+          if kubectl auth can-i '*' '*' --all-namespaces; then exit 1; fi
   serviceAccountName: {{ .Values.workloadResources.serviceAccount.name }}
   restartPolicy: Never
