@@ -79,10 +79,11 @@ spec:
           fi
 
           # The operator must not be cluster-admin. These also prove the suite is
-          # able to observe a denial at all.
-          ! kubectl auth can-i create clusterroles.rbac.authorization.k8s.io
-          ! kubectl auth can-i delete nodes
-          ! kubectl auth can-i '*' '*' --all-namespaces
+          # able to observe a denial at all. `set -e` ignores a failing `!`
+          # pipeline, so each denial must be asserted with an explicit exit.
+          if kubectl auth can-i create clusterroles.rbac.authorization.k8s.io; then exit 1; fi
+          if kubectl auth can-i delete nodes; then exit 1; fi
+          if kubectl auth can-i '*' '*' --all-namespaces; then exit 1; fi
   serviceAccountName: {{ .Values.operatorRbac.serviceAccount.name }}
   restartPolicy: Never
 ---
@@ -116,8 +117,9 @@ spec:
           kubectl auth can-i watch  statefulsets.apps --namespace={{ .Release.Namespace }}
           kubectl auth can-i create statefulsets.apps --namespace={{ .Release.Namespace }}
 
-          # Spark workloads must not reach beyond their own namespace.
-          ! kubectl auth can-i create clusterroles.rbac.authorization.k8s.io
-          ! kubectl auth can-i '*' '*' --all-namespaces
+          # Spark workloads must not reach beyond their own namespace. `set -e`
+          # ignores a failing `!` pipeline, so assert each denial explicitly.
+          if kubectl auth can-i create clusterroles.rbac.authorization.k8s.io; then exit 1; fi
+          if kubectl auth can-i '*' '*' --all-namespaces; then exit 1; fi
   serviceAccountName: {{ .Values.workloadResources.serviceAccount.name }}
   restartPolicy: Never
