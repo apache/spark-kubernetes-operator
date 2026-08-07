@@ -329,8 +329,12 @@ class SparkClusterResourceSpecTest {
     assertEquals(expected, policy.getSpec().getPodSelector().getMatchLabels());
     assertTrue(policy.getSpec().getEgress().isEmpty());
     assertEquals(1, policy.getSpec().getIngress().size());
+    var from = policy.getSpec().getIngress().get(0).getFrom();
+    assertEquals(2, from.size());
     assertEquals(Map.of(LABEL_SPARK_CLUSTER_NAME, "cluster-name"),
-        policy.getSpec().getIngress().get(0).getFrom().get(0).getPodSelector().getMatchLabels());
+        from.get(0).getPodSelector().getMatchLabels());
+    assertEquals(Map.of(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_DRIVER_VALUE),
+        from.get(1).getPodSelector().getMatchLabels());
   }
 
   @Test
