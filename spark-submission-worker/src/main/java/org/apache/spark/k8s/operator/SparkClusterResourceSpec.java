@@ -462,6 +462,11 @@ public class SparkClusterResourceSpec {
   /**
    * Builds the NetworkPolicy for the SparkCluster.
    *
+   * <p>Ingress is allowed from the cluster's own pods and from driver pods in the same namespace.
+   * Drivers are admitted because a SparkApplication attaching to this cluster is a separate
+   * resource and does not carry the cluster label, yet the driver must reach the executors' block
+   * manager to fetch task results larger than {@code spark.task.maxDirectResultSize}.
+   *
    * @param clusterName The name of the SparkCluster.
    * @param namespace The namespace of the SparkApplication.
    * @return A NetworkPolicy object.
@@ -482,6 +487,11 @@ public class SparkClusterResourceSpec {
         .addNewFrom()
         .withNewPodSelector()
         .addToMatchLabels(LABEL_SPARK_CLUSTER_NAME, clusterName)
+        .endPodSelector()
+        .endFrom()
+        .addNewFrom()
+        .withNewPodSelector()
+        .addToMatchLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_DRIVER_VALUE)
         .endPodSelector()
         .endFrom()
         .endIngress()
