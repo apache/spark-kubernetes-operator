@@ -26,7 +26,7 @@ log4j = "2.26.1"
 slf4j = "2.0.18"
 
 # Test
-junit = "6.1.2"
+junit = "6.1.3"
 jacoco = "0.8.14"
 mockito = "5.23.0"
 awaitility = "4.3.0"
