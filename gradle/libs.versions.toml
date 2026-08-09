@@ -35,7 +35,7 @@ awaitility = "4.3.0"
 checkstyle = "13.4.2"
 pmd = "7.24.0"
 spotbugs-tool = "4.10.3"
-spotbugs-plugin = "6.5.9"
+spotbugs-plugin = "6.5.10"
 spotless-plugin = "8.9.0"
 
 # Packaging
