@@ -18,7 +18,7 @@
 fabric8 = "7.8.0"
 lombok = "1.18.46"
 netty = "4.2.16.Final"
-operator-sdk = "5.5.0"
+operator-sdk = "5.5.1"
 dropwizard-metrics = "4.2.39"
 spark = "4.2.0"
 hadoop = "3.5.0"
@@ -26,7 +26,7 @@ log4j = "2.26.1"
 slf4j = "2.0.18"
 
 # Test
-junit = "6.1.2"
+junit = "6.1.3"
 jacoco = "0.8.14"
 mockito = "5.23.0"
 awaitility = "4.3.0"
@@ -35,11 +35,11 @@ awaitility = "4.3.0"
 checkstyle = "13.4.2"
 pmd = "7.24.0"
 spotbugs-tool = "4.10.3"
-spotbugs-plugin = "6.5.9"
+spotbugs-plugin = "6.5.10"
 spotless-plugin = "8.9.0"
 
 # Packaging
-cyclonedx = "3.3.0"
+cyclonedx = "3.4.0"
 shadow-jar-plugin = "8.3.10"
 versions-plugin = "0.54.0"
 
