@@ -24,6 +24,7 @@ import static org.apache.spark.k8s.operator.Constants.*;
 import java.util.Map;
 import java.util.Optional;
 
+import io.fabric8.kubernetes.api.model.IntOrString;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServiceBuilder;
@@ -467,6 +468,14 @@ public class SparkClusterResourceSpec {
    * resource and does not carry the cluster label, yet the driver must reach the executors' block
    * manager to fetch task results larger than {@code spark.task.maxDirectResultSize}.
    *
+   * <p>A separate rule admits any source, but only on the worker's {@code web} port. That port
+   * serves the worker web UI and, when {@code PrometheusServlet} is configured via {@code
+   * spark.metrics.conf}, the {@code /metrics/prometheus} scrape endpoint. Metrics scrapers
+   * typically carry neither the cluster label nor the driver label, so without this rule they
+   * are indistinguishable from any other unrelated pod and get locked out along with everything
+   * else. The other worker ports (RPC, shuffle, block manager) stay restricted to the allow-list
+   * above.
+   *
    * @param clusterName The name of the SparkCluster.
    * @param namespace The namespace of the SparkApplication.
    * @return A NetworkPolicy object.
@@ -494,6 +503,11 @@ public class SparkClusterResourceSpec {
         .addToMatchLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_DRIVER_VALUE)
         .endPodSelector()
         .endFrom()
+        .endIngress()
+        .addNewIngress()
+        .addNewPort()
+        .withPort(new IntOrString("web"))
+        .endPort()
         .endIngress()
         .endSpec()
         .build();
