@@ -28,6 +28,7 @@ import static org.mockito.Mockito.when;
 import java.util.Map;
 import java.util.Optional;
 
+import io.fabric8.kubernetes.api.model.IntOrString;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.Service;
@@ -328,13 +329,18 @@ class SparkClusterResourceSpecTest {
         LABEL_SPARK_CLUSTER_NAME, "cluster-name");
     assertEquals(expected, policy.getSpec().getPodSelector().getMatchLabels());
     assertTrue(policy.getSpec().getEgress().isEmpty());
-    assertEquals(1, policy.getSpec().getIngress().size());
+    assertEquals(2, policy.getSpec().getIngress().size());
     var from = policy.getSpec().getIngress().get(0).getFrom();
     assertEquals(2, from.size());
     assertEquals(Map.of(LABEL_SPARK_CLUSTER_NAME, "cluster-name"),
         from.get(0).getPodSelector().getMatchLabels());
     assertEquals(Map.of(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_DRIVER_VALUE),
         from.get(1).getPodSelector().getMatchLabels());
+
+    var metricsIngress = policy.getSpec().getIngress().get(1);
+    assertTrue(metricsIngress.getFrom().isEmpty());
+    assertEquals(1, metricsIngress.getPorts().size());
+    assertEquals(new IntOrString("web"), metricsIngress.getPorts().get(0).getPort());
   }
 
   @Test
