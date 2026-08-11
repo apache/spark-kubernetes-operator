@@ -88,6 +88,7 @@ class SparkClusterResourceSpecTest {
     when(workerSpec.getStatefulSetMetadata()).thenReturn(objectMeta);
     when(workerSpec.getServiceSpec()).thenReturn(serviceSpec);
     when(workerSpec.getServiceMetadata()).thenReturn(objectMeta);
+    when(workerSpec.getMetricsPort()).thenReturn(null);
   }
 
   @Test
@@ -329,18 +330,26 @@ class SparkClusterResourceSpecTest {
         LABEL_SPARK_CLUSTER_NAME, "cluster-name");
     assertEquals(expected, policy.getSpec().getPodSelector().getMatchLabels());
     assertTrue(policy.getSpec().getEgress().isEmpty());
-    assertEquals(2, policy.getSpec().getIngress().size());
+    assertEquals(1, policy.getSpec().getIngress().size());
     var from = policy.getSpec().getIngress().get(0).getFrom();
     assertEquals(2, from.size());
     assertEquals(Map.of(LABEL_SPARK_CLUSTER_NAME, "cluster-name"),
         from.get(0).getPodSelector().getMatchLabels());
     assertEquals(Map.of(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_DRIVER_VALUE),
         from.get(1).getPodSelector().getMatchLabels());
+  }
+
+  @Test
+  void testWorkerNetworkPolicyWithMetricsPort() {
+    when(workerSpec.getMetricsPort()).thenReturn(9404);
+    SparkClusterResourceSpec spec = new SparkClusterResourceSpec(cluster, new SparkConf());
+    NetworkPolicy policy = spec.getWorkerNetworkPolicy();
+    assertEquals(2, policy.getSpec().getIngress().size());
 
     var metricsIngress = policy.getSpec().getIngress().get(1);
     assertTrue(metricsIngress.getFrom().isEmpty());
     assertEquals(1, metricsIngress.getPorts().size());
-    assertEquals(new IntOrString("web"), metricsIngress.getPorts().get(0).getPort());
+    assertEquals(new IntOrString(9404), metricsIngress.getPorts().get(0).getPort());
   }
 
   @Test
