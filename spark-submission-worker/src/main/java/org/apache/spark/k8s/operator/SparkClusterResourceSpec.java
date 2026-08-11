@@ -116,7 +116,7 @@ public class SparkClusterResourceSpec {
             workerSpec.getStatefulSetSpec());
     horizontalPodAutoscaler = buildHorizontalPodAutoscaler(clusterName, namespace, spec);
     podDisruptionBudget = buildPodDisruptionBudget(clusterName, namespace, spec);
-    workerNetworkPolicy = buildWorkerNetworkPolicy(clusterName, namespace);
+    workerNetworkPolicy = buildWorkerNetworkPolicy(clusterName, namespace, workerSpec);
   }
 
   /**
@@ -468,48 +468,52 @@ public class SparkClusterResourceSpec {
    * resource and does not carry the cluster label, yet the driver must reach the executors' block
    * manager to fetch task results larger than {@code spark.task.maxDirectResultSize}.
    *
-   * <p>A separate rule admits any source, but only on the worker's {@code web} port. That port
-   * serves the worker web UI and, when {@code PrometheusServlet} is configured via {@code
-   * spark.metrics.conf}, the {@code /metrics/prometheus} scrape endpoint. Metrics scrapers
-   * typically carry neither the cluster label nor the driver label, so without this rule they
-   * are indistinguishable from any other unrelated pod and get locked out along with everything
-   * else. The other worker ports (RPC, shuffle, block manager) stay restricted to the allow-list
-   * above.
+   * <p>If {@link WorkerSpec#getMetricsPort()} is set, a separate rule admits any source on that
+   * port only. The worker web UI port is deliberately left out of that carve-out: it is served by
+   * the same embedded HTTP server as the UI itself, so opening it to arbitrary sources would also
+   * expose the full UI, not just a metrics endpoint. A dedicated metrics port (e.g. a JMX-to-
+   * Prometheus exporter agent) keeps metrics scraping separate from the UI.
    *
    * @param clusterName The name of the SparkCluster.
    * @param namespace The namespace of the SparkApplication.
+   * @param workerSpec The WorkerSpec, used to look up the optional metrics port.
    * @return A NetworkPolicy object.
    */
-  private NetworkPolicy buildWorkerNetworkPolicy(String clusterName, String namespace) {
-    return new NetworkPolicyBuilder()
-        .withNewMetadata()
-        .withName(clusterName + "-worker")
-        .withNamespace(namespace)
-        .addToLabels(LABEL_SPARK_CLUSTER_NAME, clusterName)
-        .endMetadata()
-        .withNewSpec()
-        .withNewPodSelector()
-        .addToMatchLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_WORKER_VALUE)
-        .addToMatchLabels(LABEL_SPARK_CLUSTER_NAME, clusterName)
-        .endPodSelector()
-        .addNewIngress()
-        .addNewFrom()
-        .withNewPodSelector()
-        .addToMatchLabels(LABEL_SPARK_CLUSTER_NAME, clusterName)
-        .endPodSelector()
-        .endFrom()
-        .addNewFrom()
-        .withNewPodSelector()
-        .addToMatchLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_DRIVER_VALUE)
-        .endPodSelector()
-        .endFrom()
-        .endIngress()
-        .addNewIngress()
-        .addNewPort()
-        .withPort(new IntOrString("web"))
-        .endPort()
-        .endIngress()
-        .endSpec()
-        .build();
+  private NetworkPolicy buildWorkerNetworkPolicy(
+      String clusterName, String namespace, WorkerSpec workerSpec) {
+    var builder =
+        new NetworkPolicyBuilder()
+            .withNewMetadata()
+            .withName(clusterName + "-worker")
+            .withNamespace(namespace)
+            .addToLabels(LABEL_SPARK_CLUSTER_NAME, clusterName)
+            .endMetadata()
+            .withNewSpec()
+            .withNewPodSelector()
+            .addToMatchLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_WORKER_VALUE)
+            .addToMatchLabels(LABEL_SPARK_CLUSTER_NAME, clusterName)
+            .endPodSelector()
+            .addNewIngress()
+            .addNewFrom()
+            .withNewPodSelector()
+            .addToMatchLabels(LABEL_SPARK_CLUSTER_NAME, clusterName)
+            .endPodSelector()
+            .endFrom()
+            .addNewFrom()
+            .withNewPodSelector()
+            .addToMatchLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_DRIVER_VALUE)
+            .endPodSelector()
+            .endFrom()
+            .endIngress();
+    if (workerSpec.getMetricsPort() != null) {
+      builder =
+          builder
+              .addNewIngress()
+              .addNewPort()
+              .withPort(new IntOrString(workerSpec.getMetricsPort()))
+              .endPort()
+              .endIngress();
+    }
+    return builder.endSpec().build();
   }
 }

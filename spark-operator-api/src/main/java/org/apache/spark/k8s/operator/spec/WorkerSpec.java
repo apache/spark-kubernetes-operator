@@ -45,4 +45,12 @@ public class WorkerSpec {
   protected ServiceSpec serviceSpec;
   protected ObjectMeta serviceMetadata;
   protected HorizontalPodAutoscalerSpec horizontalPodAutoscalerSpec;
+
+  /**
+   * Port of a metrics endpoint (e.g. a JMX-to-Prometheus exporter agent) running in the worker
+   * container, outside Spark's own web UI. When set, the generated worker NetworkPolicy admits
+   * ingress from any source on this port, without widening access to the web UI port. The caller
+   * is responsible for making the container actually listen on this port.
+   */
+  protected Integer metricsPort;
 }
