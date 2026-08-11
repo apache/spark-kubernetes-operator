@@ -11177,6 +11177,8 @@ spec:
                               type: string
                           type: object
                       type: object
+                    metricsPort:
+                      type: integer
                     serviceMetadata:
                       properties:
                         annotations:
