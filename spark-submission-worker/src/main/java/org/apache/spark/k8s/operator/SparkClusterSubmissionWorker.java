@@ -39,6 +39,10 @@ public class SparkClusterSubmissionWorker {
     String sparkVersion = (versions != null) ? versions.getSparkVersion() : "UNKNOWN";
     SparkConf effectiveSparkConf = new SparkConf();
 
+    // Default to enabling the external shuffle service on workers so that clusters are
+    // dynamic-allocation ready; users can override this via sparkConf or confOverrides.
+    effectiveSparkConf.set("spark.shuffle.service.enabled", "true");
+
     cluster.getSpec().getSparkConf().forEach((key, value) -> {
       if ("spark.kubernetes.container.image".equals(key)) {
         value = value.replace("{{SPARK_VERSION}}", sparkVersion);

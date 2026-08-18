@@ -78,6 +78,30 @@ class SparkClusterSubmissionWorkerTest {
   }
 
   @Test
+  void enableShuffleServiceByDefault() {
+    SparkClusterSubmissionWorker worker = new SparkClusterSubmissionWorker();
+    SparkClusterResourceSpec spec = worker.getResourceSpec(cluster, Map.of());
+    assertTrue(getWorkerOpts(spec).contains("-Dspark.shuffle.service.enabled=\"true\""));
+  }
+
+  @Test
+  void respectUserProvidedShuffleServiceConf() {
+    clusterSpec.getSparkConf().put("spark.shuffle.service.enabled", "false");
+    SparkClusterSubmissionWorker worker = new SparkClusterSubmissionWorker();
+    SparkClusterResourceSpec spec = worker.getResourceSpec(cluster, Map.of());
+    assertTrue(getWorkerOpts(spec).contains("-Dspark.shuffle.service.enabled=\"false\""));
+  }
+
+  private static String getWorkerOpts(SparkClusterResourceSpec spec) {
+    return spec.getWorkerStatefulSet().getSpec().getTemplate().getSpec().getContainers().get(0)
+        .getEnv().stream()
+        .filter(e -> "SPARK_WORKER_OPTS".equals(e.getName()))
+        .findFirst()
+        .orElseThrow()
+        .getValue();
+  }
+
+  @Test
   void supportSparkVersionPlaceHolder() {
     SparkClusterSubmissionWorker worker = new SparkClusterSubmissionWorker();
     SparkClusterResourceSpec spec = worker.getResourceSpec(cluster, Map.of());
