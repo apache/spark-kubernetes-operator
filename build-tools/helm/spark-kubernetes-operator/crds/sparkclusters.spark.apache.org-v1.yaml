@@ -11177,6 +11177,60 @@ spec:
                               type: string
                           type: object
                       type: object
+                    metricsIngress:
+                      items:
+                        properties:
+                          ipBlock:
+                            properties:
+                              cidr:
+                                type: string
+                              except:
+                                items:
+                                  type: string
+                                type: array
+                            type: object
+                          namespaceSelector:
+                            properties:
+                              matchExpressions:
+                                items:
+                                  properties:
+                                    key:
+                                      type: string
+                                    operator:
+                                      type: string
+                                    values:
+                                      items:
+                                        type: string
+                                      type: array
+                                  type: object
+                                type: array
+                              matchLabels:
+                                additionalProperties:
+                                  type: string
+                                type: object
+                            type: object
+                          podSelector:
+                            properties:
+                              matchExpressions:
+                                items:
+                                  properties:
+                                    key:
+                                      type: string
+                                    operator:
+                                      type: string
+                                    values:
+                                      items:
+                                        type: string
+                                      type: array
+                                  type: object
+                                type: array
+                              matchLabels:
+                                additionalProperties:
+                                  type: string
+                                type: object
+                            type: object
+                        type: object
+                      type: array
                     metricsPort:
                       type: integer
                     serviceMetadata:
