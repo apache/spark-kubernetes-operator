@@ -468,15 +468,17 @@ public class SparkClusterResourceSpec {
    * resource and does not carry the cluster label, yet the driver must reach the executors' block
    * manager to fetch task results larger than {@code spark.task.maxDirectResultSize}.
    *
-   * <p>If {@link WorkerSpec#getMetricsPort()} is set, a separate rule admits any source on that
-   * port only. The worker web UI port is deliberately left out of that carve-out: it is served by
-   * the same embedded HTTP server as the UI itself, so opening it to arbitrary sources would also
-   * expose the full UI, not just a metrics endpoint. A dedicated metrics port (e.g. a JMX-to-
-   * Prometheus exporter agent) keeps metrics scraping separate from the UI.
+   * <p>If both {@link WorkerSpec#getMetricsPort()} and {@link WorkerSpec#getMetricsIngress()} are
+   * set, a separate rule admits the listed peers on that port only. Both are required: the port
+   * alone would open the endpoint to every source in the cluster, and the peers alone would grant
+   * them every port. The worker web UI port is deliberately not usable as the metrics port: it is
+   * served by the same embedded HTTP server as the UI itself, so admitting it would also expose the
+   * full UI, not just a metrics endpoint. A dedicated metrics port (e.g. a JMX-to-Prometheus
+   * exporter agent) keeps metrics scraping separate from the UI.
    *
    * @param clusterName The name of the SparkCluster.
    * @param namespace The namespace of the SparkApplication.
-   * @param workerSpec The WorkerSpec, used to look up the optional metrics port.
+   * @param workerSpec The WorkerSpec, used to look up the optional metrics port and its peers.
    * @return A NetworkPolicy object.
    */
   private NetworkPolicy buildWorkerNetworkPolicy(
@@ -505,12 +507,16 @@ public class SparkClusterResourceSpec {
             .endPodSelector()
             .endFrom()
             .endIngress();
-    if (workerSpec.getMetricsPort() != null) {
+    if (workerSpec.getMetricsPort() != null
+        && workerSpec.getMetricsIngress() != null
+        && !workerSpec.getMetricsIngress().isEmpty()) {
       builder =
           builder
               .addNewIngress()
+              .withFrom(workerSpec.getMetricsIngress())
               .addNewPort()
               .withPort(new IntOrString(workerSpec.getMetricsPort()))
+              .withProtocol("TCP")
               .endPort()
               .endIngress();
     }

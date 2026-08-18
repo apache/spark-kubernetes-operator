@@ -19,11 +19,14 @@
 
 package org.apache.spark.k8s.operator.spec;
 
+import java.util.List;
+
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ServiceSpec;
 import io.fabric8.kubernetes.api.model.apps.StatefulSetSpec;
 import io.fabric8.kubernetes.api.model.autoscaling.v2.HorizontalPodAutoscalerSpec;
+import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicyPeer;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -48,9 +51,16 @@ public class WorkerSpec {
 
   /**
    * Port of a metrics endpoint (e.g. a JMX-to-Prometheus exporter agent) running in the worker
-   * container, outside Spark's own web UI. When set, the generated worker NetworkPolicy admits
-   * ingress from any source on this port, without widening access to the web UI port. The caller
-   * is responsible for making the container actually listen on this port.
+   * container, outside Spark's own web UI. The caller is responsible for making the container
+   * actually listen on this port. Takes effect only together with {@link #metricsIngress}.
    */
   protected Integer metricsPort;
+
+  /**
+   * Sources allowed to scrape {@link #metricsPort} on the worker pods, in addition to the sources
+   * the generated worker NetworkPolicy admits by default. When this list is empty, or when {@link
+   * #metricsPort} is unset, no metrics ingress rule is generated and worker ingress stays as
+   * restrictive as it is without these fields.
+   */
+  protected List<NetworkPolicyPeer> metricsIngress;
 }

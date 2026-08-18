@@ -46,6 +46,11 @@ spec:
       maxWorkers: 1
   workerSpec:
     metricsPort: 9404
+    # Only pods in the "monitoring" namespace may reach the exporter port above.
+    metricsIngress:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: "monitoring"
     statefulSetSpec:
       template:
         spec:
