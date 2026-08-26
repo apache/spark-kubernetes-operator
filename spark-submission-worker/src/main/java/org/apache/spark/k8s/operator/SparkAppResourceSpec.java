@@ -87,6 +87,7 @@ public class SparkAppResourceSpec {
     Map<String, String> confFilesMap = new HashMap<>(originalConfFilesMap);
     confFilesMap.put(Config.KUBERNETES_NAMESPACE().key(), namespace);
     SparkPod sparkPod = addConfigMap(kubernetesDriverSpec.pod(), confFilesMap);
+    sparkPod = overrideSparkUserForProxyUser(sparkPod);
     this.configuredPod =
         new PodBuilder(sparkPod.pod())
             .editSpec()
@@ -153,6 +154,30 @@ public class SparkAppResourceSpec {
             .endSpec()
             .build();
     return new SparkPod(podWithConfigMapVolume, containerWithConfigMapVolume);
+  }
+
+  /**
+   * Overrides the {@code SPARK_USER} environment variable on the driver container with the
+   * proxy user when one is configured. In {@code spark-submit}, {@code SparkSubmit} wraps
+   * {@code runMain} in {@code proxyUser.doAs(...)}, so {@code Utils.getCurrentUserName()} inside
+   * {@code BasicDriverFeatureStep} returns the proxy user. The operator builds the driver pod
+   * spec by invoking the feature steps directly, without an equivalent {@code doAs}, so
+   * {@code SPARK_USER} would otherwise be the operator's identity rather than the effective one.
+   */
+  private SparkPod overrideSparkUserForProxyUser(SparkPod pod) {
+    scala.Option<String> proxyUser = kubernetesDriverConf.proxyUser();
+    if (proxyUser.isEmpty()) {
+      return pod;
+    }
+    Container containerWithSparkUser =
+        new ContainerBuilder(pod.container())
+            .removeMatchingFromEnv(e -> Constants.ENV_SPARK_USER().equals(e.getName()))
+            .addNewEnv()
+            .withName(Constants.ENV_SPARK_USER())
+            .withValue(proxyUser.get())
+            .endEnv()
+            .build();
+    return new SparkPod(pod.pod(), containerWithSparkUser);
   }
 
   /**

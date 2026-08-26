@@ -24,10 +24,12 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerBuilder;
+import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
@@ -37,6 +39,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import org.apache.spark.SparkConf;
+import org.apache.spark.deploy.k8s.Constants;
 import org.apache.spark.deploy.k8s.KubernetesDriverSpec;
 import org.apache.spark.deploy.k8s.SparkPod;
 
@@ -48,6 +51,7 @@ class SparkAppResourceSpecTest {
     when(mockConf.configMapNameDriver()).thenReturn("foo-configmap");
     when(mockConf.sparkConf())
         .thenReturn(new SparkConf().set("spark.kubernetes.namespace", "foo-namespace"));
+    when(mockConf.proxyUser()).thenReturn(scala.Option.empty());
 
     Pod driver = buildBasicPod("driver");
     SparkPod sparkPod = new SparkPod(driver, buildBasicContainer());
@@ -100,6 +104,73 @@ class SparkAppResourceSpecTest {
             .getVolumeMounts()
             .get(1);
     Assertions.assertEquals(proposedConfigVolume.getName(), proposedConfigVolumeMount.getName());
+  }
+
+  @Test
+  void driverSparkUserShouldReflectProxyUserWhenSet() {
+    SparkAppDriverConf mockConf = mock(SparkAppDriverConf.class);
+    when(mockConf.configMapNameDriver()).thenReturn("foo-configmap");
+    when(mockConf.sparkConf())
+        .thenReturn(new SparkConf().set("spark.kubernetes.namespace", "foo-namespace"));
+    when(mockConf.proxyUser()).thenReturn(scala.Option.apply("alice"));
+
+    Container driverContainer =
+        new ContainerBuilder(buildBasicContainer())
+            .addNewEnv()
+            .withName(Constants.ENV_SPARK_USER())
+            .withValue("submitter")
+            .endEnv()
+            .build();
+    SparkPod sparkPod = new SparkPod(buildBasicPod("driver"), driverContainer);
+    KubernetesDriverSpec spec =
+        KubernetesDriverSpec.create(sparkPod, List.of(), List.of(), Map.of());
+
+    SparkAppResourceSpec appResourceSpec =
+        new SparkAppResourceSpec(mockConf, spec, List.of(), List.of(), List.of(), List.of());
+
+    Container configured =
+        appResourceSpec.getConfiguredPod().getSpec().getContainers().get(1);
+    List<EnvVar> sparkUserEnvs =
+        configured.getEnv().stream()
+            .filter(e -> Constants.ENV_SPARK_USER().equals(e.getName()))
+            .collect(Collectors.toList());
+    Assertions.assertEquals(1, sparkUserEnvs.size(), "SPARK_USER should appear exactly once");
+    Assertions.assertEquals("alice", sparkUserEnvs.get(0).getValue());
+  }
+
+  @Test
+  void driverSparkUserShouldBeUntouchedWhenProxyUserAbsent() {
+    SparkAppDriverConf mockConf = mock(SparkAppDriverConf.class);
+    when(mockConf.configMapNameDriver()).thenReturn("foo-configmap");
+    when(mockConf.sparkConf())
+        .thenReturn(new SparkConf().set("spark.kubernetes.namespace", "foo-namespace"));
+    when(mockConf.proxyUser()).thenReturn(scala.Option.empty());
+
+    Container driverContainer =
+        new ContainerBuilder(buildBasicContainer())
+            .addNewEnv()
+            .withName(Constants.ENV_SPARK_USER())
+            .withValue("submitter")
+            .endEnv()
+            .build();
+    SparkPod sparkPod = new SparkPod(buildBasicPod("driver"), driverContainer);
+    KubernetesDriverSpec spec =
+        KubernetesDriverSpec.create(sparkPod, List.of(), List.of(), Map.of());
+
+    SparkAppResourceSpec appResourceSpec =
+        new SparkAppResourceSpec(mockConf, spec, List.of(), List.of(), List.of(), List.of());
+
+    Container configured =
+        appResourceSpec.getConfiguredPod().getSpec().getContainers().get(1);
+    List<EnvVar> sparkUserEnvs =
+        configured.getEnv().stream()
+            .filter(e -> Constants.ENV_SPARK_USER().equals(e.getName()))
+            .collect(Collectors.toList());
+    Assertions.assertEquals(1, sparkUserEnvs.size());
+    Assertions.assertEquals(
+        "submitter",
+        sparkUserEnvs.get(0).getValue(),
+        "SPARK_USER should be untouched when no proxy user is configured");
   }
 
   protected Container buildBasicContainer() {
