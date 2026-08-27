@@ -24,6 +24,8 @@ import java.util.stream.Collectors;
 
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerBuilder;
+import io.fabric8.kubernetes.api.model.EnvVar;
+import io.fabric8.kubernetes.api.model.EnvVarBuilder;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
@@ -158,25 +160,64 @@ public class SparkAppResourceSpec {
 
   /**
    * Overrides the {@code SPARK_USER} environment variable on the driver container with the
-   * proxy user when one is configured. In {@code spark-submit}, {@code SparkSubmit} wraps
-   * {@code runMain} in {@code proxyUser.doAs(...)}, so {@code Utils.getCurrentUserName()} inside
-   * {@code BasicDriverFeatureStep} returns the proxy user. The operator builds the driver pod
-   * spec by invoking the feature steps directly, without an equivalent {@code doAs}, so
-   * {@code SPARK_USER} would otherwise be the operator's identity rather than the effective one.
+   * proxy user when one is configured.
+   *
+   * <p>Background: In {@code spark-submit}, {@code SparkSubmit} wraps {@code runMain} in
+   * {@code proxyUser.doAs(...)}, so {@code Utils.getCurrentUserName()} inside
+   * {@link org.apache.spark.deploy.k8s.features.BasicDriverFeatureStep} returns the proxy user.
+   * The operator builds the driver pod spec by invoking the feature steps directly, without an
+   * equivalent {@code doAs}, so {@code SPARK_USER} would otherwise be the operator's identity
+   * rather than the effective one. Note that {@code Utils.getCurrentUserName()} reads the
+   * {@code SPARK_USER} environment variable in preference to the UGI short user name, and the
+   * default Helm chart exports {@code SPARK_USER=spark} into the operator container; a
+   * {@code doAs} wrapper alone would therefore not correct the driver env, which is why the
+   * override is applied on the container spec here.
+   *
+   * <p>Replaces the entry in place so ordering established by {@code BasicDriverFeatureStep} is
+   * preserved. Ordering matters because kubelet resolves {@code $(VAR)} references only against
+   * variables defined earlier in the env list; moving {@code SPARK_USER} after
+   * {@code driverCustomEnvs} would break any {@code spark.kubernetes.driverEnv.*} value that
+   * uses {@code $(SPARK_USER)}.
+   *
+   * <p>If the user has explicitly set {@code spark.kubernetes.driverEnv.SPARK_USER}, the
+   * explicit value wins and the proxy user is not applied to the driver container. The
+   * override is a fallback for the default case where {@code SPARK_USER} is stamped by the
+   * feature step.
+   *
+   * <p>Known limitation: this only patches the driver container env. Kerberos delegation
+   * tokens minted by {@code KerberosConfDriverFeatureStep} are still obtained from the
+   * operator's UGI, i.e. as the operator principal rather than the proxy user. Applications
+   * that need proxy-user delegation tokens on kerberized clusters must supply the tokens via
+   * an existing secret.
    */
   private SparkPod overrideSparkUserForProxyUser(SparkPod pod) {
     scala.Option<String> proxyUser = kubernetesDriverConf.proxyUser();
     if (proxyUser.isEmpty()) {
       return pod;
     }
+    if (kubernetesDriverConf.environment().contains(Constants.ENV_SPARK_USER())) {
+      return pod;
+    }
+    List<EnvVar> patchedEnv = new ArrayList<>(pod.container().getEnv());
+    boolean replaced = false;
+    for (int i = 0; i < patchedEnv.size(); i++) {
+      if (Constants.ENV_SPARK_USER().equals(patchedEnv.get(i).getName())) {
+        patchedEnv.set(
+            i, new EnvVarBuilder(patchedEnv.get(i)).withValue(proxyUser.get()).build());
+        replaced = true;
+        break;
+      }
+    }
+    if (!replaced) {
+      patchedEnv.add(
+          0,
+          new EnvVarBuilder()
+              .withName(Constants.ENV_SPARK_USER())
+              .withValue(proxyUser.get())
+              .build());
+    }
     Container containerWithSparkUser =
-        new ContainerBuilder(pod.container())
-            .removeMatchingFromEnv(e -> Constants.ENV_SPARK_USER().equals(e.getName()))
-            .addNewEnv()
-            .withName(Constants.ENV_SPARK_USER())
-            .withValue(proxyUser.get())
-            .endEnv()
-            .build();
+        new ContainerBuilder(pod.container()).withEnv(patchedEnv).build();
     return new SparkPod(pod.pod(), containerWithSparkUser);
   }
 
