@@ -149,7 +149,7 @@ public final class ReconcilerUtils {
             throw e;
           }
           if (shouldBackoffBeforeRetry(e)) {
-            BackoffUtils.backoffSleep(e.getCode(), attemptCount, maxAttempts);
+            BackoffUtils.backoffSleep(e, attemptCount, maxAttempts);
           }
         }
       }
@@ -229,6 +229,9 @@ public final class ReconcilerUtils {
   }
 
   private static boolean shouldBackoffBeforeRetry(KubernetesClientException e) {
+    if (BackoffUtils.getRetryAfterMillis(e) != null) {
+      return true;
+    }
     return switch (e.getCode()) {
       case HTTP_CONFLICT, Constants.HTTP_TOO_MANY_REQUESTS -> true;
       default -> false;

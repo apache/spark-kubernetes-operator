@@ -28,6 +28,7 @@ import java.util.Optional;
 
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
+import io.fabric8.kubernetes.api.model.StatusBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.dsl.NamespaceableResource;
@@ -129,5 +130,63 @@ class ReconcilerUtilsTest {
     assertThrows(
         KubernetesClientException.class,
         () -> ReconcilerUtils.getOrCreateSecondaryResource(mockClient, pod));
+  }
+
+  @Test
+  void retriesCreateOn429AndSucceedsHonoringRetryAfter() {
+    Pod pod = buildPod();
+    KubernetesClient mockClient = mock(KubernetesClient.class);
+    NamespaceableResource<Pod> mockResource = mockClientReturning(mockClient, pod);
+    when(mockResource.get()).thenReturn(null);
+    // server reports 1s Retry-After, mirrored into status.details.retryAfterSeconds
+    KubernetesClientException tooManyRequests =
+        new KubernetesClientException(
+            "Too Many Requests",
+            429,
+            new StatusBuilder()
+                .withCode(429)
+                .withNewDetails()
+                .withRetryAfterSeconds(1)
+                .endDetails()
+                .build());
+    // 1st CREATE -> 429; 2nd CREATE -> success
+    when(mockResource.create()).thenThrow(tooManyRequests).thenReturn(pod);
+
+    long start = System.nanoTime();
+    Optional<Pod> result = ReconcilerUtils.getOrCreateSecondaryResource(mockClient, pod);
+    long elapsedMillis = (System.nanoTime() - start) / 1_000_000;
+
+    assertTrue(result.isPresent());
+    assertTrue(elapsedMillis >= 1000L, "should have slept for the server-requested 1s");
+  }
+
+  @Test
+  void retriesCreateOnTransient5xxHonoringRetryAfterWhenPresent() {
+    Pod pod = buildPod();
+    KubernetesClient mockClient = mock(KubernetesClient.class);
+    NamespaceableResource<Pod> mockResource = mockClientReturning(mockClient, pod);
+    // resource never appears via GET, so the retry loop must go through backoffSleep
+    when(mockResource.get()).thenReturn(null);
+    // 503 is otherwise retried immediately, but a server-requested 1s Retry-After
+    // should still be honored before the next attempt
+    KubernetesClientException serviceUnavailable =
+        new KubernetesClientException(
+            "Service unavailable",
+            503,
+            new StatusBuilder()
+                .withCode(503)
+                .withNewDetails()
+                .withRetryAfterSeconds(1)
+                .endDetails()
+                .build());
+    // 1st CREATE -> 503; 2nd CREATE -> success
+    when(mockResource.create()).thenThrow(serviceUnavailable).thenReturn(pod);
+
+    long start = System.nanoTime();
+    Optional<Pod> result = ReconcilerUtils.getOrCreateSecondaryResource(mockClient, pod);
+    long elapsedMillis = (System.nanoTime() - start) / 1_000_000;
+
+    assertTrue(result.isPresent());
+    assertTrue(elapsedMillis >= 1000L, "should have slept for the server-requested 1s");
   }
 }
