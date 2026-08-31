@@ -45,10 +45,8 @@ public final class BackoffUtils {
    */
   public static void backoffSleep(
       KubernetesClientException e, long attemptCount, long maxAttempts) {
-    Long retryAfterMillis = getRetryAfterMillis(e);
-    long actualDelay;
-    if (retryAfterMillis != null) {
-      actualDelay = retryAfterMillis;
+    long actualDelay = computeDelayMillis(e, attemptCount);
+    if (getRetryAfterMillis(e) != null) {
       log.info(
           "Retrying resource creation honoring server Retry-After. "
               + "Delay: {}ms, responseCode: {}, attempt: {}/{}",
@@ -57,13 +55,6 @@ public final class BackoffUtils {
           attemptCount,
           maxAttempts);
     } else {
-      long initialBackoffMs = API_SECONDARY_RESOURCE_CREATE_INITIAL_BACKOFF_MILLIS.getValue();
-      long maxBackoffMs = API_SECONDARY_RESOURCE_CREATE_MAX_BACKOFF_MILLIS.getValue();
-      double backoffMultiplier = API_SECONDARY_RESOURCE_CREATE_BACKOFF_MULTIPLIER.getValue();
-      long jitterMs = API_SECONDARY_RESOURCE_CREATE_BACKOFF_JITTER_MILLIS.getValue();
-      actualDelay =
-          computeBackoffDelay(
-              initialBackoffMs, backoffMultiplier, attemptCount, maxBackoffMs, jitterMs);
       log.info(
           "Retrying resource creation with exponential backoff. "
               + "Delay: {}ms, responseCode: {}, attempt: {}/{}",
@@ -78,6 +69,25 @@ public final class BackoffUtils {
       log.info("Backoff sleep interrupted, waking up early to retry resource creation");
       Thread.currentThread().interrupt();
     }
+  }
+
+  /**
+   * Computes the delay before the next retry, in milliseconds. Honors the server-provided
+   * retryAfterSeconds when present, capped at the configured max backoff so that a server or
+   * intermediate proxy cannot stall the reconciler thread for an unbounded amount of time.
+   * Otherwise falls back to jitter exponential backoff.
+   */
+  static long computeDelayMillis(KubernetesClientException e, long attemptCount) {
+    long maxBackoffMs = API_SECONDARY_RESOURCE_CREATE_MAX_BACKOFF_MILLIS.getValue();
+    Long retryAfterMillis = getRetryAfterMillis(e);
+    if (retryAfterMillis != null) {
+      return Math.min(retryAfterMillis, maxBackoffMs);
+    }
+    long initialBackoffMs = API_SECONDARY_RESOURCE_CREATE_INITIAL_BACKOFF_MILLIS.getValue();
+    double backoffMultiplier = API_SECONDARY_RESOURCE_CREATE_BACKOFF_MULTIPLIER.getValue();
+    long jitterMs = API_SECONDARY_RESOURCE_CREATE_BACKOFF_JITTER_MILLIS.getValue();
+    return computeBackoffDelay(
+        initialBackoffMs, backoffMultiplier, attemptCount, maxBackoffMs, jitterMs);
   }
 
   /**

@@ -19,6 +19,7 @@
 
 package org.apache.spark.k8s.operator.utils;
 
+import static org.apache.spark.k8s.operator.config.SparkOperatorConf.API_SECONDARY_RESOURCE_CREATE_MAX_BACKOFF_MILLIS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -75,6 +76,41 @@ class BackoffUtilsTest {
     KubernetesClientException e = new KubernetesClientException("Too Many Requests", 429, null);
 
     assertNull(BackoffUtils.getRetryAfterMillis(e));
+  }
+
+  @Test
+  void computeDelayMillisCapsHugeRetryAfterAtConfiguredMaxBackoff() {
+    KubernetesClientException e =
+        new KubernetesClientException(
+            "Too Many Requests",
+            429,
+            new StatusBuilder()
+                .withCode(429)
+                .withNewDetails()
+                // 1 hour, far beyond any sane reconciler wait
+                .withRetryAfterSeconds(3600)
+                .endDetails()
+                .build());
+
+    long delay = BackoffUtils.computeDelayMillis(e, 1);
+
+    assertEquals(API_SECONDARY_RESOURCE_CREATE_MAX_BACKOFF_MILLIS.getValue(), delay);
+  }
+
+  @Test
+  void computeDelayMillisUsesRetryAfterWhenBelowMaxBackoff() {
+    KubernetesClientException e =
+        new KubernetesClientException(
+            "Too Many Requests",
+            429,
+            new StatusBuilder()
+                .withCode(429)
+                .withNewDetails()
+                .withRetryAfterSeconds(1)
+                .endDetails()
+                .build());
+
+    assertEquals(1000L, BackoffUtils.computeDelayMillis(e, 1));
   }
 
   @Test
