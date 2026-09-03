@@ -39,7 +39,7 @@ jobs:
           java-version: ${{ matrix.java-version }}
           distribution: 'zulu'
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb
         with:
           cache-provider: basic
       - name: Build with Gradle
@@ -61,7 +61,7 @@ jobs:
           java-version: 26
           distribution: 'zulu'
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb
         with:
           cache-provider: basic
       - name: Build Operator Image
@@ -146,7 +146,7 @@ jobs:
           java-version: 26
           distribution: 'zulu'
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb
         with:
           cache-provider: basic
       - name: Set up Minikube
@@ -249,7 +249,7 @@ jobs:
           java-version: 26
           distribution: 'zulu'
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb
         with:
           cache-provider: basic
       - name: Set up Minikube
@@ -292,7 +292,7 @@ jobs:
           java-version: 26
           distribution: 'zulu'
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb
         with:
           cache-provider: basic
       - name: Linters
