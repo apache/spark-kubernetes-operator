@@ -38,31 +38,26 @@ public final class BackoffUtils {
   /**
    * Sleeps before retrying resource creation. Honors the server-provided retryAfterSeconds
    * (surfaced from the HTTP {@code Retry-After} header by the Kubernetes API server) when
-   * present, otherwise falls back to jitter exponential backoff.
+   * present, otherwise falls back to jitter exponential backoff. Jitter is added in both cases so
+   * that concurrent reconciles throttled by the same server-requested delay don't all retry at
+   * the exact same instant.
    *
    * @see <a href="https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/">
    *     Exponential Backoff and Jitter</a>
    */
   public static void backoffSleep(
       KubernetesClientException e, long attemptCount, long maxAttempts) {
-    long actualDelay = computeDelayMillis(e, attemptCount);
-    if (getRetryAfterMillis(e) != null) {
-      log.info(
-          "Retrying resource creation honoring server Retry-After. "
-              + "Delay: {}ms, responseCode: {}, attempt: {}/{}",
-          actualDelay,
-          e.getCode(),
-          attemptCount,
-          maxAttempts);
-    } else {
-      log.info(
-          "Retrying resource creation with exponential backoff. "
-              + "Delay: {}ms, responseCode: {}, attempt: {}/{}",
-          actualDelay,
-          e.getCode(),
-          attemptCount,
-          maxAttempts);
-    }
+    Long retryAfterMillis = getRetryAfterMillis(e);
+    long actualDelay = computeDelayMillis(retryAfterMillis, attemptCount);
+    log.info(
+        "Retrying resource creation with {}. Requested: {}, delay: {}ms, responseCode: {}, "
+            + "attempt: {}/{}",
+        retryAfterMillis != null ? "server-requested Retry-After" : "exponential backoff",
+        retryAfterMillis != null ? retryAfterMillis + "ms" : "n/a",
+        actualDelay,
+        e.getCode(),
+        attemptCount,
+        maxAttempts);
     try {
       Thread.sleep(actualDelay);
     } catch (InterruptedException ex) {
@@ -72,20 +67,21 @@ public final class BackoffUtils {
   }
 
   /**
-   * Computes the delay before the next retry, in milliseconds. Honors the server-provided
-   * retryAfterSeconds when present, capped at the configured max backoff so that a server or
-   * intermediate proxy cannot stall the reconciler thread for an unbounded amount of time.
-   * Otherwise falls back to jitter exponential backoff.
+   * Computes the delay before the next retry, in milliseconds. Honors {@code retryAfterMillis}
+   * (the server-provided retryAfterSeconds, if any) when present, capped at the configured max
+   * backoff so that a server or intermediate proxy cannot stall the reconciler thread for an
+   * unbounded amount of time, and with the configured jitter added so that concurrent reconciles
+   * throttled by the same Retry-After value (e.g. API Priority and Fairness) don't all retry at
+   * the exact same instant. Otherwise falls back to jitter exponential backoff.
    */
-  static long computeDelayMillis(KubernetesClientException e, long attemptCount) {
+  static long computeDelayMillis(Long retryAfterMillis, long attemptCount) {
     long maxBackoffMs = API_SECONDARY_RESOURCE_CREATE_MAX_BACKOFF_MILLIS.getValue();
-    Long retryAfterMillis = getRetryAfterMillis(e);
+    long jitterMs = API_SECONDARY_RESOURCE_CREATE_BACKOFF_JITTER_MILLIS.getValue();
     if (retryAfterMillis != null) {
-      return Math.min(retryAfterMillis, maxBackoffMs);
+      return Math.min(retryAfterMillis, maxBackoffMs) + randomJitter(jitterMs);
     }
     long initialBackoffMs = API_SECONDARY_RESOURCE_CREATE_INITIAL_BACKOFF_MILLIS.getValue();
     double backoffMultiplier = API_SECONDARY_RESOURCE_CREATE_BACKOFF_MULTIPLIER.getValue();
-    long jitterMs = API_SECONDARY_RESOURCE_CREATE_BACKOFF_JITTER_MILLIS.getValue();
     return computeBackoffDelay(
         initialBackoffMs, backoffMultiplier, attemptCount, maxBackoffMs, jitterMs);
   }
@@ -119,7 +115,10 @@ public final class BackoffUtils {
     long exponentialDelay =
         (long) (initialBackoffMs * Math.pow(backoffMultiplier, attemptCount - 2));
     long cappedDelay = Math.min(exponentialDelay, maxBackoffMs);
-    long jitter = jitterMs > 0 ? ThreadLocalRandom.current().nextLong(0, jitterMs + 1) : 0;
-    return cappedDelay + jitter;
+    return cappedDelay + randomJitter(jitterMs);
+  }
+
+  private static long randomJitter(long jitterMs) {
+    return jitterMs > 0 ? ThreadLocalRandom.current().nextLong(0, jitterMs + 1) : 0;
   }
 }

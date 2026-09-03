@@ -19,6 +19,7 @@
 
 package org.apache.spark.k8s.operator.utils;
 
+import static org.apache.spark.k8s.operator.config.SparkOperatorConf.API_SECONDARY_RESOURCE_CREATE_BACKOFF_JITTER_MILLIS;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.API_SECONDARY_RESOURCE_CREATE_MAX_BACKOFF_MILLIS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -79,38 +80,31 @@ class BackoffUtilsTest {
   }
 
   @Test
-  void computeDelayMillisCapsHugeRetryAfterAtConfiguredMaxBackoff() {
-    KubernetesClientException e =
-        new KubernetesClientException(
-            "Too Many Requests",
-            429,
-            new StatusBuilder()
-                .withCode(429)
-                .withNewDetails()
-                // 1 hour, far beyond any sane reconciler wait
-                .withRetryAfterSeconds(3600)
-                .endDetails()
-                .build());
+  void computeDelayMillisCapsHugeRetryAfterAtConfiguredMaxBackoffPlusJitter() {
+    // 1 hour, far beyond any sane reconciler wait
+    long delay = BackoffUtils.computeDelayMillis(3_600_000L, 1);
+    long maxBackoffMs = API_SECONDARY_RESOURCE_CREATE_MAX_BACKOFF_MILLIS.getValue();
+    long jitterMs = API_SECONDARY_RESOURCE_CREATE_BACKOFF_JITTER_MILLIS.getValue();
 
-    long delay = BackoffUtils.computeDelayMillis(e, 1);
-
-    assertEquals(API_SECONDARY_RESOURCE_CREATE_MAX_BACKOFF_MILLIS.getValue(), delay);
+    assertTrue(delay >= maxBackoffMs && delay <= maxBackoffMs + jitterMs);
   }
 
   @Test
-  void computeDelayMillisUsesRetryAfterWhenBelowMaxBackoff() {
-    KubernetesClientException e =
-        new KubernetesClientException(
-            "Too Many Requests",
-            429,
-            new StatusBuilder()
-                .withCode(429)
-                .withNewDetails()
-                .withRetryAfterSeconds(1)
-                .endDetails()
-                .build());
+  void computeDelayMillisUsesRetryAfterPlusJitterWhenBelowMaxBackoff() {
+    long delay = BackoffUtils.computeDelayMillis(1000L, 1);
+    long jitterMs = API_SECONDARY_RESOURCE_CREATE_BACKOFF_JITTER_MILLIS.getValue();
 
-    assertEquals(1000L, BackoffUtils.computeDelayMillis(e, 1));
+    assertTrue(delay >= 1000L && delay <= 1000L + jitterMs);
+  }
+
+  @Test
+  void computeDelayMillisFallsBackToExponentialBackoffWhenRetryAfterAbsent() {
+    long maxBackoffMs = API_SECONDARY_RESOURCE_CREATE_MAX_BACKOFF_MILLIS.getValue();
+    long jitterMs = API_SECONDARY_RESOURCE_CREATE_BACKOFF_JITTER_MILLIS.getValue();
+
+    long delay = BackoffUtils.computeDelayMillis(null, 2);
+
+    assertTrue(delay >= 0 && delay <= maxBackoffMs + jitterMs);
   }
 
   @Test
