@@ -156,6 +156,8 @@ jobs:
         with:
           cache: true
           kubernetes-version: ${{ matrix.kubernetes-version }}
+          # Minikube 1.39.0 defaults to containerd, but `minikube docker-env` needs Docker
+          container-runtime: docker
           cpus: 3
           memory: 10240m
       - name: Set Up Go
@@ -257,6 +259,8 @@ jobs:
         with:
           cache: true
           kubernetes-version: ${{ matrix.kubernetes-version }}
+          # Minikube 1.39.0 defaults to containerd, but `minikube docker-env` needs Docker
+          container-runtime: docker
           cpus: 3
           memory: 10240m
       - name: Print K8S pods and nodes info
