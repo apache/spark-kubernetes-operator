@@ -499,9 +499,9 @@ public final class SparkOperatorConf {
    * would be performed on top of k8s client spark.kubernetes.operator.retry.maxAttempts to overcome
    * potential conflicting reconcile on the same SparkApplication, as well as transient API server
    * errors and network-level timeouts. Exponential backoff with jitter is applied before retrying
-   * on 409 (Conflict) and 429 (Too Many Requests) responses. Other retryable errors
-   * (408/500/502/503/504 and network timeouts) are retried immediately. This should be positive
-   * number
+   * whenever the API server response carries a Retry-After hint, or on 409 (Conflict) and 429 (Too
+   * Many Requests) responses. Other retryable errors (408/500/502/503/504 and network timeouts)
+   * without a Retry-After hint are retried immediately. This should be positive number
    */
   public static final ConfigOption<Long> API_SECONDARY_RESOURCE_CREATE_MAX_ATTEMPTS =
       ConfigOption.<Long>builder()
@@ -513,9 +513,10 @@ public final class SparkOperatorConf {
                   + "spark.kubernetes.operator.retry.maxAttempts to overcome potential "
                   + "conflicting reconcile on the same SparkApplication, as well as API "
                   + "server errors (408/500/502/503/504) and network-level timeouts. "
-                  + "Exponential backoff with jitter is applied before retrying on "
-                  + "409 (Conflict) and 429 (Too Many Requests) responses. Other retryable "
-                  + "errors are retried immediately. This should be positive number.")
+                  + "Exponential backoff with jitter is applied before retrying whenever the "
+                  + "API server response carries a Retry-After hint, or on 409 (Conflict) and "
+                  + "429 (Too Many Requests) responses. Other retryable errors without a "
+                  + "Retry-After hint are retried immediately. This should be positive number.")
           .typeParameterClass(Long.class)
           .defaultValue(3L)
           .build();
@@ -716,7 +717,8 @@ public final class SparkOperatorConf {
 
   /**
    * Initial backoff (in milliseconds) between retries when creating secondary resources. Backoff
-   * is applied only on 409 (Conflict) and 429 (Too Many Requests) responses.
+   * is applied whenever the API server response carries a Retry-After hint, or on 409 (Conflict)
+   * and 429 (Too Many Requests) responses.
    */
   public static final ConfigOption<Long> API_SECONDARY_RESOURCE_CREATE_INITIAL_BACKOFF_MILLIS =
       ConfigOption.<Long>builder()
@@ -725,7 +727,8 @@ public final class SparkOperatorConf {
           .description(
               "Initial backoff (in milliseconds) between retries "
                   + "when creating secondary resources for Spark application. "
-                  + "Backoff is applied only on 409 (Conflict) and "
+                  + "Backoff is applied whenever the API server response carries a "
+                  + "Retry-After hint, or on 409 (Conflict) and "
                   + "429 (Too Many Requests) responses.")
           .typeParameterClass(Long.class)
           .defaultValue(1000L)
