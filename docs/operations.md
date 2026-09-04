@@ -174,6 +174,112 @@ Note that this requires a CNI plugin that enforces NetworkPolicy; on clusters wi
 a plugin the policy is silently ignored. Egress traffic of the operator (Kubernetes API
 server, DNS) is not restricted by this policy.
 
+## Exposing SparkCluster Worker Metrics
+
+Every `SparkCluster` gets a generated worker `NetworkPolicy` that only admits ingress from pods
+carrying the cluster label or the driver-role label, so a Prometheus scraper is locked out by
+default. Opening the worker web UI port (`8081`) is not a safe fix: Spark's built-in
+`PrometheusServlet` metrics endpoint is served by the same embedded HTTP server as the web UI, so
+admitting that port to any source would expose the whole UI, not just metrics.
+
+The recommended approach is to attach the community
+[Prometheus JMX Exporter](https://github.com/prometheus/jmx_exporter)
+(`jmx_prometheus_javaagent`) to the worker JVM as a `-javaagent`. The agent opens its own
+dedicated HTTP port that serves Prometheus-format metrics, completely decoupled from the web UI
+port. Setting this up takes four steps:
+
+1. Bake the exporter jar into the Spark image used by the cluster:
+
+   ```dockerfile
+   FROM apache/spark:4.2.0
+   ADD https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/1.0.1/jmx_prometheus_javaagent-1.0.1.jar \
+       /opt/jmx_exporter/jmx_prometheus_javaagent.jar
+   ```
+
+2. Create a `ConfigMap` holding the exporter's mapping/rules config (which MBeans to expose and
+   how to name them), and mount it into the worker container via a `volumes` / `volumeMounts`
+   override under `workerSpec.statefulSetSpec.template.spec`:
+
+   ```yaml
+   apiVersion: v1
+   kind: ConfigMap
+   metadata:
+     name: jmx-exporter-config
+   data:
+     jmx-exporter-config.yaml: |
+       lowercaseOutputName: true
+       rules:
+         - pattern: ".*"
+   ---
+   apiVersion: spark.apache.org/v1
+   kind: SparkCluster
+   metadata:
+     name: cluster-with-worker-metrics
+   spec:
+     workerSpec:
+       statefulSetSpec:
+         template:
+           spec:
+             volumes:
+               - name: jmx-exporter-config
+                 configMap:
+                   name: jmx-exporter-config
+             containers:
+               - name: worker
+                 volumeMounts:
+                   - name: jmx-exporter-config
+                     mountPath: /etc/metrics
+   ```
+
+3. Point the worker container at the agent via `SPARK_WORKER_OPTS`, and expose the agent's port
+   as a `containerPort`:
+
+   ```yaml
+   spec:
+     workerSpec:
+       statefulSetSpec:
+         template:
+           spec:
+             containers:
+               - name: worker
+                 env:
+                   - name: SPARK_WORKER_OPTS
+                     value: >-
+                       -javaagent:/opt/jmx_exporter/jmx_prometheus_javaagent.jar=9404:/etc/metrics/jmx-exporter-config.yaml
+                 ports:
+                   - name: jmx-metrics
+                     containerPort: 9404
+   ```
+
+4. Set `workerSpec.metricsPort` to the same port and list your scraper under
+   `workerSpec.metricsIngress`, so the operator's generated `NetworkPolicy` admits ingress on that
+   port from those sources only, in addition to the existing cluster/driver label allow-list. This
+   mirrors `operatorDeployment.networkPolicy.metricsIngress`
+   ([above](#restricting-network-access-to-the-operator)) — `metricsIngress` takes the same
+   [`NetworkPolicyPeer`](https://kubernetes.io/docs/reference/kubernetes-api/policy-resources/network-policy-v1/#NetworkPolicyPeer)
+   entries:
+
+   ```yaml
+   spec:
+     workerSpec:
+       metricsPort: 9404
+       metricsIngress:
+         - namespaceSelector:
+             matchLabels:
+               kubernetes.io/metadata.name: "monitoring"
+   ```
+
+   Both fields are required for the rule to be generated: the port on its own would admit every
+   source in the cluster, and the peers on their own would grant them every worker port. When
+   either is missing, worker ingress stays exactly as restrictive as it is without these fields.
+
+See [examples/cluster-with-jmx-exporter.yaml](../examples/cluster-with-jmx-exporter.yaml) for a
+complete, runnable example.
+
+Master pods do not get a `NetworkPolicy` today, so nothing needs to change for masters to be
+scrapable — the same javaagent-plus-`ConfigMap` approach applied under `masterSpec` is enough to
+expose master metrics, with no equivalent of `metricsPort` / `metricsIngress` needed.
+
 ## Operator Health(Liveness) Probe with Sentinel Resource
 
 Learning
