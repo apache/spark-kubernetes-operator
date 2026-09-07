@@ -21,6 +21,7 @@ package org.apache.spark.k8s.operator;
 
 import static org.apache.spark.k8s.operator.Constants.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -49,6 +50,7 @@ import org.apache.spark.k8s.operator.spec.ClusterTolerations;
 import org.apache.spark.k8s.operator.spec.MasterSpec;
 import org.apache.spark.k8s.operator.spec.RuntimeVersions;
 import org.apache.spark.k8s.operator.spec.WorkerInstanceConfig;
+import org.apache.spark.k8s.operator.spec.WorkerNetworkPolicySpec;
 import org.apache.spark.k8s.operator.spec.WorkerSpec;
 
 class SparkClusterResourceSpecTest {
@@ -90,8 +92,8 @@ class SparkClusterResourceSpecTest {
     when(workerSpec.getStatefulSetMetadata()).thenReturn(objectMeta);
     when(workerSpec.getServiceSpec()).thenReturn(serviceSpec);
     when(workerSpec.getServiceMetadata()).thenReturn(objectMeta);
-    // Mockito defaults Integer to 0 rather than null, so unset has to be stubbed explicitly.
-    when(workerSpec.getMetricsPort()).thenReturn(null);
+    // Mockito defaults the network policy to null, matching an unset workerSpec.networkPolicy.
+    when(workerSpec.getNetworkPolicy()).thenReturn(null);
   }
 
   @Test
@@ -349,8 +351,10 @@ class SparkClusterResourceSpecTest {
         .addToMatchLabels("kubernetes.io/metadata.name", "monitoring")
         .endNamespaceSelector()
         .build();
-    when(workerSpec.getMetricsPort()).thenReturn(9404);
-    when(workerSpec.getMetricsIngress()).thenReturn(List.of(scraper));
+    var networkPolicySpec = mock(WorkerNetworkPolicySpec.class);
+    when(networkPolicySpec.getMetricsPort()).thenReturn(9404);
+    when(networkPolicySpec.getMetricsIngress()).thenReturn(List.of(scraper));
+    when(workerSpec.getNetworkPolicy()).thenReturn(networkPolicySpec);
     SparkClusterResourceSpec spec = new SparkClusterResourceSpec(cluster, new SparkConf());
     NetworkPolicy policy = spec.getWorkerNetworkPolicy();
     assertEquals(2, policy.getSpec().getIngress().size());
@@ -364,18 +368,36 @@ class SparkClusterResourceSpecTest {
 
   @Test
   void testWorkerNetworkPolicyWithMetricsPortButNoIngress() {
-    when(workerSpec.getMetricsPort()).thenReturn(9404);
-    when(workerSpec.getMetricsIngress()).thenReturn(List.of());
+    var networkPolicySpec = mock(WorkerNetworkPolicySpec.class);
+    when(networkPolicySpec.getMetricsPort()).thenReturn(9404);
+    when(networkPolicySpec.getMetricsIngress()).thenReturn(List.of());
+    when(workerSpec.getNetworkPolicy()).thenReturn(networkPolicySpec);
     SparkClusterResourceSpec spec = new SparkClusterResourceSpec(cluster, new SparkConf());
     assertEquals(1, spec.getWorkerNetworkPolicy().getSpec().getIngress().size());
   }
 
   @Test
   void testWorkerNetworkPolicyWithMetricsIngressButNoPort() {
-    when(workerSpec.getMetricsIngress())
+    var networkPolicySpec = mock(WorkerNetworkPolicySpec.class);
+    // Mockito defaults Integer to 0 rather than null, so unset has to be stubbed explicitly.
+    when(networkPolicySpec.getMetricsPort()).thenReturn(null);
+    when(networkPolicySpec.getMetricsIngress())
         .thenReturn(List.of(new NetworkPolicyPeerBuilder().build()));
+    when(workerSpec.getNetworkPolicy()).thenReturn(networkPolicySpec);
     SparkClusterResourceSpec spec = new SparkClusterResourceSpec(cluster, new SparkConf());
     assertEquals(1, spec.getWorkerNetworkPolicy().getSpec().getIngress().size());
+  }
+
+  @Test
+  void testWorkerNetworkPolicyRejectsWebUiMetricsPort() {
+    var networkPolicySpec = mock(WorkerNetworkPolicySpec.class);
+    when(networkPolicySpec.getMetricsPort()).thenReturn(8081);
+    when(networkPolicySpec.getMetricsIngress())
+        .thenReturn(List.of(new NetworkPolicyPeerBuilder().build()));
+    when(workerSpec.getNetworkPolicy()).thenReturn(networkPolicySpec);
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new SparkClusterResourceSpec(cluster, new SparkConf()));
   }
 
   @Test

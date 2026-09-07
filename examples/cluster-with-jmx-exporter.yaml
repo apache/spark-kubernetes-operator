@@ -45,20 +45,22 @@ spec:
       minWorkers: 1
       maxWorkers: 1
   workerSpec:
-    metricsPort: 9404
-    # Only pods in the "monitoring" namespace may reach the exporter port above.
-    metricsIngress:
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: "monitoring"
+    networkPolicy:
+      metricsPort: 9404
+      # Only pods in the "monitoring" namespace may reach the exporter port above.
+      metricsIngress:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: "monitoring"
     statefulSetSpec:
       template:
         spec:
           containers:
           - name: worker
-            # Requires the image to have jmx_prometheus_javaagent pre-baked at this path.
+            # Requires a custom image that has jmx_prometheus_javaagent pre-baked at this path
+            # (the stock apache/spark image does not include it).
             env:
-            - name: SPARK_WORKER_OPTS
+            - name: SPARK_DAEMON_JAVA_OPTS
               value: "-javaagent:/opt/jmx_exporter/jmx_prometheus_javaagent.jar=9404:/etc/metrics/jmx-exporter-config.yaml"
             ports:
             - name: jmx-metrics
@@ -73,4 +75,3 @@ spec:
               name: jmx-exporter-config
   sparkConf:
     spark.kubernetes.container.image: "apache/spark:{{SPARK_VERSION}}-scala"
-    spark.ui.reverseProxy: "true"
