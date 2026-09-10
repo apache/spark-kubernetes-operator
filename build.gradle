@@ -31,6 +31,15 @@ buildscript {
     classpath "${libs.crd.generator.collector.get()}"
     classpath "${libs.gradle.versions.plugin.get()}"
   }
+  configurations.classpath.resolutionStrategy.eachDependency {
+    if (requested.group.startsWith("com.fasterxml.jackson")) {
+      if (requested.name == "jackson-annotations") {
+        useVersion(libs.versions.jackson.annotations.get())
+      } else {
+        useVersion(libs.versions.jackson.asProvider().get())
+      }
+    }
+  }
 }
 
 assert JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_21): "Java 21 or newer is " +
@@ -86,6 +95,13 @@ subprojects {
       }
       if (requested.group == "org.apache.hadoop") {
         useVersion(libs.versions.hadoop.get())
+      }
+      if (requested.group.startsWith("com.fasterxml.jackson")) {
+        if (requested.name == "jackson-annotations") {
+          useVersion(libs.versions.jackson.annotations.get())
+        } else {
+          useVersion(libs.versions.jackson.asProvider().get())
+        }
       }
     }
   }
