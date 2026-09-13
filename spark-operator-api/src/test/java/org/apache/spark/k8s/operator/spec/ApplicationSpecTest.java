@@ -39,6 +39,7 @@ class ApplicationSpecTest {
   @Test
   void testInitSpecWithDefaults() {
     ApplicationSpec spec = new ApplicationSpec();
+    assertFalse(spec.isSuspend());
     assertEquals(ClusterMode, spec.getDeploymentMode());
     assertNull(spec.getDriverSpec());
     assertNull(spec.getExecutorSpec());

@@ -16512,6 +16512,9 @@ spec:
                   type: object
                 sparkRFiles:
                   type: string
+                suspend:
+                  default: false
+                  type: boolean
               required:
                 - runtimeVersions
               type: object

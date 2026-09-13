@@ -20,6 +20,7 @@
 package org.apache.spark.k8s.operator.spec;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import org.junit.jupiter.api.Test;
@@ -35,6 +36,7 @@ class ClusterSpecTest {
   @Test
   void testInitSpecWithDefaults() {
     ClusterSpec spec1 = new ClusterSpec();
+    assertFalse(spec1.isSuspend());
     assertNull(spec1.runtimeVersions.jdkVersion);
     assertNull(spec1.runtimeVersions.scalaVersion);
     assertNull(spec1.runtimeVersions.sparkVersion);
