@@ -57,6 +57,7 @@ import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppResourceObserv
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppRunningStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppUnknownStateStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppValidateStep;
+import org.apache.spark.k8s.operator.utils.EventUtils;
 import org.apache.spark.k8s.operator.utils.LoggingUtils;
 import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
@@ -135,6 +136,10 @@ public class SparkAppReconciler implements Reconciler<SparkApplication>, Cleaner
                       retryInfo.isLastAttempt());
                 }
               });
+      EventUtils.warn(
+              context::eventRecorder,
+              EventUtils.REASON_RECONCILE_ERROR,
+              "Spark App Reconciliation failed. " + EventUtils.describe(e));
       return ErrorStatusUpdateControl.noStatusUpdate();
     } finally {
       trackedMDC.reset();
@@ -223,6 +228,13 @@ public class SparkAppReconciler implements Reconciler<SparkApplication>, Cleaner
           }
         }
       }
+    } catch (RuntimeException e) {
+      EventUtils.warn(
+              context::eventRecorder,
+              EventUtils.REASON_CLEANUP_ERROR,
+              "Spark App Cleanup failed, the resource cannot finish deleting. "
+                      + EventUtils.describe(e));
+      throw e;
     } finally {
       log.debug("Cleanup completed");
       trackedMDC.reset();

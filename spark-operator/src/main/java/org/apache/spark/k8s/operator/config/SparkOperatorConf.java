@@ -277,6 +277,29 @@ public final class SparkOperatorConf {
           .defaultValue(true)
           .build();
 
+  /**
+   * When enabled, operator would publish Kubernetes Event objects into the namespace of the Spark
+   * resource they describe, making them visible to users of that namespace via 'kubectl describe'
+   * and 'kubectl get events'.
+   */
+  public static final ConfigOption<Boolean> KUBERNETES_EVENTS_ENABLED =
+      ConfigOption.<Boolean>builder()
+          .key("spark.kubernetes.operator.events.enabled")
+          .enableDynamicOverride(true)
+          .description(
+              "When enabled, operator would publish Kubernetes Event objects into the" +
+                  " namespace "
+                  + "of the Spark resource they describe, making them visible to " +
+                  "users of that "
+                  + "namespace via 'kubectl describe' and 'kubectl get events'. " +
+                  "These are Event "
+                  + "resources in the core API group, unrelated to the internal " +
+                  "events that "
+                  + "trigger reconciliation.")
+          .typeParameterClass(Boolean.class)
+          .defaultValue(false)
+          .build();
+
   /** Comma-separated names of SparkAppStatusListener class implementations */
   public static final ConfigOption<String> SPARK_APP_STATUS_LISTENER_CLASS_NAMES =
       ConfigOption.<String>builder()

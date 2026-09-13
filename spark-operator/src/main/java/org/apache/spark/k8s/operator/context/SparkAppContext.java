@@ -30,6 +30,7 @@ import java.util.stream.Collectors;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -143,6 +144,16 @@ public class SparkAppContext extends BaseContext<SparkApplication> {
   @Override
   public KubernetesClient getClient() {
     return josdkContext.getClient();
+  }
+
+  /**
+   * Returns the event recorder from the JOSDK context, bound to this SparkApplication.
+   *
+   * @return The ResourceEventRecorder instance.
+   */
+  @Override
+  public ResourceEventRecorder getEventRecorder() {
+    return josdkContext.eventRecorder();
   }
 
   /**

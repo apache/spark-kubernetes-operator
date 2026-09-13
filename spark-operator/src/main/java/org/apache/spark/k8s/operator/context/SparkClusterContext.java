@@ -27,6 +27,7 @@ import io.fabric8.kubernetes.api.model.autoscaling.v2.HorizontalPodAutoscaler;
 import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicy;
 import io.fabric8.kubernetes.api.model.policy.v1.PodDisruptionBudget;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
 import lombok.RequiredArgsConstructor;
 
@@ -139,5 +140,15 @@ public class SparkClusterContext extends BaseContext<SparkCluster> {
   @Override
   public KubernetesClient getClient() {
     return josdkContext.getClient();
+  }
+
+  /**
+   * Returns the event recorder from the JOSDK context, bound to this SparkCluster.
+   *
+   * @return The ResourceEventRecorder instance.
+   */
+  @Override
+  public ResourceEventRecorder getEventRecorder() {
+    return josdkContext.eventRecorder();
   }
 }
