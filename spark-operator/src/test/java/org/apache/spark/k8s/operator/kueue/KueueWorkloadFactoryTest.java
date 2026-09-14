@@ -268,6 +268,36 @@ class KueueWorkloadFactoryTest {
   }
 
   @Test
+  void testBuildWorkloadWithPodTemplateFile() {
+    SparkApplication app = new SparkApplication();
+    app.setMetadata(
+        new ObjectMetaBuilder().withName("spark-template").withNamespace("default").build());
+    ApplicationSpec spec = new ApplicationSpec();
+    app.setSpec(spec);
+
+    // A pod template file is not supported without a pod template spec
+    spec.setSparkConf(
+        Map.of(Constants.EXECUTOR_SPARK_TEMPLATE_FILE_PROP_KEY, "s3a://bucket/executor.yaml"));
+    assertThrows(
+        UnsupportedOperationException.class, () -> KueueWorkloadFactory.buildWorkload(app));
+
+    // The executor template file is ignored in driver-only mode
+    spec.setSparkConf(
+        Map.of(
+            Constants.EXECUTOR_SPARK_TEMPLATE_FILE_PROP_KEY, "s3a://bucket/executor.yaml",
+            "spark.kubernetes.driver.master", "local[2]"));
+    assertEquals(1, KueueWorkloadFactory.buildWorkload(app).getSpec().getPodSets().size());
+
+    // The pod template spec takes precedence over the pod template file
+    spec.setSparkConf(
+        Map.of(Constants.DRIVER_SPARK_TEMPLATE_FILE_PROP_KEY, "s3a://bucket/driver.yaml"));
+    assertThrows(
+        UnsupportedOperationException.class, () -> KueueWorkloadFactory.buildWorkload(app));
+    spec.setDriverSpec(new BaseApplicationTemplateSpec(new PodTemplateSpecBuilder().build()));
+    assertEquals(2, KueueWorkloadFactory.buildWorkload(app).getSpec().getPodSets().size());
+  }
+
+  @Test
   void testBuildWorkloadDynamicAllocation() {
     SparkApplication app = new SparkApplication();
     app.setMetadata(

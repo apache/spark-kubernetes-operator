@@ -98,6 +98,12 @@ public final class KueueWorkloadFactory {
     // Like Spark's KubernetesClusterManager, `local[*]` runs the driver only without executors.
     boolean driverOnly =
         sparkConf.getOrDefault("spark.kubernetes.driver.master", "").startsWith("local");
+    checkNoPodTemplateFile(
+        sparkConf, Constants.DRIVER_SPARK_TEMPLATE_FILE_PROP_KEY, spec.getDriverSpec());
+    if (!driverOnly) {
+      checkNoPodTemplateFile(
+          sparkConf, Constants.EXECUTOR_SPARK_TEMPLATE_FILE_PROP_KEY, spec.getExecutorSpec());
+    }
     List<PodSet> podSets =
         driverOnly
             ? List.of(buildDriverPodSet(app, sparkConf))
@@ -127,6 +133,24 @@ public final class KueueWorkloadFactory {
             buildPodSet(PODSET_WORKER, resourceSpec.getWorkerStatefulSet()));
     return buildWorkload(
         cluster, Constants.LABEL_SPARK_CLUSTER_NAME, cluster.getSpec().isSuspend(), podSets);
+  }
+
+  /**
+   * A pod template file is fetched by Spark, not by the operator, so its node selectors,
+   * tolerations and extra containers cannot be reflected in the PodSet template. The file is
+   * ignored by Spark if the pod template is set in the SparkApplication spec.
+   */
+  private static void checkNoPodTemplateFile(
+      final Map<String, String> sparkConf,
+      final String templateFileKey,
+      final BaseApplicationTemplateSpec roleSpec) {
+    if (sparkConf.containsKey(templateFileKey)
+        && (roleSpec == null || roleSpec.getPodTemplateSpec() == null)) {
+      throw new UnsupportedOperationException(
+          "Kueue does not support "
+              + templateFileKey
+              + " yet. Set the pod template in the SparkApplication spec instead.");
+    }
   }
 
   private static Workload buildWorkload(
