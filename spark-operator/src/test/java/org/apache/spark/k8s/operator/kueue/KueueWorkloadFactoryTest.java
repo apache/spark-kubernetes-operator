@@ -205,6 +205,7 @@ class KueueWorkloadFactoryTest {
     assertNull(driverPodSet.getMinCount());
     Container driverContainer =
         driverPodSet.getTemplate().getSpec().getContainers().get(0);
+    assertEquals("spark-kubernetes-driver", driverContainer.getName());
     assertEquals(new Quantity("2"), driverContainer.getResources().getRequests().get("cpu"));
     assertEquals(
         new Quantity("2432Mi"),
@@ -216,6 +217,7 @@ class KueueWorkloadFactoryTest {
     assertNull(executorPodSet.getMinCount());
     Container executorContainer =
         executorPodSet.getTemplate().getSpec().getContainers().get(0);
+    assertEquals("spark-kubernetes-executor", executorContainer.getName());
     assertEquals(new Quantity("4"), executorContainer.getResources().getRequests().get("cpu"));
     assertEquals(
         new Quantity("4505Mi"),
@@ -323,7 +325,9 @@ class KueueWorkloadFactoryTest {
             "spark.driver.resource.gpu.amount", "1",
             "spark.driver.resource.gpu.vendor", "nvidia.com",
             "spark.executor.resource.gpu.amount", "2",
-            "spark.executor.resource.gpu.vendor", "nvidia.com"));
+            "spark.executor.resource.gpu.vendor", "nvidia.com",
+            "spark.executor.resource.fpga.amount", "3",
+            "spark.executor.resource.fpga.vendor", "xilinx.com"));
     app.setSpec(spec);
 
     Workload workload = KueueWorkloadFactory.buildWorkload(app);
@@ -356,6 +360,121 @@ class KueueWorkloadFactoryTest {
     assertEquals(
         new Quantity("2"),
         executorContainer.getResources().getLimits().get("nvidia.com/gpu"));
+    assertEquals(
+        new Quantity("3"),
+        executorContainer.getResources().getRequests().get("xilinx.com/fpga"));
+    assertEquals(
+        new Quantity("3"),
+        executorContainer.getResources().getLimits().get("xilinx.com/fpga"));
+  }
+
+  @Test
+  void testBuildWorkloadWithExecutorTemplateSpecAndRequestCores() {
+    SparkApplication app = new SparkApplication();
+    app.setMetadata(
+        new ObjectMetaBuilder().withName("spark-sidecar").withNamespace("default").build());
+
+    PodTemplateSpec executorTemplate =
+        new PodTemplateSpecBuilder()
+            .withNewSpec()
+            .withContainers(
+                new ContainerBuilder()
+                    .withName("sidecar")
+                    .withResources(
+                        new ResourceRequirementsBuilder()
+                            .withRequests(Map.of("cpu", new Quantity("100m")))
+                            .build())
+                    .build(),
+                new ContainerBuilder().withName("custom-executor").build())
+            .endSpec()
+            .build();
+
+    ApplicationSpec spec = new ApplicationSpec();
+    spec.setExecutorSpec(new BaseApplicationTemplateSpec(executorTemplate));
+    spec.setSparkConf(
+        Map.of(
+            Constants.EXECUTOR_SPARK_CONTAINER_PROP_KEY, "custom-executor",
+            "spark.kubernetes.driver.request.cores", "500m",
+            "spark.driver.cores", "2",
+            "spark.kubernetes.executor.request.cores", "1500m",
+            "spark.executor.cores", "4"));
+    app.setSpec(spec);
+
+    Workload workload = KueueWorkloadFactory.buildWorkload(app);
+    // `spark.kubernetes.{driver,executor}.request.cores` takes precedence over cores
+    Container driverContainer =
+        workload.getSpec().getPodSets().get(0).getTemplate().getSpec().getContainers().get(0);
+    assertEquals(new Quantity("500m"), driverContainer.getResources().getRequests().get("cpu"));
+
+    PodSet executorPodSet = workload.getSpec().getPodSets().get(1);
+    Container sidecarContainer =
+        executorPodSet.getTemplate().getSpec().getContainers().get(0);
+    assertEquals("sidecar", sidecarContainer.getName());
+    assertEquals(
+        Map.of("cpu", new Quantity("100m")), sidecarContainer.getResources().getRequests());
+
+    Container executorContainer =
+        executorPodSet.getTemplate().getSpec().getContainers().get(1);
+    assertEquals("custom-executor", executorContainer.getName());
+    assertEquals(
+        new Quantity("1500m"), executorContainer.getResources().getRequests().get("cpu"));
+    assertEquals(
+        new Quantity("1408Mi"), executorContainer.getResources().getRequests().get("memory"));
+  }
+
+  @Test
+  void testBuildWorkloadWithNodeSelector() {
+    SparkApplication app = new SparkApplication();
+    app.setMetadata(
+        new ObjectMetaBuilder().withName("spark-gpu-node").withNamespace("default").build());
+
+    PodTemplateSpec driverTemplate =
+        new PodTemplateSpecBuilder()
+            .withNewSpec()
+            .withNodeSelector(Map.of("topology.kubernetes.io/zone", "us-west-2a"))
+            .endSpec()
+            .build();
+
+    ApplicationSpec spec = new ApplicationSpec();
+    spec.setDriverSpec(new BaseApplicationTemplateSpec(driverTemplate));
+    spec.setSparkConf(
+        Map.of(
+            "spark.kubernetes.node.selector.karpenter.sh/nodepool", "gpu",
+            "spark.kubernetes.node.selector.node.kubernetes.io/instance-type", "g5.xlarge",
+            "spark.kubernetes.driver.node.selector.node.kubernetes.io/instance-type",
+                "m5.xlarge",
+            "spark.kubernetes.executor.node.selector.node.kubernetes.io/instance-type",
+                "p4d.24xlarge"));
+    app.setSpec(spec);
+
+    Workload workload = KueueWorkloadFactory.buildWorkload(app);
+    // The role-specific selector wins and the pod template selector is kept
+    assertEquals(
+        Map.of(
+            "topology.kubernetes.io/zone", "us-west-2a",
+            "karpenter.sh/nodepool", "gpu",
+            "node.kubernetes.io/instance-type", "m5.xlarge"),
+        workload.getSpec().getPodSets().get(0).getTemplate().getSpec().getNodeSelector());
+    assertEquals(
+        Map.of(
+            "karpenter.sh/nodepool", "gpu",
+            "node.kubernetes.io/instance-type", "p4d.24xlarge"),
+        workload.getSpec().getPodSets().get(1).getTemplate().getSpec().getNodeSelector());
+  }
+
+  @Test
+  void testBuildWorkloadWithMalformedNumbers() {
+    SparkApplication app = new SparkApplication();
+    app.setMetadata(
+        new ObjectMetaBuilder().withName("spark-invalid").withNamespace("default").build());
+    ApplicationSpec spec = new ApplicationSpec();
+    app.setSpec(spec);
+
+    spec.setSparkConf(Map.of("spark.executor.instances", "not-a-number"));
+    assertThrows(NumberFormatException.class, () -> KueueWorkloadFactory.buildWorkload(app));
+
+    spec.setSparkConf(Map.of("spark.driver.memoryOverheadFactor", "not-a-number"));
+    assertThrows(NumberFormatException.class, () -> KueueWorkloadFactory.buildWorkload(app));
   }
 
   @Test
