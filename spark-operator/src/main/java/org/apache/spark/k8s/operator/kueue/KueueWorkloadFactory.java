@@ -38,6 +38,7 @@ import io.fabric8.kubernetes.api.model.Quantity;
 import io.fabric8.kubernetes.api.model.ResourceRequirements;
 import io.fabric8.kubernetes.api.model.ResourceRequirementsBuilder;
 import io.fabric8.kubernetes.api.model.apps.StatefulSet;
+import lombok.extern.slf4j.Slf4j;
 
 import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.SparkApplication;
@@ -49,7 +50,7 @@ import org.apache.spark.k8s.operator.kueue.v1beta1.Workload;
 import org.apache.spark.k8s.operator.kueue.v1beta1.WorkloadSpec;
 import org.apache.spark.k8s.operator.reconciler.SparkClusterResourceSpecFactory;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
-import org.apache.spark.k8s.operator.spec.ClusterSpec;
+import org.apache.spark.k8s.operator.spec.BaseApplicationTemplateSpec;
 import org.apache.spark.k8s.operator.utils.ModelUtils;
 import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 import org.apache.spark.k8s.operator.utils.StringUtils;
@@ -60,6 +61,7 @@ import org.apache.spark.network.util.JavaUtils;
  * This factory supports both {@link SparkApplication} (driver and executor pod sets)
  * and {@link SparkCluster} (master and worker pod sets).
  */
+@Slf4j
 @SuppressWarnings("PMD.GodClass")
 public final class KueueWorkloadFactory {
 
@@ -68,12 +70,12 @@ public final class KueueWorkloadFactory {
   public static final String PODSET_MASTER = "master";
   public static final String PODSET_WORKER = "worker";
 
-  public static final String DEFAULT_CORES = "1";
-  public static final String DEFAULT_MEMORY = "1g";
-  public static final String DEFAULT_MIN_MEMORY_OVERHEAD = "384m";
-  public static final double DEFAULT_MEMORY_OVERHEAD_FACTOR = 0.10;
-  public static final double NON_JVM_MEMORY_OVERHEAD_FACTOR = 0.40;
-  public static final int DEFAULT_EXECUTOR_INSTANCES = 2;
+  private static final String DEFAULT_CORES = "1";
+  private static final String DEFAULT_MEMORY = "1g";
+  private static final String DEFAULT_MIN_MEMORY_OVERHEAD = "384m";
+  private static final double DEFAULT_MEMORY_OVERHEAD_FACTOR = 0.10;
+  private static final double NON_JVM_MEMORY_OVERHEAD_FACTOR = 0.40;
+  private static final int DEFAULT_EXECUTOR_INSTANCES = 2;
 
   private static final String NODE_SELECTOR_PREFIX = "spark.kubernetes.node.selector.";
 
@@ -86,53 +88,16 @@ public final class KueueWorkloadFactory {
    * @return The constructed Kueue Workload.
    */
   public static Workload buildWorkload(final SparkApplication app) {
-    String queueName = getQueueName(app);
-    ApplicationSpec appSpec = app.getSpec();
-    Map<String, String> sparkConf =
-        appSpec != null && appSpec.getSparkConf() != null
-            ? appSpec.getSparkConf()
-            : Map.of();
+    ApplicationSpec spec = app.getSpec();
+    Map<String, String> sparkConf = spec.getSparkConf();
     if ("true".equalsIgnoreCase(sparkConf.get("spark.dynamicAllocation.enabled"))) {
       throw new UnsupportedOperationException(
           "Kueue does not support SparkApplication with dynamic allocation "
               + "(spark.dynamicAllocation.enabled=true) yet.");
     }
-
-    PodSet driverPodSet = buildDriverPodSet(app, sparkConf);
-    PodSet executorPodSet = buildExecutorPodSet(app, sparkConf);
-
-    List<PodSet> podSets = new ArrayList<>();
-    podSets.add(driverPodSet);
-    podSets.add(executorPodSet);
-
-    boolean active = appSpec == null || !appSpec.isSuspend();
-
-    Map<String, String> labels = new HashMap<>();
-    if (app.getMetadata().getLabels() != null) {
-      labels.putAll(app.getMetadata().getLabels());
-    }
-    labels.put(Constants.LABEL_SPARK_APPLICATION_NAME, app.getMetadata().getName());
-
-    OwnerReference ownerReference = ModelUtils.buildOwnerReferenceTo(app);
-    ownerReference.setController(true);
-
-    Workload workload = new Workload();
-    workload.setMetadata(
-        new ObjectMetaBuilder()
-            .withName(getWorkloadName(app))
-            .withNamespace(app.getMetadata().getNamespace())
-            .withLabels(labels)
-            .withOwnerReferences(ownerReference)
-            .build());
-
-    workload.setSpec(
-        WorkloadSpec.builder()
-            .queueName(queueName)
-            .active(active)
-            .podSets(podSets)
-            .build());
-
-    return workload;
+    List<PodSet> podSets =
+        List.of(buildDriverPodSet(app, sparkConf), buildExecutorPodSet(app, sparkConf));
+    return buildWorkload(app, Constants.LABEL_SPARK_APPLICATION_NAME, spec.isSuspend(), podSets);
   }
 
   /**
@@ -142,9 +107,6 @@ public final class KueueWorkloadFactory {
    * @return The constructed Kueue Workload.
    */
   public static Workload buildWorkload(final SparkCluster cluster) {
-    String queueName = getQueueName(cluster);
-    ClusterSpec clusterSpec = cluster.getSpec();
-
     // Use the same StatefulSets which the operator creates for the cluster.
     SparkClusterResourceSpec resourceSpec =
         SparkClusterResourceSpecFactory.buildResourceSpec(
@@ -154,38 +116,42 @@ public final class KueueWorkloadFactory {
           "Kueue does not support SparkCluster with HorizontalPodAutoscaler "
               + "(minWorkers < maxWorkers) yet.");
     }
+    List<PodSet> podSets =
+        List.of(
+            buildPodSet(PODSET_MASTER, resourceSpec.getMasterStatefulSet()),
+            buildPodSet(PODSET_WORKER, resourceSpec.getWorkerStatefulSet()));
+    return buildWorkload(
+        cluster, Constants.LABEL_SPARK_CLUSTER_NAME, cluster.getSpec().isSuspend(), podSets);
+  }
 
-    List<PodSet> podSets = new ArrayList<>();
-    podSets.add(buildPodSet(PODSET_MASTER, resourceSpec.getMasterStatefulSet()));
-    podSets.add(buildPodSet(PODSET_WORKER, resourceSpec.getWorkerStatefulSet()));
-
-    boolean active = clusterSpec == null || !clusterSpec.isSuspend();
-
+  private static Workload buildWorkload(
+      final HasMetadata owner,
+      final String nameLabelKey,
+      final boolean suspend,
+      final List<PodSet> podSets) {
     Map<String, String> labels = new HashMap<>();
-    if (cluster.getMetadata().getLabels() != null) {
-      labels.putAll(cluster.getMetadata().getLabels());
+    if (owner.getMetadata().getLabels() != null) {
+      labels.putAll(owner.getMetadata().getLabels());
     }
-    labels.put(Constants.LABEL_SPARK_CLUSTER_NAME, cluster.getMetadata().getName());
+    labels.put(nameLabelKey, owner.getMetadata().getName());
 
-    OwnerReference ownerReference = ModelUtils.buildOwnerReferenceTo(cluster);
+    OwnerReference ownerReference = ModelUtils.buildOwnerReferenceTo(owner);
     ownerReference.setController(true);
 
     Workload workload = new Workload();
     workload.setMetadata(
         new ObjectMetaBuilder()
-            .withName(getWorkloadName(cluster))
-            .withNamespace(cluster.getMetadata().getNamespace())
+            .withName(getWorkloadName(owner))
+            .withNamespace(owner.getMetadata().getNamespace())
             .withLabels(labels)
             .withOwnerReferences(ownerReference)
             .build());
-
     workload.setSpec(
         WorkloadSpec.builder()
-            .queueName(queueName)
-            .active(active)
+            .queueName(getQueueName(owner))
+            .active(!suspend)
             .podSets(podSets)
             .build());
-
     return workload;
   }
 
@@ -235,74 +201,62 @@ public final class KueueWorkloadFactory {
 
   static PodSet buildDriverPodSet(
       final SparkApplication app, final Map<String, String> sparkConf) {
-    PodTemplateSpec templateSpec = null;
-    if (app.getSpec() != null
-        && app.getSpec().getDriverSpec() != null
-        && app.getSpec().getDriverSpec().getPodTemplateSpec() != null) {
-      templateSpec = ReconcilerUtils.clone(app.getSpec().getDriverSpec().getPodTemplateSpec());
-    }
-    if (templateSpec == null) {
-      templateSpec = new PodTemplateSpecBuilder().build();
-    }
-    ensurePodSpec(templateSpec);
-
-    String cpu =
-        sparkConf.getOrDefault(
-            "spark.kubernetes.driver.request.cores",
-            sparkConf.getOrDefault("spark.driver.cores", DEFAULT_CORES));
-    long memoryMiB = calculateDriverMemoryMiB(sparkConf, isNonJvmApp(app.getSpec()));
-
-    Container container =
-        selectContainer(
-            templateSpec.getSpec(),
-            sparkConf.get(Constants.DRIVER_SPARK_CONTAINER_PROP_KEY),
-            "spark-kubernetes-driver");
-    decorateContainerResources(container, sparkConf, "spark.driver.resource.", cpu, memoryMiB);
-    decorateNodeSelector(
-        templateSpec.getSpec(), sparkConf, "spark.kubernetes.driver.node.selector.");
-
-    return PodSet.builder()
-        .name(PODSET_DRIVER)
-        .count(1)
-        .template(templateSpec)
-        .build();
+    ApplicationSpec spec = app.getSpec();
+    return buildPodSet(
+        PODSET_DRIVER,
+        1,
+        spec.getDriverSpec(),
+        sparkConf,
+        Constants.DRIVER_SPARK_CONTAINER_PROP_KEY,
+        calculateDriverMemoryMiB(sparkConf, isNonJvmApp(spec)));
   }
 
   static PodSet buildExecutorPodSet(
       final SparkApplication app, final Map<String, String> sparkConf) {
-    PodTemplateSpec templateSpec = null;
-    if (app.getSpec() != null
-        && app.getSpec().getExecutorSpec() != null
-        && app.getSpec().getExecutorSpec().getPodTemplateSpec() != null) {
-      templateSpec = ReconcilerUtils.clone(app.getSpec().getExecutorSpec().getPodTemplateSpec());
+    ApplicationSpec spec = app.getSpec();
+    return buildPodSet(
+        PODSET_EXECUTOR,
+        parseInt(sparkConf.get("spark.executor.instances"), DEFAULT_EXECUTOR_INSTANCES),
+        spec.getExecutorSpec(),
+        sparkConf,
+        Constants.EXECUTOR_SPARK_CONTAINER_PROP_KEY,
+        calculateExecutorMemoryMiB(sparkConf, isNonJvmApp(spec), isPythonApp(spec)));
+  }
+
+  /**
+   * Builds a PodSet for a Spark role (`driver` or `executor`) from the pod template of the
+   * SparkApplication and the resource configurations in the same way as Spark does.
+   */
+  private static PodSet buildPodSet(
+      final String role,
+      final int count,
+      final BaseApplicationTemplateSpec roleSpec,
+      final Map<String, String> sparkConf,
+      final String containerNameKey,
+      final long memoryMiB) {
+    PodTemplateSpec templateSpec =
+        roleSpec != null && roleSpec.getPodTemplateSpec() != null
+            ? ReconcilerUtils.clone(roleSpec.getPodTemplateSpec())
+            : new PodTemplateSpecBuilder().build();
+    if (templateSpec.getSpec() == null) {
+      templateSpec.setSpec(new PodSpecBuilder().build());
     }
-    if (templateSpec == null) {
-      templateSpec = new PodTemplateSpecBuilder().build();
+    PodSpec podSpec = templateSpec.getSpec();
+    if (podSpec.getContainers() == null) {
+      podSpec.setContainers(new ArrayList<>());
     }
-    ensurePodSpec(templateSpec);
 
     String cpu =
         sparkConf.getOrDefault(
-            "spark.kubernetes.executor.request.cores",
-            sparkConf.getOrDefault("spark.executor.cores", DEFAULT_CORES));
-    long memoryMiB =
-        calculateExecutorMemoryMiB(
-            sparkConf, isNonJvmApp(app.getSpec()), isPythonApp(app.getSpec()));
-
+            "spark.kubernetes." + role + ".request.cores",
+            sparkConf.getOrDefault("spark." + role + ".cores", DEFAULT_CORES));
     Container container =
-        selectContainer(
-            templateSpec.getSpec(),
-            sparkConf.get(Constants.EXECUTOR_SPARK_CONTAINER_PROP_KEY),
-            "spark-kubernetes-executor");
-    decorateContainerResources(container, sparkConf, "spark.executor.resource.", cpu, memoryMiB);
-    decorateNodeSelector(
-        templateSpec.getSpec(), sparkConf, "spark.kubernetes.executor.node.selector.");
+        selectContainer(podSpec, sparkConf.get(containerNameKey), "spark-kubernetes-" + role);
+    decorateContainerResources(
+        container, sparkConf, "spark." + role + ".resource.", cpu, memoryMiB);
+    decorateNodeSelector(podSpec, sparkConf, "spark.kubernetes." + role + ".node.selector.");
 
-    return PodSet.builder()
-        .name(PODSET_EXECUTOR)
-        .count(parseInt(sparkConf.get("spark.executor.instances"), DEFAULT_EXECUTOR_INSTANCES))
-        .template(templateSpec)
-        .build();
+    return PodSet.builder().name(role).count(count).template(templateSpec).build();
   }
 
   /** Calculates total driver memory in MiB including overhead. */
@@ -325,10 +279,16 @@ public final class KueueWorkloadFactory {
         memMiB + calculateMemoryOverheadMiB(sparkConf, "spark.executor", memMiB, isNonJvm);
     if ("true".equalsIgnoreCase(sparkConf.get("spark.memory.offHeap.enabled"))) {
       // `spark.memory.offHeap.size` is in bytes unless otherwise specified.
-      total +=
+      long offHeapMiB =
           JavaUtils.byteStringAsBytes(sparkConf.getOrDefault("spark.memory.offHeap.size", "0"))
               / 1024
               / 1024;
+      if (offHeapMiB <= 0) {
+        throw new IllegalArgumentException(
+            "spark.memory.offHeap.size must be at least 1MiB when "
+                + "spark.memory.offHeap.enabled == true");
+      }
+      total += offHeapMiB;
     }
     if (isPython && sparkConf.containsKey("spark.executor.pyspark.memory")) {
       total += JavaUtils.byteStringAsMb(sparkConf.get("spark.executor.pyspark.memory"));
@@ -370,30 +330,30 @@ public final class KueueWorkloadFactory {
         || (StringUtils.isEmpty(spec.getJars()) && StringUtils.isNotEmpty(spec.getSparkRFiles()));
   }
 
-  private static void ensurePodSpec(final PodTemplateSpec templateSpec) {
-    if (templateSpec.getSpec() == null) {
-      templateSpec.setSpec(new PodSpecBuilder().build());
-    }
-    if (templateSpec.getSpec().getContainers() == null) {
-      templateSpec.getSpec().setContainers(new ArrayList<>());
-    }
-  }
-
   /**
    * Like Spark's KubernetesUtils.selectSparkContainer, selects the container by name and falls
    * back to the first container. A new container is added if the template has no container.
    */
   private static Container selectContainer(
       final PodSpec podSpec, final String containerName, final String defaultContainerName) {
-    if (podSpec.getContainers().isEmpty()) {
+    List<Container> containers = podSpec.getContainers();
+    if (containers.isEmpty()) {
       Container container = new ContainerBuilder().withName(defaultContainerName).build();
-      podSpec.getContainers().add(container);
+      containers.add(container);
       return container;
     }
-    return podSpec.getContainers().stream()
-        .filter(c -> containerName != null && containerName.equals(c.getName()))
-        .findFirst()
-        .orElse(podSpec.getContainers().get(0));
+    if (containerName != null) {
+      for (Container container : containers) {
+        if (containerName.equals(container.getName())) {
+          return container;
+        }
+      }
+      log.warn(
+          "Specified container {} not found on pod template, falling back to taking the first "
+              + "container",
+          containerName);
+    }
+    return containers.get(0);
   }
 
   private static void decorateContainerResources(

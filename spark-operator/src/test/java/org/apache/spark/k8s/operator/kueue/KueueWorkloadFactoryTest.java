@@ -121,6 +121,12 @@ class KueueWorkloadFactoryTest {
     // `spark.memory.offHeap.size` is in bytes unless otherwise specified
     conf.put("spark.memory.offHeap.size", "4294967296");
     assertEquals(8601L, KueueWorkloadFactory.calculateExecutorMemoryMiB(conf, false, false));
+
+    // Like Spark, off-heap memory must be at least 1MiB when enabled
+    conf.remove("spark.memory.offHeap.size");
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> KueueWorkloadFactory.calculateExecutorMemoryMiB(conf, false, false));
   }
 
   @Test
