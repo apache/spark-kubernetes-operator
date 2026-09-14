@@ -17,23 +17,18 @@
  * under the License.
  */
 
-package org.apache.spark.k8s.operator.kueue.v1beta1;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+package org.apache.spark.k8s.operator.kueue.v1beta2;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import io.fabric8.kubernetes.api.model.Toleration;
+import io.fabric8.kubernetes.api.model.PodTemplateSpec;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * PodSetFlavors represents the resource flavors and scheduling constraints assigned to a PodSet.
+ * PodSet represents a group of pods in a Kueue Workload.
  */
 @Data
 @NoArgsConstructor
@@ -41,12 +36,9 @@ import lombok.NoArgsConstructor;
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class PodSetFlavors {
+public class PodSet {
   private String name;
-  @Builder.Default
-  private Map<String, String> flavors = new HashMap<>();
-  @Builder.Default
-  private Map<String, String> nodeSelector = new HashMap<>();
-  @Builder.Default
-  private List<Toleration> tolerations = new ArrayList<>();
+  private PodTemplateSpec template;
+  private Integer count;
+  private Integer minCount;
 }

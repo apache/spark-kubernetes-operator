@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.spark.k8s.operator.kueue.v1beta1;
+package org.apache.spark.k8s.operator.kueue.v1beta2;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -32,7 +32,7 @@ import io.fabric8.kubernetes.api.model.Condition;
 import io.fabric8.kubernetes.api.model.ConditionBuilder;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.PodTemplateSpecBuilder;
-import io.fabric8.kubernetes.api.model.TolerationBuilder;
+import io.fabric8.kubernetes.api.model.Quantity;
 import org.junit.jupiter.api.Test;
 
 import org.apache.spark.k8s.operator.Constants;
@@ -71,7 +71,12 @@ class WorkloadTest {
             .queueName("test-queue")
             .active(true)
             .podSets(List.of(driverPodSet, executorPodSet))
-            .priorityClassName("high-priority")
+            .priorityClassRef(
+                PriorityClassRef.builder()
+                    .group("kueue.x-k8s.io")
+                    .kind("WorkloadPriorityClass")
+                    .name("high-priority")
+                    .build())
             .priority(100)
             .build());
 
@@ -82,24 +87,18 @@ class WorkloadTest {
             .withReason("AdmittedByKueue")
             .build();
 
-    PodSetFlavors driverFlavors =
-        PodSetFlavors.builder()
+    PodSetAssignment driverAssignment =
+        PodSetAssignment.builder()
             .name("driver")
             .flavors(Map.of("cpu", "default-flavor"))
-            .nodeSelector(Map.of("instance-type", "m5.large"))
-            .tolerations(
-                List.of(
-                    new TolerationBuilder()
-                        .withKey("spot")
-                        .withOperator("Equal")
-                        .withValue("true")
-                        .build()))
+            .resourceUsage(Map.of("cpu", new Quantity("2")))
+            .count(1)
             .build();
 
     Admission admission =
         Admission.builder()
             .clusterQueue("cluster-queue")
-            .podSetFlavors(List.of(driverFlavors))
+            .podSetAssignments(List.of(driverAssignment))
             .build();
 
     workload.setStatus(
@@ -115,6 +114,8 @@ class WorkloadTest {
     assertEquals("test-workload", deserialized.getMetadata().getName());
     assertEquals("test-queue", deserialized.getSpec().getQueueName());
     assertTrue(deserialized.getSpec().getActive());
+    assertEquals("high-priority", deserialized.getSpec().getPriorityClassRef().getName());
+    assertEquals(100, deserialized.getSpec().getPriority());
     assertEquals(2, deserialized.getSpec().getPodSets().size());
     assertEquals("driver", deserialized.getSpec().getPodSets().get(0).getName());
     assertEquals(1, deserialized.getSpec().getPodSets().get(0).getCount());
@@ -125,16 +126,13 @@ class WorkloadTest {
     assertFalse(deserialized.getStatus().isFinished());
     assertNotNull(deserialized.getStatus().getAdmission());
     assertEquals("cluster-queue", deserialized.getStatus().getAdmission().getClusterQueue());
-    assertEquals(1, deserialized.getStatus().getAdmission().getPodSetFlavors().size());
-    assertEquals(
-        "m5.large",
-        deserialized
-            .getStatus()
-            .getAdmission()
-            .getPodSetFlavors()
-            .get(0)
-            .getNodeSelector()
-            .get("instance-type"));
+    assertEquals(1, deserialized.getStatus().getAdmission().getPodSetAssignments().size());
+    PodSetAssignment assignment =
+        deserialized.getStatus().getAdmission().getPodSetAssignments().get(0);
+    assertEquals("driver", assignment.getName());
+    assertEquals("default-flavor", assignment.getFlavors().get("cpu"));
+    assertEquals(new Quantity("2"), assignment.getResourceUsage().get("cpu"));
+    assertEquals(1, assignment.getCount());
   }
 
   @Test
