@@ -17,39 +17,34 @@
  * under the License.
  */
 
-package org.apache.spark.k8s.operator.kueue.v1beta1;
+package org.apache.spark.k8s.operator.kueue.v1beta2;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import io.fabric8.kubernetes.api.model.Namespaced;
-import io.fabric8.kubernetes.client.CustomResource;
-import io.fabric8.kubernetes.model.annotation.Group;
-import io.fabric8.kubernetes.model.annotation.Version;
-import lombok.EqualsAndHashCode;
-import lombok.ToString;
-
-import org.apache.spark.k8s.operator.Constants;
+import io.fabric8.kubernetes.api.model.Quantity;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
- * Fabric8 CustomResource representation of a Kueue Workload (kueue.x-k8s.io/v1beta1).
+ * PodSetAssignment represents the admission result (flavors and resource usage) for a PodSet.
  */
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
-@JsonDeserialize
-@Group(Constants.KUEUE_API_GROUP)
-@Version(Constants.KUEUE_API_VERSION)
 @JsonIgnoreProperties(ignoreUnknown = true)
-@EqualsAndHashCode(callSuper = true)
-@ToString(callSuper = true)
-public class Workload extends CustomResource<WorkloadSpec, WorkloadStatus> implements Namespaced {
-
-  @Override
-  protected WorkloadSpec initSpec() {
-    return new WorkloadSpec();
-  }
-
-  @Override
-  protected WorkloadStatus initStatus() {
-    return new WorkloadStatus();
-  }
+public class PodSetAssignment {
+  private String name;
+  @Builder.Default
+  private Map<String, String> flavors = new HashMap<>();
+  @Builder.Default
+  private Map<String, Quantity> resourceUsage = new HashMap<>();
+  private Integer count;
 }

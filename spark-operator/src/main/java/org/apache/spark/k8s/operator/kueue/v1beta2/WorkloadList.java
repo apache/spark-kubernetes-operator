@@ -17,33 +17,13 @@
  * under the License.
  */
 
-package org.apache.spark.k8s.operator.kueue.v1beta1;
+package org.apache.spark.k8s.operator.kueue.v1beta2;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
+import io.fabric8.kubernetes.api.model.DefaultKubernetesResourceList;
 import lombok.NoArgsConstructor;
 
 /**
- * WorkloadSpec is the specification of a Kueue Workload.
+ * List of Kueue Workloads.
  */
-@Data
 @NoArgsConstructor
-@AllArgsConstructor
-@Builder
-@JsonInclude(JsonInclude.Include.NON_NULL)
-@JsonIgnoreProperties(ignoreUnknown = true)
-public class WorkloadSpec {
-  private String queueName;
-  @Builder.Default
-  private Boolean active = true;
-  @Builder.Default
-  private List<PodSet> podSets = new ArrayList<>();
-  private String priorityClassName;
-  private Integer priority;
-}
+public class WorkloadList extends DefaultKubernetesResourceList<Workload> {}

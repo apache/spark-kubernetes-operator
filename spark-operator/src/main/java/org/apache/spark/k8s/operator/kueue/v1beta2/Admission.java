@@ -17,21 +17,20 @@
  * under the License.
  */
 
-package org.apache.spark.k8s.operator.kueue.v1beta1;
+package org.apache.spark.k8s.operator.kueue.v1beta2;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import io.fabric8.kubernetes.api.model.Condition;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * WorkloadStatus represents the current status of a Kueue Workload.
+ * Admission represents the admission decisions made by Kueue for a Workload.
  */
 @Data
 @NoArgsConstructor
@@ -39,36 +38,8 @@ import lombok.NoArgsConstructor;
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class WorkloadStatus {
+public class Admission {
+  private String clusterQueue;
   @Builder.Default
-  private List<Condition> conditions = new ArrayList<>();
-  private Admission admission;
-
-  /**
-   * Checks if the workload has been admitted by Kueue.
-   *
-   * @return true if an "Admitted" condition exists with status "True", false otherwise.
-   */
-  public boolean isAdmitted() {
-    return conditions != null
-        && conditions.stream()
-            .anyMatch(
-                c ->
-                    "Admitted".equalsIgnoreCase(c.getType())
-                        && "True".equalsIgnoreCase(c.getStatus()));
-  }
-
-  /**
-   * Checks if the workload has finished.
-   *
-   * @return true if a "Finished" condition exists with status "True", false otherwise.
-   */
-  public boolean isFinished() {
-    return conditions != null
-        && conditions.stream()
-            .anyMatch(
-                c ->
-                    "Finished".equalsIgnoreCase(c.getType())
-                        && "True".equalsIgnoreCase(c.getStatus()));
-  }
+  private List<PodSetAssignment> podSetAssignments = new ArrayList<>();
 }

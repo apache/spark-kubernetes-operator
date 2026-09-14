@@ -51,7 +51,7 @@ public class Constants {
   public static final String KUEUE_API_GROUP = "kueue.x-k8s.io";
 
   /** The API version for Kueue resources. */
-  public static final String KUEUE_API_VERSION = "v1beta1";
+  public static final String KUEUE_API_VERSION = "v1beta2";
 
   /** The CRD name for Kueue Workload. */
   public static final String KUEUE_WORKLOAD_CRD_NAME = "workloads.kueue.x-k8s.io";
