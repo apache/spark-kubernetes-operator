@@ -304,3 +304,11 @@ jobs:
       - name: Validate helm chart linting
         run: |
           helm lint --strict build-tools/helm/spark-kubernetes-operator
+      - name: Validate deprecated helm values are still honored
+        run: |
+          helm template spark build-tools/helm/spark-kubernetes-operator \
+            --set operatorDeployment.networkPolicy.enable=true \
+            | grep -q 'kind: NetworkPolicy'
+          helm template spark build-tools/helm/spark-kubernetes-operator \
+            --set operatorConfiguration.dynamicConfig.enable=true \
+            | grep -q 'spark.kubernetes.operator.dynamicConfig.enabled=true'

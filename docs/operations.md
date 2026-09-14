@@ -133,7 +133,8 @@ following table:
 | operatorConfiguration.spark-operator.properties                  | The default operator configuration.                                                                                                                                            |                                                                                                         |
 | operatorConfiguration.metrics.properties                         | The default operator metrics (sink) configuration.                                                                                                                             |                                                                                                         |
 | operatorConfiguration.dynamicConfig.create                       | If set to true, a config map would be created & watched by operator as source of truth for hot properties loading.                                                             | false                                                                                                   |
-| operatorConfiguration.dynamicConfig.enable                       | If set to true, operator would honor the created config map as source of truth for hot properties loading.                                                                     | false                                                                                                   |
+| operatorConfiguration.dynamicConfig.enabled                      | If set to true, operator would honor the created config map as source of truth for hot properties loading.                                                                     | false                                                                                                   |
+| operatorConfiguration.dynamicConfig.enable                       | Deprecated, use `operatorConfiguration.dynamicConfig.enabled`. Still honored (enabled when either key is true); removed in chart 2.0.0.                                        |                                                                                                         |
 | operatorConfiguration.dynamicConfig.annotations                  | Annotations to be applied for the dynamicConfig resources.                                                                                                                     | `"helm.sh/resource-policy": keep`                                                                       |
 | operatorConfiguration.dynamicConfig.data                         | Data field (key-value pairs) that acts as hot properties in the config map.                                                                                                    | `spark.kubernetes.operator.reconciler.intervalSeconds: "60"`                                            |
 
@@ -154,7 +155,7 @@ for the operator pod:
 ```yaml
 operatorDeployment:
   networkPolicy:
-    enable: true
+    enabled: true
     metricsIngress:
       - namespaceSelector:
           matchLabels:

@@ -107,13 +107,33 @@ List of Spark workload namespaces. If not provied in values, use the same namesp
 {{- end }}
 
 {{/*
+Whether the operator pod NetworkPolicy is enabled. The legacy key
+{operatorDeployment.networkPolicy.enable} is deprecated but still honored: the feature is
+enabled when either key is true.
+*/}}
+{{- define "spark-operator.networkPolicy.enabled" -}}
+{{- $np := .Values.operatorDeployment.networkPolicy -}}
+{{- if or $np.enabled $np.enable }}true{{ else }}false{{ end -}}
+{{- end }}
+
+{{/*
+Whether dynamic config (hot properties loading) is enabled. The legacy key
+{operatorConfiguration.dynamicConfig.enable} is deprecated but still honored: the feature is
+enabled when either key is true.
+*/}}
+{{- define "spark-operator.dynamicConfig.enabled" -}}
+{{- $dc := .Values.operatorConfiguration.dynamicConfig -}}
+{{- if or $dc.enabled $dc.enable }}true{{ else }}false{{ end -}}
+{{- end }}
+
+{{/*
 Default property overrides
 */}}
 {{- define "spark-operator.defaultPropertyOverrides" -}}
 # Runtime resolved properties
 spark.kubernetes.operator.namespace={{ .Release.Namespace }}
 spark.kubernetes.operator.name={{- include "spark-operator.name" . }}
-spark.kubernetes.operator.dynamicConfig.enabled={{ .Values.operatorConfiguration.dynamicConfig.enable }}
+spark.kubernetes.operator.dynamicConfig.enabled={{ include "spark-operator.dynamicConfig.enabled" . }}
 spark.kubernetes.operator.dynamicConfig.source={{ .Values.operatorConfiguration.dynamicConfig.source }}
 spark.kubernetes.operator.metrics.port={{ include "spark-operator.metricsPort" . }}
 spark.kubernetes.operator.health.probePort={{ include "spark-operator.probePort" . }}

@@ -21,7 +21,7 @@
 
 operatorDeployment:
   networkPolicy:
-    enable: true
+    enabled: true
     metricsIngress:
       - namespaceSelector:
           matchLabels:
