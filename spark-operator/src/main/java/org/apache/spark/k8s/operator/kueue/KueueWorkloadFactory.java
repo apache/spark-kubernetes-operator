@@ -24,8 +24,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerBuilder;
@@ -39,29 +37,29 @@ import io.fabric8.kubernetes.api.model.PodTemplateSpecBuilder;
 import io.fabric8.kubernetes.api.model.Quantity;
 import io.fabric8.kubernetes.api.model.ResourceRequirements;
 import io.fabric8.kubernetes.api.model.ResourceRequirementsBuilder;
-import io.fabric8.kubernetes.api.model.apps.StatefulSetSpec;
-import lombok.extern.slf4j.Slf4j;
+import io.fabric8.kubernetes.api.model.apps.StatefulSet;
 
 import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.SparkCluster;
+import org.apache.spark.k8s.operator.SparkClusterResourceSpec;
+import org.apache.spark.k8s.operator.SparkClusterSubmissionWorker;
 import org.apache.spark.k8s.operator.kueue.v1beta1.PodSet;
 import org.apache.spark.k8s.operator.kueue.v1beta1.Workload;
 import org.apache.spark.k8s.operator.kueue.v1beta1.WorkloadSpec;
+import org.apache.spark.k8s.operator.reconciler.SparkClusterResourceSpecFactory;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 import org.apache.spark.k8s.operator.spec.ClusterSpec;
-import org.apache.spark.k8s.operator.spec.MasterSpec;
-import org.apache.spark.k8s.operator.spec.WorkerSpec;
 import org.apache.spark.k8s.operator.utils.ModelUtils;
 import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 import org.apache.spark.k8s.operator.utils.StringUtils;
+import org.apache.spark.network.util.JavaUtils;
 
 /**
  * Factory for creating Kueue Workload resources from Spark custom resources.
  * This factory supports both {@link SparkApplication} (driver and executor pod sets)
  * and {@link SparkCluster} (master and worker pod sets).
  */
-@Slf4j
 @SuppressWarnings("PMD.GodClass")
 public final class KueueWorkloadFactory {
 
@@ -72,12 +70,10 @@ public final class KueueWorkloadFactory {
 
   public static final String DEFAULT_CORES = "1";
   public static final String DEFAULT_MEMORY = "1g";
+  public static final String DEFAULT_MIN_MEMORY_OVERHEAD = "384m";
   public static final double DEFAULT_MEMORY_OVERHEAD_FACTOR = 0.10;
-  public static final long MIN_MEMORY_OVERHEAD_MIB = 384L;
-  public static final String DEFAULT_GPU_VENDOR = "nvidia.com/gpu";
-
-  private static final Pattern MEMORY_PATTERN =
-      Pattern.compile("^(\\d+)(?:[\\.,](\\d+))?\\s*([a-zA-Z]*)$");
+  public static final double NON_JVM_MEMORY_OVERHEAD_FACTOR = 0.40;
+  public static final int DEFAULT_EXECUTOR_INSTANCES = 2;
 
   private KueueWorkloadFactory() {}
 
@@ -119,7 +115,7 @@ public final class KueueWorkloadFactory {
     Workload workload = new Workload();
     workload.setMetadata(
         new ObjectMetaBuilder()
-            .withName(app.getMetadata().getName())
+            .withName(getWorkloadName(app))
             .withNamespace(app.getMetadata().getNamespace())
             .withLabels(labels)
             .withOwnerReferences(ownerReference)
@@ -145,15 +141,19 @@ public final class KueueWorkloadFactory {
     String queueName = getQueueName(cluster);
     ClusterSpec clusterSpec = cluster.getSpec();
 
+    // Use the same StatefulSets which the operator creates for the cluster.
+    SparkClusterResourceSpec resourceSpec =
+        SparkClusterResourceSpecFactory.buildResourceSpec(
+            cluster, new SparkClusterSubmissionWorker());
+    if (resourceSpec.getHorizontalPodAutoscaler().isPresent()) {
+      throw new UnsupportedOperationException(
+          "Kueue does not support SparkCluster with HorizontalPodAutoscaler "
+              + "(minWorkers < maxWorkers) yet.");
+    }
+
     List<PodSet> podSets = new ArrayList<>();
-    PodSet masterPodSet = buildMasterPodSet(cluster);
-    if (masterPodSet != null) {
-      podSets.add(masterPodSet);
-    }
-    PodSet workerPodSet = buildWorkerPodSet(cluster);
-    if (workerPodSet != null) {
-      podSets.add(workerPodSet);
-    }
+    podSets.add(buildPodSet(PODSET_MASTER, resourceSpec.getMasterStatefulSet()));
+    podSets.add(buildPodSet(PODSET_WORKER, resourceSpec.getWorkerStatefulSet()));
 
     boolean active = clusterSpec == null || !clusterSpec.isSuspend();
 
@@ -172,7 +172,7 @@ public final class KueueWorkloadFactory {
     Workload workload = new Workload();
     workload.setMetadata(
         new ObjectMetaBuilder()
-            .withName(cluster.getMetadata().getName())
+            .withName(getWorkloadName(cluster))
             .withNamespace(cluster.getMetadata().getNamespace())
             .withLabels(labels)
             .withOwnerReferences(ownerReference)
@@ -188,69 +188,20 @@ public final class KueueWorkloadFactory {
     return workload;
   }
 
-  /**
-   * Builds the master PodSet for a SparkCluster.
-   *
-   * @param cluster The SparkCluster.
-   * @return The master PodSet.
-   */
-  public static PodSet buildMasterPodSet(final SparkCluster cluster) {
-    if (cluster == null
-        || cluster.getSpec() == null
-        || cluster.getSpec().getMasterSpec() == null) {
-      return null;
-    }
-    MasterSpec masterSpec = cluster.getSpec().getMasterSpec();
-    StatefulSetSpec ssSpec = masterSpec.getStatefulSetSpec();
-    int count = ssSpec != null && ssSpec.getReplicas() != null ? ssSpec.getReplicas() : 1;
-    PodTemplateSpec template =
-        ssSpec != null && ssSpec.getTemplate() != null
-            ? ReconcilerUtils.clone(ssSpec.getTemplate())
-            : new PodTemplateSpec();
-
+  private static PodSet buildPodSet(final String name, final StatefulSet statefulSet) {
     return PodSet.builder()
-        .name(PODSET_MASTER)
-        .count(count)
-        .template(template)
+        .name(name)
+        .count(statefulSet.getSpec().getReplicas())
+        .template(statefulSet.getSpec().getTemplate())
         .build();
   }
 
   /**
-   * Builds the worker PodSet for a SparkCluster.
-   *
-   * @param cluster The SparkCluster.
-   * @return The worker PodSet.
+   * Returns the Workload name prefixed with the lower-cased kind of the owner resource, like Kueue
+   * built-in integrations, to avoid name collisions between SparkApplication and SparkCluster.
    */
-  public static PodSet buildWorkerPodSet(final SparkCluster cluster) {
-    if (cluster == null
-        || cluster.getSpec() == null
-        || cluster.getSpec().getWorkerSpec() == null) {
-      return null;
-    }
-    WorkerSpec workerSpec = cluster.getSpec().getWorkerSpec();
-    StatefulSetSpec ssSpec = workerSpec.getStatefulSetSpec();
-    int count = ssSpec != null && ssSpec.getReplicas() != null ? ssSpec.getReplicas() : 1;
-    Integer minCount = null;
-
-    if (workerSpec.getHorizontalPodAutoscalerSpec() != null) {
-      minCount = workerSpec.getHorizontalPodAutoscalerSpec().getMinReplicas();
-      count = workerSpec.getHorizontalPodAutoscalerSpec().getMaxReplicas();
-    }
-
-    PodTemplateSpec template =
-        ssSpec != null && ssSpec.getTemplate() != null
-            ? ReconcilerUtils.clone(ssSpec.getTemplate())
-            : new PodTemplateSpec();
-
-    PodSet.PodSetBuilder builder =
-        PodSet.builder()
-            .name(PODSET_WORKER)
-            .count(count)
-            .template(template);
-    if (minCount != null) {
-      builder.minCount(minCount);
-    }
-    return builder.build();
+  private static String getWorkloadName(final HasMetadata resource) {
+    return resource.getKind().toLowerCase(Locale.ROOT) + "-" + resource.getMetadata().getName();
   }
 
   /**
@@ -272,26 +223,6 @@ public final class KueueWorkloadFactory {
   }
 
   /**
-   * Extracts the Kueue queue name from the SparkApplication metadata.
-   *
-   * @param app The SparkApplication.
-   * @return The queue name, or null if not found.
-   */
-  public static String getQueueName(final SparkApplication app) {
-    return getQueueName((HasMetadata) app);
-  }
-
-  /**
-   * Extracts the Kueue queue name from the SparkCluster metadata.
-   *
-   * @param cluster The SparkCluster.
-   * @return The queue name, or null if not found.
-   */
-  public static String getQueueName(final SparkCluster cluster) {
-    return getQueueName((HasMetadata) cluster);
-  }
-
-  /**
    * Checks whether the resource is configured to use Kueue.
    *
    * @param resource The Kubernetes resource (SparkApplication or SparkCluster).
@@ -299,26 +230,6 @@ public final class KueueWorkloadFactory {
    */
   public static boolean hasQueueName(final HasMetadata resource) {
     return StringUtils.isNotEmpty(getQueueName(resource));
-  }
-
-  /**
-   * Checks whether the SparkApplication is configured to use Kueue.
-   *
-   * @param app The SparkApplication.
-   * @return true if a Kueue queue name is specified.
-   */
-  public static boolean hasQueueName(final SparkApplication app) {
-    return hasQueueName((HasMetadata) app);
-  }
-
-  /**
-   * Checks whether the SparkCluster is configured to use Kueue.
-   *
-   * @param cluster The SparkCluster.
-   * @return true if a Kueue queue name is specified.
-   */
-  public static boolean hasQueueName(final SparkCluster cluster) {
-    return hasQueueName((HasMetadata) cluster);
   }
 
   /**
@@ -341,12 +252,18 @@ public final class KueueWorkloadFactory {
         sparkConf.getOrDefault(
             "spark.kubernetes.driver.request.cores",
             sparkConf.getOrDefault("spark.driver.cores", DEFAULT_CORES));
-    long memoryMiB = calculateDriverMemoryMiB(sparkConf);
+    long memoryMiB = calculateDriverMemoryMiB(sparkConf, isNonJvmApp(app.getSpec()));
     String gpuAmount = sparkConf.get("spark.driver.resource.gpu.amount");
-    String gpuVendor =
-        sparkConf.getOrDefault("spark.driver.resource.gpu.vendor", DEFAULT_GPU_VENDOR);
+    String gpuVendor = sparkConf.get("spark.driver.resource.gpu.vendor");
 
-    decorateTemplateResources(templateSpec, "spark-driver", cpu, memoryMiB, gpuAmount, gpuVendor);
+    decorateTemplateResources(
+        templateSpec,
+        sparkConf.get(Constants.DRIVER_SPARK_CONTAINER_PROP_KEY),
+        "spark-driver",
+        cpu,
+        memoryMiB,
+        gpuAmount,
+        gpuVendor);
 
     return PodSet.builder()
         .name(PODSET_DRIVER)
@@ -360,6 +277,11 @@ public final class KueueWorkloadFactory {
    */
   public static PodSet buildExecutorPodSet(
       final SparkApplication app, final Map<String, String> sparkConf) {
+    if ("true".equalsIgnoreCase(sparkConf.get("spark.dynamicAllocation.enabled"))) {
+      throw new UnsupportedOperationException(
+          "Kueue does not support SparkApplication with dynamic allocation "
+              + "(spark.dynamicAllocation.enabled=true) yet.");
+    }
     PodTemplateSpec templateSpec = null;
     if (app.getSpec() != null
         && app.getSpec().getExecutorSpec() != null
@@ -375,37 +297,24 @@ public final class KueueWorkloadFactory {
         sparkConf.getOrDefault(
             "spark.kubernetes.executor.request.cores",
             sparkConf.getOrDefault("spark.executor.cores", DEFAULT_CORES));
-    long memoryMiB = calculateExecutorMemoryMiB(sparkConf);
+    long memoryMiB =
+        calculateExecutorMemoryMiB(
+            sparkConf, isNonJvmApp(app.getSpec()), isPythonApp(app.getSpec()));
     String gpuAmount = sparkConf.get("spark.executor.resource.gpu.amount");
-    String gpuVendor =
-        sparkConf.getOrDefault("spark.executor.resource.gpu.vendor", DEFAULT_GPU_VENDOR);
+    String gpuVendor = sparkConf.get("spark.executor.resource.gpu.vendor");
 
     decorateTemplateResources(
-        templateSpec, "spark-executor", cpu, memoryMiB, gpuAmount, gpuVendor);
-
-    boolean dynamicAllocation =
-        Boolean.parseBoolean(sparkConf.getOrDefault("spark.dynamicAllocation.enabled", "false"));
-    int count;
-    Integer minCount = null;
-    if (dynamicAllocation) {
-      int maxExecutors =
-          parseInt(
-              sparkConf.get("spark.dynamicAllocation.maxExecutors"),
-              parseInt(sparkConf.get("spark.executor.instances"), 1));
-      int minExecutors =
-          parseInt(
-              sparkConf.get("spark.dynamicAllocation.minExecutors"),
-              parseInt(sparkConf.get("spark.dynamicAllocation.initialExecutors"), 0));
-      count = maxExecutors;
-      minCount = minExecutors;
-    } else {
-      count = parseInt(sparkConf.get("spark.executor.instances"), 1);
-    }
+        templateSpec,
+        sparkConf.get("spark.kubernetes.executor.podTemplateContainerName"),
+        "spark-executor",
+        cpu,
+        memoryMiB,
+        gpuAmount,
+        gpuVendor);
 
     return PodSet.builder()
         .name(PODSET_EXECUTOR)
-        .count(count)
-        .minCount(minCount)
+        .count(parseInt(sparkConf.get("spark.executor.instances"), DEFAULT_EXECUTOR_INSTANCES))
         .template(templateSpec)
         .build();
   }
@@ -413,74 +322,68 @@ public final class KueueWorkloadFactory {
   /**
    * Calculates total driver memory in MiB including overhead.
    */
-  public static long calculateDriverMemoryMiB(final Map<String, String> sparkConf) {
-    String memStr = sparkConf.getOrDefault("spark.driver.memory", DEFAULT_MEMORY);
-    long memMiB = parseMemoryToMiB(memStr);
-    long overheadMiB;
-    if (sparkConf.containsKey("spark.driver.memoryOverhead")) {
-      overheadMiB = parseMemoryToMiB(sparkConf.get("spark.driver.memoryOverhead"));
-    } else {
-      double factor =
-          parseDouble(
-              sparkConf.get("spark.driver.memoryOverheadFactor"), DEFAULT_MEMORY_OVERHEAD_FACTOR);
-      overheadMiB = Math.max((long) Math.ceil(memMiB * factor), MIN_MEMORY_OVERHEAD_MIB);
-    }
-    return memMiB + overheadMiB;
+  public static long calculateDriverMemoryMiB(
+      final Map<String, String> sparkConf, final boolean isNonJvm) {
+    long memMiB =
+        JavaUtils.byteStringAsMb(sparkConf.getOrDefault("spark.driver.memory", DEFAULT_MEMORY));
+    return memMiB + calculateMemoryOverheadMiB(sparkConf, "spark.driver", memMiB, isNonJvm);
   }
 
   /**
-   * Calculates total executor memory in MiB including overhead and optional PySpark memory.
+   * Calculates total executor memory in MiB including overhead, off-heap memory and PySpark
+   * memory.
    */
-  public static long calculateExecutorMemoryMiB(final Map<String, String> sparkConf) {
-    String memStr = sparkConf.getOrDefault("spark.executor.memory", DEFAULT_MEMORY);
-    long memMiB = parseMemoryToMiB(memStr);
-    long overheadMiB;
-    if (sparkConf.containsKey("spark.executor.memoryOverhead")) {
-      overheadMiB = parseMemoryToMiB(sparkConf.get("spark.executor.memoryOverhead"));
-    } else {
-      double factor =
-          parseDouble(
-              sparkConf.get("spark.executor.memoryOverheadFactor"),
-              DEFAULT_MEMORY_OVERHEAD_FACTOR);
-      overheadMiB = Math.max((long) Math.ceil(memMiB * factor), MIN_MEMORY_OVERHEAD_MIB);
+  public static long calculateExecutorMemoryMiB(
+      final Map<String, String> sparkConf, final boolean isNonJvm, final boolean isPython) {
+    long memMiB =
+        JavaUtils.byteStringAsMb(sparkConf.getOrDefault("spark.executor.memory", DEFAULT_MEMORY));
+    long total =
+        memMiB + calculateMemoryOverheadMiB(sparkConf, "spark.executor", memMiB, isNonJvm);
+    if ("true".equalsIgnoreCase(sparkConf.get("spark.memory.offHeap.enabled"))) {
+      // `spark.memory.offHeap.size` is in bytes unless otherwise specified.
+      total +=
+          JavaUtils.byteStringAsBytes(sparkConf.getOrDefault("spark.memory.offHeap.size", "0"))
+              / 1024
+              / 1024;
     }
-    long total = memMiB + overheadMiB;
-    if (sparkConf.containsKey("spark.executor.pyspark.memory")) {
-      total += parseMemoryToMiB(sparkConf.get("spark.executor.pyspark.memory"));
+    if (isPython && sparkConf.containsKey("spark.executor.pyspark.memory")) {
+      total += JavaUtils.byteStringAsMb(sparkConf.get("spark.executor.pyspark.memory"));
     }
     return total;
   }
 
-  /**
-   * Parses memory string like '1g', '512m', '2048Mi' to MiB.
-   */
-  public static long parseMemoryToMiB(final String memoryStr) {
-    if (StringUtils.isEmpty(memoryStr)) {
-      return parseMemoryToMiB(DEFAULT_MEMORY);
+  private static long calculateMemoryOverheadMiB(
+      final Map<String, String> sparkConf,
+      final String prefix,
+      final long memMiB,
+      final boolean isNonJvm) {
+    String overhead = sparkConf.get(prefix + ".memoryOverhead");
+    if (StringUtils.isNotEmpty(overhead)) {
+      return JavaUtils.byteStringAsMb(overhead);
     }
-    Matcher matcher = MEMORY_PATTERN.matcher(memoryStr.trim());
-    if (!matcher.matches()) {
-      log.warn("Unable to parse memory string '{}', using default {}", memoryStr, DEFAULT_MEMORY);
-      return parseMemoryToMiB(DEFAULT_MEMORY);
-    }
-    long integerPart = Long.parseLong(matcher.group(1));
-    String fractionPart = matcher.group(2);
-    String unit = matcher.group(3).toLowerCase(Locale.ROOT);
+    // Like Spark's BasicDriverFeatureStep, the deprecated `spark.kubernetes.memoryOverheadFactor`
+    // or the default factor (0.4 for non-JVM applications) is used if not set explicitly.
+    double defaultFactor =
+        parseDouble(
+            sparkConf.get("spark.kubernetes.memoryOverheadFactor"),
+            isNonJvm ? NON_JVM_MEMORY_OVERHEAD_FACTOR : DEFAULT_MEMORY_OVERHEAD_FACTOR);
+    double factor = parseDouble(sparkConf.get(prefix + ".memoryOverheadFactor"), defaultFactor);
+    long minOverheadMiB =
+        JavaUtils.byteStringAsMb(
+            sparkConf.getOrDefault(prefix + ".minMemoryOverhead", DEFAULT_MIN_MEMORY_OVERHEAD));
+    return Math.max((int) (factor * memMiB), minOverheadMiB);
+  }
 
-    double value = integerPart;
-    if (fractionPart != null && !fractionPart.isEmpty()) {
-      value += Double.parseDouble("0." + fractionPart);
-    }
+  /** Follows the main application resource selection of SparkAppSubmissionWorker. */
+  private static boolean isPythonApp(final ApplicationSpec spec) {
+    return StringUtils.isEmpty(spec.getJars())
+        && ("org.apache.spark.deploy.PythonRunner".equals(spec.getMainClass())
+            || StringUtils.isNotEmpty(spec.getPyFiles()));
+  }
 
-    return switch (unit) {
-      case "b" -> (long) Math.ceil(value / (1024.0 * 1024.0));
-      case "k", "kb", "ki", "kib" -> (long) Math.ceil(value / 1024.0);
-      case "m", "mb", "mi", "mib", "" -> (long) Math.ceil(value);
-      case "g", "gb", "gi", "gib" -> (long) Math.ceil(value * 1024.0);
-      case "t", "tb", "ti", "tib" -> (long) Math.ceil(value * 1024.0 * 1024.0);
-      case "p", "pb", "pi", "pib" -> (long) Math.ceil(value * 1024.0 * 1024.0 * 1024.0);
-      default -> (long) Math.ceil(value);
-    };
+  private static boolean isNonJvmApp(final ApplicationSpec spec) {
+    return isPythonApp(spec)
+        || (StringUtils.isEmpty(spec.getJars()) && StringUtils.isNotEmpty(spec.getSparkRFiles()));
   }
 
   private static void ensurePodSpec(final PodTemplateSpec templateSpec) {
@@ -494,6 +397,7 @@ public final class KueueWorkloadFactory {
 
   private static void decorateTemplateResources(
       final PodTemplateSpec templateSpec,
+      final String containerName,
       final String defaultContainerName,
       final String cpu,
       final long memoryMiB,
@@ -505,7 +409,13 @@ public final class KueueWorkloadFactory {
       container = new ContainerBuilder().withName(defaultContainerName).build();
       podSpec.getContainers().add(container);
     } else {
-      container = podSpec.getContainers().get(0);
+      // Like Spark's KubernetesUtils.selectSparkContainer, select the container by name and
+      // fall back to the first container.
+      container =
+          podSpec.getContainers().stream()
+              .filter(c -> containerName != null && containerName.equals(c.getName()))
+              .findFirst()
+              .orElse(podSpec.getContainers().get(0));
     }
 
     ResourceRequirements resources = container.getResources();
@@ -520,25 +430,24 @@ public final class KueueWorkloadFactory {
       resources.setRequests(requests);
     }
 
-    if (!requests.containsKey("cpu")) {
-      requests.put("cpu", new Quantity(cpu));
-    }
-    if (!requests.containsKey("memory")) {
-      requests.put("memory", new Quantity(memoryMiB + "Mi"));
-    }
+    // Like Spark, overwrite the requests of the pod template.
+    requests.put("cpu", new Quantity(cpu));
+    requests.put("memory", new Quantity(memoryMiB + "Mi"));
 
     if (StringUtils.isNotEmpty(gpuAmount)) {
-      if (!requests.containsKey(gpuVendor)) {
-        requests.put(gpuVendor, new Quantity(gpuAmount));
+      if (StringUtils.isEmpty(gpuVendor)) {
+        throw new IllegalArgumentException(
+            "Resource: gpu was requested, but vendor was not specified.");
       }
+      // Like Spark's KubernetesConf.buildKubernetesResourceName, e.g., `nvidia.com/gpu`.
+      String gpuResourceName = gpuVendor + "/gpu";
+      requests.put(gpuResourceName, new Quantity(gpuAmount));
       Map<String, Quantity> limits = resources.getLimits();
       if (limits == null) {
         limits = new HashMap<>();
         resources.setLimits(limits);
       }
-      if (!limits.containsKey(gpuVendor)) {
-        limits.put(gpuVendor, new Quantity(gpuAmount));
-      }
+      limits.put(gpuResourceName, new Quantity(gpuAmount));
     }
   }
 

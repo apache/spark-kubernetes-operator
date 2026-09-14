@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.HashMap;
@@ -36,7 +37,6 @@ import io.fabric8.kubernetes.api.model.PodTemplateSpecBuilder;
 import io.fabric8.kubernetes.api.model.Quantity;
 import io.fabric8.kubernetes.api.model.ResourceRequirementsBuilder;
 import io.fabric8.kubernetes.api.model.apps.StatefulSetSpecBuilder;
-import io.fabric8.kubernetes.api.model.autoscaling.v2.HorizontalPodAutoscalerSpecBuilder;
 import org.junit.jupiter.api.Test;
 
 import org.apache.spark.k8s.operator.Constants;
@@ -47,59 +47,99 @@ import org.apache.spark.k8s.operator.kueue.v1beta1.Workload;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 import org.apache.spark.k8s.operator.spec.BaseApplicationTemplateSpec;
 import org.apache.spark.k8s.operator.spec.ClusterSpec;
+import org.apache.spark.k8s.operator.spec.ClusterTolerations;
 import org.apache.spark.k8s.operator.spec.MasterSpec;
+import org.apache.spark.k8s.operator.spec.RuntimeVersions;
+import org.apache.spark.k8s.operator.spec.WorkerInstanceConfig;
 import org.apache.spark.k8s.operator.spec.WorkerSpec;
 
 class KueueWorkloadFactoryTest {
 
   @Test
-  void testParseMemoryToMiB() {
-    assertEquals(1024L, KueueWorkloadFactory.parseMemoryToMiB("1g"));
-    assertEquals(1024L, KueueWorkloadFactory.parseMemoryToMiB("1G"));
-    assertEquals(1024L, KueueWorkloadFactory.parseMemoryToMiB("1gi"));
-    assertEquals(1024L, KueueWorkloadFactory.parseMemoryToMiB("1GiB"));
-    assertEquals(512L, KueueWorkloadFactory.parseMemoryToMiB("512m"));
-    assertEquals(512L, KueueWorkloadFactory.parseMemoryToMiB("512M"));
-    assertEquals(512L, KueueWorkloadFactory.parseMemoryToMiB("512Mi"));
-    assertEquals(2048L, KueueWorkloadFactory.parseMemoryToMiB("2048"));
-    assertEquals(2048L, KueueWorkloadFactory.parseMemoryToMiB("2048m"));
-    assertEquals(2L, KueueWorkloadFactory.parseMemoryToMiB("2048k"));
-    assertEquals(1L, KueueWorkloadFactory.parseMemoryToMiB("1048576b"));
-    assertEquals(1024L * 1024L, KueueWorkloadFactory.parseMemoryToMiB("1t"));
-    assertEquals(1024L * 1024L * 1024L, KueueWorkloadFactory.parseMemoryToMiB("1p"));
-    // Default fallback on empty/invalid
-    assertEquals(1024L, KueueWorkloadFactory.parseMemoryToMiB(null));
-    assertEquals(1024L, KueueWorkloadFactory.parseMemoryToMiB("invalid"));
-  }
-
-  @Test
   void testCalculateDriverMemoryMiB() {
-    // 1g memory -> 1024MiB. Overhead factor 0.10 -> 102.4MiB -> min 384MiB.
+    // 1g memory -> 1024MiB. Overhead factor 0.10 -> 102MiB -> min 384MiB.
     // Total = 1024 + 384 = 1408
     Map<String, String> conf = new HashMap<>();
     conf.put("spark.driver.memory", "1g");
-    assertEquals(1408L, KueueWorkloadFactory.calculateDriverMemoryMiB(conf));
+    assertEquals(1408L, KueueWorkloadFactory.calculateDriverMemoryMiB(conf, false));
 
     // Explicit overhead 512m -> 1024 + 512 = 1536
     conf.put("spark.driver.memoryOverhead", "512m");
-    assertEquals(1536L, KueueWorkloadFactory.calculateDriverMemoryMiB(conf));
+    assertEquals(1536L, KueueWorkloadFactory.calculateDriverMemoryMiB(conf, false));
 
     // Custom overhead factor 0.50 -> 1024 * 0.50 = 512 -> 1024 + 512 = 1536
     conf.remove("spark.driver.memoryOverhead");
     conf.put("spark.driver.memoryOverheadFactor", "0.50");
-    assertEquals(1536L, KueueWorkloadFactory.calculateDriverMemoryMiB(conf));
+    assertEquals(1536L, KueueWorkloadFactory.calculateDriverMemoryMiB(conf, false));
+
+    // Custom minimum overhead 1g -> 1024 + max(512, 1024) = 2048
+    conf.put("spark.driver.minMemoryOverhead", "1g");
+    assertEquals(2048L, KueueWorkloadFactory.calculateDriverMemoryMiB(conf, false));
+  }
+
+  @Test
+  void testCalculateDriverMemoryMiBForNonJvmApp() {
+    Map<String, String> conf = new HashMap<>();
+    conf.put("spark.driver.memory", "8g");
+    // Non-JVM: 8192 + 0.40 * 8192 = 8192 + 3276 = 11468
+    assertEquals(11468L, KueueWorkloadFactory.calculateDriverMemoryMiB(conf, true));
+    // JVM: 8192 + 0.10 * 8192 = 8192 + 819 = 9011
+    assertEquals(9011L, KueueWorkloadFactory.calculateDriverMemoryMiB(conf, false));
+
+    // The deprecated `spark.kubernetes.memoryOverheadFactor` 0.20 -> 8192 + 1638 = 9830
+    conf.put("spark.kubernetes.memoryOverheadFactor", "0.20");
+    assertEquals(9830L, KueueWorkloadFactory.calculateDriverMemoryMiB(conf, true));
+    assertEquals(9830L, KueueWorkloadFactory.calculateDriverMemoryMiB(conf, false));
   }
 
   @Test
   void testCalculateExecutorMemoryMiB() {
     Map<String, String> conf = new HashMap<>();
-    // 2048MiB. Overhead: max(204.8, 384) = 384. Total = 2432
+    // 2048MiB. Overhead: max(204, 384) = 384. Total = 2432
     conf.put("spark.executor.memory", "2g");
-    assertEquals(2432L, KueueWorkloadFactory.calculateExecutorMemoryMiB(conf));
+    assertEquals(2432L, KueueWorkloadFactory.calculateExecutorMemoryMiB(conf, false, false));
 
-    // With PySpark memory
+    // PySpark memory is added only for Python applications
     conf.put("spark.executor.pyspark.memory", "1g");
-    assertEquals(2432L + 1024L, KueueWorkloadFactory.calculateExecutorMemoryMiB(conf));
+    assertEquals(2432L, KueueWorkloadFactory.calculateExecutorMemoryMiB(conf, false, false));
+    // Non-JVM overhead: max(819, 384) = 819. Total = 2048 + 819 + 1024 = 3891
+    assertEquals(3891L, KueueWorkloadFactory.calculateExecutorMemoryMiB(conf, true, true));
+  }
+
+  @Test
+  void testCalculateExecutorMemoryMiBWithOffHeap() {
+    Map<String, String> conf = new HashMap<>();
+    conf.put("spark.executor.memory", "4g");
+    conf.put("spark.memory.offHeap.size", "4g");
+    // Off-heap memory is ignored if disabled. 4096 + 409 = 4505
+    assertEquals(4505L, KueueWorkloadFactory.calculateExecutorMemoryMiB(conf, false, false));
+
+    // 4096 + 409 + 4096 = 8601
+    conf.put("spark.memory.offHeap.enabled", "true");
+    assertEquals(8601L, KueueWorkloadFactory.calculateExecutorMemoryMiB(conf, false, false));
+
+    // `spark.memory.offHeap.size` is in bytes unless otherwise specified
+    conf.put("spark.memory.offHeap.size", "4294967296");
+    assertEquals(8601L, KueueWorkloadFactory.calculateExecutorMemoryMiB(conf, false, false));
+  }
+
+  @Test
+  void testCalculateMemoryWithUnits() {
+    // 2048 + 384 = 2432
+    assertEquals(
+        2432L,
+        KueueWorkloadFactory.calculateExecutorMemoryMiB(
+            Map.of("spark.executor.memory", "2Gi"), false, false));
+    assertThrows(
+        NumberFormatException.class,
+        () ->
+            KueueWorkloadFactory.calculateDriverMemoryMiB(
+                Map.of("spark.driver.memory", "10zz"), false));
+    assertThrows(
+        NumberFormatException.class,
+        () ->
+            KueueWorkloadFactory.calculateExecutorMemoryMiB(
+                Map.of("spark.executor.memory", "1.5g"), false, false));
   }
 
   @Test
@@ -149,7 +189,7 @@ class KueueWorkloadFactoryTest {
 
     Workload workload = KueueWorkloadFactory.buildWorkload(app);
     assertNotNull(workload);
-    assertEquals("spark-pi", workload.getMetadata().getName());
+    assertEquals("sparkapplication-spark-pi", workload.getMetadata().getName());
     assertEquals("spark-jobs", workload.getMetadata().getNamespace());
     assertEquals("team-a-queue", workload.getSpec().getQueueName());
     assertTrue(workload.getSpec().getActive());
@@ -178,8 +218,20 @@ class KueueWorkloadFactoryTest {
         executorPodSet.getTemplate().getSpec().getContainers().get(0);
     assertEquals(new Quantity("4"), executorContainer.getResources().getRequests().get("cpu"));
     assertEquals(
-        new Quantity("4506Mi"),
-        executorContainer.getResources().getRequests().get("memory")); // 4096 + 410 = 4506
+        new Quantity("4505Mi"),
+        executorContainer.getResources().getRequests().get("memory")); // 4096 + 409 = 4505
+  }
+
+  @Test
+  void testBuildWorkloadDefaultExecutorInstances() {
+    SparkApplication app = new SparkApplication();
+    app.setMetadata(
+        new ObjectMetaBuilder().withName("spark-default").withNamespace("default").build());
+
+    Workload workload = KueueWorkloadFactory.buildWorkload(app);
+    PodSet executorPodSet = workload.getSpec().getPodSets().get(1);
+    assertEquals(2, executorPodSet.getCount());
+    assertNull(executorPodSet.getMinCount());
   }
 
   @Test
@@ -197,14 +249,39 @@ class KueueWorkloadFactoryTest {
         Map.of(
             "spark.dynamicAllocation.enabled", "true",
             "spark.dynamicAllocation.minExecutors", "2",
-            "spark.dynamicAllocation.maxExecutors", "10",
-            "spark.dynamicAllocation.initialExecutors", "4"));
+            "spark.dynamicAllocation.maxExecutors", "10"));
+    app.setSpec(spec);
+
+    assertThrows(
+        UnsupportedOperationException.class, () -> KueueWorkloadFactory.buildWorkload(app));
+  }
+
+  @Test
+  void testBuildWorkloadForPythonApp() {
+    SparkApplication app = new SparkApplication();
+    app.setMetadata(
+        new ObjectMetaBuilder().withName("pi-python").withNamespace("default").build());
+
+    ApplicationSpec spec = new ApplicationSpec();
+    spec.setPyFiles("local:///opt/spark/examples/src/main/python/pi.py");
+    spec.setSparkConf(
+        Map.of(
+            "spark.driver.memory", "8g",
+            "spark.executor.memory", "8g",
+            "spark.executor.pyspark.memory", "1g"));
     app.setSpec(spec);
 
     Workload workload = KueueWorkloadFactory.buildWorkload(app);
-    PodSet executorPodSet = workload.getSpec().getPodSets().get(1);
-    assertEquals(10, executorPodSet.getCount());
-    assertEquals(2, executorPodSet.getMinCount());
+    Container driverContainer =
+        workload.getSpec().getPodSets().get(0).getTemplate().getSpec().getContainers().get(0);
+    assertEquals(
+        new Quantity("11468Mi"),
+        driverContainer.getResources().getRequests().get("memory")); // 8192 + 3276 = 11468
+    Container executorContainer =
+        workload.getSpec().getPodSets().get(1).getTemplate().getSpec().getContainers().get(0);
+    assertEquals(
+        new Quantity("12492Mi"),
+        executorContainer.getResources().getRequests().get("memory")); // 8192 + 3276 + 1024
   }
 
   @Test
@@ -222,6 +299,13 @@ class KueueWorkloadFactoryTest {
             .withNewSpec()
             .withContainers(
                 new ContainerBuilder()
+                    .withName("sidecar")
+                    .withResources(
+                        new ResourceRequirementsBuilder()
+                            .withRequests(Map.of("cpu", new Quantity("100m")))
+                            .build())
+                    .build(),
+                new ContainerBuilder()
                     .withName("custom-driver")
                     .withResources(
                         new ResourceRequirementsBuilder()
@@ -235,22 +319,33 @@ class KueueWorkloadFactoryTest {
     spec.setDriverSpec(new BaseApplicationTemplateSpec(driverTemplate));
     spec.setSparkConf(
         Map.of(
+            Constants.DRIVER_SPARK_CONTAINER_PROP_KEY, "custom-driver",
             "spark.driver.resource.gpu.amount", "1",
+            "spark.driver.resource.gpu.vendor", "nvidia.com",
             "spark.executor.resource.gpu.amount", "2",
-            "spark.executor.resource.gpu.vendor", "nvidia.com/gpu"));
+            "spark.executor.resource.gpu.vendor", "nvidia.com"));
     app.setSpec(spec);
 
     Workload workload = KueueWorkloadFactory.buildWorkload(app);
     PodSet driverPodSet = workload.getSpec().getPodSets().get(0);
-    Container driverContainer =
+    Container sidecarContainer =
         driverPodSet.getTemplate().getSpec().getContainers().get(0);
-    assertEquals(new Quantity("3"), driverContainer.getResources().getRequests().get("cpu"));
+    assertEquals("sidecar", sidecarContainer.getName());
+    assertEquals(
+        Map.of("cpu", new Quantity("100m")), sidecarContainer.getResources().getRequests());
+
+    Container driverContainer =
+        driverPodSet.getTemplate().getSpec().getContainers().get(1);
+    assertEquals("custom-driver", driverContainer.getName());
+    // Spark overwrites the cpu request of the pod template with `spark.driver.cores`
+    assertEquals(new Quantity("1"), driverContainer.getResources().getRequests().get("cpu"));
     assertEquals(
         new Quantity("1"),
         driverContainer.getResources().getRequests().get("nvidia.com/gpu"));
     assertEquals(
         new Quantity("1"),
         driverContainer.getResources().getLimits().get("nvidia.com/gpu"));
+    assertFalse(driverContainer.getResources().getRequests().containsKey("nvidia.com"));
 
     PodSet executorPodSet = workload.getSpec().getPodSets().get(1);
     Container executorContainer =
@@ -258,6 +353,22 @@ class KueueWorkloadFactoryTest {
     assertEquals(
         new Quantity("2"),
         executorContainer.getResources().getRequests().get("nvidia.com/gpu"));
+    assertEquals(
+        new Quantity("2"),
+        executorContainer.getResources().getLimits().get("nvidia.com/gpu"));
+  }
+
+  @Test
+  void testBuildWorkloadWithGpuWithoutVendor() {
+    SparkApplication app = new SparkApplication();
+    app.setMetadata(
+        new ObjectMetaBuilder().withName("spark-gpu").withNamespace("default").build());
+    ApplicationSpec spec = new ApplicationSpec();
+    spec.setSparkConf(Map.of("spark.executor.resource.gpu.amount", "1"));
+    app.setSpec(spec);
+
+    assertThrows(
+        IllegalArgumentException.class, () -> KueueWorkloadFactory.buildWorkload(app));
   }
 
   @Test
@@ -277,63 +388,68 @@ class KueueWorkloadFactoryTest {
     assertFalse(workload.getSpec().getActive());
   }
 
-  @Test
-  void testBuildWorkloadForSparkCluster() {
+  private static SparkCluster buildSparkCluster(
+      final String name, final int initWorkers, final int minWorkers, final int maxWorkers) {
     SparkCluster cluster = new SparkCluster();
     cluster.setMetadata(
         new ObjectMetaBuilder()
-            .withName("test-cluster")
+            .withName(name)
             .withNamespace("spark-ns")
             .withLabels(Map.of(Constants.LABEL_QUEUE_NAME, "cluster-queue"))
             .build());
+    cluster.setSpec(
+        ClusterSpec.builder()
+            .runtimeVersions(RuntimeVersions.builder().sparkVersion("4.2.0").build())
+            .clusterTolerations(
+                ClusterTolerations.builder()
+                    .instanceConfig(
+                        WorkerInstanceConfig.builder()
+                            .initWorkers(initWorkers)
+                            .minWorkers(minWorkers)
+                            .maxWorkers(maxWorkers)
+                            .build())
+                    .build())
+            .build());
+    return cluster;
+  }
+
+  @Test
+  void testBuildWorkloadForSparkCluster() {
+    SparkCluster cluster = buildSparkCluster("test-cluster", 3, 3, 3);
 
     PodTemplateSpec masterTemplate =
         new PodTemplateSpecBuilder()
             .withNewSpec()
             .addNewContainer()
-            .withName("spark-master")
+            .withName("sidecar")
             .endContainer()
-            .endSpec()
-            .build();
-    MasterSpec masterSpec =
-        MasterSpec.builder()
-            .statefulSetSpec(
-                new StatefulSetSpecBuilder()
-                    .withReplicas(1)
-                    .withTemplate(masterTemplate)
-                    .build())
-            .build();
-
-    PodTemplateSpec workerTemplate =
-        new PodTemplateSpecBuilder()
-            .withNewSpec()
             .addNewContainer()
-            .withName("spark-worker")
+            .withName("master")
+            .withResources(
+                new ResourceRequirementsBuilder()
+                    .withRequests(Map.of("cpu", new Quantity("2")))
+                    .build())
             .endContainer()
             .endSpec()
             .build();
-    WorkerSpec workerSpec =
-        WorkerSpec.builder()
-            .statefulSetSpec(
-                new StatefulSetSpecBuilder()
-                    .withReplicas(3)
-                    .withTemplate(workerTemplate)
-                    .build())
-            .build();
-
-    ClusterSpec clusterSpec =
-        ClusterSpec.builder()
-            .masterSpec(masterSpec)
-            .workerSpec(workerSpec)
-            .build();
-    cluster.setSpec(clusterSpec);
+    cluster
+        .getSpec()
+        .setMasterSpec(
+            MasterSpec.builder()
+                .statefulSetSpec(
+                    new StatefulSetSpecBuilder()
+                        .withReplicas(3)
+                        .withTemplate(masterTemplate)
+                        .build())
+                .build());
+    cluster.getSpec().setWorkerSpec(WorkerSpec.builder().build());
 
     assertTrue(KueueWorkloadFactory.hasQueueName(cluster));
     assertEquals("cluster-queue", KueueWorkloadFactory.getQueueName(cluster));
 
     Workload workload = KueueWorkloadFactory.buildWorkload(cluster);
     assertNotNull(workload);
-    assertEquals("test-cluster", workload.getMetadata().getName());
+    assertEquals("sparkcluster-test-cluster", workload.getMetadata().getName());
     assertEquals("spark-ns", workload.getMetadata().getNamespace());
     assertEquals("cluster-queue", workload.getSpec().getQueueName());
     assertTrue(workload.getSpec().getActive());
@@ -342,68 +458,38 @@ class KueueWorkloadFactoryTest {
         workload.getMetadata().getLabels().get(Constants.LABEL_SPARK_CLUSTER_NAME));
     assertEquals(2, workload.getSpec().getPodSets().size());
 
+    // The operator always creates a single master regardless of the StatefulSet replicas
     PodSet masterPodSet = workload.getSpec().getPodSets().get(0);
     assertEquals("master", masterPodSet.getName());
     assertEquals(1, masterPodSet.getCount());
-    assertNotNull(masterPodSet.getTemplate());
+    Container masterContainer =
+        masterPodSet.getTemplate().getSpec().getContainers().stream()
+            .filter(c -> "master".equals(c.getName()))
+            .findFirst()
+            .orElseThrow();
+    assertEquals(new Quantity("2"), masterContainer.getResources().getRequests().get("cpu"));
 
+    // The number of workers comes from `initWorkers`
     PodSet workerPodSet = workload.getSpec().getPodSets().get(1);
     assertEquals("worker", workerPodSet.getName());
     assertEquals(3, workerPodSet.getCount());
     assertNull(workerPodSet.getMinCount());
+    assertEquals(
+        "worker", workerPodSet.getTemplate().getSpec().getContainers().get(0).getName());
   }
 
   @Test
   void testBuildWorkloadForSparkClusterWithHPA() {
-    SparkCluster cluster = new SparkCluster();
-    cluster.setMetadata(
-        new ObjectMetaBuilder()
-            .withName("test-cluster-hpa")
-            .withNamespace("default")
-            .withLabels(Map.of(Constants.LABEL_QUEUE_NAME, "hpa-queue"))
-            .build());
+    SparkCluster cluster = buildSparkCluster("test-cluster-hpa", 3, 1, 3);
 
-    WorkerSpec workerSpec =
-        WorkerSpec.builder()
-            .statefulSetSpec(new StatefulSetSpecBuilder().withReplicas(2).build())
-            .horizontalPodAutoscalerSpec(
-                new HorizontalPodAutoscalerSpecBuilder()
-                    .withMinReplicas(2)
-                    .withMaxReplicas(10)
-                    .build())
-            .build();
-
-    ClusterSpec clusterSpec =
-        ClusterSpec.builder()
-            .masterSpec(MasterSpec.builder().build())
-            .workerSpec(workerSpec)
-            .build();
-    cluster.setSpec(clusterSpec);
-
-    Workload workload = KueueWorkloadFactory.buildWorkload(cluster);
-    PodSet workerPodSet = workload.getSpec().getPodSets().get(1);
-    assertEquals("worker", workerPodSet.getName());
-    assertEquals(10, workerPodSet.getCount());
-    assertEquals(2, workerPodSet.getMinCount());
+    assertThrows(
+        UnsupportedOperationException.class, () -> KueueWorkloadFactory.buildWorkload(cluster));
   }
 
   @Test
   void testBuildWorkloadForSuspendedSparkCluster() {
-    SparkCluster cluster = new SparkCluster();
-    cluster.setMetadata(
-        new ObjectMetaBuilder()
-            .withName("test-cluster-suspended")
-            .withNamespace("default")
-            .withLabels(Map.of(Constants.LABEL_QUEUE_NAME, "suspended-queue"))
-            .build());
-
-    ClusterSpec clusterSpec =
-        ClusterSpec.builder()
-            .masterSpec(MasterSpec.builder().build())
-            .workerSpec(WorkerSpec.builder().build())
-            .build();
-    clusterSpec.setSuspend(true);
-    cluster.setSpec(clusterSpec);
+    SparkCluster cluster = buildSparkCluster("test-cluster-suspended", 1, 1, 1);
+    cluster.getSpec().setSuspend(true);
 
     Workload workload = KueueWorkloadFactory.buildWorkload(cluster);
     assertFalse(workload.getSpec().getActive());
