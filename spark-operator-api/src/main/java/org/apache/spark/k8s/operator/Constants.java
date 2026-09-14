@@ -90,6 +90,10 @@ public class Constants {
   public static final String DRIVER_SPARK_CONTAINER_PROP_KEY =
       "spark.kubernetes.driver.podTemplateContainerName";
 
+  /** The property key for the executor Spark container name. */
+  public static final String EXECUTOR_SPARK_CONTAINER_PROP_KEY =
+      "spark.kubernetes.executor.podTemplateContainerName";
+
   /** The property key for the driver Spark pod template file. */
   public static final String DRIVER_SPARK_TEMPLATE_FILE_PROP_KEY =
       "spark.kubernetes.driver.podTemplateFile";
