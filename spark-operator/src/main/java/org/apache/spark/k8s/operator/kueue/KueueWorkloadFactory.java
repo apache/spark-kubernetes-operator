@@ -99,10 +99,14 @@ public final class KueueWorkloadFactory {
     boolean driverOnly =
         sparkConf.getOrDefault("spark.kubernetes.driver.master", "").startsWith("local");
     checkNoPodTemplateFile(
-        sparkConf, Constants.DRIVER_SPARK_TEMPLATE_FILE_PROP_KEY, spec.getDriverSpec());
+        sparkConf,
+        Constants.DRIVER_SPARK_TEMPLATE_FILE_PROP_KEY,
+        ModelUtils.overrideDriverTemplateEnabled(spec));
     if (!driverOnly) {
       checkNoPodTemplateFile(
-          sparkConf, Constants.EXECUTOR_SPARK_TEMPLATE_FILE_PROP_KEY, spec.getExecutorSpec());
+          sparkConf,
+          Constants.EXECUTOR_SPARK_TEMPLATE_FILE_PROP_KEY,
+          ModelUtils.overrideExecutorTemplateEnabled(spec));
     }
     List<PodSet> podSets =
         driverOnly
@@ -137,15 +141,15 @@ public final class KueueWorkloadFactory {
 
   /**
    * A pod template file is fetched by Spark, not by the operator, so its node selectors,
-   * tolerations and extra containers cannot be reflected in the PodSet template. The file is
-   * ignored by Spark if the pod template is set in the SparkApplication spec.
+   * tolerations and extra containers cannot be reflected in the PodSet template. The operator
+   * overwrites the file key when the pod template is set in the SparkApplication spec, so the
+   * spec wins in that case.
    */
   private static void checkNoPodTemplateFile(
       final Map<String, String> sparkConf,
       final String templateFileKey,
-      final BaseApplicationTemplateSpec roleSpec) {
-    if (sparkConf.containsKey(templateFileKey)
-        && (roleSpec == null || roleSpec.getPodTemplateSpec() == null)) {
+      final boolean specTemplateWins) {
+    if (sparkConf.containsKey(templateFileKey) && !specTemplateWins) {
       throw new UnsupportedOperationException(
           "Kueue does not support "
               + templateFileKey
