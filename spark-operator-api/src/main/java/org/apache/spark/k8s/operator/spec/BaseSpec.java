@@ -24,6 +24,7 @@ import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import io.fabric8.generator.annotation.Default;
 import lombok.Data;
 
 import org.apache.spark.k8s.operator.diff.Diffable;
@@ -37,5 +38,8 @@ import org.apache.spark.k8s.operator.diff.Diffable;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class BaseSpec implements Diffable<BaseSpec> {
+  @Default("false")
+  protected boolean suspend = false;
+
   protected Map<String, String> sparkConf = new HashMap<>();
 }

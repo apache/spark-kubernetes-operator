@@ -10913,6 +10913,9 @@ spec:
                   additionalProperties:
                     type: string
                   type: object
+                suspend:
+                  default: false
+                  type: boolean
                 workerSpec:
                   properties:
                     horizontalPodAutoscalerSpec:
