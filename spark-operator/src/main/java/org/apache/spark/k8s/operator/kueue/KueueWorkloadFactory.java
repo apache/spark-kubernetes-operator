@@ -95,8 +95,13 @@ public final class KueueWorkloadFactory {
           "Kueue does not support SparkApplication with dynamic allocation "
               + "(spark.dynamicAllocation.enabled=true) yet.");
     }
+    // Like Spark's KubernetesClusterManager, `local[*]` runs the driver only without executors.
+    boolean driverOnly =
+        sparkConf.getOrDefault("spark.kubernetes.driver.master", "").startsWith("local");
     List<PodSet> podSets =
-        List.of(buildDriverPodSet(app, sparkConf), buildExecutorPodSet(app, sparkConf));
+        driverOnly
+            ? List.of(buildDriverPodSet(app, sparkConf))
+            : List.of(buildDriverPodSet(app, sparkConf), buildExecutorPodSet(app, sparkConf));
     return buildWorkload(app, Constants.LABEL_SPARK_APPLICATION_NAME, spec.isSuspend(), podSets);
   }
 
@@ -380,9 +385,11 @@ public final class KueueWorkloadFactory {
 
     // Like Spark's KubernetesConf.buildKubernetesResourceName,
     // `spark.<role>.resource.<name>.amount` and `.vendor` become `<vendor>/<name>`,
-    // e.g., `nvidia.com/gpu`.
+    // e.g., `nvidia.com/gpu`. Like Spark's ResourceUtils, a non-positive amount is ignored.
     for (Map.Entry<String, String> e : sparkConf.entrySet()) {
-      if (!e.getKey().startsWith(resourcePrefix) || !e.getKey().endsWith(".amount")) {
+      if (!e.getKey().startsWith(resourcePrefix)
+          || !e.getKey().endsWith(".amount")
+          || parseInt(e.getValue(), 0) <= 0) {
         continue;
       }
       String name =

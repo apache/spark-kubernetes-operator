@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerBuilder;
@@ -240,6 +241,30 @@ class KueueWorkloadFactoryTest {
     PodSet executorPodSet = workload.getSpec().getPodSets().get(1);
     assertEquals(2, executorPodSet.getCount());
     assertNull(executorPodSet.getMinCount());
+  }
+
+  @Test
+  void testBuildWorkloadDriverOnly() {
+    SparkApplication app = new SparkApplication();
+    app.setMetadata(
+        new ObjectMetaBuilder().withName("pi-with-one-pod").withNamespace("default").build());
+
+    ApplicationSpec spec = new ApplicationSpec();
+    spec.setSparkConf(
+        Map.of(
+            "spark.kubernetes.driver.master", "local[10]",
+            "spark.kubernetes.driver.request.cores", "5",
+            "spark.kubernetes.driver.limit.cores", "5"));
+    app.setSpec(spec);
+
+    Workload workload = KueueWorkloadFactory.buildWorkload(app);
+    assertEquals(1, workload.getSpec().getPodSets().size());
+    PodSet driverPodSet = workload.getSpec().getPodSets().get(0);
+    assertEquals("driver", driverPodSet.getName());
+    assertEquals(1, driverPodSet.getCount());
+    Container driverContainer =
+        driverPodSet.getTemplate().getSpec().getContainers().get(0);
+    assertEquals(new Quantity("5"), driverContainer.getResources().getRequests().get("cpu"));
   }
 
   @Test
@@ -494,6 +519,28 @@ class KueueWorkloadFactoryTest {
 
     assertThrows(
         IllegalArgumentException.class, () -> KueueWorkloadFactory.buildWorkload(app));
+  }
+
+  @Test
+  void testBuildWorkloadWithZeroResourceAmount() {
+    SparkApplication app = new SparkApplication();
+    app.setMetadata(
+        new ObjectMetaBuilder().withName("spark-no-gpu").withNamespace("default").build());
+    ApplicationSpec spec = new ApplicationSpec();
+    // Like Spark, a zero amount is ignored before the vendor check
+    spec.setSparkConf(
+        Map.of(
+            "spark.driver.resource.gpu.amount", "0",
+            "spark.executor.resource.gpu.amount", "0",
+            "spark.executor.resource.gpu.vendor", "nvidia.com"));
+    app.setSpec(spec);
+
+    Workload workload = KueueWorkloadFactory.buildWorkload(app);
+    for (PodSet podSet : workload.getSpec().getPodSets()) {
+      Container container = podSet.getTemplate().getSpec().getContainers().get(0);
+      assertEquals(Set.of("cpu", "memory"), container.getResources().getRequests().keySet());
+      assertTrue(container.getResources().getLimits().isEmpty());
+    }
   }
 
   @Test
