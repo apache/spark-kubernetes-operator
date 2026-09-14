@@ -44,6 +44,18 @@ public class Constants {
   /** The label for a sentinel resource. */
   public static final String LABEL_SENTINEL_RESOURCE = "spark.operator/sentinel";
 
+  /** The label for the Kueue queue name. */
+  public static final String LABEL_QUEUE_NAME = "kueue.x-k8s.io/queue-name";
+
+  /** The API group for Kueue resources. */
+  public static final String KUEUE_API_GROUP = "kueue.x-k8s.io";
+
+  /** The API version for Kueue resources. */
+  public static final String KUEUE_API_VERSION = "v1beta1";
+
+  /** The CRD name for Kueue Workload. */
+  public static final String KUEUE_WORKLOAD_CRD_NAME = "workloads.kueue.x-k8s.io";
+
   /** The label for the resource name. */
   public static final String LABEL_RESOURCE_NAME = "app.kubernetes.io/name";
 
