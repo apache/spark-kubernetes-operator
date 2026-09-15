@@ -67,6 +67,10 @@ public final class AppInitStep extends AppReconcileStep {
       return proceed();
     }
     SparkApplication app = context.getResource();
+    if (app.getSpec().isSuspend()) {
+      log.info("Application is suspended, driver resources would not be requested.");
+      return completeAndDefaultRequeue();
+    }
     if (app.getStatus().getPreviousAttemptSummary() != null) {
       Instant lastTransitionTime = Instant.parse(currentState.getLastTransitionTime());
       ApplicationAttemptSummary attemptSummary = app.getStatus().getPreviousAttemptSummary();

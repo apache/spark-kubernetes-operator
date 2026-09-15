@@ -91,6 +91,7 @@ jobs:
           - resource-selector
           - watched-namespaces
           - driver-start-timeout
+          - suspend
         exclude:
           - mode: dynamic
             test-group: spark-versions
@@ -106,6 +107,8 @@ jobs:
             test-group: resource-selector
           - mode: dynamic
             test-group: driver-start-timeout
+          - mode: dynamic
+            test-group: suspend
           - mode: static
             test-group: watched-namespaces
           - mode: static
@@ -124,6 +127,8 @@ jobs:
             test-group: watched-namespaces
           - mode: selector
             test-group: driver-start-timeout
+          - mode: selector
+            test-group: suspend
         include:
           - kubernetes-version: "1.37.0"
             mode: dynamic-file

@@ -525,6 +525,32 @@ Note that `ttlAfterStopMillis` applies to the app as well as its secondary resou
 latter is smaller, then it takes higher precedence: operator would remove all resources related
 to this app after `ttlAfterStopMillis`.
 
+## Suspend
+
+Both `SparkApplication` and `SparkCluster` support `.spec.suspend`. When it is set to `true`, the
+operator keeps the resource in its initializing state (`Submitted`, or `ScheduledToRestart` for an
+application that is scheduled to restart) and does not request the driver pod or the master / worker
+StatefulSets. Setting it back to `false` resumes the regular lifecycle.
+
+``` yaml
+apiVersion: spark.apache.org/v1
+kind: SparkApplication
+metadata:
+  name: suspended-pi
+spec:
+  suspend: true
+  mainClass: "org.apache.spark.examples.SparkPi"
+  jars: "local:///opt/spark/examples/jars/spark-examples.jar"
+  runtimeVersions:
+    sparkVersion: "4.2.0"
+```
+
+* `suspend` only takes effect before the driver (or master / worker) resources are requested.
+  Setting it to `true` on a running application or cluster has no effect in the current version.
+* Deleting a suspended resource works as usual.
+* This is the building block for external job queueing systems such as
+  [Kueue](https://kueue.sigs.k8s.io/), which admit a workload by flipping `suspend` to `false`.
+
 ## Spark Cluster
 
 Spark Operator also supports launching Spark clusters in k8s via `SparkCluster` custom resource,

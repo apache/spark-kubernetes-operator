@@ -59,6 +59,10 @@ public final class ClusterInitStep extends ClusterReconcileStep {
       return proceed();
     }
     SparkCluster cluster = context.getResource();
+    if (cluster.getSpec().isSuspend()) {
+      log.info("Cluster is suspended, master and worker resources would not be requested.");
+      return completeAndDefaultRequeue();
+    }
     if (cluster.getStatus().getPreviousAttemptSummary() != null) {
       Instant lastTransitionTime = Instant.parse(currentState.getLastTransitionTime());
       Instant restartTime = lastTransitionTime.plusMillis(300 * 1000);
