@@ -238,6 +238,7 @@ jobs:
           - "1.37.0"
         test-group:
           - configmap-metadata
+          - kueue
           - network-policy
           - operator-command
     steps:
@@ -267,6 +268,13 @@ jobs:
         run: |
           kubectl get pods -A
           kubectl describe node
+      - name: Install Kueue
+        if: matrix.test-group == 'kueue'
+        run: |
+          kubectl apply --server-side -f https://github.com/kubernetes-sigs/kueue/releases/download/v0.19.4/manifests.yaml
+          # Kueue installs webhooks for pods, deployments and statefulsets with failurePolicy=Fail,
+          # so wait for the controller (whose readyz covers the webhook server) before helm install.
+          kubectl wait deploy/kueue-controller-manager -n kueue-system --for=condition=Available --timeout=5m
       - name: Run Spark K8s Operator Helm Tests
         run: |
           eval $(minikube docker-env)
@@ -277,6 +285,15 @@ jobs:
           build-tools/helm/spark-kubernetes-operator/
           minikube docker-env --unset
           helm test spark
+      - name: Verify Kueue RBAC is denied by default
+        if: matrix.test-group == 'kueue'
+        run: |
+          # The same impersonated check must answer "yes" first, otherwise a wrong subject
+          # would make the denial below vacuous.
+          kubectl auth can-i create workloads.kueue.x-k8s.io --as=system:serviceaccount:default:spark-operator
+          helm upgrade spark -f build-tools/helm/spark-kubernetes-operator/values.yaml \
+          build-tools/helm/spark-kubernetes-operator/
+          if kubectl auth can-i create workloads.kueue.x-k8s.io --as=system:serviceaccount:default:spark-operator; then exit 1; fi
   lint:
     name: "Linter and documentation"
     runs-on: ubuntu-26.04

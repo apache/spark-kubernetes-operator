@@ -77,6 +77,22 @@ spec:
             kubectl auth can-i watch  grpcroutes.gateway.networking.k8s.io --all-namespaces
             kubectl auth can-i create grpcroutes.gateway.networking.k8s.io --all-namespaces
           fi
+          {{- if .Values.operatorRbac.kueue.enabled }}
+
+          # The Kueue grant is opt-in and, like Gateway API, can only be asserted
+          # where the Kueue CRDs are installed.
+          if kubectl api-resources --api-group=kueue.x-k8s.io --no-headers -o name | grep -q workloads; then
+            kubectl auth can-i watch  workloads.kueue.x-k8s.io --all-namespaces
+            kubectl auth can-i create workloads.kueue.x-k8s.io --all-namespaces
+            kubectl auth can-i patch  workloads.kueue.x-k8s.io --subresource=status --all-namespaces
+            kubectl auth can-i update workloads.kueue.x-k8s.io --subresource=finalizers --all-namespaces
+            kubectl auth can-i watch  resourceflavors.kueue.x-k8s.io
+            kubectl auth can-i watch  workloadpriorityclasses.kueue.x-k8s.io
+          fi
+
+          # PriorityClass is built in, so this one needs no CRD-presence guard.
+          kubectl auth can-i watch  priorityclasses.scheduling.k8s.io
+          {{- end }}
 
           # The operator must not be cluster-admin. These also prove the suite is
           # able to observe a denial at all. `set -e` ignores a failing `!`

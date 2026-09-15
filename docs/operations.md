@@ -37,6 +37,12 @@ under the License.
   implementation such as Istio) before submitting SparkApplications that request Gateway API
   routing. If the CRDs are missing, reconciliation of such SparkApplications will fail with a
   `no matches for kind "HTTPRoute"` error from the Kubernetes API.
+- **Kueue** (`workloads.kueue.x-k8s.io`, `resourceflavors.kueue.x-k8s.io`,
+  `workloadpriorityclasses.kueue.x-k8s.io`) — required only when `operatorRbac.kueue.enabled` is
+  set. Kueue is not bundled with the operator; install it from
+  [kueue.sigs.k8s.io](https://kueue.sigs.k8s.io/docs/installation/), and register
+  `SparkApplication.v1.spark.apache.org` and `SparkCluster.v1.spark.apache.org` in Kueue's
+  `integrations.externalFrameworks`.
 
 ## Spark Application Namespaces
 
@@ -108,6 +114,7 @@ following table:
 | operatorRbac.configManagement.create                             | Enable this to create a Role for operator configuration management (hot property loading and leader election).                                                                 | true                                                                                                    |
 | operatorRbac.configManagement.roleName                           | Role name for operator configuration management.                                                                                                                               | `spark-operator-config-role`                                                                            |
 | operatorRbac.configManagement.roleBinding                        | RoleBinding name for operator configuration management.                                                                                                                        | `"spark-operator-config-monitor-role-binding"`                                                          |
+| operatorRbac.kueue.enabled                                       | Grant the operator access to Kueue `workloads`, `resourceflavors`, `workloadpriorityclasses` and to `priorityclasses`. The cluster-scoped ones need `clusterRole.create`. See [Optional Prerequisites](#optional-prerequisites). | false                                                                                                   |
 | operatorRbac.labels                                              | Labels to be applied on all created `operatorRbac` resources.                                                                                                                  | `"app.kubernetes.io/component": "operator-rbac"`                                                        |
 | workloadResources.namespaces.create                              | Whether to create dedicated namespaces for Spark workload.                                                                                                                     | true                                                                                                    |
 | workloadResources.namespaces.overrideWatchedNamespaces           | When enabled, operator would by default only watch namespace(s) provided in data field.                                                                                        | true                                                                                                    |
