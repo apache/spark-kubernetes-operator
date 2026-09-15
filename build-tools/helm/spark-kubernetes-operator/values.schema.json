@@ -424,7 +424,8 @@
         "clusterRoleBinding",
         "role",
         "roleBinding",
-        "configManagement"
+        "configManagement",
+        "kueue"
       ],
       "properties": {
         "serviceAccount": {

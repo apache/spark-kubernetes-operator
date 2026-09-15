@@ -149,11 +149,29 @@ rules:
       - workloads/finalizers
     verbs:
       - update
+{{- end }}
+{{- end }}
+
+{{/*
+RBAC rules used to create the operator clusterrole: the shared rules above plus
+the rules for cluster-scoped resources, which a namespaced role cannot grant
+*/}}
+{{- define "spark-operator.operatorClusterRbacRules" }}
+{{- include "spark-operator.operatorRbacRules" . }}
+{{- if .Values.operatorRbac.kueue.enabled }}
   - apiGroups:
       - "kueue.x-k8s.io"
     resources:
       - resourceflavors
       - workloadpriorityclasses
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - "scheduling.k8s.io"
+    resources:
+      - priorityclasses
     verbs:
       - get
       - list
@@ -207,7 +225,7 @@ kind: ClusterRole
 metadata:
   name: {{ .Values.operatorRbac.clusterRole.name }}
 {{- template "spark-operator.rbacLabelsAnnotations" $ }}
-{{- template "spark-operator.operatorRbacRules" $ }}
+{{- template "spark-operator.operatorClusterRbacRules" $ }}
 ---
 {{- end }}
 {{- if and .Values.operatorConfiguration.dynamicConfig.enable (eq .Values.operatorConfiguration.dynamicConfig.source "configMap") }}

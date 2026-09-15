@@ -136,10 +136,10 @@ operatorRbac:
     roleName: "spark-operator-config-monitor"
     roleBindingName: "spark-operator-config-monitor-role-binding"
   kueue:
-    # If enabled, the operator (cluster)role would be granted access to Kueue resources
-    # (workloads, resourceflavors, workloadpriorityclasses). ResourceFlavor and
-    # WorkloadPriorityClass are cluster-scoped, so {operatorRbac.clusterRole.create} is
-    # required for the operator to read them. Kueue itself must be installed separately.
+    # If enabled, the operator (cluster)role would be granted access to Kueue workloads.
+    # The cluster-scoped resourceflavors, workloadpriorityclasses and priorityclasses are
+    # granted through the ClusterRole only, so {operatorRbac.clusterRole.create} is required
+    # for the operator to read them. Kueue itself must be installed separately.
     enabled: false
   labels:
     "app.kubernetes.io/component": "operator-rbac"

@@ -89,6 +89,7 @@ spec:
             kubectl auth can-i watch  resourceflavors.kueue.x-k8s.io
             kubectl auth can-i watch  workloadpriorityclasses.kueue.x-k8s.io
           fi
+          kubectl auth can-i watch  priorityclasses.scheduling.k8s.io
           {{- end }}
 
           # The operator must not be cluster-admin. These also prove the suite is
