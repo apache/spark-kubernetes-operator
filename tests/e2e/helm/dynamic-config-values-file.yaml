@@ -33,7 +33,7 @@ operatorDeployment:
 
 operatorConfiguration:
   dynamicConfig:
-    enable: true
+    enabled: true
     source: file
     create: true
     data:

@@ -396,12 +396,16 @@
           "type": "object",
           "description": "NetworkPolicy for the operator pod",
           "required": [
-            "enable"
+            "enabled"
           ],
           "properties": {
-            "enable": {
+            "enabled": {
               "type": "boolean",
               "description": "Whether to create a NetworkPolicy for the operator pod"
+            },
+            "enable": {
+              "type": "boolean",
+              "description": "Deprecated, use 'enabled' instead; still honored (the NetworkPolicy is created when either key is true) and will be removed in chart 2.0.0 (SPARK-59533)"
             },
             "metricsIngress": {
               "type": ["array", "null"],
@@ -818,15 +822,19 @@
           "type": "object",
           "description": "Dynamic configuration",
           "required": [
-            "enable",
+            "enabled",
             "create",
             "annotations",
             "data"
           ],
           "properties": {
-            "enable": {
+            "enabled": {
               "type": "boolean",
               "description": "Enable dynamic configuration"
+            },
+            "enable": {
+              "type": "boolean",
+              "description": "Deprecated, use 'enabled' instead; still honored (dynamic configuration is enabled when either key is true) and will be removed in chart 2.0.0 (SPARK-59533)"
             },
             "create": {
               "type": "boolean",

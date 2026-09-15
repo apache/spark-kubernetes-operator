@@ -133,7 +133,8 @@ following table:
 | operatorConfiguration.spark-operator.properties                  | The default operator configuration.                                                                                                                                            |                                                                                                         |
 | operatorConfiguration.metrics.properties                         | The default operator metrics (sink) configuration.                                                                                                                             |                                                                                                         |
 | operatorConfiguration.dynamicConfig.create                       | If set to true, a config map would be created & watched by operator as source of truth for hot properties loading.                                                             | false                                                                                                   |
-| operatorConfiguration.dynamicConfig.enable                       | If set to true, operator would honor the created config map as source of truth for hot properties loading.                                                                     | false                                                                                                   |
+| operatorConfiguration.dynamicConfig.enabled                      | If set to true, operator would honor the created config map as source of truth for hot properties loading.                                                                     | false                                                                                                   |
+| operatorConfiguration.dynamicConfig.enable                       | Deprecated, use `operatorConfiguration.dynamicConfig.enabled`. Still honored: `enable: true` wins over `enabled: false`. Removed in chart 2.0.0 (SPARK-59533).                 |                                                                                                         |
 | operatorConfiguration.dynamicConfig.annotations                  | Annotations to be applied for the dynamicConfig resources.                                                                                                                     | `"helm.sh/resource-policy": keep`                                                                       |
 | operatorConfiguration.dynamicConfig.data                         | Data field (key-value pairs) that acts as hot properties in the config map.                                                                                                    | `spark.kubernetes.operator.reconciler.intervalSeconds: "60"`                                            |
 
@@ -154,7 +155,7 @@ for the operator pod:
 ```yaml
 operatorDeployment:
   networkPolicy:
-    enable: true
+    enabled: true
     metricsIngress:
       - namespaceSelector:
           matchLabels:
@@ -173,6 +174,12 @@ When enabled, all ingress traffic to the operator pod is denied except:
 Note that this requires a CNI plugin that enforces NetworkPolicy; on clusters without such
 a plugin the policy is silently ignored. Egress traffic of the operator (Kubernetes API
 server, DNS) is not restricted by this policy.
+
+The legacy key `operatorDeployment.networkPolicy.enable` is deprecated in favor of `enabled`
+and will be removed in chart `2.0.0` ([SPARK-59533](https://issues.apache.org/jira/browse/SPARK-59533)).
+It is still honored: the NetworkPolicy is created when either key is `true`, so a stale
+`enable: true` in a base values file wins over `enabled: false` and must be removed to turn
+the feature off. The same rule applies to `operatorConfiguration.dynamicConfig.enable`.
 
 ## Operator Health(Liveness) Probe with Sentinel Resource
 
