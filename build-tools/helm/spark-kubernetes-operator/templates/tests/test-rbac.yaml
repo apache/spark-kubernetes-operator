@@ -89,6 +89,8 @@ spec:
             kubectl auth can-i watch  resourceflavors.kueue.x-k8s.io
             kubectl auth can-i watch  workloadpriorityclasses.kueue.x-k8s.io
           fi
+
+          # PriorityClass is built in, so this one needs no CRD-presence guard.
           kubectl auth can-i watch  priorityclasses.scheduling.k8s.io
           {{- end }}
 
