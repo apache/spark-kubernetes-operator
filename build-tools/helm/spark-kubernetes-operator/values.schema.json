@@ -405,7 +405,7 @@
             },
             "enable": {
               "type": "boolean",
-              "description": "Deprecated, use 'enabled' instead; still honored (the NetworkPolicy is created when either key is true) and will be removed in chart 2.0.0"
+              "description": "Deprecated, use 'enabled' instead; still honored (the NetworkPolicy is created when either key is true) and will be removed in chart 2.0.0 (SPARK-59533)"
             },
             "metricsIngress": {
               "type": ["array", "null"],
@@ -834,7 +834,7 @@
             },
             "enable": {
               "type": "boolean",
-              "description": "Deprecated, use 'enabled' instead; still honored (dynamic configuration is enabled when either key is true) and will be removed in chart 2.0.0"
+              "description": "Deprecated, use 'enabled' instead; still honored (dynamic configuration is enabled when either key is true) and will be removed in chart 2.0.0 (SPARK-59533)"
             },
             "create": {
               "type": "boolean",

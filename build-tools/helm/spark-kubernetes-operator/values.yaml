@@ -94,8 +94,8 @@ operatorDeployment:
   # operator pod is denied. Note that this requires a CNI plugin with NetworkPolicy support,
   # and that egress traffic is not restricted.
   networkPolicy:
-    # The legacy key `enable` is deprecated and will be removed in chart 2.0.0. It is still
-    # honored: the NetworkPolicy is created when either `enabled` or `enable` is true.
+    # The legacy key `enable` is deprecated and will be removed in chart 2.0.0 (SPARK-59533).
+    # It is still honored: the NetworkPolicy is created when either `enabled` or `enable` is true.
     enabled: false
     # List of NetworkPolicyPeer(s) allowed to reach the metrics port, e.g. the Prometheus
     # scraper. When empty, ingress to the metrics port is denied.
@@ -221,8 +221,8 @@ operatorConfiguration:
     # Metrics Properties Overrides
   dynamicConfig:
     # Enable this for hot properties loading. The legacy key `enable` is deprecated and will be
-    # removed in chart 2.0.0. It is still honored: hot properties loading is enabled when either
-    # `enabled` or `enable` is true.
+    # removed in chart 2.0.0 (SPARK-59533). It is still honored: hot properties loading is
+    # enabled when either `enabled` or `enable` is true.
     enabled: false
     # Source of the dynamic config overrides when enabled. Supported values:
     #   configMap - (default) watch a ConfigMap via a Kubernetes informer. Requires the operator
