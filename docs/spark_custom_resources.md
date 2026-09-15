@@ -546,7 +546,9 @@ spec:
 ```
 
 * `suspend` only takes effect before the driver (or master / worker) resources are requested.
-  Setting it to `true` on a running application or cluster has no effect in the current version.
+  Setting it to `true` on a running application does not stop the current attempt. If the
+  application is configured to restart, the next attempt is held until `suspend` is set back to
+  `false`. Setting it to `true` on a running cluster has no effect in the current version.
 * Deleting a suspended resource works as usual.
 * This is the building block for external job queueing systems such as
   [Kueue](https://kueue.sigs.k8s.io/), which admit a workload by flipping `suspend` to `false`.

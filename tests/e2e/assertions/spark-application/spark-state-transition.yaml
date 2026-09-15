@@ -18,7 +18,7 @@
 apiVersion: spark.apache.org/v1
 kind: SparkApplication
 metadata:
-  name: spark-job-succeeded-test
+  name: ($SPARK_APPLICATION_NAME)
   namespace: ($SPARK_APP_NAMESPACE)
 status:
   stateTransitionHistory:

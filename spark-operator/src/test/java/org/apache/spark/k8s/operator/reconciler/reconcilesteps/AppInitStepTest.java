@@ -442,4 +442,24 @@ class AppInitStepTest {
         ApplicationStateSummary.DriverRequested,
         application.getStatus().getCurrentState().getCurrentStateSummary());
   }
+
+  @Test
+  void suspendedNonInitializingAppProceeds() {
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(applicationMetadata);
+    application.getSpec().setSuspend(true);
+    application.setStatus(
+        application
+            .getStatus()
+            .appendNewState(
+                new ApplicationState(ApplicationStateSummary.RunningHealthy, "running")));
+    when(mockContext.getResource()).thenReturn(application);
+
+    Assertions.assertEquals(
+        ReconcileProgress.proceed(), appInitStep.reconcile(mockContext, recorder));
+    verifyNoInteractions(recorder);
+  }
 }

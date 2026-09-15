@@ -22,9 +22,3 @@ metadata:
   namespace: default
 spec:
   suspend: true
-status:
-  currentState:
-    currentStateSummary: "Submitted"
-  stateTransitionHistory:
-    (*.currentStateSummary):
-      - "Submitted"

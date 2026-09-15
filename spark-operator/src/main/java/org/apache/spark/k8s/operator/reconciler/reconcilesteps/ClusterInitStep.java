@@ -60,7 +60,7 @@ public final class ClusterInitStep extends ClusterReconcileStep {
     }
     SparkCluster cluster = context.getResource();
     if (cluster.getSpec().isSuspend()) {
-      log.info("Cluster is suspended, master and worker resources would not be requested.");
+      log.debug("Cluster is suspended, master and worker resources would not be requested.");
       return completeAndDefaultRequeue();
     }
     if (cluster.getStatus().getPreviousAttemptSummary() != null) {
