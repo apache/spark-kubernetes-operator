@@ -19,10 +19,13 @@
 
 package org.apache.spark.k8s.operator.reconciler.reconcilesteps;
 
+import static org.apache.spark.k8s.operator.utils.Utils.driverLabels;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -32,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import java.util.stream.Stream;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.fabric8.kubernetes.api.model.ConfigMap;
@@ -48,10 +52,12 @@ import io.fabric8.kubernetes.client.dsl.NamespaceableResource;
 import io.fabric8.kubernetes.client.dsl.ServerSideApplicable;
 import io.fabric8.kubernetes.client.server.mock.EnableKubernetesMockClient;
 import io.fabric8.kubernetes.client.server.mock.KubernetesMockServer;
+import io.javaoperatorsdk.operator.api.reconciler.Context;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import org.apache.spark.k8s.operator.SparkAppSubmissionWorker;
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.context.SparkAppContext;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
@@ -537,6 +543,59 @@ class AppInitStepTest {
     verifyNoInteractions(recorder);
     Assertions.assertEquals(
         ApplicationStateSummary.Submitted,
+        application.getStatus().getCurrentState().getCurrentStateSummary());
+  }
+
+  @Test
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  void staleInformerSnapshotDoesNotBypassSuspend() {
+    // Consecutive attempts reuse the driver pod name. Clean-up deleted the previous attempt's
+    // driver and the app is scheduled to restart with the backoff elapsed, but the informer still
+    // holds the pre-deletion snapshot (same name, no deletionTimestamp) while the API server has
+    // already removed the pod. A suspended app must not create a new driver.
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(applicationMetadata);
+    application.getSpec().setSuspend(true);
+    application.getSpec().setApplicationTolerations(
+        ApplicationTolerations.builder()
+            .restartConfig(RestartConfig.builder().restartBackoffMillis(0L).build())
+            .build());
+    ApplicationState failedState = new ApplicationState(ApplicationStateSummary.Failed, "failed");
+    ApplicationState scheduledState =
+        new ApplicationState(ApplicationStateSummary.ScheduledToRestart, "restarting");
+    Map<Long, ApplicationState> history = new TreeMap<>();
+    history.put(0L, failedState);
+    history.put(1L, scheduledState);
+    application.setStatus(new ApplicationStatus(
+        scheduledState, history,
+        new ApplicationAttemptSummary(), new ApplicationAttemptSummary()));
+
+    Pod stalePreviousAttemptDriver =
+        new PodBuilder(driverPodSpec)
+            .editOrNewMetadata()
+            .withLabels(driverLabels(application))
+            .endMetadata()
+            .build();
+    Context josdkContext = mock(Context.class);
+    when(josdkContext.getSecondaryResourcesAsStream(Pod.class))
+        .thenAnswer(invocation -> Stream.of(stalePreviousAttemptDriver));
+    when(josdkContext.getClient()).thenReturn(kubernetesClient);
+    SparkAppContext context =
+        spy(new SparkAppContext(application, josdkContext, mock(SparkAppSubmissionWorker.class)));
+    doReturn(driverPodSpec).when(context).getDriverPodSpec();
+    doReturn(List.of()).when(context).getDriverPreResourcesSpec();
+    doReturn(List.of()).when(context).getDriverResourcesSpec();
+
+    ReconcileProgress progress = appInitStep.reconcile(context, recorder);
+
+    Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
+    Assertions.assertNull(
+        kubernetesClient.pods().inNamespace("default").withName("driver-pod").get());
+    verifyNoInteractions(recorder);
+    Assertions.assertEquals(
+        ApplicationStateSummary.ScheduledToRestart,
         application.getStatus().getCurrentState().getCurrentStateSummary());
   }
 }
