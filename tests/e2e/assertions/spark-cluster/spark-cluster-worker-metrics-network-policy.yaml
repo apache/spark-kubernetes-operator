@@ -18,18 +18,18 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: spark-cluster-metrics-test-worker
+  name: (join('-', [$SPARK_CLUSTER_NAME, 'worker']))
   namespace: ($SPARK_APP_NAMESPACE)
 spec:
   podSelector:
     matchLabels:
       spark-role: worker
-      spark.operator/spark-cluster-name: spark-cluster-metrics-test
+      spark.operator/spark-cluster-name: ($SPARK_CLUSTER_NAME)
   ingress:
     - from:
         - podSelector:
             matchLabels:
-              spark.operator/spark-cluster-name: spark-cluster-metrics-test
+              spark.operator/spark-cluster-name: ($SPARK_CLUSTER_NAME)
         - podSelector:
             matchLabels:
               spark-role: driver
