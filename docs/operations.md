@@ -209,113 +209,45 @@ the feature off. The same rule applies to `operatorConfiguration.dynamicConfig.e
 
 Every `SparkCluster` gets a generated worker `NetworkPolicy` that only admits ingress from pods
 carrying the cluster label or the driver-role label, so a Prometheus scraper is locked out by
-default. Opening the worker web UI port (`8081`) is not a safe fix: Spark's built-in
+default. Opening the worker web UI port (`8081` by default) is not a safe fix: Spark's built-in
 `PrometheusServlet` metrics endpoint is served by the same embedded HTTP server as the web UI, so
 admitting that port to any source would expose the whole UI, not just metrics.
 
-The recommended approach is to attach the community
-[Prometheus JMX Exporter](https://github.com/prometheus/jmx_exporter)
-(`jmx_prometheus_javaagent`) to the worker JVM as a `-javaagent`. The agent opens its own
-dedicated HTTP port that serves Prometheus-format metrics, completely decoupled from the web UI
-port. Setting this up takes four steps:
+Use the [Prometheus JMX Exporter](https://github.com/prometheus/jmx_exporter)
+(`jmx_prometheus_javaagent`) to serve metrics on a dedicated HTTP port. See
+[examples/cluster-with-jmx-exporter.yaml](../examples/cluster-with-jmx-exporter.yaml) for the full
+`ConfigMap` and `SparkCluster` configuration. Replace the example's image with a custom Spark image
+containing the exporter jar at `/opt/jmx_exporter/jmx_prometheus_javaagent.jar`; the stock
+`apache/spark` image does not include it.
 
-1. Bake the exporter jar into the Spark image used by the cluster:
+The example mounts the exporter rules and attaches the agent through `SPARK_DAEMON_JAVA_OPTS`.
+The operator sets `SPARK_WORKER_OPTS` itself, so a value there would be overwritten. It also sets
+`spark.metrics.conf.*.sink.jmx.class` to `org.apache.spark.metrics.sink.JmxSink` in `sparkConf` to
+register Spark metrics as MBeans. Without this sink, the exporter only exposes JVM metrics.
 
-   ```dockerfile
-   FROM apache/spark:4.2.0
-   ADD https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/1.0.1/jmx_prometheus_javaagent-1.0.1.jar \
-       /opt/jmx_exporter/jmx_prometheus_javaagent.jar
-   ```
+Set `workerSpec.networkPolicy.metricsPort` to the exporter port and list the scraper's peers under
+`metricsIngress`. The generated policy adds ingress on that port for those peers, alongside the
+existing cluster/driver label allow-list. This mirrors
+`operatorDeployment.networkPolicy.metricsIngress`
+([above](#restricting-network-access-to-the-operator)) and accepts the same
+[`NetworkPolicyPeer`](https://kubernetes.io/docs/reference/kubernetes-api/policy-resources/network-policy-v1/#NetworkPolicyPeer)
+entries:
 
-2. Create a `ConfigMap` holding the exporter's mapping/rules config (which MBeans to expose and
-   how to name them), and mount it into the worker container via a `volumes` / `volumeMounts`
-   override under `workerSpec.statefulSetSpec.template.spec`:
+```yaml
+spec:
+  workerSpec:
+    networkPolicy:
+      metricsPort: 9404
+      metricsIngress:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: "monitoring"
+```
 
-   ```yaml
-   apiVersion: v1
-   kind: ConfigMap
-   metadata:
-     name: jmx-exporter-config
-   data:
-     jmx-exporter-config.yaml: |
-       lowercaseOutputName: true
-       rules:
-         - pattern: ".*"
-   ---
-   apiVersion: spark.apache.org/v1
-   kind: SparkCluster
-   metadata:
-     name: cluster-with-worker-metrics
-   spec:
-     workerSpec:
-       statefulSetSpec:
-         template:
-           spec:
-             volumes:
-               - name: jmx-exporter-config
-                 configMap:
-                   name: jmx-exporter-config
-             containers:
-               - name: worker
-                 volumeMounts:
-                   - name: jmx-exporter-config
-                     mountPath: /etc/metrics
-   ```
-
-3. Point the worker container at the agent via `SPARK_DAEMON_JAVA_OPTS`, and expose the agent's
-   port as a `containerPort`. The operator sets `SPARK_WORKER_OPTS` itself, so a value there would
-   be overwritten; `SPARK_DAEMON_JAVA_OPTS` is read by Spark's `SparkClassCommandBuilder` for the
-   Worker and never touched by the operator:
-
-   ```yaml
-   spec:
-     workerSpec:
-       statefulSetSpec:
-         template:
-           spec:
-             containers:
-               - name: worker
-                 env:
-                   - name: SPARK_DAEMON_JAVA_OPTS
-                     value: >-
-                       -javaagent:/opt/jmx_exporter/jmx_prometheus_javaagent.jar=9404:/etc/metrics/jmx-exporter-config.yaml
-                 ports:
-                   - name: jmx-metrics
-                     containerPort: 9404
-   ```
-
-   The image must have the agent jar pre-baked at the path given above — the stock
-   `apache/spark` image does not include it, and a `-javaagent` pointing at a missing jar aborts
-   JVM startup.
-
-4. Set `workerSpec.networkPolicy.metricsPort` to the same port and list your scraper under
-   `workerSpec.networkPolicy.metricsIngress`, so the operator's generated `NetworkPolicy` admits
-   ingress on that port from those sources only, in addition to the existing cluster/driver label
-   allow-list. This mirrors `operatorDeployment.networkPolicy.metricsIngress`
-   ([above](#restricting-network-access-to-the-operator)) — `metricsIngress` takes the same
-   [`NetworkPolicyPeer`](https://kubernetes.io/docs/reference/kubernetes-api/policy-resources/network-policy-v1/#NetworkPolicyPeer)
-   entries:
-
-   ```yaml
-   spec:
-     workerSpec:
-       networkPolicy:
-         metricsPort: 9404
-         metricsIngress:
-           - namespaceSelector:
-               matchLabels:
-                 kubernetes.io/metadata.name: "monitoring"
-   ```
-
-   Both fields are required for the rule to be generated: the port on its own would admit every
-   source in the cluster, and the peers on their own would grant them every worker port. When
-   either is missing, worker ingress stays exactly as restrictive as it is without these fields.
-   The metrics port must not be the worker web UI port (`8081`); the operator rejects that
-   combination because the UI and its metrics endpoint share the same embedded HTTP server.
-
-See [examples/cluster-with-jmx-exporter.yaml](../examples/cluster-with-jmx-exporter.yaml) for a
-walk-through of the full setup. It pulls the stock `apache/spark` image, so run it against an image
-that has the exporter jar baked in before expecting any metrics to be served.
+The `networkPolicy` block is optional. When present, the API server requires both fields and a
+port between 1 and 65535. An empty `metricsIngress` list adds no rule. Choose a dedicated exporter
+port, not the worker web UI port; the operator does not verify this. Configuring this policy does
+not start a metrics endpoint.
 
 Master pods do not get a `NetworkPolicy` today, so nothing needs to change for masters to be
 scrapable — the same javaagent-plus-`ConfigMap` approach applied under `masterSpec` is enough to

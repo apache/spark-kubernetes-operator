@@ -30,7 +30,6 @@ data:
     - pattern: 'metrics<name=(\S+)><>Value'
       name: spark_worker_$1
       type: GAUGE
-    - pattern: '.*'
 ---
 apiVersion: spark.apache.org/v1
 kind: SparkCluster
@@ -47,7 +46,7 @@ spec:
   workerSpec:
     networkPolicy:
       metricsPort: 9404
-      # Only pods in the "monitoring" namespace may reach the exporter port above.
+      # Allow scraper pods in "monitoring", in addition to the default cluster/driver peers.
       metricsIngress:
       - namespaceSelector:
           matchLabels:
@@ -74,4 +73,6 @@ spec:
             configMap:
               name: jmx-exporter-config
   sparkConf:
+    spark.metrics.conf.*.sink.jmx.class: "org.apache.spark.metrics.sink.JmxSink"
+    # Replace with a custom Spark image containing /opt/jmx_exporter/jmx_prometheus_javaagent.jar.
     spark.kubernetes.container.image: "apache/spark:{{SPARK_VERSION}}-scala"

@@ -469,21 +469,14 @@ public class SparkClusterResourceSpec {
    * resource and does not carry the cluster label, yet the driver must reach the executors' block
    * manager to fetch task results larger than {@code spark.task.maxDirectResultSize}.
    *
-   * <p>If both {@link WorkerNetworkPolicySpec#getMetricsPort()} and {@link
-   * WorkerNetworkPolicySpec#getMetricsIngress()} are set, a separate rule admits the listed peers
-   * on that port only. Both are required: the port alone would open the endpoint to every source in
-   * the cluster, and the peers alone would grant them every port. The worker web UI port is
-   * deliberately not usable as the metrics port: it is served by the same embedded HTTP server as
-   * the UI itself, so admitting it would also expose the full UI, not just a metrics endpoint. A
-   * dedicated metrics port (e.g. a JMX-to-Prometheus exporter agent) keeps metrics scraping
-   * separate from the UI.
+   * <p>If the worker network policy is configured with metrics ingress peers, a separate rule
+   * admits those peers on the configured port only. This should be a dedicated exporter port, not
+   * the worker web UI port; the operator does not verify this.
    *
    * @param clusterName The name of the SparkCluster.
    * @param namespace The namespace of the SparkApplication.
    * @param workerSpec The WorkerSpec, used to look up the optional metrics port and its peers.
    * @return A NetworkPolicy object.
-   * @throws IllegalArgumentException if a metrics ingress rule is requested on the worker web UI
-   *     port.
    */
   private NetworkPolicy buildWorkerNetworkPolicy(
       String clusterName, String namespace, WorkerSpec workerSpec) {
@@ -512,24 +505,17 @@ public class SparkClusterResourceSpec {
             .endFrom()
             .endIngress();
     WorkerNetworkPolicySpec networkPolicy = workerSpec.getNetworkPolicy();
-    if (networkPolicy != null
-        && networkPolicy.getMetricsPort() != null
-        && networkPolicy.getMetricsIngress() != null
-        && !networkPolicy.getMetricsIngress().isEmpty()) {
-      if (networkPolicy.getMetricsPort() == 8081) {
-        throw new IllegalArgumentException(
-            "workerSpec.networkPolicy.metricsPort must not be the worker web UI port (8081)");
-      }
-      builder =
-          builder
-              .addNewIngress()
-              .withFrom(networkPolicy.getMetricsIngress())
-              .addNewPort()
-              .withPort(new IntOrString(networkPolicy.getMetricsPort()))
-              .withProtocol("TCP")
-              .endPort()
-              .endIngress();
+    if (networkPolicy == null || networkPolicy.getMetricsIngress().isEmpty()) {
+      return builder.endSpec().build();
     }
+    builder
+        .addNewIngress()
+        .withFrom(networkPolicy.getMetricsIngress())
+        .addNewPort()
+        .withPort(new IntOrString(networkPolicy.getMetricsPort()))
+        .withProtocol("TCP")
+        .endPort()
+        .endIngress();
     return builder.endSpec().build();
   }
 }

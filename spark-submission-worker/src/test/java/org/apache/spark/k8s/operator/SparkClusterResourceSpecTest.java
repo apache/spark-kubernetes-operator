@@ -21,7 +21,6 @@ package org.apache.spark.k8s.operator;
 
 import static org.apache.spark.k8s.operator.Constants.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -92,8 +91,6 @@ class SparkClusterResourceSpecTest {
     when(workerSpec.getStatefulSetMetadata()).thenReturn(objectMeta);
     when(workerSpec.getServiceSpec()).thenReturn(serviceSpec);
     when(workerSpec.getServiceMetadata()).thenReturn(objectMeta);
-    // Mockito defaults the network policy to null, matching an unset workerSpec.networkPolicy.
-    when(workerSpec.getNetworkPolicy()).thenReturn(null);
   }
 
   @Test
@@ -351,9 +348,10 @@ class SparkClusterResourceSpecTest {
         .addToMatchLabels("kubernetes.io/metadata.name", "monitoring")
         .endNamespaceSelector()
         .build();
-    var networkPolicySpec = mock(WorkerNetworkPolicySpec.class);
-    when(networkPolicySpec.getMetricsPort()).thenReturn(9404);
-    when(networkPolicySpec.getMetricsIngress()).thenReturn(List.of(scraper));
+    var networkPolicySpec = WorkerNetworkPolicySpec.builder()
+        .metricsPort(9404)
+        .metricsIngress(List.of(scraper))
+        .build();
     when(workerSpec.getNetworkPolicy()).thenReturn(networkPolicySpec);
     SparkClusterResourceSpec spec = new SparkClusterResourceSpec(cluster, new SparkConf());
     NetworkPolicy policy = spec.getWorkerNetworkPolicy();
@@ -367,37 +365,14 @@ class SparkClusterResourceSpecTest {
   }
 
   @Test
-  void testWorkerNetworkPolicyWithMetricsPortButNoIngress() {
-    var networkPolicySpec = mock(WorkerNetworkPolicySpec.class);
-    when(networkPolicySpec.getMetricsPort()).thenReturn(9404);
-    when(networkPolicySpec.getMetricsIngress()).thenReturn(List.of());
+  void testWorkerNetworkPolicyWithEmptyMetricsIngress() {
+    var networkPolicySpec = WorkerNetworkPolicySpec.builder()
+        .metricsPort(9404)
+        .metricsIngress(List.of())
+        .build();
     when(workerSpec.getNetworkPolicy()).thenReturn(networkPolicySpec);
     SparkClusterResourceSpec spec = new SparkClusterResourceSpec(cluster, new SparkConf());
     assertEquals(1, spec.getWorkerNetworkPolicy().getSpec().getIngress().size());
-  }
-
-  @Test
-  void testWorkerNetworkPolicyWithMetricsIngressButNoPort() {
-    var networkPolicySpec = mock(WorkerNetworkPolicySpec.class);
-    // Mockito defaults Integer to 0 rather than null, so unset has to be stubbed explicitly.
-    when(networkPolicySpec.getMetricsPort()).thenReturn(null);
-    when(networkPolicySpec.getMetricsIngress())
-        .thenReturn(List.of(new NetworkPolicyPeerBuilder().build()));
-    when(workerSpec.getNetworkPolicy()).thenReturn(networkPolicySpec);
-    SparkClusterResourceSpec spec = new SparkClusterResourceSpec(cluster, new SparkConf());
-    assertEquals(1, spec.getWorkerNetworkPolicy().getSpec().getIngress().size());
-  }
-
-  @Test
-  void testWorkerNetworkPolicyRejectsWebUiMetricsPort() {
-    var networkPolicySpec = mock(WorkerNetworkPolicySpec.class);
-    when(networkPolicySpec.getMetricsPort()).thenReturn(8081);
-    when(networkPolicySpec.getMetricsIngress())
-        .thenReturn(List.of(new NetworkPolicyPeerBuilder().build()));
-    when(workerSpec.getNetworkPolicy()).thenReturn(networkPolicySpec);
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> new SparkClusterResourceSpec(cluster, new SparkConf()));
   }
 
   @Test

@@ -11237,7 +11237,12 @@ spec:
                             type: object
                           type: array
                         metricsPort:
+                          maximum: 65535.0
+                          minimum: 1.0
                           type: integer
+                      required:
+                        - metricsIngress
+                        - metricsPort
                       type: object
                     serviceMetadata:
                       properties:
