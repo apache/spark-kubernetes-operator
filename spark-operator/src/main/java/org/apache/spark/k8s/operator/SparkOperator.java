@@ -58,6 +58,7 @@ import org.apache.spark.k8s.operator.metrics.source.OperatorJosdkMetrics;
 import org.apache.spark.k8s.operator.probe.ProbeService;
 import org.apache.spark.k8s.operator.reconciler.SparkAppReconciler;
 import org.apache.spark.k8s.operator.reconciler.SparkClusterReconciler;
+import org.apache.spark.k8s.operator.utils.ConfigurableEventRecorder;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
 import org.apache.spark.k8s.operator.utils.StringUtils;
@@ -274,6 +275,7 @@ public class SparkOperator {
    */
   protected void overrideOperatorConfigs(ConfigurationServiceOverrider overrider) {
     overrider.withKubernetesClient(client);
+    overrider.withEventRecorder(ConfigurableEventRecorder.withDefaultSink(client));
     overrider.withStopOnInformerErrorDuringStartup(
         SparkOperatorConf.TERMINATE_ON_INFORMER_FAILURE_ENABLED.getValue());
     overrider.withReconciliationTerminationTimeout(

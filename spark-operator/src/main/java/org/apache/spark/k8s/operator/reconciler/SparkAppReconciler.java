@@ -21,6 +21,7 @@ package org.apache.spark.k8s.operator.reconciler;
 
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_APPLICATION_NAME;
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.completeAndDefaultRequeue;
+import static org.apache.spark.k8s.operator.utils.ReconcilerUtils.isFirstAttempt;
 import static org.apache.spark.k8s.operator.utils.Utils.basicLabelSecondaryToPrimaryMapper;
 import static org.apache.spark.k8s.operator.utils.Utils.commonResourceLabelsStr;
 
@@ -57,6 +58,7 @@ import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppResourceObserv
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppRunningStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppUnknownStateStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppValidateStep;
+import org.apache.spark.k8s.operator.utils.EventUtils;
 import org.apache.spark.k8s.operator.utils.LoggingUtils;
 import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
@@ -135,6 +137,15 @@ public class SparkAppReconciler implements Reconciler<SparkApplication>, Cleaner
                       retryInfo.isLastAttempt());
                 }
               });
+      // JOSDK calls this on every retry attempt. Emitting each time would mean one blocking write
+      // per attempt against an API server that is often the cause of the failure, so only the
+      // first attempt publishes: the reason is stable, so a later attempt would only bump a count.
+      if (isFirstAttempt(context)) {
+        EventUtils.warn(
+            context.eventRecorder(),
+            EventUtils.REASON_RECONCILE_ERROR,
+            "Spark App Reconciliation failed. " + EventUtils.describe(e));
+      }
       return ErrorStatusUpdateControl.noStatusUpdate();
     } finally {
       trackedMDC.reset();
@@ -223,6 +234,13 @@ public class SparkAppReconciler implements Reconciler<SparkApplication>, Cleaner
           }
         }
       }
+    } catch (RuntimeException e) {
+      EventUtils.warn(
+          context.eventRecorder(),
+          EventUtils.REASON_CLEANUP_ERROR,
+          "Spark App Cleanup failed, the resource cannot finish deleting. "
+              + EventUtils.describe(e));
+      throw e;
     } finally {
       log.debug("Cleanup completed");
       trackedMDC.reset();

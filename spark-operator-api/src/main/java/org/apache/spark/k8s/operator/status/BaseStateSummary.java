@@ -27,6 +27,15 @@ package org.apache.spark.k8s.operator.status;
 public sealed interface BaseStateSummary
     permits ApplicationStateSummary, ClusterStateSummary {
   /**
+   * The stable CamelCase name of this state. Both permitted implementations are enums, so this is
+   * satisfied by {@link Enum#name()}. Declaring it here lets callers that only hold a {@link
+   * BaseStateSummary} use the state name, for example as the reason of a Kubernetes Event.
+   *
+   * @return The name of this state.
+   */
+  String name();
+
+  /**
    * Checks if the CustomResource has failed.
    *
    * @return True if the CustomResource has failed, false otherwise.
