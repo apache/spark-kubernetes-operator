@@ -26,9 +26,12 @@ spec:
         file: spark-example-suspend.yaml
     - sleep:
         duration: 30s
-    - assert:
-        timeout: 10s
-        file: spark-application-suspended.yaml
+    - script:
+        timeout: 30s
+        content: |
+          kubectl get sparkapplication spark-job-suspend-test -n default -o json | jq ".status"
+        check:
+          (contains($stdout, 'null')): true
     - error:
         timeout: 10s
         resource:
@@ -75,9 +78,12 @@ spec:
         file: spark-cluster-example-suspend.yaml
     - sleep:
         duration: 30s
-    - assert:
-        timeout: 10s
-        file: spark-cluster-suspended.yaml
+    - script:
+        timeout: 30s
+        content: |
+          kubectl get sparkcluster spark-cluster-suspend-test -n default -o json | jq ".status"
+        check:
+          (contains($stdout, 'null')): true
     - error:
         timeout: 10s
         resource:

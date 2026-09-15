@@ -380,7 +380,9 @@ restartConfig:
 The `restartCounterResetMillis` field controls automatic restart counter resets for long-running
 application attempts. When set to a non-negative value (in milliseconds), the operator will reset
 all restart counters (including the general counter and both failure counters) if an application
-attempt runs successfully for at least the specified duration before ending.
+attempt runs successfully for at least the specified duration before ending. The duration is
+measured from the first state after `Submitted` / `ScheduledToRestart` (normally
+`DriverRequested`), so time spent in restart backoff or suspended is not counted.
 
 Time-based reset takes highest precedence over all limit checks. If an attempt runs longer than
 `restartCounterResetMillis`, the operator will always restart with reset counters, regardless
@@ -532,6 +534,11 @@ operator keeps the resource in its initializing state (`Submitted`, or `Schedule
 application that is scheduled to restart) and does not request the driver pod or the master / worker
 StatefulSets. Setting it back to `false` resumes the regular lifecycle.
 
+`Submitted` here is the operator's in-memory view. For a valid resource created with
+`suspend: true`, the initial `Submitted` status is not persisted to the API server, so
+`kubectl get` shows an empty `Current State` until initialization resumes. An application held
+later, in `ScheduledToRestart`, keeps the status its previous attempt already wrote.
+
 ``` yaml
 apiVersion: spark.apache.org/v1
 kind: SparkApplication
@@ -552,6 +559,7 @@ spec:
 * Deleting a suspended resource works as usual.
 * This is the building block for external job queueing systems such as
   [Kueue](https://kueue.sigs.k8s.io/), which admit a workload by flipping `suspend` to `false`.
+  The operator does not integrate with such a system yet.
 
 ## Spark Cluster
 

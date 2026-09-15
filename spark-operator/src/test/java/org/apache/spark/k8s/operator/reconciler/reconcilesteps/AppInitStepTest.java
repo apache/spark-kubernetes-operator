@@ -30,6 +30,7 @@ import static org.mockito.Mockito.when;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -461,5 +462,77 @@ class AppInitStepTest {
     Assertions.assertEquals(
         ReconcileProgress.proceed(), appInitStep.reconcile(mockContext, recorder));
     verifyNoInteractions(recorder);
+  }
+
+  @Test
+  void suspendAfterDriverRequestedCompletesInitialization() {
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(applicationMetadata);
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getDriverPreResourcesSpec()).thenReturn(List.of());
+    when(mockContext.getDriverPodSpec()).thenReturn(driverPodSpec);
+    when(mockContext.getDriverResourcesSpec()).thenReturn(List.of());
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
+    when(mockContext.getDriverPod())
+        .thenAnswer(
+            invocation ->
+                Optional.ofNullable(
+                    kubernetesClient.pods().inNamespace("default").withName("driver-pod").get()));
+    when(recorder.persistStatus(any(), any())).thenReturn(false);
+
+    // The driver is created but the status update to DriverRequested fails
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndImmediateRequeue(),
+        appInitStep.reconcile(mockContext, recorder));
+    Assertions.assertNotNull(
+        kubernetesClient.pods().inNamespace("default").withName("driver-pod").get());
+
+    // The next reconcile restores Submitted from the cache while the app got suspended meanwhile
+    application.setStatus(new ApplicationStatus());
+    application.getSpec().setSuspend(true);
+    when(recorder.persistStatus(any(), any())).thenAnswer(invocation -> {
+      ApplicationStatus newStatus = invocation.getArgument(1);
+      application.setStatus(newStatus);
+      return true;
+    });
+
+    // The live driver of the current attempt takes precedence over the hold
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndDefaultRequeue(),
+        appInitStep.reconcile(mockContext, recorder));
+    Assertions.assertEquals(
+        ApplicationStateSummary.DriverRequested,
+        application.getStatus().getCurrentState().getCurrentStateSummary());
+  }
+
+  @Test
+  void previousAttemptDriverPodDoesNotBypassSuspend() {
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(applicationMetadata);
+    application.getSpec().setSuspend(true);
+    Pod previousAttemptDriver =
+        new PodBuilder(driverPodSpec)
+            .editOrNewMetadata()
+            .withName("previous-attempt-driver-pod")
+            .endMetadata()
+            .build();
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getDriverPod()).thenReturn(Optional.of(previousAttemptDriver));
+    when(mockContext.getDriverPodSpec()).thenReturn(driverPodSpec);
+
+    ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
+
+    Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
+    verify(mockContext, never()).getClient();
+    verifyNoInteractions(recorder);
+    Assertions.assertEquals(
+        ApplicationStateSummary.Submitted,
+        application.getStatus().getCurrentState().getCurrentStateSummary());
   }
 }
