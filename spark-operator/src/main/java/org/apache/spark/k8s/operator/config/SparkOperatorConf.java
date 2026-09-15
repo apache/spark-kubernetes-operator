@@ -287,14 +287,12 @@ public final class SparkOperatorConf {
           .key("spark.kubernetes.operator.events.enabled")
           .enableDynamicOverride(true)
           .description(
-              "When enabled, operator would publish Kubernetes Event objects into the" +
-                  " namespace "
-                  + "of the Spark resource they describe, making them visible to " +
-                  "users of that "
-                  + "namespace via 'kubectl describe' and 'kubectl get events'. " +
-                  "These are Event "
-                  + "resources in the core API group, unrelated to the internal " +
-                  "events that "
+              "When enabled, operator would publish Kubernetes Event objects into the namespace "
+                  + "of the Spark resource they describe, making them visible to users of that "
+                  + "namespace via 'kubectl describe' and 'kubectl get events'. Events are "
+                  + "published when a resource enters a failure state, and when the operator "
+                  + "cannot reconcile or update the status of a resource. These are Event "
+                  + "resources in the core API group, unrelated to the internal events that "
                   + "trigger reconciliation.")
           .typeParameterClass(Boolean.class)
           .defaultValue(false)

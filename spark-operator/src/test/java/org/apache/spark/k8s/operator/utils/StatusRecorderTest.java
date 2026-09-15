@@ -25,6 +25,7 @@ import static org.mockito.ArgumentMatchers.assertArg;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -33,11 +34,17 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.server.mock.EnableKubernetesMockClient;
 import io.fabric8.kubernetes.client.server.mock.KubernetesMockServer;
+import io.javaoperatorsdk.operator.api.event.EventRecord;
+import io.javaoperatorsdk.operator.api.event.EventType;
+import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.context.BaseContext;
 import org.apache.spark.k8s.operator.listeners.SparkAppStatusListener;
+import org.apache.spark.k8s.operator.status.ApplicationState;
+import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
 
 @EnableKubernetesMockClient
@@ -51,6 +58,8 @@ class StatusRecorderTest {
   KubernetesClient client;
 
   SparkAppStatusListener mockStatusListener = mock(SparkAppStatusListener.class);
+
+  ResourceEventRecorder mockEventRecorder = mock(ResourceEventRecorder.class);
 
   StatusRecorder<ApplicationStatus, SparkApplication, SparkAppStatusListener> statusRecorder =
       new StatusRecorder<>(
@@ -114,6 +123,115 @@ class StatusRecorderTest {
             assertArg(a -> assertThat(a.getMetadata().getResourceVersion()).isEqualTo("2")),
             any(),
             any());
+  }
+
+  @Test
+  void publishesAnEventWhenTheResourceEntersAFailureState() {
+    var testResource = getSparkApplication("1");
+    var context = contextFor(testResource);
+    expectStatusPatch(testResource, getSparkApplication("2"));
+
+    // The failure users actually hit: AppInitStep catches the rejected driver pod and records
+    // SchedulingFailure rather than throwing, so no reconciler error hook ever sees it.
+    statusRecorder.persistStatus(
+        context,
+        new ApplicationStatus()
+            .appendNewState(
+                new ApplicationState(
+                    ApplicationStateSummary.SchedulingFailure, "exceeded quota for pods")));
+
+    var event = captureRecordedEvent();
+    assertThat(event.type()).isEqualTo(EventType.WARNING);
+    assertThat(event.reason()).isEqualTo(ApplicationStateSummary.SchedulingFailure.name());
+    assertThat(event.message()).isEqualTo("exceeded quota for pods");
+    // Keyed on the state so an app that keeps re-entering it aggregates onto one Event.
+    assertThat(event.key()).contains(ApplicationStateSummary.SchedulingFailure.name());
+  }
+
+  @Test
+  void publishesNoEventForANonFailureTransition() {
+    var testResource = getSparkApplication("1");
+    var context = contextFor(testResource);
+    expectStatusPatch(testResource, getSparkApplication("2"));
+
+    statusRecorder.persistStatus(
+        context,
+        new ApplicationStatus()
+            .appendNewState(
+                new ApplicationState(ApplicationStateSummary.DriverRequested, "driver requested")));
+
+    // Only failures are published, a Normal event per transition would be pure noise.
+    verifyNoInteractions(mockEventRecorder);
+  }
+
+  @Test
+  void publishesNoEventWhenTheStatusDidNotChange() {
+    var testResource = getSparkApplication("1");
+    var context = contextFor(testResource);
+    var failed =
+        new ApplicationStatus()
+            .appendNewState(new ApplicationState(ApplicationStateSummary.Failed, "driver failed"));
+    expectStatusPatch(testResource, getSparkApplication("2"));
+
+    statusRecorder.persistStatus(context, failed);
+    // Second call with the very same status: patchAndStatusWithVersionLocked short circuits, so
+    // the resource has not transitioned again and must not be reported again.
+    statusRecorder.persistStatus(context, failed);
+
+    verify(mockEventRecorder, times(1)).record(any(EventRecord.class));
+  }
+
+  @Test
+  void publishesAnEventWhenTheStatusPatchIsRejected() {
+    var testResource = getSparkApplication("1");
+    var context = contextFor(testResource);
+    // 403 is a decision by a reachable API server, so reporting it costs a healthy request.
+    server.expect().withPath(statusPathOf(testResource)).andReturn(403, null).always();
+
+    assertThat(statusRecorder.persistStatus(context, new ApplicationStatus())).isFalse();
+
+    var event = captureRecordedEvent();
+    assertThat(event.reason()).isEqualTo(EventUtils.REASON_STATUS_UPDATE_FAILED);
+    assertThat(event.message()).contains("the reported status may be stale");
+  }
+
+  @Test
+  void publishesNoEventWhenTheApiServerIsUnreachable() {
+    var testResource = getSparkApplication("1");
+    var context = contextFor(testResource);
+    // 503 means the control plane is already degraded. Writing an event costs two more requests
+    // against it, so the observability path must not pile on.
+    server.expect().withPath(statusPathOf(testResource)).andReturn(503, null).always();
+
+    assertThat(statusRecorder.persistStatus(context, new ApplicationStatus())).isFalse();
+
+    verifyNoInteractions(mockEventRecorder);
+  }
+
+  private BaseContext<SparkApplication> contextFor(SparkApplication resource) {
+    BaseContext<SparkApplication> context = mock(BaseContext.class);
+    when(context.getResource()).thenReturn(resource);
+    when(context.getClient()).thenReturn(client);
+    when(context.getEventRecorder()).thenReturn(mockEventRecorder);
+    return context;
+  }
+
+  private void expectStatusPatch(SparkApplication resource, SparkApplication updated) {
+    server.expect().withPath(statusPathOf(resource)).andReturn(200, updated).always();
+  }
+
+  private static String statusPathOf(SparkApplication resource) {
+    return "/apis/spark.apache.org/v1/namespaces/"
+        + DEFAULT_NS
+        + "/sparkapplications/"
+        + resource.getMetadata().getName()
+        + "/status";
+  }
+
+  private EventRecord captureRecordedEvent() {
+    ArgumentCaptor<EventRecord> captor = ArgumentCaptor.forClass(EventRecord.class);
+    verify(mockEventRecorder).record(captor.capture());
+    return captor.getValue();
   }
 
   private static SparkApplication getSparkApplication(String resourceVersion) {
