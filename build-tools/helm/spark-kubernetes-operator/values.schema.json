@@ -563,6 +563,19 @@
             }
           }
         },
+        "kueue": {
+          "type": "object",
+          "description": "Kueue integration RBAC",
+          "required": [
+            "enabled"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Whether to grant the operator access to Kueue resources"
+            }
+          }
+        },
         "labels": {
           "type": "object",
           "description": "Labels for RBAC resources",

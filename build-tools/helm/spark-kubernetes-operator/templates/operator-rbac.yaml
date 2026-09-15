@@ -122,6 +122,43 @@ rules:
       - patch
       - delete
 {{- end }}
+{{- if .Values.operatorRbac.kueue.enabled }}
+  - apiGroups:
+      - "kueue.x-k8s.io"
+    resources:
+      - workloads
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - "kueue.x-k8s.io"
+    resources:
+      - workloads/status
+    verbs:
+      - get
+      - update
+      - patch
+  - apiGroups:
+      - "kueue.x-k8s.io"
+    resources:
+      - workloads/finalizers
+    verbs:
+      - update
+  - apiGroups:
+      - "kueue.x-k8s.io"
+    resources:
+      - resourceflavors
+      - workloadpriorityclasses
+    verbs:
+      - get
+      - list
+      - watch
+{{- end }}
 {{- end }}
 
 {{/*
