@@ -156,20 +156,14 @@ public final class AppInitStep extends AppReconcileStep {
    * Checks whether the driver pod of the current attempt has already been requested. This covers
    * the case where the driver was created but the status update to DriverRequested failed, so that
    * a suspended application still completes its initialization instead of being held with a live
-   * driver. The driver pod name carries the attempt id, so a pod left from a previous attempt does
-   * not match.
+   * driver. See {@link SparkAppContext#getCurrentAttemptDriverPod()} for how a pod left from a
+   * previous attempt is told apart.
    *
    * @param context The SparkAppContext for the application.
    * @return True if the driver pod of the current attempt exists, false otherwise.
    */
   private boolean isDriverRequested(SparkAppContext context) {
-    Optional<Pod> driverPod = context.getDriverPod();
-    return driverPod.isPresent()
-        && driverPod
-            .get()
-            .getMetadata()
-            .getName()
-            .equals(context.getDriverPodSpec().getMetadata().getName());
+    return context.getCurrentAttemptDriverPod().isPresent();
   }
 
   /**

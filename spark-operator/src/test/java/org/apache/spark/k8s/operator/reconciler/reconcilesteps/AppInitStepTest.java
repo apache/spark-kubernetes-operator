@@ -476,7 +476,7 @@ class AppInitStepTest {
     when(mockContext.getDriverPodSpec()).thenReturn(driverPodSpec);
     when(mockContext.getDriverResourcesSpec()).thenReturn(List.of());
     when(mockContext.getClient()).thenReturn(kubernetesClient);
-    when(mockContext.getDriverPod())
+    when(mockContext.getCurrentAttemptDriverPod())
         .thenAnswer(
             invocation ->
                 Optional.ofNullable(
@@ -510,6 +510,9 @@ class AppInitStepTest {
 
   @Test
   void previousAttemptDriverPodDoesNotBypassSuspend() {
+    // A terminating pod of the previous attempt with the very same name (e.g. user-specified
+    // spark.app.id) is still visible via getDriverPod() but is not the current attempt's driver.
+    // SparkAppContextTest covers the selection itself.
     AppInitStep appInitStep = new AppInitStep();
     SparkAppContext mockContext = mock(SparkAppContext.class);
     SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
@@ -519,11 +522,12 @@ class AppInitStepTest {
     Pod previousAttemptDriver =
         new PodBuilder(driverPodSpec)
             .editOrNewMetadata()
-            .withName("previous-attempt-driver-pod")
+            .withDeletionTimestamp(Instant.now().toString())
             .endMetadata()
             .build();
     when(mockContext.getResource()).thenReturn(application);
     when(mockContext.getDriverPod()).thenReturn(Optional.of(previousAttemptDriver));
+    when(mockContext.getCurrentAttemptDriverPod()).thenReturn(Optional.empty());
     when(mockContext.getDriverPodSpec()).thenReturn(driverPodSpec);
 
     ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
