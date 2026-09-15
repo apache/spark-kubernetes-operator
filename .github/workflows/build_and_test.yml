@@ -272,7 +272,9 @@ jobs:
         if: matrix.test-group == 'kueue'
         run: |
           kubectl apply --server-side -f https://github.com/kubernetes-sigs/kueue/releases/download/v0.19.4/manifests.yaml
-          kubectl wait --for=condition=established --timeout=60s crd/workloads.kueue.x-k8s.io
+          # Kueue installs webhooks for pods, deployments and statefulsets with failurePolicy=Fail,
+          # so wait for the controller (whose readyz covers the webhook server) before helm install.
+          kubectl wait deploy/kueue-controller-manager -n kueue-system --for=condition=Available --timeout=5m
       - name: Run Spark K8s Operator Helm Tests
         run: |
           eval $(minikube docker-env)
