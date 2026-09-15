@@ -162,13 +162,6 @@ operatorDeployment:
             kubernetes.io/metadata.name: "monitoring"
 ```
 
-The legacy key `operatorDeployment.networkPolicy.enable` is deprecated in favor of `enabled`
-and will be removed in chart `2.0.0` ([SPARK-59533](https://issues.apache.org/jira/browse/SPARK-59533)).
-It is still honored: the NetworkPolicy is created when
-either key is `true`, so a stale `enable: true` in a base values file wins over
-`enabled: false` and must be removed to turn the feature off. The same rule applies to
-`operatorConfiguration.dynamicConfig.enable`.
-
 When enabled, all ingress traffic to the operator pod is denied except:
 
 - the health probe port, reachable from any source — kubelet probe traffic originates from
@@ -181,6 +174,12 @@ When enabled, all ingress traffic to the operator pod is denied except:
 Note that this requires a CNI plugin that enforces NetworkPolicy; on clusters without such
 a plugin the policy is silently ignored. Egress traffic of the operator (Kubernetes API
 server, DNS) is not restricted by this policy.
+
+The legacy key `operatorDeployment.networkPolicy.enable` is deprecated in favor of `enabled`
+and will be removed in chart `2.0.0` ([SPARK-59533](https://issues.apache.org/jira/browse/SPARK-59533)).
+It is still honored: the NetworkPolicy is created when either key is `true`, so a stale
+`enable: true` in a base values file wins over `enabled: false` and must be removed to turn
+the feature off. The same rule applies to `operatorConfiguration.dynamicConfig.enable`.
 
 ## Operator Health(Liveness) Probe with Sentinel Resource
 

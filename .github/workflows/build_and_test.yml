@@ -312,3 +312,19 @@ jobs:
           helm template spark build-tools/helm/spark-kubernetes-operator \
             --set operatorConfiguration.dynamicConfig.enable=true \
             | grep -q 'spark.kubernetes.operator.dynamicConfig.enabled=true'
+      - name: Validate helm values resolve to disabled
+        run: |
+          if helm template spark build-tools/helm/spark-kubernetes-operator \
+            | grep -q 'kind: NetworkPolicy'; then
+            echo "NetworkPolicy rendered with the default values"; exit 1
+          fi
+          if helm template spark build-tools/helm/spark-kubernetes-operator \
+            --set operatorDeployment.networkPolicy.enable=false \
+            | grep -q 'kind: NetworkPolicy'; then
+            echo "NetworkPolicy rendered with enable=false"; exit 1
+          fi
+          if helm template spark build-tools/helm/spark-kubernetes-operator \
+            --set operatorConfiguration.dynamicConfig.enable=false \
+            | grep -q 'spark.kubernetes.operator.dynamicConfig.enabled=true'; then
+            echo "dynamicConfig enabled with enable=false"; exit 1
+          fi
