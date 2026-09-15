@@ -74,6 +74,37 @@ public class SparkAppContext extends BaseContext<SparkApplication> {
   }
 
   /**
+   * Returns the driver pod of the current attempt, if present. A pod counts as the current
+   * attempt's driver only if it carries the driver labels, has the name of the desired driver pod
+   * spec and is not being deleted. The last condition tells a previous attempt's pod apart when
+   * the driver pod name is reused across attempts (e.g. user-specified spark.app.id): the previous
+   * attempt's pod has been deleted by the clean-up step before the application was scheduled to
+   * restart, so it is either gone or terminating.
+   *
+   * @return An Optional containing the driver Pod of the current attempt, or empty if not found.
+   */
+  public Optional<Pod> getCurrentAttemptDriverPod() {
+    List<Pod> driverPods =
+        josdkContext
+            .getSecondaryResourcesAsStream(Pod.class)
+            .filter(
+                p ->
+                    p.getMetadata()
+                        .getLabels()
+                        .entrySet()
+                        .containsAll(driverLabels(sparkApplication).entrySet()))
+            .filter(p -> p.getMetadata().getDeletionTimestamp() == null)
+            .toList();
+    if (driverPods.isEmpty()) {
+      return Optional.empty();
+    }
+    String driverPodName = getDriverPodSpec().getMetadata().getName();
+    return driverPods.stream()
+        .filter(p -> driverPodName.equals(p.getMetadata().getName()))
+        .findAny();
+  }
+
+  /**
    * Live lookup of the driver pod against the API server, bypassing the informer cache. The result
    * is memoized for the lifetime of this context so that multiple observe steps share a single
    * API call.

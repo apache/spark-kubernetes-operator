@@ -40,6 +40,8 @@ spec:
           bindings:
           - name: SPARK_APP_NAMESPACE
             value: spark-1
+          - name: SPARK_APPLICATION_NAME
+            value: spark-job-succeeded-test
           timeout: 60s
           file: "../assertions/spark-application/spark-state-transition.yaml"
       - apply:
@@ -96,6 +98,8 @@ spec:
           bindings:
             - name: SPARK_APP_NAMESPACE
               value: spark-3
+            - name: SPARK_APPLICATION_NAME
+              value: spark-job-succeeded-test
           timeout: 180s
           file: "../assertions/spark-application/spark-state-transition.yaml"
     catch:

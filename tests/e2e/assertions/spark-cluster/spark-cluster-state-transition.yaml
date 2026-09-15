@@ -18,7 +18,7 @@
 apiVersion: spark.apache.org/v1
 kind: SparkCluster
 metadata:
-  name: spark-cluster-succeeded-test
+  name: ($SPARK_CLUSTER_NAME)
   namespace: ($SPARK_APP_NAMESPACE)
 status:
   stateTransitionHistory:

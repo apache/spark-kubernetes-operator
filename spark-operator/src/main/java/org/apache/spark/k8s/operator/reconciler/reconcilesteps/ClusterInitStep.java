@@ -39,6 +39,7 @@ import org.apache.spark.k8s.operator.context.SparkClusterContext;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.status.ClusterState;
 import org.apache.spark.k8s.operator.status.ClusterStatus;
+import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
 
 /** Request cluster master and its resources when starting an attempt. */
@@ -59,6 +60,14 @@ public final class ClusterInitStep extends ClusterReconcileStep {
       return proceed();
     }
     SparkCluster cluster = context.getResource();
+    // A cluster whose master StatefulSet already exists has been requested before (e.g. the status
+    // update to RunningHealthy failed), so let it complete its initialization even if suspended.
+    if (cluster.getSpec().isSuspend()
+        && ReconcilerUtils.getResource(context.getClient(), context.getMasterStatefulSetSpec())
+            .isEmpty()) {
+      log.debug("Cluster is suspended, master and worker resources would not be requested.");
+      return completeAndDefaultRequeue();
+    }
     if (cluster.getStatus().getPreviousAttemptSummary() != null) {
       Instant lastTransitionTime = Instant.parse(currentState.getLastTransitionTime());
       Instant restartTime = lastTransitionTime.plusMillis(300 * 1000);
