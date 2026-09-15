@@ -19,36 +19,44 @@
 
 package org.apache.spark.k8s.operator.spec;
 
+import java.util.List;
+
 import com.fasterxml.jackson.annotation.JsonInclude;
-import io.fabric8.kubernetes.api.model.ObjectMeta;
-import io.fabric8.kubernetes.api.model.ServiceSpec;
-import io.fabric8.kubernetes.api.model.apps.StatefulSetSpec;
-import io.fabric8.kubernetes.api.model.autoscaling.v2.HorizontalPodAutoscalerSpec;
+import io.fabric8.generator.annotation.Max;
+import io.fabric8.generator.annotation.Min;
+import io.fabric8.generator.annotation.Required;
+import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicyPeer;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Spec for a Spark worker.
+ * Network policy for the Spark workers.
  *
- * @since 0.1.0
+ * @since 1.1.0
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class WorkerSpec {
-  protected StatefulSetSpec statefulSetSpec;
-  protected ObjectMeta statefulSetMetadata;
-  protected ServiceSpec serviceSpec;
-  protected ObjectMeta serviceMetadata;
-  protected HorizontalPodAutoscalerSpec horizontalPodAutoscalerSpec;
+public class WorkerNetworkPolicySpec {
+  /**
+   * Port of a metrics endpoint (e.g. a JMX-to-Prometheus exporter agent) running in the worker
+   * container. This should be a dedicated exporter port, not the worker web UI port; the operator
+   * does not verify this. The caller is responsible for making the container listen on this port.
+   */
+  @Required
+  @Min(1)
+  @Max(65535)
+  protected Integer metricsPort;
 
   /**
-   * Network policy controlling ingress to the worker pods. When null, the generated worker
-   * NetworkPolicy stays as restrictive as it is without these fields.
+   * Sources allowed to scrape {@link #metricsPort} on the worker pods, in addition to the sources
+   * the generated worker NetworkPolicy admits by default. When this list is empty, no metrics
+   * ingress rule is generated.
    */
-  protected WorkerNetworkPolicySpec networkPolicy;
+  @Required
+  protected List<NetworkPolicyPeer> metricsIngress;
 }

@@ -24,6 +24,7 @@ import static org.apache.spark.k8s.operator.Constants.*;
 import java.util.Map;
 import java.util.Optional;
 
+import io.fabric8.kubernetes.api.model.IntOrString;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServiceBuilder;
@@ -46,6 +47,7 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.deploy.k8s.Config;
 import org.apache.spark.k8s.operator.spec.ClusterSpec;
 import org.apache.spark.k8s.operator.spec.MasterSpec;
+import org.apache.spark.k8s.operator.spec.WorkerNetworkPolicySpec;
 import org.apache.spark.k8s.operator.spec.WorkerSpec;
 
 /** Spark Cluster Resource Spec: Master Service, Master StatefulSet, Worker StatefulSet. */
@@ -115,7 +117,7 @@ public class SparkClusterResourceSpec {
             workerSpec.getStatefulSetSpec());
     horizontalPodAutoscaler = buildHorizontalPodAutoscaler(clusterName, namespace, spec);
     podDisruptionBudget = buildPodDisruptionBudget(clusterName, namespace, spec);
-    workerNetworkPolicy = buildWorkerNetworkPolicy(clusterName, namespace);
+    workerNetworkPolicy = buildWorkerNetworkPolicy(clusterName, namespace, workerSpec);
   }
 
   /**
@@ -467,35 +469,53 @@ public class SparkClusterResourceSpec {
    * resource and does not carry the cluster label, yet the driver must reach the executors' block
    * manager to fetch task results larger than {@code spark.task.maxDirectResultSize}.
    *
+   * <p>If the worker network policy is configured with metrics ingress peers, a separate rule
+   * admits those peers on the configured port only. This should be a dedicated exporter port, not
+   * the worker web UI port; the operator does not verify this.
+   *
    * @param clusterName The name of the SparkCluster.
    * @param namespace The namespace of the SparkApplication.
+   * @param workerSpec The WorkerSpec, used to look up the optional metrics port and its peers.
    * @return A NetworkPolicy object.
    */
-  private NetworkPolicy buildWorkerNetworkPolicy(String clusterName, String namespace) {
-    return new NetworkPolicyBuilder()
-        .withNewMetadata()
-        .withName(clusterName + "-worker")
-        .withNamespace(namespace)
-        .addToLabels(LABEL_SPARK_CLUSTER_NAME, clusterName)
-        .endMetadata()
-        .withNewSpec()
-        .withNewPodSelector()
-        .addToMatchLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_WORKER_VALUE)
-        .addToMatchLabels(LABEL_SPARK_CLUSTER_NAME, clusterName)
-        .endPodSelector()
+  private NetworkPolicy buildWorkerNetworkPolicy(
+      String clusterName, String namespace, WorkerSpec workerSpec) {
+    var builder =
+        new NetworkPolicyBuilder()
+            .withNewMetadata()
+            .withName(clusterName + "-worker")
+            .withNamespace(namespace)
+            .addToLabels(LABEL_SPARK_CLUSTER_NAME, clusterName)
+            .endMetadata()
+            .withNewSpec()
+            .withNewPodSelector()
+            .addToMatchLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_WORKER_VALUE)
+            .addToMatchLabels(LABEL_SPARK_CLUSTER_NAME, clusterName)
+            .endPodSelector()
+            .addNewIngress()
+            .addNewFrom()
+            .withNewPodSelector()
+            .addToMatchLabels(LABEL_SPARK_CLUSTER_NAME, clusterName)
+            .endPodSelector()
+            .endFrom()
+            .addNewFrom()
+            .withNewPodSelector()
+            .addToMatchLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_DRIVER_VALUE)
+            .endPodSelector()
+            .endFrom()
+            .endIngress();
+    WorkerNetworkPolicySpec networkPolicy = workerSpec.getNetworkPolicy();
+    if (networkPolicy == null || networkPolicy.getMetricsIngress().isEmpty()) {
+      return builder.endSpec().build();
+    }
+    builder
         .addNewIngress()
-        .addNewFrom()
-        .withNewPodSelector()
-        .addToMatchLabels(LABEL_SPARK_CLUSTER_NAME, clusterName)
-        .endPodSelector()
-        .endFrom()
-        .addNewFrom()
-        .withNewPodSelector()
-        .addToMatchLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_DRIVER_VALUE)
-        .endPodSelector()
-        .endFrom()
-        .endIngress()
-        .endSpec()
-        .build();
+        .withFrom(networkPolicy.getMetricsIngress())
+        .addNewPort()
+        .withPort(new IntOrString(networkPolicy.getMetricsPort()))
+        .withProtocol("TCP")
+        .endPort()
+        .endIngress();
+    return builder.endSpec().build();
   }
 }

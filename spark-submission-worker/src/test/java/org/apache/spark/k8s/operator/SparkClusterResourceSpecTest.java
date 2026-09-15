@@ -25,9 +25,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import io.fabric8.kubernetes.api.model.IntOrString;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.Service;
@@ -37,6 +39,7 @@ import io.fabric8.kubernetes.api.model.apps.StatefulSet;
 import io.fabric8.kubernetes.api.model.apps.StatefulSetSpec;
 import io.fabric8.kubernetes.api.model.apps.StatefulSetSpecBuilder;
 import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicy;
+import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicyPeerBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -46,6 +49,7 @@ import org.apache.spark.k8s.operator.spec.ClusterTolerations;
 import org.apache.spark.k8s.operator.spec.MasterSpec;
 import org.apache.spark.k8s.operator.spec.RuntimeVersions;
 import org.apache.spark.k8s.operator.spec.WorkerInstanceConfig;
+import org.apache.spark.k8s.operator.spec.WorkerNetworkPolicySpec;
 import org.apache.spark.k8s.operator.spec.WorkerSpec;
 
 class SparkClusterResourceSpecTest {
@@ -335,6 +339,40 @@ class SparkClusterResourceSpecTest {
         from.get(0).getPodSelector().getMatchLabels());
     assertEquals(Map.of(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_DRIVER_VALUE),
         from.get(1).getPodSelector().getMatchLabels());
+  }
+
+  @Test
+  void testWorkerNetworkPolicyWithMetricsIngress() {
+    var scraper = new NetworkPolicyPeerBuilder()
+        .withNewNamespaceSelector()
+        .addToMatchLabels("kubernetes.io/metadata.name", "monitoring")
+        .endNamespaceSelector()
+        .build();
+    var networkPolicySpec = WorkerNetworkPolicySpec.builder()
+        .metricsPort(9404)
+        .metricsIngress(List.of(scraper))
+        .build();
+    when(workerSpec.getNetworkPolicy()).thenReturn(networkPolicySpec);
+    SparkClusterResourceSpec spec = new SparkClusterResourceSpec(cluster, new SparkConf());
+    NetworkPolicy policy = spec.getWorkerNetworkPolicy();
+    assertEquals(2, policy.getSpec().getIngress().size());
+
+    var metricsIngress = policy.getSpec().getIngress().get(1);
+    assertEquals(List.of(scraper), metricsIngress.getFrom());
+    assertEquals(1, metricsIngress.getPorts().size());
+    assertEquals(new IntOrString(9404), metricsIngress.getPorts().get(0).getPort());
+    assertEquals("TCP", metricsIngress.getPorts().get(0).getProtocol());
+  }
+
+  @Test
+  void testWorkerNetworkPolicyWithEmptyMetricsIngress() {
+    var networkPolicySpec = WorkerNetworkPolicySpec.builder()
+        .metricsPort(9404)
+        .metricsIngress(List.of())
+        .build();
+    when(workerSpec.getNetworkPolicy()).thenReturn(networkPolicySpec);
+    SparkClusterResourceSpec spec = new SparkClusterResourceSpec(cluster, new SparkConf());
+    assertEquals(1, spec.getWorkerNetworkPolicy().getSpec().getIngress().size());
   }
 
   @Test
