@@ -24,6 +24,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
+import java.util.Set;
+
 import io.javaoperatorsdk.operator.api.event.EventRecord;
 import io.javaoperatorsdk.operator.api.event.EventType;
 import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
@@ -78,25 +80,30 @@ class EventUtilsTest {
 
   @Test
   void eventTypeOfApplicationStates() {
+    Set<ApplicationStateSummary> expectedWarnings =
+        Set.of(
+            ApplicationStateSummary.SchedulingFailure,
+            ApplicationStateSummary.Failed,
+            ApplicationStateSummary.DriverEvicted,
+            ApplicationStateSummary.DriverStartTimedOut,
+            ApplicationStateSummary.DriverReadyTimedOut,
+            ApplicationStateSummary.ExecutorsStartTimedOut,
+            ApplicationStateSummary.RunningWithBelowThresholdExecutors,
+            ApplicationStateSummary.TerminatedWithoutReleaseResources);
     for (ApplicationStateSummary summary : ApplicationStateSummary.values()) {
       EventType expected =
-          summary.isFailure()
-                  || summary == ApplicationStateSummary.RunningWithBelowThresholdExecutors
-                  || summary == ApplicationStateSummary.TerminatedWithoutReleaseResources
-              ? EventType.WARNING
-              : EventType.NORMAL;
+          expectedWarnings.contains(summary) ? EventType.WARNING : EventType.NORMAL;
       assertThat(EventUtils.eventTypeOf(summary)).as(summary.name()).isEqualTo(expected);
     }
-    assertThat(EventUtils.eventTypeOf(ApplicationStateSummary.RunningWithPartialCapacity))
-        .isEqualTo(EventType.NORMAL);
-    assertThat(EventUtils.eventTypeOf(ApplicationStateSummary.InitializedBelowThresholdExecutors))
-        .isEqualTo(EventType.NORMAL);
   }
 
   @Test
   void eventTypeOfClusterStates() {
+    Set<ClusterStateSummary> expectedWarnings =
+        Set.of(ClusterStateSummary.SchedulingFailure, ClusterStateSummary.Failed);
     for (ClusterStateSummary summary : ClusterStateSummary.values()) {
-      EventType expected = summary.isFailure() ? EventType.WARNING : EventType.NORMAL;
+      EventType expected =
+          expectedWarnings.contains(summary) ? EventType.WARNING : EventType.NORMAL;
       assertThat(EventUtils.eventTypeOf(summary)).as(summary.name()).isEqualTo(expected);
     }
   }

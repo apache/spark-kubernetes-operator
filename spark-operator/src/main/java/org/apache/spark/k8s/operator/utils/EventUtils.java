@@ -58,7 +58,13 @@ public final class EventUtils {
   /** Maximum number of links followed when looking for the innermost cause of a failure. */
   private static final int MAX_CAUSE_DEPTH = 10;
 
-  /** States that are not failures but still deserve the attention of users. */
+  /**
+   * States that are not failures but still deserve the attention of users, because nothing else
+   * reports them: {@code RunningWithBelowThresholdExecutors} persists without any timeout, and
+   * {@code TerminatedWithoutReleaseResources} is not meant for production use. A state that
+   * escalates to a failure on its own, such as {@code InitializedBelowThresholdExecutors} timing
+   * out into {@code ExecutorsStartTimedOut}, warns through that failure instead and stays normal.
+   */
   private static final Set<BaseStateSummary> NON_FAILURE_WARNING_STATES =
       Set.of(
           ApplicationStateSummary.RunningWithBelowThresholdExecutors,
