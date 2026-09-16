@@ -41,7 +41,7 @@ jobs:
     if: github.repository == 'apache/spark-kubernetes-operator'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup Pages
         uses: actions/configure-pages@v6
       - name: Upload artifact
