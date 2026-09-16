@@ -354,15 +354,20 @@ class ApplicationStatusTest {
     assertNotNull(durationMultipleStates);
     assertTrue(durationMultipleStates.toMillis() >= 0);
 
-    // Test with restart scenario - duration should be calculated from ScheduledToRestart state
+    // Test with restart scenario - duration should be calculated from the first state after
+    // ScheduledToRestart (DriverRequested), excluding the time spent in backoff or suspended.
     // Create states with explicit timestamps
     Instant now = Instant.now();
     Instant oneHourAgo = now.minus(Duration.ofHours(1));
     Instant tenMinutesAgo = now.minus(Duration.ofMinutes(10));
+    Instant fiveMinutesAgo = now.minus(Duration.ofMinutes(5));
 
     ApplicationState expectedSecondAttemptStart =
         new ApplicationState(ApplicationStateSummary.ScheduledToRestart, "");
     expectedSecondAttemptStart.setLastTransitionTime(tenMinutesAgo.toString());
+    ApplicationState secondAttemptDriverRequested =
+        new ApplicationState(ApplicationStateSummary.DriverRequested, "");
+    secondAttemptDriverRequested.setLastTransitionTime(fiveMinutesAgo.toString());
     ApplicationState expectedSecondAttemptEnd =
         new ApplicationState(ApplicationStateSummary.Failed, "");
 
@@ -372,21 +377,68 @@ class ApplicationStatusTest {
             .appendNewState(new ApplicationState(ApplicationStateSummary.RunningHealthy, ""))
             .appendNewState(new ApplicationState(ApplicationStateSummary.Failed, ""))
             .appendNewState(expectedSecondAttemptStart)
-            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
+            .appendNewState(secondAttemptDriverRequested)
             .appendNewState(expectedSecondAttemptEnd);
 
     // Verify it finds ScheduledToRestart as the first state of current attempt
     ApplicationState firstState = statusWithRestarts.findFirstStateOfCurrentAttempt();
     assertEquals(expectedSecondAttemptStart, firstState);
 
-    // Verify duration is calculated from ScheduledToRestart state (10 minutes ago)
+    // Verify duration is calculated from DriverRequested state (5 minutes ago)
     Duration durationAfterRestart = statusWithRestarts.calculateCurrentAttemptDuration();
     assertNotNull(durationAfterRestart);
 
     Duration expectedDuration =
         Duration.between(
-            tenMinutesAgo, Instant.parse(expectedSecondAttemptEnd.getLastTransitionTime()));
+            fiveMinutesAgo, Instant.parse(expectedSecondAttemptEnd.getLastTransitionTime()));
     assertEquals(expectedDuration, durationAfterRestart);
+  }
+
+  @Test
+  void testTimeHeldInScheduledToRestartDoesNotResetRestartCounter() {
+    RestartConfig config = new RestartConfig();
+    config.setRestartPolicy(RestartPolicy.Always);
+    config.setMaxRestartAttempts(1L);
+    config.setRestartCounterResetMillis(3600000L); // 1 hour
+
+    Instant now = Instant.now();
+    Instant threeHoursAgo = now.minus(Duration.ofHours(3));
+    // The first attempt fails right away
+    ApplicationStatus status =
+        createInitialStatusWithSubmittedTime(threeHoursAgo)
+            .appendNewState(stateAt(ApplicationStateSummary.DriverRequested, threeHoursAgo))
+            .appendNewState(stateAt(ApplicationStateSummary.Failed, threeHoursAgo));
+
+    for (boolean trimStateTransitionHistory : new boolean[] {false, true}) {
+      ApplicationStatus restarted =
+          status.terminateOrRestart(
+              config, ResourceRetainPolicy.Never, null, trimStateTransitionHistory);
+      assertEquals(
+          ApplicationStateSummary.ScheduledToRestart,
+          restarted.getCurrentState().getCurrentStateSummary());
+      assertEquals(1L, restarted.getCurrentAttemptSummary().getAttemptInfo().getRestartCounter());
+
+      // The permitted retry is held (e.g. suspended) for two hours before it resumes and fails
+      // immediately: the time spent on hold must not count as a successful run.
+      restarted.getCurrentState().setLastTransitionTime(now.minus(Duration.ofHours(2)).toString());
+      ApplicationStatus resumed =
+          restarted
+              .appendNewState(stateAt(ApplicationStateSummary.DriverRequested, now))
+              .appendNewState(stateAt(ApplicationStateSummary.Failed, now));
+
+      ApplicationStatus terminated =
+          resumed.terminateOrRestart(
+              config, ResourceRetainPolicy.Never, null, trimStateTransitionHistory);
+      assertEquals(
+          ApplicationStateSummary.ResourceReleased,
+          terminated.getCurrentState().getCurrentStateSummary());
+    }
+  }
+
+  private ApplicationState stateAt(ApplicationStateSummary summary, Instant time) {
+    ApplicationState state = new ApplicationState(summary, "");
+    state.setLastTransitionTime(time.toString());
+    return state;
   }
 
   private ApplicationStatus createInitialStatusWithSubmittedTime(Instant submittedTime) {

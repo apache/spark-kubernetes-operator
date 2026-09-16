@@ -260,17 +260,26 @@ public class ApplicationStatus
   /**
    * Calculates the duration of the current application attempt.
    *
-   * <p>The duration is calculated as the time between the first state of the current attempt (as
-   * determined by {@link #findFirstStateOfCurrentAttempt()}) and the current state's last
-   * transition time. This is particularly useful for determining whether the restart counter should
-   * be reset based on the configured {@code restartCounterResetMillis}.
+   * <p>The duration is calculated as the time between the first state after the initializing state
+   * of the current attempt (normally DriverRequested) and the current state's last transition time,
+   * so that time spent in restart backoff or suspended is not counted. If the history has no
+   * initializing state, the first entry is used. This is particularly useful for determining
+   * whether the restart counter should be reset based on the configured {@code
+   * restartCounterResetMillis}.
    *
-   * @return A Duration representing the time elapsed since the start of the current attempt.
+   * @return A Duration representing the time elapsed since the current attempt started running.
    */
   protected Duration calculateCurrentAttemptDuration() {
-    ApplicationState firstStateOfCurrentAttempt = findFirstStateOfCurrentAttempt();
+    List<ApplicationState> states = new ArrayList<>(stateTransitionHistory.values());
+    ApplicationState attemptStart = states.get(0);
+    for (int k = states.size() - 1; k >= 0; k--) {
+      if (states.get(k).getCurrentStateSummary().isInitializing()) {
+        attemptStart = states.get(Math.min(k + 1, states.size() - 1));
+        break;
+      }
+    }
     return Duration.between(
-        Instant.parse(firstStateOfCurrentAttempt.getLastTransitionTime()),
+        Instant.parse(attemptStart.getLastTransitionTime()),
         Instant.parse(currentState.getLastTransitionTime()));
   }
 

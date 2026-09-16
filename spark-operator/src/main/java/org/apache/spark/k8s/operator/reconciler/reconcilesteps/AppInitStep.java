@@ -67,6 +67,10 @@ public final class AppInitStep extends AppReconcileStep {
       return proceed();
     }
     SparkApplication app = context.getResource();
+    if (app.getSpec().isSuspend() && !isDriverRequested(context)) {
+      log.debug("Application is suspended, driver resources would not be requested.");
+      return completeAndDefaultRequeue();
+    }
     if (app.getStatus().getPreviousAttemptSummary() != null) {
       Instant lastTransitionTime = Instant.parse(currentState.getLastTransitionTime());
       ApplicationAttemptSummary attemptSummary = app.getStatus().getPreviousAttemptSummary();
@@ -146,6 +150,20 @@ public final class AppInitStep extends AppReconcileStep {
                 new ApplicationState(
                     ApplicationStateSummary.DriverRequested, Constants.DRIVER_REQUESTED_MESSAGE));
     return attemptStatusUpdate(context, statusRecorder, updatedStatus, completeAndDefaultRequeue());
+  }
+
+  /**
+   * Checks whether the driver pod of the current attempt has already been requested. This covers
+   * the case where the driver was created but the status update to DriverRequested failed, so that
+   * a suspended application still completes its initialization instead of being held with a live
+   * driver. See {@link SparkAppContext#getCurrentAttemptDriverPod()} for how a pod left from a
+   * previous attempt is told apart.
+   *
+   * @param context The SparkAppContext for the application.
+   * @return True if the driver pod of the current attempt exists, false otherwise.
+   */
+  private boolean isDriverRequested(SparkAppContext context) {
+    return context.getCurrentAttemptDriverPod().isPresent();
   }
 
   /**

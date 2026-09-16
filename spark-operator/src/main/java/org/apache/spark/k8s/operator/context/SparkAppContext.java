@@ -30,6 +30,7 @@ import java.util.stream.Collectors;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -71,6 +72,61 @@ public class SparkAppContext extends BaseContext<SparkApplication> {
                     .entrySet()
                     .containsAll(driverLabels(sparkApplication).entrySet()))
         .findAny();
+  }
+
+  /**
+   * Returns the driver pod of the current attempt, if present. A pod counts as the current
+   * attempt's driver only if it carries the driver labels, has the name of the desired driver pod
+   * spec and is not being deleted. The last condition tells a previous attempt's pod apart when
+   * the driver pod name is reused across attempts (e.g. user-specified spark.app.id): the previous
+   * attempt's pod has been deleted by the clean-up step before the application was scheduled to
+   * restart, so it is either gone or terminating.
+   *
+   * <p>The informer cache is only used to find a candidate. Since the cache may still hold the
+   * pre-deletion snapshot of a previous attempt's pod, the candidate is verified against the API
+   * server and returned only if it exists there and is not terminating. If the verification fails
+   * because of an API error, the pod is considered absent for this reconciliation.
+   *
+   * @return An Optional containing the driver Pod of the current attempt, or empty if not found.
+   */
+  public Optional<Pod> getCurrentAttemptDriverPod() {
+    List<Pod> driverPods =
+        josdkContext
+            .getSecondaryResourcesAsStream(Pod.class)
+            .filter(
+                p ->
+                    p.getMetadata()
+                        .getLabels()
+                        .entrySet()
+                        .containsAll(driverLabels(sparkApplication).entrySet()))
+            .filter(p -> p.getMetadata().getDeletionTimestamp() == null)
+            .toList();
+    if (driverPods.isEmpty()) {
+      return Optional.empty();
+    }
+    String driverPodName = getDriverPodSpec().getMetadata().getName();
+    if (driverPods.stream().noneMatch(p -> driverPodName.equals(p.getMetadata().getName()))) {
+      return Optional.empty();
+    }
+    try {
+      Pod livePod =
+          josdkContext
+              .getClient()
+              .pods()
+              .inNamespace(sparkApplication.getMetadata().getNamespace())
+              .withName(driverPodName)
+              .get();
+      if (livePod == null || livePod.getMetadata().getDeletionTimestamp() != null) {
+        return Optional.empty();
+      }
+      return Optional.of(livePod);
+    } catch (KubernetesClientException e) {
+      log.warn(
+          "Failed to verify driver pod {} against the API server, considering it absent.",
+          driverPodName,
+          e);
+      return Optional.empty();
+    }
   }
 
   /**

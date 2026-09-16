@@ -15,12 +15,18 @@
 # limitations under the License.
 #
 
-apiVersion: apps/v1
-kind: StatefulSet
+apiVersion: spark.apache.org/v1
+kind: SparkApplication
 metadata:
-  name: (join('-', [($SPARK_CLUSTER_NAME), 'worker']))
-  namespace: ($SPARK_APP_NAMESPACE)
+  name: spark-job-suspend-test
+  namespace: default
 spec:
-  replicas: 1
-status:
-  readyReplicas: 1
+  suspend: true
+  mainClass: "org.apache.spark.examples.SparkPi"
+  jars: "local:///opt/spark/examples/jars/spark-examples.jar"
+  sparkConf:
+    spark.executor.instances: "1"
+    spark.kubernetes.container.image: "apache/spark:{{SPARK_VERSION}}"
+    spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
+  runtimeVersions:
+    sparkVersion: "4.2.0"
