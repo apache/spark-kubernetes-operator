@@ -290,6 +290,22 @@ jobs:
           build-tools/helm/spark-kubernetes-operator/
           minikube docker-env --unset
           helm test spark
+      - name: Validate the deprecated helm key warning
+        if: matrix.test-group == 'configmap-metadata'
+        run: |
+          # `helm template` does not render NOTES.txt, so an install or upgrade against a
+          # real cluster is the only place the warning can be observed.
+          notes=$(helm upgrade spark -f build-tools/helm/spark-kubernetes-operator/values.yaml \
+            --set operatorDeployment.networkPolicy.enable=true \
+            --set operatorConfiguration.dynamicConfig.enable=true \
+            build-tools/helm/spark-kubernetes-operator/)
+          echo "$notes" | grep -q 'operatorDeployment.networkPolicy.enable is deprecated'
+          echo "$notes" | grep -q 'operatorConfiguration.dynamicConfig.enable is deprecated'
+          notes=$(helm upgrade spark -f build-tools/helm/spark-kubernetes-operator/values.yaml \
+            build-tools/helm/spark-kubernetes-operator/)
+          if echo "$notes" | grep -q 'is deprecated'; then
+            echo "Deprecation warning printed without a legacy key"; exit 1
+          fi
       - name: Verify Kueue RBAC is denied by default
         if: matrix.test-group == 'kueue'
         run: |
