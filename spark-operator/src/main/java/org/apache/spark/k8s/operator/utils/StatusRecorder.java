@@ -150,6 +150,11 @@ public class StatusRecorder<
       return true;
     } catch (KubernetesClientException e) {
       log.error("Error while persisting status to {}", newStatus, e);
+      EventUtils.warn(
+              context::getEventRecorder,
+              EventUtils.REASON_STATUS_UPDATE_FAILED,
+              "Failed to update status, the reported status may be stale. " +
+                      EventUtils.describe(e));
       return false;
     }
   }

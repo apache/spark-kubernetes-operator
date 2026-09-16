@@ -20,6 +20,7 @@
 package org.apache.spark.k8s.operator.context;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
 
 import org.apache.spark.k8s.operator.BaseResource;
 
@@ -42,4 +43,12 @@ public abstract class BaseContext<CR extends BaseResource<?, ?, ?, ?, ?>> {
    * @return The Kubernetes client.
    */
   public abstract KubernetesClient getClient();
+
+  /**
+   * Returns the event recorder bound to the resource associated with this context. Recording an
+   * event is best effort: the recorder logs and swallows write failures.
+   *
+   * @return The event recorder.
+   */
+  public abstract ResourceEventRecorder getEventRecorder();
 }

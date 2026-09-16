@@ -26,19 +26,25 @@ import static org.apache.spark.k8s.operator.config.SparkOperatorConf.API_SECONDA
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.API_SECONDARY_RESOURCE_CREATE_MAX_ATTEMPTS;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.API_SECONDARY_RESOURCE_CREATE_MAX_BACKOFF_MILLIS;
 import static org.apache.spark.k8s.operator.utils.TestUtils.setConfigKey;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.assertArg;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import io.fabric8.kubernetes.api.model.Pod;
@@ -46,8 +52,10 @@ import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.dsl.NamespaceableResource;
+import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
 import io.javaoperatorsdk.operator.api.reconciler.DeleteControl;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedConstruction;
@@ -56,11 +64,13 @@ import org.mockito.Mockito;
 
 import org.apache.spark.k8s.operator.SparkAppSubmissionWorker;
 import org.apache.spark.k8s.operator.SparkApplication;
+import org.apache.spark.k8s.operator.config.SparkOperatorConfManager;
 import org.apache.spark.k8s.operator.context.SparkAppContext;
 import org.apache.spark.k8s.operator.metrics.healthcheck.SentinelManager;
 import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
+import org.apache.spark.k8s.operator.utils.EventUtils;
 import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 
@@ -69,6 +79,7 @@ class SparkAppReconcilerTest {
   private final SentinelManager<SparkApplication> mockSentinelManager = mock(SentinelManager.class);
   private final KubernetesClient mockClient = mock(KubernetesClient.class);
   private final Context<SparkApplication> mockContext = mock(Context.class);
+  private final ResourceEventRecorder mockEventRecorder = mock(ResourceEventRecorder.class);
   private final Pod mockDriver = mock(Pod.class);
   private final SparkAppSubmissionWorker mockWorker = mock(SparkAppSubmissionWorker.class);
   SparkApplication app = new SparkApplication();
@@ -96,6 +107,11 @@ class SparkAppReconcilerTest {
         .when(mockRecorder)
         .appendNewStateAndPersist(any(SparkAppContext.class), any(ApplicationState.class));
   }
+
+    @AfterEach
+    void resetConf() {
+        SparkOperatorConfManager.INSTANCE.refresh(Map.of());
+    }
 
   @SuppressWarnings("PMD.UnusedLocalVariable")
   @Test
@@ -257,5 +273,64 @@ class SparkAppReconcilerTest {
                     savedJitter,
                     savedMultiplier);
         }
+    }
+
+    @Test
+    void updateErrorStatusWarnsWithReconcileError() {
+        SparkOperatorConfManager.INSTANCE.refresh(
+                Map.of("spark.kubernetes.operator.events.enabled", "true"));
+        when(mockContext.eventRecorder()).thenReturn(mockEventRecorder);
+        var failure = new RuntimeException("request failed", new IllegalStateException("bad " +
+                "config"));
+
+        var control = reconciler.updateErrorStatus(app, mockContext, failure);
+
+        assertThat(control.getResource()).isEmpty();
+        verify(mockEventRecorder, times(1))
+                .warn(
+                        eq(EventUtils.REASON_RECONCILE_ERROR),
+                        assertArg(
+                                m ->
+                                        assertThat(m)
+                                                .contains("Reconciliation failed.")
+                                                .contains("RuntimeException: request failed")
+                                                .contains("caused by: IllegalStateException: bad " +
+                                                        "config")));
+    }
+
+    @Test
+    void updateErrorStatusPublishesNoEventWhenDisabled() {
+        SparkOperatorConfManager.INSTANCE.refresh(
+                Map.of("spark.kubernetes.operator.events.enabled", "false"));
+        when(mockContext.eventRecorder()).thenReturn(mockEventRecorder);
+
+        reconciler.updateErrorStatus(app, mockContext, new RuntimeException("boom"));
+
+        verify(mockEventRecorder, never()).warn(any(), any());
+    }
+
+    @Test
+    void cleanupFailureWarnsWithCleanupError() {
+        SparkOperatorConfManager.INSTANCE.refresh(
+                Map.of("spark.kubernetes.operator.events.enabled", "true"));
+        when(mockContext.eventRecorder()).thenReturn(mockEventRecorder);
+        var failure = new IllegalStateException("cannot build spec");
+        try (MockedConstruction<SparkAppContext> ignored =
+                     mockConstruction(
+                             SparkAppContext.class,
+                             (mock, ctx) -> when(mock.getResource()).thenThrow(failure))) {
+
+            assertThatThrownBy(() -> reconciler.cleanup(app, mockContext)).isSameAs(failure);
+        }
+
+        verify(mockEventRecorder, times(1))
+                .warn(
+                        eq(EventUtils.REASON_CLEANUP_ERROR),
+                        assertArg(
+                                m ->
+                                        assertThat(m)
+                                                .contains("cannot finish deleting")
+                                                .contains("IllegalStateException: cannot build " +
+                                                        "spec")));
     }
 }

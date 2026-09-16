@@ -47,6 +47,7 @@ import org.apache.spark.k8s.operator.SparkClusterSubmissionWorker;
 import org.apache.spark.k8s.operator.context.SparkClusterContext;
 import org.apache.spark.k8s.operator.metrics.healthcheck.SentinelManager;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.*;
+import org.apache.spark.k8s.operator.utils.EventUtils;
 import org.apache.spark.k8s.operator.utils.LoggingUtils;
 import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
@@ -122,6 +123,10 @@ public class SparkClusterReconciler implements Reconciler<SparkCluster>, Cleaner
                       retryInfo.isLastAttempt());
                 }
               });
+      EventUtils.warn(
+              context::eventRecorder,
+              EventUtils.REASON_RECONCILE_ERROR,
+              "Spark Cluster Reconciliation failed. " + EventUtils.describe(e));
       return ErrorStatusUpdateControl.noStatusUpdate();
     } finally {
       trackedMDC.reset();
@@ -198,6 +203,13 @@ public class SparkClusterReconciler implements Reconciler<SparkCluster>, Cleaner
           }
         }
       }
+    } catch (RuntimeException e) {
+      EventUtils.warn(
+              context::eventRecorder,
+              EventUtils.REASON_CLEANUP_ERROR,
+              "Spark Cluster Cleanup failed, the resource cannot finish deleting. " +
+                      EventUtils.describe(e));
+      throw e;
     } finally {
       log.info("Cleanup completed");
       trackedMDC.reset();
