@@ -79,6 +79,20 @@ The `reason` values are stable, while the `message` values may change between re
 Kubernetes retains events only for a limited time (one hour by default), so the resource status
 remains the source of truth.
 
+To reduce noise, set `spark.kubernetes.operator.events.excludedReasons` to a comma-separated list
+of Java regular expressions. The operator does not publish events whose `reason` fully matches any
+of them, case-sensitively. For example, both of the following skip the frequent events of
+long-running resources. This option supports dynamic override.
+
+```properties
+spark.kubernetes.operator.events.excludedReasons=RunningHealthy,RunningWithPartialCapacity
+spark.kubernetes.operator.events.excludedReasons=Running.*
+```
+
+Since `,` is the separator, an expression cannot contain it, e.g. `{1,3}`. An invalid expression
+is logged and matches only the `reason` identical to it. Note that `*` is not a wildcard but an
+invalid expression, so use `.*` to exclude all reasons.
+
 ## Metrics
 
 Spark operator,
