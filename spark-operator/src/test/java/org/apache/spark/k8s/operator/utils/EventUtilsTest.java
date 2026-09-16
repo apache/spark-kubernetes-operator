@@ -19,61 +19,70 @@
 
 package org.apache.spark.k8s.operator.utils;
 
-import static org.apache.spark.k8s.operator.config.SparkOperatorConf.KUBERNETES_EVENTS_ENABLED;
-import static org.apache.spark.k8s.operator.utils.TestUtils.setConfigKey;
+import static org.apache.spark.k8s.operator.utils.EventUtils.MAX_MESSAGE_LENGTH;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verify;
 
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Supplier;
-
+import io.javaoperatorsdk.operator.api.event.EventRecord;
+import io.javaoperatorsdk.operator.api.event.EventType;
 import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 class EventUtilsTest {
 
   private final ResourceEventRecorder recorder = mock(ResourceEventRecorder.class);
 
-  private final AtomicInteger supplierCalls = new AtomicInteger();
-
-  private final Supplier<ResourceEventRecorder> recorderSupplier =
-      () -> {
-        supplierCalls.incrementAndGet();
-        return recorder;
-      };
-
-  @AfterEach
-  void restoreEventsDisabled() {
-    // The option defaults to false. setConfigKey mutates the shared ConfigOption, so every test
-    // that enables events has to put it back or it leaks into the rest of the JVM.
-    setConfigKey(KUBERNETES_EVENTS_ENABLED, false);
+  private EventRecord recordWarning(String reason, String message) {
+    EventUtils.warn(recorder, reason, message);
+    ArgumentCaptor<EventRecord> captor = ArgumentCaptor.forClass(EventRecord.class);
+    verify(recorder).record(captor.capture());
+    return captor.getValue();
   }
 
   @Test
-  void warnDoesNothingWhenDisabled() {
-    // Left at the default of false, so nothing should be published.
-    EventUtils.warn(recorderSupplier, EventUtils.REASON_RECONCILE_ERROR, "driver pod rejected");
+  void warnPublishesWarningWithReasonAndMessage() {
+    EventRecord event = recordWarning(EventUtils.REASON_RECONCILE_ERROR, "driver pod rejected");
 
-    verifyNoInteractions(recorder);
-    // The recorder is resolved lazily, so a disabled operator never even asks for one.
-    assertThat(supplierCalls).hasValue(0);
+    assertThat(event.type()).isEqualTo(EventType.WARNING);
+    assertThat(event.reason()).isEqualTo(EventUtils.REASON_RECONCILE_ERROR);
+    assertThat(event.message()).isEqualTo("driver pod rejected");
   }
 
   @Test
-  void warnSwallowsFailureFromRecorder() {
-    setConfigKey(KUBERNETES_EVENTS_ENABLED, true);
-    doThrow(new IllegalStateException("event write rejected"))
-        .when(recorder)
-        .warn("ReconcileError", "boom");
+  void warnKeysTheEventOnReasonSoRepeatsAggregate() {
+    // The key, not the message, is what DefaultEventRecorder digests into the Event name. Keying
+    // on the reason is what makes a repeated failure bump the count on one Event instead of
+    // creating a new one every time the message varies.
+    EventRecord event = recordWarning(EventUtils.REASON_STATUS_UPDATE_FAILED, "attempt 3 of 15");
 
-    // Publishing is best effort, a failed event must never surface to the reconciler.
-    assertThatCode(
-            () -> EventUtils.warn(recorderSupplier, EventUtils.REASON_RECONCILE_ERROR, "boom"))
-        .doesNotThrowAnyException();
+    assertThat(event.key()).contains(EventUtils.REASON_STATUS_UPDATE_FAILED);
+  }
+
+  @Test
+  void warnTruncatesAnOverLongMessage() {
+    EventRecord event = recordWarning(EventUtils.REASON_CLEANUP_ERROR, "x".repeat(5000));
+
+    assertThat(event.message()).hasSize(MAX_MESSAGE_LENGTH).endsWith("...");
+  }
+
+  @Test
+  void truncateKeepsMessagesWithinTheLimitUntouched() {
+    String atLimit = "y".repeat(MAX_MESSAGE_LENGTH);
+
+    assertThat(EventUtils.truncate("short")).isEqualTo("short");
+    assertThat(EventUtils.truncate(atLimit)).isEqualTo(atLimit);
+  }
+
+  @Test
+  void truncateCapsTotalLengthIncludingTheEllipsis() {
+    // The ellipsis replaces the dropped characters rather than being appended past the limit, so
+    // the result never exceeds what the caller was promised.
+    String truncated = EventUtils.truncate("z".repeat(MAX_MESSAGE_LENGTH + 1));
+
+    assertThat(truncated).hasSize(MAX_MESSAGE_LENGTH);
+    assertThat(truncated).isEqualTo("z".repeat(MAX_MESSAGE_LENGTH - 3) + "...");
   }
 
   @Test
@@ -84,8 +93,21 @@ class EventUtilsTest {
 
     // The middle link is dropped, the innermost cause carries the actionable detail.
     assertThat(EventUtils.describe(top))
-        .isEqualTo("RuntimeException: reconcile failed, caused by: "
-            + "IllegalArgumentException: quota exceeded");
+        .isEqualTo(
+            "RuntimeException: reconcile failed, caused by: "
+                + "IllegalArgumentException: quota exceeded");
+  }
+
+  @Test
+  void describeHandlesNullAndCauseless() {
+    assertThat(EventUtils.describe(null)).isEmpty();
+    assertThat(EventUtils.describe(new IllegalStateException("no cause")))
+        .isEqualTo("IllegalStateException: no cause");
+  }
+
+  @Test
+  void describeFallsBackToTypeWhenMessageIsBlank() {
+    assertThat(EventUtils.describe(new IllegalStateException())).isEqualTo("IllegalStateException");
   }
 
   @Test

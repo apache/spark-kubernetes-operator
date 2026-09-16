@@ -26,10 +26,7 @@ import io.fabric8.kubernetes.api.model.apps.StatefulSet;
 import io.fabric8.kubernetes.api.model.autoscaling.v2.HorizontalPodAutoscaler;
 import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicy;
 import io.fabric8.kubernetes.api.model.policy.v1.PodDisruptionBudget;
-import io.fabric8.kubernetes.client.KubernetesClient;
-import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
-import lombok.RequiredArgsConstructor;
 
 import org.apache.spark.k8s.operator.SparkCluster;
 import org.apache.spark.k8s.operator.SparkClusterResourceSpec;
@@ -40,14 +37,28 @@ import org.apache.spark.k8s.operator.reconciler.SparkClusterResourceSpecFactory;
  * Context for {@link SparkCluster} resource, including secondary resource(s) and desired secondary
  * resource spec
  */
-@RequiredArgsConstructor
 public class SparkClusterContext extends BaseContext<SparkCluster> {
   private final SparkCluster sparkCluster;
-  private final Context<?> josdkContext;
   private final SparkClusterSubmissionWorker submissionWorker;
 
   /** secondaryResourceSpec is initialized in a lazy fashion - built upon the first attempt */
   private SparkClusterResourceSpec secondaryResourceSpec;
+
+  /**
+   * Constructs a context for the given SparkCluster.
+   *
+   * @param sparkCluster The SparkCluster being reconciled.
+   * @param josdkContext The JOSDK context of the current reconciliation.
+   * @param submissionWorker The worker that builds the secondary resource spec.
+   */
+  public SparkClusterContext(
+      SparkCluster sparkCluster,
+      Context<?> josdkContext,
+      SparkClusterSubmissionWorker submissionWorker) {
+    super(josdkContext);
+    this.sparkCluster = sparkCluster;
+    this.submissionWorker = submissionWorker;
+  }
 
   private SparkClusterResourceSpec getSecondaryResourceSpec() {
     synchronized (this) {
@@ -130,25 +141,5 @@ public class SparkClusterContext extends BaseContext<SparkCluster> {
    */
   public Optional<PodDisruptionBudget> getPodDisruptionBudgetSpec() {
     return getSecondaryResourceSpec().getPodDisruptionBudget();
-  }
-
-  /**
-   * Returns the Kubernetes client from the JOSDK context.
-   *
-   * @return The KubernetesClient instance.
-   */
-  @Override
-  public KubernetesClient getClient() {
-    return josdkContext.getClient();
-  }
-
-  /**
-   * Returns the event recorder from the JOSDK context, bound to this SparkCluster.
-   *
-   * @return The ResourceEventRecorder instance.
-   */
-  @Override
-  public ResourceEventRecorder getEventRecorder() {
-    return josdkContext.eventRecorder();
   }
 }

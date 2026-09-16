@@ -21,6 +21,7 @@ package org.apache.spark.k8s.operator.context;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
+import io.javaoperatorsdk.operator.api.reconciler.Context;
 
 import org.apache.spark.k8s.operator.BaseResource;
 
@@ -30,6 +31,19 @@ import org.apache.spark.k8s.operator.BaseResource;
  * @param <CR> The type of the custom resource.
  */
 public abstract class BaseContext<CR extends BaseResource<?, ?, ?, ?, ?>> {
+
+  /** The JOSDK context of the reconciliation this context belongs to. */
+  protected final Context<?> josdkContext;
+
+  /**
+   * Constructs a context over the given JOSDK reconciliation context.
+   *
+   * @param josdkContext The JOSDK context of the current reconciliation.
+   */
+  protected BaseContext(Context<?> josdkContext) {
+    this.josdkContext = josdkContext;
+  }
+
   /**
    * Returns the custom resource associated with this context.
    *
@@ -42,13 +56,18 @@ public abstract class BaseContext<CR extends BaseResource<?, ?, ?, ?, ?>> {
    *
    * @return The Kubernetes client.
    */
-  public abstract KubernetesClient getClient();
+  public KubernetesClient getClient() {
+    return josdkContext.getClient();
+  }
 
   /**
    * Returns the event recorder bound to the resource associated with this context. Recording an
-   * event is best effort: the recorder logs and swallows write failures.
+   * event is best effort: the recorder drops the event when publishing is disabled, and logs and
+   * swallows write failures.
    *
    * @return The event recorder.
    */
-  public abstract ResourceEventRecorder getEventRecorder();
+  public ResourceEventRecorder getEventRecorder() {
+    return josdkContext.eventRecorder();
+  }
 }
