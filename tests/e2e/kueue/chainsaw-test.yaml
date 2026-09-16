@@ -25,15 +25,17 @@ spec:
   - name: spark-application-without-queue-name-is-not-queued
     try:
     - apply:
-        file: ../../../examples/pi.yaml
+        file: spark-example.yaml
     - assert:
         bindings:
           - name: SPARK_APP_NAMESPACE
             value: default
           - name: SPARK_APPLICATION_NAME
-            value: pi
+            value: spark-job-kueue-test
         timeout: 10m
         file: "../assertions/spark-application/spark-state-transition.yaml"
+    # No operator code path creates a Workload yet: `KueueWorkloadFactory` has no caller
+    # outside its own unit tests. This pins the opt-out behavior for when it is wired in.
     - error:
         timeout: 10s
         resource:
@@ -54,7 +56,7 @@ spec:
     - script:
         timeout: 120s
         content: |
-          kubectl delete sparkapplication pi --ignore-not-found=true
+          kubectl delete sparkapplication spark-job-kueue-test --ignore-not-found=true
   - name: spark-cluster-without-queue-name-is-not-queued
     try:
     - apply:
@@ -75,6 +77,8 @@ spec:
             value: qa
         timeout: 10m
         file: "../assertions/spark-cluster/spark-cluster-worker-statefulset.yaml"
+    # No operator code path creates a Workload yet: `KueueWorkloadFactory` has no caller
+    # outside its own unit tests. This pins the opt-out behavior for when it is wired in.
     - error:
         timeout: 10s
         resource:

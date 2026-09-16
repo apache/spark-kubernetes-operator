@@ -6,6 +6,9 @@ on:
 permissions:
   contents: read
 
+env:
+  KUEUE_VERSION: v0.19.4
+
 jobs:
   license-check:
     name: "License Check"
@@ -182,7 +185,7 @@ jobs:
       - name: Install Kueue
         if: matrix.mode == 'kueue'
         run: |
-          kubectl apply --server-side -f https://github.com/kubernetes-sigs/kueue/releases/download/v0.19.4/manifests.yaml
+          kubectl apply --server-side -f https://github.com/kubernetes-sigs/kueue/releases/download/${{ env.KUEUE_VERSION }}/manifests.yaml
           # Kueue installs webhooks for pods, deployments and statefulsets with failurePolicy=Fail,
           # so wait for the controller (whose readyz covers the webhook server) before helm install.
           kubectl wait deploy/kueue-controller-manager -n kueue-system --for=condition=Available --timeout=5m
@@ -300,7 +303,7 @@ jobs:
       - name: Install Kueue
         if: matrix.test-group == 'kueue'
         run: |
-          kubectl apply --server-side -f https://github.com/kubernetes-sigs/kueue/releases/download/v0.19.4/manifests.yaml
+          kubectl apply --server-side -f https://github.com/kubernetes-sigs/kueue/releases/download/${{ env.KUEUE_VERSION }}/manifests.yaml
           # Kueue installs webhooks for pods, deployments and statefulsets with failurePolicy=Fail,
           # so wait for the controller (whose readyz covers the webhook server) before helm install.
           kubectl wait deploy/kueue-controller-manager -n kueue-system --for=condition=Available --timeout=5m
