@@ -49,6 +49,14 @@ spec:
         kind: SparkApplication
         namespace: default
     - describe:
+        apiVersion: v1
+        kind: Pod
+        namespace: default
+        selector: spark.operator/spark-app-name=spark-job-kueue-test
+    - podLogs:
+        selector: spark.operator/spark-app-name=spark-job-kueue-test
+        namespace: default
+    - describe:
         apiVersion: kueue.x-k8s.io/v1beta2
         kind: Workload
         namespace: default
@@ -90,6 +98,14 @@ spec:
     - describe:
         apiVersion: spark.apache.org/v1
         kind: SparkCluster
+        namespace: default
+    - describe:
+        apiVersion: v1
+        kind: Pod
+        namespace: default
+        selector: spark.operator/spark-cluster-name=qa
+    - podLogs:
+        selector: spark.operator/spark-cluster-name=qa
         namespace: default
     - describe:
         apiVersion: kueue.x-k8s.io/v1beta2
