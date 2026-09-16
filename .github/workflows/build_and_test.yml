@@ -142,6 +142,9 @@ jobs:
           - kubernetes-version: "1.37.0"
             mode: static
             test-group: pi-java25
+          - kubernetes-version: "1.37.0"
+            mode: kueue
+            test-group: kueue
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -176,6 +179,13 @@ jobs:
         run: |
           kubectl get pods -A
           kubectl describe node
+      - name: Install Kueue
+        if: matrix.mode == 'kueue'
+        run: |
+          kubectl apply --server-side -f https://github.com/kubernetes-sigs/kueue/releases/download/v0.19.4/manifests.yaml
+          # Kueue installs webhooks for pods, deployments and statefulsets with failurePolicy=Fail,
+          # so wait for the controller (whose readyz covers the webhook server) before helm install.
+          kubectl wait deploy/kueue-controller-manager -n kueue-system --for=condition=Available --timeout=5m
       - name: Run Spark K8s Operator on K8S with Dynamic Configuration Disabled
         if: matrix.mode == 'static'
         run: |
@@ -229,6 +239,20 @@ jobs:
           minikube docker-env --unset
       - name: Run E2E Test with Resource Selector Enabled
         if: matrix.mode == 'selector'
+        run: |
+          chainsaw test --test-dir ./tests/e2e/${{ matrix.test-group }} --parallel 1
+      - name: Run Spark K8s Operator on K8S with Kueue Enabled
+        if: matrix.mode == 'kueue'
+        run: |
+          eval $(minikube docker-env)
+          ./gradlew buildDockerImage
+          helm install spark --create-namespace -f \
+          build-tools/helm/spark-kubernetes-operator/values.yaml -f \
+          tests/e2e/helm/helm-test-values/kueue/values.yaml \
+          build-tools/helm/spark-kubernetes-operator/
+          minikube docker-env --unset
+      - name: Run E2E Test with Kueue Enabled
+        if: matrix.mode == 'kueue'
         run: |
           chainsaw test --test-dir ./tests/e2e/${{ matrix.test-group }} --parallel 1
   helm-tests:

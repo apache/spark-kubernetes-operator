@@ -1,0 +1,98 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: spark-operator-kueue
+spec:
+  namespace: default
+  steps:
+  - name: spark-application-without-queue-name-is-not-queued
+    try:
+    - apply:
+        file: ../../../examples/pi.yaml
+    - assert:
+        bindings:
+          - name: SPARK_APP_NAMESPACE
+            value: default
+          - name: SPARK_APPLICATION_NAME
+            value: pi
+        timeout: 10m
+        file: "../assertions/spark-application/spark-state-transition.yaml"
+    - error:
+        timeout: 10s
+        resource:
+          apiVersion: kueue.x-k8s.io/v1beta2
+          kind: Workload
+          metadata:
+            namespace: default
+    catch:
+    - describe:
+        apiVersion: spark.apache.org/v1
+        kind: SparkApplication
+        namespace: default
+    - describe:
+        apiVersion: kueue.x-k8s.io/v1beta2
+        kind: Workload
+        namespace: default
+    finally:
+    - script:
+        timeout: 120s
+        content: |
+          kubectl delete sparkapplication pi --ignore-not-found=true
+  - name: spark-cluster-without-queue-name-is-not-queued
+    try:
+    - apply:
+        file: ../../../examples/qa-cluster-with-one-worker.yaml
+    - assert:
+        bindings:
+          - name: SPARK_APP_NAMESPACE
+            value: default
+          - name: SPARK_CLUSTER_NAME
+            value: qa
+        timeout: 10m
+        file: "../assertions/spark-cluster/spark-cluster-state-transition.yaml"
+    - assert:
+        bindings:
+          - name: SPARK_APP_NAMESPACE
+            value: default
+          - name: SPARK_CLUSTER_NAME
+            value: qa
+        timeout: 10m
+        file: "../assertions/spark-cluster/spark-cluster-worker-statefulset.yaml"
+    - error:
+        timeout: 10s
+        resource:
+          apiVersion: kueue.x-k8s.io/v1beta2
+          kind: Workload
+          metadata:
+            namespace: default
+    catch:
+    - describe:
+        apiVersion: spark.apache.org/v1
+        kind: SparkCluster
+        namespace: default
+    - describe:
+        apiVersion: kueue.x-k8s.io/v1beta2
+        kind: Workload
+        namespace: default
+    finally:
+    - script:
+        timeout: 120s
+        content: |
+          kubectl delete sparkcluster qa --ignore-not-found=true
