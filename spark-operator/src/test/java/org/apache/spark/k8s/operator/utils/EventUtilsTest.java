@@ -24,11 +24,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
+import java.util.Set;
+
 import io.javaoperatorsdk.operator.api.event.EventRecord;
 import io.javaoperatorsdk.operator.api.event.EventType;
 import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+
+import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
+import org.apache.spark.k8s.operator.status.ClusterStateSummary;
 
 class EventUtilsTest {
 
@@ -58,6 +63,49 @@ class EventUtilsTest {
     EventRecord event = recordWarning(EventUtils.REASON_STATUS_UPDATE_FAILED, "attempt 3 of 15");
 
     assertThat(event.key()).contains(EventUtils.REASON_STATUS_UPDATE_FAILED);
+  }
+
+  @Test
+  void recordPublishesTheGivenType() {
+    EventUtils.record(recorder, EventType.NORMAL, "DriverRequested", "driver requested");
+
+    ArgumentCaptor<EventRecord> captor = ArgumentCaptor.forClass(EventRecord.class);
+    verify(recorder).record(captor.capture());
+    EventRecord event = captor.getValue();
+    assertThat(event.type()).isEqualTo(EventType.NORMAL);
+    assertThat(event.reason()).isEqualTo("DriverRequested");
+    assertThat(event.message()).isEqualTo("driver requested");
+    assertThat(event.key()).contains("DriverRequested");
+  }
+
+  @Test
+  void eventTypeOfApplicationStates() {
+    Set<ApplicationStateSummary> expectedWarnings =
+        Set.of(
+            ApplicationStateSummary.SchedulingFailure,
+            ApplicationStateSummary.Failed,
+            ApplicationStateSummary.DriverEvicted,
+            ApplicationStateSummary.DriverStartTimedOut,
+            ApplicationStateSummary.DriverReadyTimedOut,
+            ApplicationStateSummary.ExecutorsStartTimedOut,
+            ApplicationStateSummary.RunningWithBelowThresholdExecutors,
+            ApplicationStateSummary.TerminatedWithoutReleaseResources);
+    for (ApplicationStateSummary summary : ApplicationStateSummary.values()) {
+      EventType expected =
+          expectedWarnings.contains(summary) ? EventType.WARNING : EventType.NORMAL;
+      assertThat(EventUtils.eventTypeOf(summary)).as(summary.name()).isEqualTo(expected);
+    }
+  }
+
+  @Test
+  void eventTypeOfClusterStates() {
+    Set<ClusterStateSummary> expectedWarnings =
+        Set.of(ClusterStateSummary.SchedulingFailure, ClusterStateSummary.Failed);
+    for (ClusterStateSummary summary : ClusterStateSummary.values()) {
+      EventType expected =
+          expectedWarnings.contains(summary) ? EventType.WARNING : EventType.NORMAL;
+      assertThat(EventUtils.eventTypeOf(summary)).as(summary.name()).isEqualTo(expected);
+    }
   }
 
   @Test

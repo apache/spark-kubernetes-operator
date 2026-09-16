@@ -23,7 +23,9 @@ import static java.net.HttpURLConnection.HTTP_CONFLICT;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.API_RETRY_ATTEMPT_AFTER_SECONDS;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.API_STATUS_PATCH_MAX_ATTEMPTS;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.SortedMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
@@ -137,36 +139,76 @@ public class StatusRecorder<
         listener -> {
           listener.listenStatus(resource, prevStatus, resource.getStatus());
         });
-    recordFailureEvent(context, resource.getStatus());
+    recordTransitionEvents(context, prevStatus, resource.getStatus());
   }
 
   /**
-   * Publishes a warning event when the resource has just moved into a failure state.
+   * Publishes events when the resource has just transitioned into new states.
    *
-   * <p>This is the seam where the failures users actually hit surface: every reconcile step turns
-   * a rejected submission, a failed validation or an expired timeout into a state rather than
-   * throwing, so the reconciler error hooks never see them. Reaching this point means the patch
-   * succeeded and the status genuinely changed, so an event here fires once per transition.
+   * <p>This is the seam where every state transition surfaces, including the failures users
+   * actually hit: every reconcile step turns a rejected submission, a failed validation or an
+   * expired timeout into a state rather than throwing, so the reconciler error hooks never see
+   * them. Reaching this point means the patch succeeded and the status genuinely changed. The
+   * current state is compared as well, so a status change that keeps the current state, such as
+   * an attempt summary update, does not publish again.
    *
-   * <p>The state name is used as both reason and dedup key, so an app that keeps re-entering the
-   * same failure state bumps the count on one Event instead of accumulating one per attempt.
+   * <p>A single patch can carry more than one transition, for instance when a driver pod is
+   * observed as both started and ready. Each state appended since the previous status is published
+   * in order, while a state whose summary equals the one right before it in the same patch is
+   * skipped.
+   *
+   * <p>The event type follows {@link EventUtils#eventTypeOf(BaseStateSummary)}. The state name is
+   * used as both reason and dedup key, so an app that keeps re-entering the same state bumps the
+   * count on one Event instead of accumulating one per attempt.
    *
    * @param context Context of the resource whose status has just been patched.
+   * @param prevStatus The status before the patch, may be null.
    * @param status The status that was persisted.
    */
-  private void recordFailureEvent(BaseContext<CR> context, STATUS status) {
+  private void recordTransitionEvents(BaseContext<CR> context, STATUS prevStatus, STATUS status) {
     BaseState<?> currentState = status.getCurrentState();
-    if (currentState == null) {
+    if (currentState == null
+        || (prevStatus != null && currentState.equals(prevStatus.getCurrentState()))) {
       return;
     }
-    if (currentState.getCurrentStateSummary() instanceof BaseStateSummary summary
-        && summary.isFailure()) {
-      String message = currentState.getMessage();
-      EventUtils.warn(
-          context.getEventRecorder(),
-          summary.name(),
-          StringUtils.isBlank(message) ? summary.name() : message);
+    Object lastSummary = null;
+    for (BaseState<?> state : newStatesSince(prevStatus, status)) {
+      Object summary = state.getCurrentStateSummary();
+      if (summary instanceof BaseStateSummary stateSummary && !summary.equals(lastSummary)) {
+        String message = state.getMessage();
+        EventUtils.record(
+            context.getEventRecorder(),
+            EventUtils.eventTypeOf(stateSummary),
+            stateSummary.name(),
+            StringUtils.isBlank(message) ? stateSummary.name() : message);
+      }
+      lastSummary = summary;
     }
+  }
+
+  /**
+   * Returns the states appended to the transition history since the previous status, in order.
+   * History keys keep increasing even when the history is trimmed, so the entries after the last
+   * key of the previous history are the new ones. Falls back to the current state when there is no
+   * previous history or no such entry, for instance when the status is reset.
+   *
+   * @param prevStatus The status before the patch, may be null.
+   * @param status The status that was persisted.
+   * @return The new states, never empty.
+   */
+  private List<BaseState<?>> newStatesSince(STATUS prevStatus, STATUS status) {
+    SortedMap<Long, ? extends BaseState<?>> history = status.getStateTransitionHistory();
+    if (prevStatus != null
+        && history != null
+        && prevStatus.getStateTransitionHistory() != null
+        && !prevStatus.getStateTransitionHistory().isEmpty()) {
+      long prevLastKey = prevStatus.getStateTransitionHistory().lastKey();
+      List<BaseState<?>> newStates = new ArrayList<>(history.tailMap(prevLastKey + 1).values());
+      if (!newStates.isEmpty()) {
+        return newStates;
+      }
+    }
+    return List.of(status.getCurrentState());
   }
 
   /**

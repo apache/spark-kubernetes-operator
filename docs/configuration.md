@@ -51,6 +51,34 @@ operatorConfiguration:
     create: true
 ```
 
+## Kubernetes Events
+
+When `spark.kubernetes.operator.events.enabled` is `true`, the operator publishes Kubernetes
+`Event` objects about `SparkApplication` and `SparkCluster` resources into their namespaces. They
+are visible via `kubectl describe` and `kubectl get events`.
+
+Whenever a resource transitions into a new state, the operator publishes an event whose `reason`
+is the name of the new state and whose `message` is the state message. Repeated transitions into
+the same state are aggregated into a single `Event` object by incrementing its `count`.
+
+| Type | Reason |
+|---|---|
+| `Warning` | `SparkApplication`: `SchedulingFailure`, `Failed`, `DriverEvicted`, `DriverStartTimedOut`, `DriverReadyTimedOut`, `ExecutorsStartTimedOut`, `RunningWithBelowThresholdExecutors`, `TerminatedWithoutReleaseResources` |
+| `Warning` | `SparkCluster`: `SchedulingFailure`, `Failed` |
+| `Normal` | All other states, e.g. `Submitted`, `ScheduledToRestart`, `DriverRequested`, `DriverStarted`, `DriverReady`, `InitializedBelowThresholdExecutors`, `RunningHealthy`, `RunningWithPartialCapacity`, `Succeeded` and `ResourceReleased` |
+
+In addition, the operator publishes the following `Warning` events.
+
+| Reason | When |
+|---|---|
+| `ReconcileError` | A reconciliation throws. Only the first attempt of a failure episode publishes. |
+| `CleanupError` | A cleanup throws, so the resource cannot finish deleting. |
+| `StatusUpdateFailed` | A status patch is rejected. Transport-level errors are skipped. |
+
+The `reason` values are stable, while the `message` values may change between releases. Note that
+Kubernetes retains events only for a limited time (one hour by default), so the resource status
+remains the source of truth.
+
 ## Metrics
 
 Spark operator,
