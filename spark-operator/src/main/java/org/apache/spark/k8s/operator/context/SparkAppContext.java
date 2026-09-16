@@ -29,10 +29,8 @@ import java.util.stream.Collectors;
 
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Pod;
-import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import org.apache.spark.k8s.operator.SparkAppResourceSpec;
@@ -44,11 +42,9 @@ import org.apache.spark.k8s.operator.reconciler.SparkAppResourceSpecFactory;
  * Context for {@link org.apache.spark.k8s.operator.SparkApplication} resource, including secondary
  * resource(s) and desired secondary resource spec
  */
-@RequiredArgsConstructor
 @Slf4j
 public class SparkAppContext extends BaseContext<SparkApplication> {
   private final SparkApplication sparkApplication;
-  private final Context<?> josdkContext;
   private final SparkAppSubmissionWorker submissionWorker;
 
   /** secondaryResourceSpec is initialized in a lazy fashion - built upon the first attempt */
@@ -56,6 +52,22 @@ public class SparkAppContext extends BaseContext<SparkApplication> {
 
   /** driverPodFromApi is initialized in a lazy fashion - built upon the first attempt */
   private Optional<Pod> driverPodFromApi;
+
+  /**
+   * Constructs a context for the given SparkApplication.
+   *
+   * @param sparkApplication The SparkApplication being reconciled.
+   * @param josdkContext The JOSDK context of the current reconciliation.
+   * @param submissionWorker The worker that builds the secondary resource spec.
+   */
+  public SparkAppContext(
+      SparkApplication sparkApplication,
+      Context<?> josdkContext,
+      SparkAppSubmissionWorker submissionWorker) {
+    super(josdkContext);
+    this.sparkApplication = sparkApplication;
+    this.submissionWorker = submissionWorker;
+  }
 
   /**
    * Returns the driver pod for the Spark application, if present.
@@ -189,16 +201,6 @@ public class SparkAppContext extends BaseContext<SparkApplication> {
   @Override
   public SparkApplication getResource() {
     return sparkApplication;
-  }
-
-  /**
-   * Returns the Kubernetes client from the JOSDK context.
-   *
-   * @return The KubernetesClient instance.
-   */
-  @Override
-  public KubernetesClient getClient() {
-    return josdkContext.getClient();
   }
 
   /**

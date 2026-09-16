@@ -37,6 +37,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.spark.k8s.operator.BaseResource;
 import org.apache.spark.k8s.operator.context.BaseContext;
 import org.apache.spark.k8s.operator.listeners.BaseStatusListener;
+import org.apache.spark.k8s.operator.status.BaseState;
+import org.apache.spark.k8s.operator.status.BaseStateSummary;
 import org.apache.spark.k8s.operator.status.BaseStatus;
 
 /**
@@ -79,10 +81,11 @@ public class StatusRecorder<
    * underlying resource spec was update in the meantime. This is necessary for the correct operator
    * behavior.
    *
-   * @param resource Resource for which status update should be performed.
-   * @param client KubernetesClient instance.
+   * @param context Context of the resource for which status update should be performed.
    */
-  private void patchAndStatusWithVersionLocked(CR resource, KubernetesClient client) {
+  private void patchAndStatusWithVersionLocked(BaseContext<CR> context) {
+    CR resource = context.getResource();
+    KubernetesClient client = context.getClient();
     ObjectNode newStatusNode = objectMapper.convertValue(resource.getStatus(), ObjectNode.class);
     ResourceID resourceId = ResourceID.fromResource(resource);
     ObjectNode previousStatusNode = statusCache.get(resourceId);
@@ -134,6 +137,36 @@ public class StatusRecorder<
         listener -> {
           listener.listenStatus(resource, prevStatus, resource.getStatus());
         });
+    recordFailureEvent(context, resource.getStatus());
+  }
+
+  /**
+   * Publishes a warning event when the resource has just moved into a failure state.
+   *
+   * <p>This is the seam where the failures users actually hit surface: every reconcile step turns
+   * a rejected submission, a failed validation or an expired timeout into a state rather than
+   * throwing, so the reconciler error hooks never see them. Reaching this point means the patch
+   * succeeded and the status genuinely changed, so an event here fires once per transition.
+   *
+   * <p>The state name is used as both reason and dedup key, so an app that keeps re-entering the
+   * same failure state bumps the count on one Event instead of accumulating one per attempt.
+   *
+   * @param context Context of the resource whose status has just been patched.
+   * @param status The status that was persisted.
+   */
+  private void recordFailureEvent(BaseContext<CR> context, STATUS status) {
+    BaseState<?> currentState = status.getCurrentState();
+    if (currentState == null) {
+      return;
+    }
+    if (currentState.getCurrentStateSummary() instanceof BaseStateSummary summary
+        && summary.isFailure()) {
+      String message = currentState.getMessage();
+      EventUtils.warn(
+          context.getEventRecorder(),
+          summary.name(),
+          StringUtils.isBlank(message) ? summary.name() : message);
+    }
   }
 
   /**
@@ -146,10 +179,16 @@ public class StatusRecorder<
   public boolean persistStatus(BaseContext<CR> context, STATUS newStatus) {
     try {
       context.getResource().setStatus(newStatus);
-      patchAndStatusWithVersionLocked(context.getResource(), context.getClient());
+      patchAndStatusWithVersionLocked(context);
       return true;
     } catch (KubernetesClientException e) {
       log.error("Error while persisting status to {}", newStatus, e);
+      if (!ReconcilerUtils.isTransientError(e)) {
+        EventUtils.warn(
+            context.getEventRecorder(),
+            EventUtils.REASON_STATUS_UPDATE_FAILED,
+            "Failed to update status, the reported status may be stale. " + EventUtils.describe(e));
+      }
       return false;
     }
   }
