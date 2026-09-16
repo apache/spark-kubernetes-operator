@@ -248,7 +248,7 @@ jobs:
           ./gradlew buildDockerImage
           helm install spark --create-namespace -f \
           build-tools/helm/spark-kubernetes-operator/values.yaml -f \
-          tests/e2e/helm/helm-test-values/kueue/values.yaml \
+          tests/e2e/helm/kueue-config-values.yaml \
           build-tools/helm/spark-kubernetes-operator/
           minikube docker-env --unset
       - name: Run E2E Test with Kueue Enabled
