@@ -22,6 +22,8 @@ package org.apache.spark.k8s.operator.kueue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -30,6 +32,7 @@ import io.fabric8.kubernetes.api.model.ConditionBuilder;
 import io.fabric8.kubernetes.api.model.KubernetesResourceList;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.OwnerReferenceBuilder;
+import io.fabric8.kubernetes.api.model.PodTemplateSpecBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.dsl.MixedOperation;
@@ -45,6 +48,7 @@ import org.apache.spark.k8s.operator.kueue.v1beta2.PodSet;
 import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
 import org.apache.spark.k8s.operator.kueue.v1beta2.WorkloadSpec;
 import org.apache.spark.k8s.operator.kueue.v1beta2.WorkloadStatus;
+import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 
 @EnableKubernetesMockClient(crud = true)
 @SuppressFBWarnings(
@@ -139,6 +143,33 @@ class KueueWorkloadUtilsTest {
   }
 
   @Test
+  void hashPodSetsIsStableForTheSameSpec() {
+    Map<String, String> sparkConf = new HashMap<>();
+    sparkConf.put("spark.executor.instances", "2");
+    for (int i = 0; i < 12; i++) {
+      sparkConf.put("spark.kubernetes.node.selector.key" + i, "value" + i);
+    }
+    String hash = hashPodSets(app(sparkConf));
+    Assertions.assertEquals(hash, hashPodSets(app(sparkConf)));
+
+    sparkConf.put("spark.kubernetes.node.selector.key0", "changed");
+    Assertions.assertNotEquals(hash, hashPodSets(app(sparkConf)));
+  }
+
+  @Test
+  void hashPodSetsIgnoresMapEntryOrder() {
+    Map<String, String> ordered = new LinkedHashMap<>();
+    Map<String, String> reversed = new LinkedHashMap<>();
+    for (int i = 0; i < 12; i++) {
+      ordered.put("key" + i, "value" + i);
+      reversed.put("key" + (11 - i), "value" + (11 - i));
+    }
+    Assertions.assertEquals(
+        KueueWorkloadUtils.hashPodSets(workloadWithNodeSelector(ordered)),
+        KueueWorkloadUtils.hashPodSets(workloadWithNodeSelector(reversed)));
+  }
+
+  @Test
   void releaseWorkloadDeletesWorkload() {
     KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1));
 
@@ -184,6 +215,33 @@ class KueueWorkloadUtilsTest {
     SparkApplication app = new SparkApplication();
     app.setMetadata(new ObjectMetaBuilder().withName("app-1").withNamespace("default").build());
     return app;
+  }
+
+  private static SparkApplication app(final Map<String, String> sparkConf) {
+    SparkApplication app = owner();
+    ApplicationSpec spec = new ApplicationSpec();
+    spec.setSparkConf(sparkConf);
+    app.setSpec(spec);
+    return app;
+  }
+
+  private static String hashPodSets(final SparkApplication app) {
+    return KueueWorkloadUtils.hashPodSets(KueueWorkloadFactory.buildWorkload(app));
+  }
+
+  private static Workload workloadWithNodeSelector(final Map<String, String> nodeSelector) {
+    Workload workload = workload("owner-uid-1", 1);
+    workload
+        .getSpec()
+        .getPodSets()
+        .get(0)
+        .setTemplate(
+            new PodTemplateSpecBuilder()
+                .withNewSpec()
+                .withNodeSelector(nodeSelector)
+                .endSpec()
+                .build());
+    return workload;
   }
 
   private static Workload workload(final String ownerUid, final int executors) {

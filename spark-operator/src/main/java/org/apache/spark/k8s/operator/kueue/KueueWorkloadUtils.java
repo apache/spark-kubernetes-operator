@@ -76,8 +76,13 @@ public final class KueueWorkloadUtils {
    * Creates the given Workload if it does not exist yet and reports whether Kueue admitted it.
    *
    * @param client The KubernetesClient.
-   * @param desired The Workload built for the resource to be admitted.
+   * @param desired The Workload built for the resource to be admitted. The pod sets hash annotation
+   *     is added to it in place.
    * @return The AdmissionResult for the Workload.
+   * @throws IllegalStateException if the Workload can neither be read nor created.
+   * @throws KubernetesClientException if a stale Workload cannot be deleted. Unlike {@link
+   *     #releaseWorkload}, this is not swallowed so that the resource is not created until the
+   *     stale Workload is gone.
    */
   public static AdmissionResult requestAdmission(
       final KubernetesClient client, final Workload desired) {
