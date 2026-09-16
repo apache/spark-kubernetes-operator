@@ -90,7 +90,8 @@ spark.kubernetes.operator.events.excludedReasons=Running.*
 ```
 
 Since `,` is the separator, an expression cannot contain it, e.g. `{1,3}`. An invalid expression
-is logged and matches only the `reason` identical to it.
+is logged and matches only the `reason` identical to it. Note that `*` is not a wildcard but an
+invalid expression, so use `.*` to exclude all reasons.
 
 ## Metrics
 

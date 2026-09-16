@@ -231,4 +231,18 @@ class ConfigurableEventRecorderTest {
     verify(delegate).record(event, context);
     verifyNoMoreInteractions(delegate);
   }
+
+  @Test
+  void asteriskIsAnInvalidRegexRatherThanAWildcard() {
+    // Unlike the watched-namespaces option, '*' has no special meaning here. It is an invalid
+    // regex, so it only matches literally, and '.*' is the way to exclude every reason.
+    setExcludedReasons("*");
+    EventRecord event = EventRecord.normal("RunningHealthy", "published");
+    recorder.record(event, context);
+    verify(delegate).record(event, context);
+
+    setExcludedReasons(".*");
+    recorder.record(EventRecord.normal("RunningHealthy", "dropped"), context);
+    verifyNoMoreInteractions(delegate);
+  }
 }

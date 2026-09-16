@@ -22,6 +22,7 @@ package org.apache.spark.k8s.operator.utils;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.KUBERNETES_EVENTS_ENABLED;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.KUBERNETES_EVENTS_EXCLUDED_REASONS;
 
+import java.util.Arrays;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -103,10 +104,15 @@ public class ConfigurableEventRecorder implements EventRecorder {
   }
 
   private static boolean isExcluded(String reason) {
-    // A null resolved value is treated as an empty list.
-    return Utils.sanitizeCommaSeparatedStrAsSet(KUBERNETES_EVENTS_EXCLUDED_REASONS.getValue())
-        .stream()
-        .anyMatch(regex -> matches(regex, reason));
+    // A null or blank resolved value is treated as an empty list. The comma splitting is local
+    // rather than Utils.sanitizeCommaSeparatedStrAsSet, whose "*" sentinel means "no restriction"
+    // for the watched-namespaces option and would silently empty this list instead.
+    String value = KUBERNETES_EVENTS_EXCLUDED_REASONS.getValue();
+    return StringUtils.isNotBlank(value)
+        && Arrays.stream(value.split(","))
+            .map(String::trim)
+            .filter(StringUtils::isNotBlank)
+            .anyMatch(regex -> matches(regex, reason));
   }
 
   private static boolean matches(String regex, String reason) {
