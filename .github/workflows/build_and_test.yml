@@ -377,3 +377,16 @@ jobs:
             | grep -q 'spark.kubernetes.operator.dynamicConfig.enabled=true'; then
             echo "dynamicConfig enabled with enable=false"; exit 1
           fi
+      - name: Validate the deprecated helm key warning
+        run: |
+          # `helm template` skips NOTES.txt, so the warning is only observable through an
+          # install. `--dry-run=client` renders it without reaching a cluster.
+          notes=$(helm install spark build-tools/helm/spark-kubernetes-operator --dry-run=client \
+            --set operatorDeployment.networkPolicy.enable=true \
+            --set operatorConfiguration.dynamicConfig.enable=true)
+          echo "$notes" | grep -q 'operatorDeployment.networkPolicy.enable is deprecated'
+          echo "$notes" | grep -q 'operatorConfiguration.dynamicConfig.enable is deprecated'
+          notes=$(helm install spark build-tools/helm/spark-kubernetes-operator --dry-run=client)
+          if echo "$notes" | grep -q 'is deprecated'; then
+            echo "Deprecation warning printed without a legacy key"; exit 1
+          fi
