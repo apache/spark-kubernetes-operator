@@ -71,9 +71,7 @@ class StatusRecorderTest {
     var resourceV2 = getSparkApplication("2");
     var resourceV3 = getSparkApplication("3");
 
-    BaseContext<SparkApplication> context = mock(BaseContext.class);
-    when(context.getResource()).thenReturn(testResource);
-    when(context.getClient()).thenReturn(client);
+    var context = contextFor(testResource);
     var basePath =
         "/apis/spark.apache.org/v1/namespaces/"
             + DEFAULT_NS
@@ -102,9 +100,7 @@ class StatusRecorderTest {
     var resourceV2 = getSparkApplication("2");
     var resourceV3 = getSparkApplication("3");
 
-    BaseContext<SparkApplication> context = mock(BaseContext.class);
-    when(context.getResource()).thenReturn(testResource);
-    when(context.getClient()).thenReturn(client);
+    var context = contextFor(testResource);
     var path =
         "/apis/spark.apache.org/v1/namespaces/"
             + DEFAULT_NS
@@ -149,7 +145,7 @@ class StatusRecorderTest {
   }
 
   @Test
-  void publishesNoEventForANonFailureTransition() {
+  void publishesANormalEventForANonFailureTransition() {
     var testResource = getSparkApplication("1");
     var context = contextFor(testResource);
     expectStatusPatch(testResource, getSparkApplication("2"));
@@ -160,8 +156,134 @@ class StatusRecorderTest {
             .appendNewState(
                 new ApplicationState(ApplicationStateSummary.DriverRequested, "driver requested")));
 
-    // Only failures are published, a Normal event per transition would be pure noise.
-    verifyNoInteractions(mockEventRecorder);
+    var event = captureRecordedEvent();
+    assertThat(event.type()).isEqualTo(EventType.NORMAL);
+    assertThat(event.reason()).isEqualTo(ApplicationStateSummary.DriverRequested.name());
+    assertThat(event.message()).isEqualTo("driver requested");
+    assertThat(event.key()).contains(ApplicationStateSummary.DriverRequested.name());
+  }
+
+  @Test
+  void publishesAWarningEventForANonFailureWarningState() {
+    var testResource = getSparkApplication("1");
+    var context = contextFor(testResource);
+    expectStatusPatch(testResource, getSparkApplication("2"));
+
+    statusRecorder.persistStatus(
+        context,
+        new ApplicationStatus()
+            .appendNewState(
+                new ApplicationState(
+                    ApplicationStateSummary.RunningWithBelowThresholdExecutors, "lost executors")));
+
+    var event = captureRecordedEvent();
+    assertThat(event.type()).isEqualTo(EventType.WARNING);
+    assertThat(event.reason())
+        .isEqualTo(ApplicationStateSummary.RunningWithBelowThresholdExecutors.name());
+  }
+
+  @Test
+  void publishesEveryTransition() {
+    var testResource = getSparkApplication("1");
+    var context = contextFor(testResource);
+    expectStatusPatch(testResource, getSparkApplication("2"));
+
+    var requested =
+        new ApplicationStatus()
+            .appendNewState(
+                new ApplicationState(ApplicationStateSummary.DriverRequested, "requested"));
+    statusRecorder.persistStatus(context, requested);
+    statusRecorder.persistStatus(
+        context,
+        requested.appendNewState(
+            new ApplicationState(ApplicationStateSummary.DriverStarted, "started")));
+
+    ArgumentCaptor<EventRecord> captor = ArgumentCaptor.forClass(EventRecord.class);
+    verify(mockEventRecorder, times(2)).record(captor.capture());
+    assertThat(captor.getAllValues())
+        .extracting(EventRecord::reason)
+        .containsExactly(
+            ApplicationStateSummary.DriverRequested.name(),
+            ApplicationStateSummary.DriverStarted.name());
+  }
+
+  @Test
+  void publishesEveryTransitionCarriedByASinglePatch() {
+    var testResource = getSparkApplication("1");
+    var context = contextFor(testResource);
+    expectStatusPatch(testResource, getSparkApplication("2"));
+
+    var requested =
+        new ApplicationStatus()
+            .appendNewState(
+                new ApplicationState(ApplicationStateSummary.DriverRequested, "requested"));
+    statusRecorder.persistStatus(context, requested);
+    // A driver pod observed as both started and ready appends two states before one patch.
+    statusRecorder.persistStatus(
+        context,
+        requested
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverStarted, "started"))
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverReady, "ready")));
+
+    ArgumentCaptor<EventRecord> captor = ArgumentCaptor.forClass(EventRecord.class);
+    verify(mockEventRecorder, times(3)).record(captor.capture());
+    assertThat(captor.getAllValues())
+        .extracting(EventRecord::reason)
+        .containsExactly(
+            ApplicationStateSummary.DriverRequested.name(),
+            ApplicationStateSummary.DriverStarted.name(),
+            ApplicationStateSummary.DriverReady.name());
+  }
+
+  @Test
+  void publishesOnceForRepeatedStatesInASinglePatch() {
+    var testResource = getSparkApplication("1");
+    var context = contextFor(testResource);
+    expectStatusPatch(testResource, getSparkApplication("2"));
+
+    var started =
+        new ApplicationStatus()
+            .appendNewState(
+                new ApplicationState(ApplicationStateSummary.DriverStarted, "started"));
+    statusRecorder.persistStatus(context, started);
+    // Both driver observers report the same failed driver pod, appending Failed twice.
+    statusRecorder.persistStatus(
+        context,
+        started
+            .appendNewState(new ApplicationState(ApplicationStateSummary.Failed, "driver failed"))
+            .appendNewState(new ApplicationState(ApplicationStateSummary.Failed, "driver failed")));
+
+    ArgumentCaptor<EventRecord> captor = ArgumentCaptor.forClass(EventRecord.class);
+    verify(mockEventRecorder, times(2)).record(captor.capture());
+    assertThat(captor.getAllValues())
+        .extracting(EventRecord::reason)
+        .containsExactly(
+            ApplicationStateSummary.DriverStarted.name(), ApplicationStateSummary.Failed.name());
+  }
+
+  @Test
+  void publishesNoEventWhenTheCurrentStateDidNotChange() {
+    var testResource = getSparkApplication("1");
+    var context = contextFor(testResource);
+    expectStatusPatch(testResource, getSparkApplication("2"));
+
+    var running =
+        new ApplicationStatus()
+            .appendNewState(
+                new ApplicationState(ApplicationStateSummary.RunningHealthy, "running"));
+    statusRecorder.persistStatus(context, running);
+    // The status changes and is patched, but the current state is the same one, so the resource
+    // has not transitioned again and must not be reported again.
+    var sameStateNewAttempt =
+        new ApplicationStatus(
+            running.getCurrentState(),
+            running.getStateTransitionHistory(),
+            running.getCurrentAttemptSummary(),
+            running.getCurrentAttemptSummary());
+    statusRecorder.persistStatus(context, sameStateNewAttempt);
+
+    verify(mockStatusListener, times(2)).listenStatus(any(), any(), any());
+    verify(mockEventRecorder, times(1)).record(any(EventRecord.class));
   }
 
   @Test

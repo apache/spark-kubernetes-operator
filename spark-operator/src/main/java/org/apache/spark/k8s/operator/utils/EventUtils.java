@@ -19,9 +19,14 @@
 
 package org.apache.spark.k8s.operator.utils;
 
+import java.util.Set;
+
 import io.javaoperatorsdk.operator.api.event.EventRecord;
 import io.javaoperatorsdk.operator.api.event.EventType;
 import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
+
+import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
+import org.apache.spark.k8s.operator.status.BaseStateSummary;
 
 /**
  * Utility class for publishing Kubernetes events about Spark resources.
@@ -53,7 +58,27 @@ public final class EventUtils {
   /** Maximum number of links followed when looking for the innermost cause of a failure. */
   private static final int MAX_CAUSE_DEPTH = 10;
 
+  /** States that are not failures but still deserve the attention of users. */
+  private static final Set<BaseStateSummary> NON_FAILURE_WARNING_STATES =
+      Set.of(
+          ApplicationStateSummary.RunningWithBelowThresholdExecutors,
+          ApplicationStateSummary.TerminatedWithoutReleaseResources);
+
   private EventUtils() {}
+
+  /**
+   * Returns the type of the event published when a resource transitions into the given state.
+   * Failure states and the states listed in {@link #NON_FAILURE_WARNING_STATES} are warnings, every
+   * other state is normal.
+   *
+   * @param summary The state the resource has transitioned into.
+   * @return {@link EventType#WARNING} or {@link EventType#NORMAL}.
+   */
+  public static EventType eventTypeOf(BaseStateSummary summary) {
+    return summary.isFailure() || NON_FAILURE_WARNING_STATES.contains(summary)
+        ? EventType.WARNING
+        : EventType.NORMAL;
+  }
 
   /**
    * Publishes a warning event about a Spark resource.
@@ -69,9 +94,23 @@ public final class EventUtils {
    * @param message The message, truncated to {@value #MAX_MESSAGE_LENGTH} characters.
    */
   public static void warn(ResourceEventRecorder recorder, String reason, String message) {
+    record(recorder, EventType.WARNING, reason, message);
+  }
+
+  /**
+   * Publishes an event of the given type about a Spark resource. The reason doubles as the event
+   * key, see {@link #warn(ResourceEventRecorder, String, String)}.
+   *
+   * @param recorder The event recorder bound to the resource.
+   * @param type The event type.
+   * @param reason A short CamelCase reason, as expected by Kubernetes.
+   * @param message The message, truncated to {@value #MAX_MESSAGE_LENGTH} characters.
+   */
+  public static void record(
+      ResourceEventRecorder recorder, EventType type, String reason, String message) {
     recorder.record(
         EventRecord.builder()
-            .type(EventType.WARNING)
+            .type(type)
             .reason(reason)
             .message(truncate(message))
             .key(reason)

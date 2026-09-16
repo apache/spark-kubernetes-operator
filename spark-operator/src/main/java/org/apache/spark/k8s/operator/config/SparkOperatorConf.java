@@ -290,7 +290,8 @@ public final class SparkOperatorConf {
               "When enabled, operator would publish Kubernetes Event objects into the namespace "
                   + "of the Spark resource they describe, making them visible to users of that "
                   + "namespace via 'kubectl describe' and 'kubectl get events'. Events are "
-                  + "published when a resource enters a failure state, and when the operator "
+                  + "published when a resource transitions into a new state, as Warning for "
+                  + "failure states and Normal for most other states, and when the operator "
                   + "cannot reconcile or update the status of a resource. These are Event "
                   + "resources in the core API group, unrelated to the internal events that "
                   + "trigger reconciliation.")

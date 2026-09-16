@@ -30,6 +30,9 @@ import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
+import org.apache.spark.k8s.operator.status.ClusterStateSummary;
+
 class EventUtilsTest {
 
   private final ResourceEventRecorder recorder = mock(ResourceEventRecorder.class);
@@ -58,6 +61,44 @@ class EventUtilsTest {
     EventRecord event = recordWarning(EventUtils.REASON_STATUS_UPDATE_FAILED, "attempt 3 of 15");
 
     assertThat(event.key()).contains(EventUtils.REASON_STATUS_UPDATE_FAILED);
+  }
+
+  @Test
+  void recordPublishesTheGivenType() {
+    EventUtils.record(recorder, EventType.NORMAL, "DriverRequested", "driver requested");
+
+    ArgumentCaptor<EventRecord> captor = ArgumentCaptor.forClass(EventRecord.class);
+    verify(recorder).record(captor.capture());
+    EventRecord event = captor.getValue();
+    assertThat(event.type()).isEqualTo(EventType.NORMAL);
+    assertThat(event.reason()).isEqualTo("DriverRequested");
+    assertThat(event.message()).isEqualTo("driver requested");
+    assertThat(event.key()).contains("DriverRequested");
+  }
+
+  @Test
+  void eventTypeOfApplicationStates() {
+    for (ApplicationStateSummary summary : ApplicationStateSummary.values()) {
+      EventType expected =
+          summary.isFailure()
+                  || summary == ApplicationStateSummary.RunningWithBelowThresholdExecutors
+                  || summary == ApplicationStateSummary.TerminatedWithoutReleaseResources
+              ? EventType.WARNING
+              : EventType.NORMAL;
+      assertThat(EventUtils.eventTypeOf(summary)).as(summary.name()).isEqualTo(expected);
+    }
+    assertThat(EventUtils.eventTypeOf(ApplicationStateSummary.RunningWithPartialCapacity))
+        .isEqualTo(EventType.NORMAL);
+    assertThat(EventUtils.eventTypeOf(ApplicationStateSummary.InitializedBelowThresholdExecutors))
+        .isEqualTo(EventType.NORMAL);
+  }
+
+  @Test
+  void eventTypeOfClusterStates() {
+    for (ClusterStateSummary summary : ClusterStateSummary.values()) {
+      EventType expected = summary.isFailure() ? EventType.WARNING : EventType.NORMAL;
+      assertThat(EventUtils.eventTypeOf(summary)).as(summary.name()).isEqualTo(expected);
+    }
   }
 
   @Test
