@@ -200,7 +200,7 @@ public final class KueueWorkloadFactory {
    * Returns the Workload name prefixed with the lower-cased kind of the owner resource, like Kueue
    * built-in integrations, to avoid name collisions between SparkApplication and SparkCluster.
    */
-  private static String getWorkloadName(final HasMetadata resource) {
+  static String getWorkloadName(final HasMetadata resource) {
     return resource.getKind().toLowerCase(Locale.ROOT) + "-" + resource.getMetadata().getName();
   }
 
