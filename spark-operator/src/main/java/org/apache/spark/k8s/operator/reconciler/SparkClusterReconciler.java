@@ -20,6 +20,8 @@
 package org.apache.spark.k8s.operator.reconciler;
 
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_APPLICATION_NAME;
+import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_CLUSTER_NAME;
+import static org.apache.spark.k8s.operator.config.SparkOperatorConf.KUEUE_WORKLOAD_INFORMER_ENABLED;
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.completeAndDefaultRequeue;
 import static org.apache.spark.k8s.operator.utils.ReconcilerUtils.isFirstAttempt;
 import static org.apache.spark.k8s.operator.utils.Utils.basicLabelSecondaryToPrimaryMapper;
@@ -46,6 +48,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.spark.k8s.operator.SparkCluster;
 import org.apache.spark.k8s.operator.SparkClusterSubmissionWorker;
 import org.apache.spark.k8s.operator.context.SparkClusterContext;
+import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
 import org.apache.spark.k8s.operator.metrics.healthcheck.SentinelManager;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.*;
 import org.apache.spark.k8s.operator.utils.EventUtils;
@@ -156,7 +159,19 @@ public class SparkClusterReconciler implements Reconciler<SparkCluster>, Cleaner
                 .withLabelSelector(commonResourceLabelsStr())
                 .build(),
             context);
-    return List.of(podEventSource);
+    List<EventSource<?, SparkCluster>> eventSources = new ArrayList<>();
+    eventSources.add(podEventSource);
+    if (KUEUE_WORKLOAD_INFORMER_ENABLED.getValue()) {
+      eventSources.add(
+          new InformerEventSource<>(
+              InformerEventSourceConfiguration.from(Workload.class, SparkCluster.class)
+                  .withSecondaryToPrimaryMapper(
+                      basicLabelSecondaryToPrimaryMapper(LABEL_SPARK_CLUSTER_NAME))
+                  .withLabelSelector(LABEL_SPARK_CLUSTER_NAME)
+                  .build(),
+              context));
+    }
+    return eventSources;
   }
 
   /**

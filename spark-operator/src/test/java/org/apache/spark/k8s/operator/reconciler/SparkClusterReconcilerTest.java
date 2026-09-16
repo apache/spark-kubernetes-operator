@@ -19,6 +19,7 @@
 
 package org.apache.spark.k8s.operator.reconciler;
 
+import static org.apache.spark.k8s.operator.utils.TestUtils.setConfigKey;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,16 +34,21 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.javaoperatorsdk.operator.api.config.informer.InformerEventSourceConfiguration;
 import io.javaoperatorsdk.operator.api.event.EventRecord;
 import io.javaoperatorsdk.operator.api.event.EventType;
 import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
 import io.javaoperatorsdk.operator.api.reconciler.DeleteControl;
+import io.javaoperatorsdk.operator.api.reconciler.EventSourceContext;
 import io.javaoperatorsdk.operator.api.reconciler.RetryInfo;
+import io.javaoperatorsdk.operator.processing.event.source.informer.InformerEventSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -50,7 +56,9 @@ import org.mockito.MockedConstruction;
 
 import org.apache.spark.k8s.operator.SparkCluster;
 import org.apache.spark.k8s.operator.SparkClusterSubmissionWorker;
+import org.apache.spark.k8s.operator.config.SparkOperatorConf;
 import org.apache.spark.k8s.operator.context.SparkClusterContext;
+import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
 import org.apache.spark.k8s.operator.metrics.healthcheck.SentinelManager;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.ClusterReconcileStep;
 import org.apache.spark.k8s.operator.status.ClusterState;
@@ -259,5 +267,29 @@ class SparkClusterReconcilerTest {
     ArgumentCaptor<EventRecord> captor = ArgumentCaptor.forClass(EventRecord.class);
     verify(mockEventRecorder, times(1)).record(captor.capture());
     return captor.getValue();
+  }
+
+  @Test
+  @SuppressWarnings({"rawtypes", "unchecked"})
+  void kueueWorkloadInformerIsRegisteredOnlyWhenEnabled() {
+    EventSourceContext<SparkCluster> eventSourceContext = mock(EventSourceContext.class);
+    List<Class<?>> informerResources = new ArrayList<>();
+    try (MockedConstruction<InformerEventSource> ignored =
+        mockConstruction(
+            InformerEventSource.class,
+            (mock, ctx) ->
+                informerResources.add(
+                    ((InformerEventSourceConfiguration<?>) ctx.arguments().get(0))
+                        .getResourceClass()))) {
+      assertEquals(1, reconciler.prepareEventSources(eventSourceContext).size());
+      assertEquals(List.of(Pod.class), informerResources);
+
+      informerResources.clear();
+      setConfigKey(SparkOperatorConf.KUEUE_WORKLOAD_INFORMER_ENABLED, true);
+      assertEquals(2, reconciler.prepareEventSources(eventSourceContext).size());
+      assertEquals(List.of(Pod.class, Workload.class), informerResources);
+    } finally {
+      setConfigKey(SparkOperatorConf.KUEUE_WORKLOAD_INFORMER_ENABLED, false);
+    }
   }
 }

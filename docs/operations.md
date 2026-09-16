@@ -42,7 +42,11 @@ under the License.
   set. Kueue is not bundled with the operator; install it from
   [kueue.sigs.k8s.io](https://kueue.sigs.k8s.io/docs/installation/), and register
   `SparkApplication.v1.spark.apache.org` and `SparkCluster.v1.spark.apache.org` in Kueue's
-  `integrations.externalFrameworks`.
+  `integrations.externalFrameworks`. `operatorRbac.kueue.enabled` also sets
+  `spark.kubernetes.operator.kueue.workloadInformer.enabled`, so that the operator watches
+  `Workload` resources and an admission starts the queued resource right away. Without the watch,
+  an admission is noticed on the next periodic reconcile. The watch requires Kueue to be installed
+  before the operator starts; otherwise the operator reports itself unhealthy.
 
 ## Spark Application Namespaces
 

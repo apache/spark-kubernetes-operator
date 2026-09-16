@@ -694,6 +694,24 @@ public final class SparkOperatorConf {
           .build();
 
   /**
+   * When enabled, the operator watches Kueue Workloads so that an admission starts the queued
+   * resource right away. The operator needs RBAC access to Kueue Workloads and Kueue must be
+   * installed, otherwise the informer stays unhealthy and so does the operator.
+   */
+  public static final ConfigOption<Boolean> KUEUE_WORKLOAD_INFORMER_ENABLED =
+      ConfigOption.<Boolean>builder()
+          .key("spark.kubernetes.operator.kueue.workloadInformer.enabled")
+          .enableDynamicOverride(false)
+          .description(
+              "When enabled, operator watches Kueue Workloads so that an admission starts the "
+                  + "queued SparkApplication or SparkCluster right away. Otherwise, an admission "
+                  + "is noticed on the next periodic reconcile. Requires Kueue to be installed "
+                  + "and the operator to have RBAC access to Kueue Workloads.")
+          .typeParameterClass(Boolean.class)
+          .defaultValue(false)
+          .build();
+
+  /**
    * Enable leader election for the operator to allow running standby instances. When this is
    * disabled, only one operator instance is expected to be up and running at any time (replica = 1)
    * to avoid race condition.
