@@ -299,6 +299,26 @@ public final class SparkOperatorConf {
           .defaultValue(false)
           .build();
 
+  /**
+   * Comma-separated list of Java regular expressions of Kubernetes Event reasons that operator
+   * would not publish even when events are enabled.
+   */
+  public static final ConfigOption<String> KUBERNETES_EVENTS_EXCLUDED_REASONS =
+      ConfigOption.<String>builder()
+          .key("spark.kubernetes.operator.events.excludedReasons")
+          .enableDynamicOverride(true)
+          .description(
+              "Comma-separated list of Java regular expressions of Kubernetes Event reasons "
+                  + "that operator would not publish even when "
+                  + "'spark.kubernetes.operator.events.enabled' is true, e.g. "
+                  + "'RunningHealthy,RunningWithPartialCapacity' or 'Running.*'. Each expression "
+                  + "must match the whole reason and is case-sensitive. An invalid expression "
+                  + "matches only the reason identical to it. If empty, operator would publish "
+                  + "events of all reasons.")
+          .typeParameterClass(String.class)
+          .defaultValue("")
+          .build();
+
   /** Comma-separated names of SparkAppStatusListener class implementations */
   public static final ConfigOption<String> SPARK_APP_STATUS_LISTENER_CLASS_NAMES =
       ConfigOption.<String>builder()

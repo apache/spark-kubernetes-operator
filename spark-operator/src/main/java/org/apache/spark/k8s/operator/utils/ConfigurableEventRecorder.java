@@ -20,6 +20,10 @@
 package org.apache.spark.k8s.operator.utils;
 
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.KUBERNETES_EVENTS_ENABLED;
+import static org.apache.spark.k8s.operator.config.SparkOperatorConf.KUBERNETES_EVENTS_EXCLUDED_REASONS;
+
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.javaoperatorsdk.operator.api.event.DefaultEventRecorder;
@@ -28,17 +32,21 @@ import io.javaoperatorsdk.operator.api.event.EventRecord;
 import io.javaoperatorsdk.operator.api.event.EventRecorder;
 import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * An {@link EventRecorder} that drops every event unless {@link
- * org.apache.spark.k8s.operator.config.SparkOperatorConf#KUBERNETES_EVENTS_ENABLED} is set.
+ * org.apache.spark.k8s.operator.config.SparkOperatorConf#KUBERNETES_EVENTS_ENABLED} is set, and
+ * drops events whose reason matches one of the patterns in {@link
+ * org.apache.spark.k8s.operator.config.SparkOperatorConf#KUBERNETES_EVENTS_EXCLUDED_REASONS}.
  *
  * <p>Registered once for the whole operator via {@link
  * io.javaoperatorsdk.operator.api.config.ConfigurationServiceOverrider#withEventRecorder}, so that
  * {@link Context#eventRecorder()} is safe to call unconditionally and no caller has to read the
- * config itself. The flag is read per emitted event rather than when the recorder is bound to a
- * context, which keeps its dynamic override responsive within a running reconciliation.
+ * config itself. Both options are read per emitted event rather than when the recorder is bound to
+ * a context, which keeps their dynamic overrides responsive within a running reconciliation.
  */
+@Slf4j
 public class ConfigurableEventRecorder implements EventRecorder {
 
   private final EventRecorder delegate;
@@ -63,14 +71,14 @@ public class ConfigurableEventRecorder implements EventRecorder {
   }
 
   /**
-   * Records the given event, unless event publishing is disabled.
+   * Records the given event, unless event publishing is disabled or its reason is excluded.
    *
    * @param event The event to record.
    * @param context The reconciliation the event is recorded from.
    */
   @Override
   public void record(EventRecord event, Context<?> context) {
-    if (!eventsEnabled()) {
+    if (!eventsEnabled() || isExcluded(event.reason())) {
       return;
     }
     delegate.record(event, context);
@@ -92,6 +100,24 @@ public class ConfigurableEventRecorder implements EventRecorder {
     // Boolean.TRUE.equals guards against a null resolved value, which the option can yield for a
     // malformed override. Publishing events must never break a reconciliation.
     return Boolean.TRUE.equals(KUBERNETES_EVENTS_ENABLED.getValue());
+  }
+
+  private static boolean isExcluded(String reason) {
+    // A null resolved value is treated as an empty list.
+    return Utils.sanitizeCommaSeparatedStrAsSet(KUBERNETES_EVENTS_EXCLUDED_REASONS.getValue())
+        .stream()
+        .anyMatch(regex -> matches(regex, reason));
+  }
+
+  private static boolean matches(String regex, String reason) {
+    try {
+      return Pattern.matches(regex, reason);
+    } catch (PatternSyntaxException e) {
+      // A malformed pattern must not break a reconciliation, so it only matches literally.
+      log.warn(
+          "Invalid regex in {}: {}", KUBERNETES_EVENTS_EXCLUDED_REASONS.getKey(), e.getMessage());
+      return regex.equals(reason);
+    }
   }
 
   private record BoundRecorder(EventRecorder delegate, Context<?> context)

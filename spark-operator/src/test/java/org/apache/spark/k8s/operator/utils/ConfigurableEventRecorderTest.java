@@ -20,11 +20,13 @@
 package org.apache.spark.k8s.operator.utils;
 
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.KUBERNETES_EVENTS_ENABLED;
+import static org.apache.spark.k8s.operator.config.SparkOperatorConf.KUBERNETES_EVENTS_EXCLUDED_REASONS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import java.util.Map;
 
@@ -47,6 +49,15 @@ class ConfigurableEventRecorderTest {
   private void setEventsEnabled(boolean enabled) {
     SparkOperatorConfManager.INSTANCE.refresh(
         Map.of(KUBERNETES_EVENTS_ENABLED.getKey(), String.valueOf(enabled)));
+  }
+
+  private void setExcludedReasons(String reasons) {
+    SparkOperatorConfManager.INSTANCE.refresh(
+        Map.of(
+            KUBERNETES_EVENTS_ENABLED.getKey(),
+            "true",
+            KUBERNETES_EVENTS_EXCLUDED_REASONS.getKey(),
+            reasons));
   }
 
   @AfterEach
@@ -111,5 +122,113 @@ class ConfigurableEventRecorderTest {
     recorder.record(EventRecord.warning("ReconcileError", "boom"), context);
 
     verifyNoInteractions(delegate);
+  }
+
+  @Test
+  void dropsEventsWithExcludedReasons() {
+    setExcludedReasons("RunningHealthy,RunningWithPartialCapacity");
+
+    recorder.record(EventRecord.normal("RunningHealthy", "healthy"), context);
+    recorder.forContext(context).normal("RunningWithPartialCapacity", "partial");
+
+    verifyNoInteractions(delegate);
+  }
+
+  @Test
+  void forwardsEventsWithNonExcludedReasons() {
+    setExcludedReasons("RunningHealthy");
+    EventRecord event = EventRecord.warning("Failed", "boom");
+
+    recorder.record(event, context);
+
+    verify(delegate).record(event, context);
+  }
+
+  @Test
+  void excludedReasonsIgnoreWhitespaceAndEmptyEntries() {
+    setExcludedReasons(" RunningHealthy , ,, DriverReady ,");
+
+    recorder.record(EventRecord.normal("RunningHealthy", "dropped"), context);
+    recorder.record(EventRecord.normal("DriverReady", "dropped"), context);
+    verifyNoInteractions(delegate);
+
+    EventRecord event = EventRecord.normal("DriverStarted", "published");
+    recorder.record(event, context);
+    verify(delegate).record(event, context);
+  }
+
+  @Test
+  void excludedReasonsAreCaseSensitive() {
+    setExcludedReasons("runninghealthy");
+    EventRecord event = EventRecord.normal("RunningHealthy", "published");
+
+    recorder.record(event, context);
+
+    verify(delegate).record(event, context);
+  }
+
+  @Test
+  void forwardsEventsOfAllReasonsWhenNoReasonIsExcluded() {
+    setExcludedReasons("");
+    EventRecord normal = EventRecord.normal("RunningHealthy", "healthy");
+    EventRecord warning = EventRecord.warning("ReconcileError", "boom");
+
+    recorder.record(normal, context);
+    recorder.record(warning, context);
+
+    verify(delegate).record(normal, context);
+    verify(delegate).record(warning, context);
+  }
+
+  @Test
+  void excludedReasonsTakeEffectWithinARunningReconciliation() {
+    setEventsEnabled(true);
+    var bound = recorder.forContext(context);
+    bound.normal("RunningHealthy", "published");
+
+    setExcludedReasons("RunningHealthy");
+    bound.normal("RunningHealthy", "dropped");
+
+    ArgumentCaptor<EventRecord> captor = ArgumentCaptor.forClass(EventRecord.class);
+    verify(delegate).record(captor.capture(), eq(context));
+    assertThat(captor.getValue().message()).isEqualTo("published");
+  }
+
+  @Test
+  void dropsEventsWithReasonsMatchingARegex() {
+    setExcludedReasons("Running.*, Driver(Started|Ready)");
+
+    recorder.record(EventRecord.normal("RunningHealthy", "dropped"), context);
+    recorder.record(EventRecord.normal("RunningWithPartialCapacity", "dropped"), context);
+    recorder.record(EventRecord.normal("DriverReady", "dropped"), context);
+    verifyNoInteractions(delegate);
+
+    EventRecord event = EventRecord.normal("DriverRequested", "published");
+    recorder.record(event, context);
+    verify(delegate).record(event, context);
+  }
+
+  @Test
+  void excludedReasonRegexMustMatchTheWholeReason() {
+    setExcludedReasons("Running");
+    EventRecord event = EventRecord.normal("RunningHealthy", "published");
+
+    recorder.record(event, context);
+
+    verify(delegate).record(event, context);
+  }
+
+  @Test
+  void invalidExcludedReasonRegexOnlyMatchesLiterally() {
+    // A malformed pattern must not throw out of a reconciliation.
+    setExcludedReasons("Running[, Failed");
+    EventRecord event = EventRecord.normal("RunningHealthy", "published");
+
+    recorder.record(event, context);
+    recorder.record(EventRecord.warning("Failed", "dropped"), context);
+    recorder.record(EventRecord.normal("Running[", "dropped"), context);
+
+    verify(delegate).record(event, context);
+    verifyNoMoreInteractions(delegate);
   }
 }
