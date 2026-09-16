@@ -25,7 +25,6 @@ rules:
       - services
       - configmaps
       - persistentvolumeclaims
-      - events
     verbs:
       - get
       - list
@@ -34,6 +33,14 @@ rules:
       - update
       - patch
       - delete
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - get
+      - create
+      - patch
   - apiGroups:
       - "apps"
     resources:
