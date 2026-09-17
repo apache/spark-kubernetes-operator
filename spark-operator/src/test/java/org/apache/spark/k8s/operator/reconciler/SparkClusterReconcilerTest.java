@@ -19,6 +19,7 @@
 
 package org.apache.spark.k8s.operator.reconciler;
 
+import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_CLUSTER_NAME;
 import static org.apache.spark.k8s.operator.utils.TestUtils.setConfigKey;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -36,8 +37,11 @@ import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
+import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.javaoperatorsdk.operator.api.config.informer.InformerEventSourceConfiguration;
@@ -48,6 +52,7 @@ import io.javaoperatorsdk.operator.api.reconciler.Context;
 import io.javaoperatorsdk.operator.api.reconciler.DeleteControl;
 import io.javaoperatorsdk.operator.api.reconciler.EventSourceContext;
 import io.javaoperatorsdk.operator.api.reconciler.RetryInfo;
+import io.javaoperatorsdk.operator.processing.event.ResourceID;
 import io.javaoperatorsdk.operator.processing.event.source.informer.InformerEventSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -273,21 +278,35 @@ class SparkClusterReconcilerTest {
   @SuppressWarnings({"rawtypes", "unchecked"})
   void kueueWorkloadInformerIsRegisteredOnlyWhenEnabled() {
     EventSourceContext<SparkCluster> eventSourceContext = mock(EventSourceContext.class);
-    List<Class<?>> informerResources = new ArrayList<>();
+    List<InformerEventSourceConfiguration<?>> configs = new ArrayList<>();
     try (MockedConstruction<InformerEventSource> ignored =
         mockConstruction(
             InformerEventSource.class,
             (mock, ctx) ->
-                informerResources.add(
-                    ((InformerEventSourceConfiguration<?>) ctx.arguments().get(0))
-                        .getResourceClass()))) {
+                configs.add((InformerEventSourceConfiguration<?>) ctx.arguments().get(0)))) {
       assertEquals(1, reconciler.prepareEventSources(eventSourceContext).size());
-      assertEquals(List.of(Pod.class), informerResources);
+      assertEquals(List.of(Pod.class), configs.stream().map(c -> c.getResourceClass()).toList());
 
-      informerResources.clear();
+      configs.clear();
       setConfigKey(SparkOperatorConf.KUEUE_WORKLOAD_INFORMER_ENABLED, true);
       assertEquals(2, reconciler.prepareEventSources(eventSourceContext).size());
-      assertEquals(List.of(Pod.class, Workload.class), informerResources);
+      assertEquals(
+          List.of(Pod.class, Workload.class),
+          configs.stream().map(c -> c.getResourceClass()).toList());
+
+      InformerEventSourceConfiguration<Workload> workloadConfig =
+          (InformerEventSourceConfiguration<Workload>) configs.get(1);
+      assertEquals(LABEL_SPARK_CLUSTER_NAME, workloadConfig.getInformerConfig().getLabelSelector());
+      Workload workload = new Workload();
+      workload.setMetadata(
+          new ObjectMetaBuilder()
+              .withName("workload-1")
+              .withNamespace("default")
+              .withLabels(Map.of(LABEL_SPARK_CLUSTER_NAME, "cluster-1"))
+              .build());
+      assertEquals(
+          Set.of(new ResourceID("cluster-1", "default")),
+          workloadConfig.getSecondaryToPrimaryMapper().toPrimaryResourceIDs(workload));
     } finally {
       setConfigKey(SparkOperatorConf.KUEUE_WORKLOAD_INFORMER_ENABLED, false);
     }
