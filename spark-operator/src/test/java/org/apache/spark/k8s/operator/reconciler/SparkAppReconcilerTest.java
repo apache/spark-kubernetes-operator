@@ -20,6 +20,7 @@
 package org.apache.spark.k8s.operator.reconciler;
 
 import static java.net.HttpURLConnection.HTTP_CONFLICT;
+import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_APPLICATION_NAME;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.API_SECONDARY_RESOURCE_CREATE_BACKOFF_JITTER_MILLIS;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.API_SECONDARY_RESOURCE_CREATE_BACKOFF_MULTIPLIER;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.API_SECONDARY_RESOURCE_CREATE_INITIAL_BACKOFF_MILLIS;
@@ -41,20 +42,28 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
+import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.dsl.NamespaceableResource;
+import io.javaoperatorsdk.operator.api.config.informer.InformerEventSourceConfiguration;
 import io.javaoperatorsdk.operator.api.event.EventRecord;
 import io.javaoperatorsdk.operator.api.event.EventType;
 import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
 import io.javaoperatorsdk.operator.api.reconciler.DeleteControl;
+import io.javaoperatorsdk.operator.api.reconciler.EventSourceContext;
 import io.javaoperatorsdk.operator.api.reconciler.RetryInfo;
+import io.javaoperatorsdk.operator.processing.event.ResourceID;
+import io.javaoperatorsdk.operator.processing.event.source.informer.InformerEventSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -64,7 +73,9 @@ import org.mockito.Mockito;
 
 import org.apache.spark.k8s.operator.SparkAppSubmissionWorker;
 import org.apache.spark.k8s.operator.SparkApplication;
+import org.apache.spark.k8s.operator.config.SparkOperatorConf;
 import org.apache.spark.k8s.operator.context.SparkAppContext;
+import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
 import org.apache.spark.k8s.operator.metrics.healthcheck.SentinelManager;
 import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
@@ -324,5 +335,44 @@ class SparkAppReconcilerTest {
     ArgumentCaptor<EventRecord> captor = ArgumentCaptor.forClass(EventRecord.class);
     verify(mockEventRecorder, times(1)).record(captor.capture());
     return captor.getValue();
+  }
+
+  @Test
+  @SuppressWarnings({"rawtypes", "unchecked"})
+  void kueueWorkloadInformerIsRegisteredOnlyWhenEnabled() {
+    EventSourceContext<SparkApplication> eventSourceContext = mock(EventSourceContext.class);
+    List<InformerEventSourceConfiguration<?>> configs = new ArrayList<>();
+    try (MockedConstruction<InformerEventSource> ignored =
+        mockConstruction(
+            InformerEventSource.class,
+            (mock, ctx) ->
+                configs.add((InformerEventSourceConfiguration<?>) ctx.arguments().get(0)))) {
+      assertEquals(1, reconciler.prepareEventSources(eventSourceContext).size());
+      assertEquals(List.of(Pod.class), configs.stream().map(c -> c.getResourceClass()).toList());
+
+      configs.clear();
+      setConfigKey(SparkOperatorConf.KUEUE_WORKLOAD_INFORMER_ENABLED, true);
+      assertEquals(2, reconciler.prepareEventSources(eventSourceContext).size());
+      assertEquals(
+          List.of(Pod.class, Workload.class),
+          configs.stream().map(c -> c.getResourceClass()).toList());
+
+      InformerEventSourceConfiguration<Workload> workloadConfig =
+          (InformerEventSourceConfiguration<Workload>) configs.get(1);
+      assertEquals(
+          LABEL_SPARK_APPLICATION_NAME, workloadConfig.getInformerConfig().getLabelSelector());
+      Workload workload = new Workload();
+      workload.setMetadata(
+          new ObjectMetaBuilder()
+              .withName("workload-1")
+              .withNamespace("default")
+              .withLabels(Map.of(LABEL_SPARK_APPLICATION_NAME, "app-1"))
+              .build());
+      assertEquals(
+          Set.of(new ResourceID("app-1", "default")),
+          workloadConfig.getSecondaryToPrimaryMapper().toPrimaryResourceIDs(workload));
+    } finally {
+      setConfigKey(SparkOperatorConf.KUEUE_WORKLOAD_INFORMER_ENABLED, false);
+    }
   }
 }

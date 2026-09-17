@@ -143,6 +143,9 @@ spark.kubernetes.operator.watchedNamespaces={{ include "spark-operator.workloadN
 {{- if gt (int .Values.operatorDeployment.replicas) 1 }}
 spark.kubernetes.operator.leaderElection.enabled=true
 {{- end }}
+{{- if .Values.operatorRbac.kueue.enabled }}
+spark.kubernetes.operator.kueue.workloadInformer.enabled=true
+{{- end }}
 {{- end }}
 
 {{/*
