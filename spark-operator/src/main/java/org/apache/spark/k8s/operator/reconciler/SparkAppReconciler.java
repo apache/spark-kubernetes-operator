@@ -47,6 +47,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.spark.k8s.operator.SparkAppSubmissionWorker;
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.context.SparkAppContext;
+import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils;
 import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
 import org.apache.spark.k8s.operator.metrics.healthcheck.SentinelManager;
 import org.apache.spark.k8s.operator.reconciler.observers.AppDriverReadyObserver;
@@ -180,6 +181,11 @@ public class SparkAppReconciler implements Reconciler<SparkApplication>, Cleaner
                   .withSecondaryToPrimaryMapper(
                       basicLabelSecondaryToPrimaryMapper(LABEL_SPARK_APPLICATION_NAME))
                   .withLabelSelector(LABEL_SPARK_APPLICATION_NAME)
+                  // Only an admission change or a deletion needs a reconciliation. The operator
+                  // creates the Workload itself, and the other updates would use up the rate
+                  // limit before the driver or the master is observed.
+                  .withOnAddFilter(workload -> false)
+                  .withOnUpdateFilter(KueueWorkloadUtils::isAdmissionChanged)
                   .build(),
               context));
     }

@@ -40,6 +40,9 @@ import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.context.SparkAppContext;
 import org.apache.spark.k8s.operator.decorators.DriverResourceDecorator;
+import org.apache.spark.k8s.operator.kueue.KueueWorkloadFactory;
+import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils;
+import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils.AdmissionResult;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.spec.RestartConfig;
 import org.apache.spark.k8s.operator.status.ApplicationAttemptSummary;
@@ -100,6 +103,20 @@ public final class AppInitStep extends AppReconcileStep {
       }
     }
     try {
+      // Like the suspend hold, a driver requested before must not be left unobserved.
+      if (KueueWorkloadFactory.hasQueueName(app) && !isDriverRequested(context)) {
+        AdmissionResult admission =
+            KueueWorkloadUtils.requestAdmission(
+                context.getClient(), KueueWorkloadFactory.buildWorkload(app));
+        if (admission == AdmissionResult.STALE) {
+          return ReconcileProgress.completeAndRequeueAfter(
+              KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL);
+        }
+        if (admission == AdmissionResult.PENDING) {
+          log.debug("Kueue has not admitted the application, driver would not be requested.");
+          return completeAndDefaultRequeue();
+        }
+      }
       List<HasMetadata> preResourcesSpec = context.getDriverPreResourcesSpec();
       for (HasMetadata resource : preResourcesSpec) {
         Optional<HasMetadata> createdResource =

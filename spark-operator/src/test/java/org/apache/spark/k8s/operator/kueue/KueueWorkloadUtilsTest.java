@@ -143,6 +143,29 @@ class KueueWorkloadUtilsTest {
   }
 
   @Test
+  void admissionChangeIsDetected() {
+    Workload pending = workload("owner-uid-1", 1);
+    Workload quotaReserved = workload("owner-uid-1", 1);
+    quotaReserved.setStatus(status("QuotaReserved", "True"));
+    Workload admitted = workload("owner-uid-1", 1);
+    admitted.setStatus(status("Admitted", "True"));
+    Workload withoutStatus = workload("owner-uid-1", 1);
+    withoutStatus.setStatus(null);
+
+    Assertions.assertFalse(KueueWorkloadUtils.isAdmitted(pending));
+    Assertions.assertFalse(KueueWorkloadUtils.isAdmitted(quotaReserved));
+    Assertions.assertFalse(KueueWorkloadUtils.isAdmitted(withoutStatus));
+    Assertions.assertTrue(KueueWorkloadUtils.isAdmitted(admitted));
+
+    Assertions.assertTrue(KueueWorkloadUtils.isAdmissionChanged(admitted, quotaReserved));
+    Assertions.assertTrue(KueueWorkloadUtils.isAdmissionChanged(withoutStatus, admitted));
+    // Status updates of a pending Workload do not change its admission
+    Assertions.assertFalse(KueueWorkloadUtils.isAdmissionChanged(quotaReserved, pending));
+    Assertions.assertFalse(KueueWorkloadUtils.isAdmissionChanged(pending, withoutStatus));
+    Assertions.assertFalse(KueueWorkloadUtils.isAdmissionChanged(admitted, admitted));
+  }
+
+  @Test
   void hashPodSetsIsStableForTheSameSpec() {
     Map<String, String> sparkConf = new HashMap<>();
     sparkConf.put("spark.executor.instances", "2");
@@ -209,6 +232,13 @@ class KueueWorkloadUtilsTest {
                 List.of(new ConditionBuilder().withType("Admitted").withStatus("True").build()))
             .build());
     kubernetesClient.resource(workload).update();
+  }
+
+  private static WorkloadStatus status(final String type, final String conditionStatus) {
+    return WorkloadStatus.builder()
+        .conditions(
+            List.of(new ConditionBuilder().withType(type).withStatus(conditionStatus).build()))
+        .build();
   }
 
   private static SparkApplication owner() {

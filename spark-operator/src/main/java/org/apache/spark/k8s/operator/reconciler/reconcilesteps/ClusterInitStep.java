@@ -36,6 +36,9 @@ import lombok.extern.slf4j.Slf4j;
 
 import org.apache.spark.k8s.operator.SparkCluster;
 import org.apache.spark.k8s.operator.context.SparkClusterContext;
+import org.apache.spark.k8s.operator.kueue.KueueWorkloadFactory;
+import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils;
+import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils.AdmissionResult;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.status.ClusterState;
 import org.apache.spark.k8s.operator.status.ClusterStatus;
@@ -62,9 +65,7 @@ public final class ClusterInitStep extends ClusterReconcileStep {
     SparkCluster cluster = context.getResource();
     // A cluster whose master StatefulSet already exists has been requested before (e.g. the status
     // update to RunningHealthy failed), so let it complete its initialization even if suspended.
-    if (cluster.getSpec().isSuspend()
-        && ReconcilerUtils.getResource(context.getClient(), context.getMasterStatefulSetSpec())
-            .isEmpty()) {
+    if (cluster.getSpec().isSuspend() && !isMasterRequested(context)) {
       log.debug("Cluster is suspended, master and worker resources would not be requested.");
       return completeAndDefaultRequeue();
     }
@@ -77,6 +78,19 @@ public final class ClusterInitStep extends ClusterReconcileStep {
       }
     }
     try {
+      // Like the suspend hold, a master requested before must complete its initialization.
+      if (KueueWorkloadFactory.hasQueueName(cluster) && !isMasterRequested(context)) {
+        AdmissionResult admission =
+            KueueWorkloadUtils.requestAdmission(
+                context.getClient(), KueueWorkloadFactory.buildWorkload(cluster));
+        if (admission == AdmissionResult.STALE) {
+          return completeAndRequeueAfter(KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL);
+        }
+        if (admission == AdmissionResult.PENDING) {
+          log.debug("Kueue has not admitted the cluster, master would not be requested.");
+          return completeAndDefaultRequeue();
+        }
+      }
       Service masterService = context.getMasterServiceSpec();
       context.getClient().services().resource(masterService).forceConflicts().serverSideApply();
       Service workerService = context.getWorkerServiceSpec();
@@ -148,5 +162,17 @@ public final class ClusterInitStep extends ClusterReconcileStep {
               .appendNewState(new ClusterState(SchedulingFailure, msg)));
       return completeAndImmediateRequeue();
     }
+  }
+
+  /**
+   * Checks whether the master StatefulSet has already been requested, e.g. when the status update
+   * to RunningHealthy failed after the resources were created.
+   *
+   * @param context The SparkClusterContext for the cluster.
+   * @return True if the master StatefulSet exists, false otherwise.
+   */
+  private boolean isMasterRequested(SparkClusterContext context) {
+    return ReconcilerUtils.getResource(context.getClient(), context.getMasterStatefulSetSpec())
+        .isPresent();
   }
 }
