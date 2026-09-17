@@ -40,9 +40,10 @@ under the License.
 - **Kueue** (`workloads.kueue.x-k8s.io`, `resourceflavors.kueue.x-k8s.io`,
   `workloadpriorityclasses.kueue.x-k8s.io`) — required only when `operatorRbac.kueue.enabled` is
   set. Kueue is not bundled with the operator; install it from
-  [kueue.sigs.k8s.io](https://kueue.sigs.k8s.io/docs/installation/), and register
-  `SparkApplication.v1.spark.apache.org` and `SparkCluster.v1.spark.apache.org` in Kueue's
-  `integrations.externalFrameworks`. `operatorRbac.kueue.enabled` also sets
+  [kueue.sigs.k8s.io](https://kueue.sigs.k8s.io/docs/installation/). Kueue's
+  `integrations.externalFrameworks` does not need to list `SparkApplication` or `SparkCluster`:
+  the operator manages the `Workload` objects for them, so Kueue does not have to
+  recognize the Spark custom resources as job kinds. `operatorRbac.kueue.enabled` also sets
   `spark.kubernetes.operator.kueue.workloadInformer.enabled`, so that the operator watches
   `Workload` resources and an admission starts the queued resource right away. Without the watch,
   an admission is noticed on the next periodic reconcile. The watch requires Kueue to be installed
