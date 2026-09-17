@@ -222,8 +222,10 @@ containing the exporter jar at `/opt/jmx_exporter/jmx_prometheus_javaagent.jar`;
 
 The example mounts the exporter rules and attaches the agent through `SPARK_DAEMON_JAVA_OPTS`.
 The operator sets `SPARK_WORKER_OPTS` itself, so a value there would be overwritten. It also sets
-`spark.metrics.conf.*.sink.jmx.class` to `org.apache.spark.metrics.sink.JmxSink` in `sparkConf` to
-register Spark metrics as MBeans. Without this sink, the exporter only exposes JVM metrics.
+`spark.metrics.conf.worker.sink.jmx.class` to `org.apache.spark.metrics.sink.JmxSink` in `sparkConf` to
+register Spark worker metrics as MBeans. Without this sink, the example exporter emits no Spark
+worker metrics.
+See also the [JmxSink configuration](spark_custom_resources.md) using `metrics.properties`.
 
 Set `workerSpec.networkPolicy.metricsPort` to the exporter port and list the scraper's peers under
 `metricsIngress`. The generated policy adds ingress on that port for those peers, alongside the
@@ -245,9 +247,10 @@ spec:
 ```
 
 The `networkPolicy` block is optional. When present, the API server requires both fields and a
-port between 1 and 65535. An empty `metricsIngress` list adds no rule. Choose a dedicated exporter
+port between 1 and 65535, and rejects an empty `metricsIngress` list. Choose a dedicated exporter
 port, not the worker web UI port; the operator does not verify this. Configuring this policy does
-not start a metrics endpoint.
+not start a metrics endpoint. The policy is generated when the cluster is created; changing scraper
+peers requires recreating the `SparkCluster`.
 
 Master pods do not get a `NetworkPolicy` today, so nothing needs to change for masters to be
 scrapable — the same javaagent-plus-`ConfigMap` approach applied under `masterSpec` is enough to

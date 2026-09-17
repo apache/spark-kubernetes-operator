@@ -505,7 +505,11 @@ public class SparkClusterResourceSpec {
             .endFrom()
             .endIngress();
     WorkerNetworkPolicySpec networkPolicy = workerSpec.getNetworkPolicy();
-    if (networkPolicy == null || networkPolicy.getMetricsIngress().isEmpty()) {
+    // An ingress rule without from peers or a port would admit every source or every port.
+    if (networkPolicy == null
+        || networkPolicy.getMetricsPort() == null
+        || networkPolicy.getMetricsIngress() == null
+        || networkPolicy.getMetricsIngress().isEmpty()) {
       return builder.endSpec().build();
     }
     builder

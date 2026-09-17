@@ -25,6 +25,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import io.fabric8.generator.annotation.Max;
 import io.fabric8.generator.annotation.Min;
 import io.fabric8.generator.annotation.Required;
+import io.fabric8.generator.annotation.Size;
 import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicyPeer;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -54,9 +55,9 @@ public class WorkerNetworkPolicySpec {
 
   /**
    * Sources allowed to scrape {@link #metricsPort} on the worker pods, in addition to the sources
-   * the generated worker NetworkPolicy admits by default. When this list is empty, no metrics
-   * ingress rule is generated.
+   * the generated worker NetworkPolicy admits by default. At least one peer is required.
    */
   @Required
+  @Size(min = 1)
   protected List<NetworkPolicyPeer> metricsIngress;
 }

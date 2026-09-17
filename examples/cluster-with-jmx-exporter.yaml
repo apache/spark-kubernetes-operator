@@ -18,16 +18,9 @@ metadata:
   name: jmx-exporter-config
 data:
   jmx-exporter-config.yaml: |
+    includeObjectNames: ["metrics:type=gauges,*"]
     rules:
-    - pattern: 'java.lang<type=Memory><HeapMemoryUsage>(\w+)'
-      name: jvm_memory_heap_$1
-      type: GAUGE
-    - pattern: 'java.lang<type=GarbageCollector, name=(\w+)><>CollectionCount'
-      name: jvm_gc_collection_count
-      labels:
-        gc: "$1"
-      type: COUNTER
-    - pattern: 'metrics<name=(\S+)><>Value'
+    - pattern: 'metrics<name=worker\.(\w+), type=gauges><>Value'
       name: spark_worker_$1
       type: GAUGE
 ---
@@ -73,6 +66,6 @@ spec:
             configMap:
               name: jmx-exporter-config
   sparkConf:
-    spark.metrics.conf.*.sink.jmx.class: "org.apache.spark.metrics.sink.JmxSink"
+    spark.metrics.conf.worker.sink.jmx.class: "org.apache.spark.metrics.sink.JmxSink"
     # Replace with a custom Spark image containing /opt/jmx_exporter/jmx_prometheus_javaagent.jar.
     spark.kubernetes.container.image: "apache/spark:{{SPARK_VERSION}}-scala"

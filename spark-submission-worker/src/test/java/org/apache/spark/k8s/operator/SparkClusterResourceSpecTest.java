@@ -376,6 +376,21 @@ class SparkClusterResourceSpecTest {
   }
 
   @Test
+  void testWorkerNetworkPolicyWithMissingMetricsPort() {
+    var scraper = new NetworkPolicyPeerBuilder()
+        .withNewNamespaceSelector()
+        .addToMatchLabels("kubernetes.io/metadata.name", "monitoring")
+        .endNamespaceSelector()
+        .build();
+    var networkPolicySpec = WorkerNetworkPolicySpec.builder()
+        .metricsIngress(List.of(scraper))
+        .build();
+    when(workerSpec.getNetworkPolicy()).thenReturn(networkPolicySpec);
+    SparkClusterResourceSpec spec = new SparkClusterResourceSpec(cluster, new SparkConf());
+    assertEquals(1, spec.getWorkerNetworkPolicy().getSpec().getIngress().size());
+  }
+
+  @Test
   void testEmptyHorizontalPodAutoscalerByDefault() {
     SparkClusterResourceSpec spec = new SparkClusterResourceSpec(cluster, new SparkConf());
     assertEquals(Optional.empty(), spec.getHorizontalPodAutoscaler());

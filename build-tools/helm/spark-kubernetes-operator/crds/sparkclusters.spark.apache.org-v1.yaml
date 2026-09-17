@@ -11235,6 +11235,7 @@ spec:
                                     type: object
                                 type: object
                             type: object
+                          minItems: 1
                           type: array
                         metricsPort:
                           maximum: 65535.0
