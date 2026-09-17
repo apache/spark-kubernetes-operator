@@ -748,12 +748,12 @@ class KueueWorkloadFactoryTest {
     assertEquals(new Quantity("1"), masterRequests.get("cpu"));
     assertEquals(new Quantity("2432Mi"), masterRequests.get("memory"));
 
-    // 1024 + 8192 + 921 = 10137
+    // 1024 + 384 + 8192 = 9600
     Map<String, Quantity> workerRequests =
         workload.getSpec().getPodSets().get(1).getTemplate().getSpec().getContainers().get(0)
             .getResources().getRequests();
     assertEquals(new Quantity("4"), workerRequests.get("cpu"));
-    assertEquals(new Quantity("10137Mi"), workerRequests.get("memory"));
+    assertEquals(new Quantity("9600Mi"), workerRequests.get("memory"));
   }
 
   @Test
@@ -800,8 +800,8 @@ class KueueWorkloadFactoryTest {
     assertEquals(1408L, KueueWorkloadFactory.calculateDaemonMemoryMiB("", ""));
     // Like Spark, the memory is in bytes unless otherwise specified. 512 + 384 = 896
     assertEquals(896L, KueueWorkloadFactory.calculateDaemonMemoryMiB("536870912", null));
-    // 4096 + 8192 = 12288. Overhead: 1228. Total = 13516
-    assertEquals(13516L, KueueWorkloadFactory.calculateDaemonMemoryMiB("4g", "8192m"));
+    // The overhead is applied to the daemon heap only. 4096 + 409 + 8192 = 12697
+    assertEquals(12697L, KueueWorkloadFactory.calculateDaemonMemoryMiB("4g", "8192m"));
   }
 
   @Test

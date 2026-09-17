@@ -208,6 +208,18 @@ public final class KueueWorkloadFactory {
     long memoryMiB =
         calculateDaemonMemoryMiB(
             env.get("SPARK_DAEMON_MEMORY"), isWorker ? env.get("SPARK_WORKER_MEMORY") : null);
+    // Like Spark standalone, a worker without the env variables and the limits advertises the
+    // cores and memory of the node, which are unknown here.
+    boolean hasCpuLimit = limits != null && limits.containsKey("cpu");
+    boolean hasMemoryLimit = limits != null && limits.containsKey("memory");
+    if (isWorker
+        && (!env.containsKey("SPARK_WORKER_CORES") && !hasCpuLimit
+            || !env.containsKey("SPARK_WORKER_MEMORY") && !hasMemoryLimit)) {
+      log.warn(
+          "{} has neither SPARK_WORKER_CORES and SPARK_WORKER_MEMORY nor CPU and memory limits. "
+              + "The Kueue Workload accounts only the minimum requests of the worker.",
+          statefulSet.getMetadata().getName());
+    }
     // Like Kubernetes, a missing request defaults to the limit.
     fillMissingRequest(requests, limits, "cpu", new Quantity(cpu));
     fillMissingRequest(requests, limits, "memory", new Quantity(memoryMiB + "Mi"));
@@ -343,11 +355,15 @@ public final class KueueWorkloadFactory {
     // Like Spark, the memory is in bytes unless otherwise specified.
     String memory = StringUtils.isEmpty(daemonMemory) ? DEFAULT_MEMORY : daemonMemory;
     long memMiB = JavaUtils.byteStringAsBytes(memory) / 1024 / 1024;
-    if (StringUtils.isNotEmpty(workerMemory)) {
-      memMiB += JavaUtils.byteStringAsBytes(workerMemory) / 1024 / 1024;
-    }
     long minOverheadMiB = JavaUtils.byteStringAsMb(DEFAULT_MIN_MEMORY_OVERHEAD);
-    return memMiB + Math.max((long) (DEFAULT_MEMORY_OVERHEAD_FACTOR * memMiB), minOverheadMiB);
+    long total =
+        memMiB + Math.max((long) (DEFAULT_MEMORY_OVERHEAD_FACTOR * memMiB), minOverheadMiB);
+    // The overhead is applied to the daemon heap only because the worker memory is shared by
+    // an unknown number of executor processes.
+    if (StringUtils.isNotEmpty(workerMemory)) {
+      total += JavaUtils.byteStringAsBytes(workerMemory) / 1024 / 1024;
+    }
+    return total;
   }
 
   /**
@@ -478,7 +494,11 @@ public final class KueueWorkloadFactory {
     }
   }
 
-  /** Returns the environment variables with the literal values. `valueFrom` is ignored. */
+  /**
+   * Returns the environment variables with the literal `value`s of the container. Anything the
+   * operator cannot read at build time is ignored: `valueFrom`, `envFrom`, and `conf/spark-env.sh`
+   * inside the image, which `load-spark-env.sh` sources for the master and worker daemons.
+   */
   private static Map<String, String> getEnv(final Container container) {
     Map<String, String> env = new HashMap<>();
     if (container.getEnv() != null) {
