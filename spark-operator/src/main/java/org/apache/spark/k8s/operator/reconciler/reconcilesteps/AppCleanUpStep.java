@@ -135,6 +135,10 @@ public final class AppCleanUpStep extends AppReconcileStep {
       return ReconcileProgress.proceed();
     }
 
+    if (KueueWorkloadFactory.hasQueueName(application)) {
+      // Release the quota. A restarted attempt is queued again with a new Workload.
+      KueueWorkloadUtils.releaseWorkload(context.getClient(), application);
+    }
     List<HasMetadata> resourcesToRemove = new ArrayList<>();
     if (isReleasingResourcesForSchedulingFailureAttempt(currentStatus)) {
       // if app failed at scheduling, re-compute all spec and delete as they may not be fully
@@ -164,10 +168,6 @@ public final class AppCleanUpStep extends AppReconcileStep {
     boolean forceDelete = enableForceDelete(application);
     for (HasMetadata resource : resourcesToRemove) {
       ReconcilerUtils.deleteResourceIfExists(context.getClient(), resource, forceDelete);
-    }
-    if (KueueWorkloadFactory.hasQueueName(application)) {
-      // Release the quota. A restarted attempt is queued again with a new Workload.
-      KueueWorkloadUtils.releaseWorkload(context.getClient(), application);
     }
     ApplicationStatus updatedStatus;
     if (onDemandCleanUpReason != null) {

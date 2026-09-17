@@ -163,6 +163,64 @@ class AppCleanUpStepTest {
   }
 
   @Test
+  void cleanupReleasesKueueWorkloadWhenSpecBuildFails() {
+    SparkAppStatusRecorder mockRecorder = mock(SparkAppStatusRecorder.class);
+    AppCleanUpStep routineCheck = new AppCleanUpStep();
+    SparkApplication app = new SparkApplication();
+    app.setMetadata(
+        new ObjectMetaBuilder()
+            .withName("app1")
+            .withNamespace("default")
+            .withLabels(Map.of(Constants.LABEL_QUEUE_NAME, "test-queue"))
+            .build());
+    app.setStatus(prepareApplicationStatus(ApplicationStateSummary.SchedulingFailure));
+    SparkAppContext mockAppContext = mock(SparkAppContext.class);
+    when(mockAppContext.getResource()).thenReturn(app);
+    KubernetesClient mockClient = mock(KubernetesClient.class);
+    when(mockAppContext.getClient()).thenReturn(mockClient);
+    when(mockAppContext.getDriverPreResourcesSpec()).thenThrow(new IllegalStateException("foo"));
+    when(mockRecorder.appendNewStateAndPersist(eq(mockAppContext), any())).thenReturn(true);
+
+    try (MockedStatic<KueueWorkloadUtils> kueue = Mockito.mockStatic(KueueWorkloadUtils.class)) {
+      routineCheck.reconcile(mockAppContext, mockRecorder);
+      kueue.verify(() -> KueueWorkloadUtils.releaseWorkload(mockClient, app));
+    }
+    ArgumentCaptor<ApplicationState> captor = ArgumentCaptor.forClass(ApplicationState.class);
+    verify(mockRecorder).appendNewStateAndPersist(eq(mockAppContext), captor.capture());
+    Assertions.assertEquals(
+        ApplicationStateSummary.ResourceReleased, captor.getValue().getCurrentStateSummary());
+  }
+
+  @Test
+  void cleanupWithRetainPolicyKeepsKueueWorkload() {
+    SparkAppStatusRecorder mockRecorder = mock(SparkAppStatusRecorder.class);
+    AppCleanUpStep routineCheck = new AppCleanUpStep();
+    SparkApplication app = new SparkApplication();
+    app.setMetadata(
+        new ObjectMetaBuilder()
+            .withName("app1")
+            .withNamespace("default")
+            .withLabels(Map.of(Constants.LABEL_QUEUE_NAME, "test-queue"))
+            .build());
+    app.setSpec(alwaysRetain);
+    app.setStatus(prepareApplicationStatus(ApplicationStateSummary.Failed));
+    SparkAppContext mockAppContext = mock(SparkAppContext.class);
+    when(mockAppContext.getResource()).thenReturn(app);
+    when(mockAppContext.getClient()).thenReturn(mock(KubernetesClient.class));
+    when(mockRecorder.appendNewStateAndPersist(eq(mockAppContext), any())).thenReturn(true);
+
+    try (MockedStatic<KueueWorkloadUtils> kueue = Mockito.mockStatic(KueueWorkloadUtils.class)) {
+      routineCheck.reconcile(mockAppContext, mockRecorder);
+      kueue.verifyNoInteractions();
+    }
+    ArgumentCaptor<ApplicationState> captor = ArgumentCaptor.forClass(ApplicationState.class);
+    verify(mockRecorder).appendNewStateAndPersist(eq(mockAppContext), captor.capture());
+    Assertions.assertEquals(
+        ApplicationStateSummary.TerminatedWithoutReleaseResources,
+        captor.getValue().getCurrentStateSummary());
+  }
+
+  @Test
   void enableForceDelete() {
     AppCleanUpStep appCleanUpStep = new AppCleanUpStep();
     SparkApplication app = new SparkApplication();
