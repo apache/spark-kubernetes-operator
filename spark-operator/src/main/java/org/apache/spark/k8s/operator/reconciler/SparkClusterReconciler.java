@@ -19,7 +19,6 @@
 
 package org.apache.spark.k8s.operator.reconciler;
 
-import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_APPLICATION_NAME;
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_CLUSTER_NAME;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.KUEUE_WORKLOAD_INFORMER_ENABLED;
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.completeAndDefaultRequeue;
@@ -155,7 +154,7 @@ public class SparkClusterReconciler implements Reconciler<SparkCluster>, Cleaner
         new InformerEventSource<>(
             InformerEventSourceConfiguration.from(Pod.class, SparkCluster.class)
                 .withSecondaryToPrimaryMapper(
-                    basicLabelSecondaryToPrimaryMapper(LABEL_SPARK_APPLICATION_NAME))
+                    basicLabelSecondaryToPrimaryMapper(LABEL_SPARK_CLUSTER_NAME))
                 .withLabelSelector(commonResourceLabelsStr())
                 .build(),
             context);

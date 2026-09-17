@@ -276,6 +276,32 @@ class SparkClusterReconcilerTest {
 
   @Test
   @SuppressWarnings({"rawtypes", "unchecked"})
+  void podInformerMapsPodsBySparkClusterNameLabel() {
+    EventSourceContext<SparkCluster> eventSourceContext = mock(EventSourceContext.class);
+    List<InformerEventSourceConfiguration<?>> configs = new ArrayList<>();
+    try (MockedConstruction<InformerEventSource> ignored =
+        mockConstruction(
+            InformerEventSource.class,
+            (mock, ctx) ->
+                configs.add((InformerEventSourceConfiguration<?>) ctx.arguments().get(0)))) {
+      reconciler.prepareEventSources(eventSourceContext);
+      InformerEventSourceConfiguration<Pod> podConfig =
+          (InformerEventSourceConfiguration<Pod>) configs.get(0);
+      Pod pod = new Pod();
+      pod.setMetadata(
+          new ObjectMetaBuilder()
+              .withName("cluster-1-master-0")
+              .withNamespace("default")
+              .withLabels(Map.of(LABEL_SPARK_CLUSTER_NAME, "cluster-1"))
+              .build());
+      assertEquals(
+          Set.of(new ResourceID("cluster-1", "default")),
+          podConfig.getSecondaryToPrimaryMapper().toPrimaryResourceIDs(pod));
+    }
+  }
+
+  @Test
+  @SuppressWarnings({"rawtypes", "unchecked"})
   void kueueWorkloadInformerIsRegisteredOnlyWhenEnabled() {
     EventSourceContext<SparkCluster> eventSourceContext = mock(EventSourceContext.class);
     List<InformerEventSourceConfiguration<?>> configs = new ArrayList<>();
