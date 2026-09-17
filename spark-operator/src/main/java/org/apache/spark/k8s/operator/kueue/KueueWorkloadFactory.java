@@ -27,6 +27,7 @@ import java.util.Map;
 
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerBuilder;
+import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.OwnerReference;
@@ -188,12 +189,56 @@ public final class KueueWorkloadFactory {
     return workload;
   }
 
-  private static PodSet buildPodSet(final String name, final StatefulSet statefulSet) {
+  /**
+   * Builds a PodSet for a Spark standalone role (`master` or `worker`) from the StatefulSet. Unlike
+   * the SparkApplication pods, Spark does not set the requests of the master and worker pods, so
+   * the missing CPU and memory requests are calculated from the environment variables of the
+   * container in the same way as Spark standalone does. Otherwise, Kueue admits the pods without
+   * accounting them against the quota.
+   */
+  private static PodSet buildPodSet(final String role, final StatefulSet statefulSet) {
+    PodTemplateSpec templateSpec = statefulSet.getSpec().getTemplate();
+    // The operator always creates the container named after the role.
+    Container container = selectContainer(templateSpec.getSpec(), role, role);
+    Map<String, Quantity> requests = getOrCreateRequests(container);
+    Map<String, Quantity> limits = container.getResources().getLimits();
+    Map<String, String> env = getEnv(container);
+    boolean isWorker = PODSET_WORKER.equals(role);
+    String cpu = isWorker ? env.getOrDefault("SPARK_WORKER_CORES", DEFAULT_CORES) : DEFAULT_CORES;
+    long memoryMiB =
+        calculateDaemonMemoryMiB(
+            env.get("SPARK_DAEMON_MEMORY"), isWorker ? env.get("SPARK_WORKER_MEMORY") : null);
+    // Like Spark standalone, a worker without the env variables and the limits advertises the
+    // cores and memory of the node, which are unknown here.
+    boolean hasCpuLimit = limits != null && limits.containsKey("cpu");
+    boolean hasMemoryLimit = limits != null && limits.containsKey("memory");
+    if (isWorker
+        && (!env.containsKey("SPARK_WORKER_CORES") && !hasCpuLimit
+            || !env.containsKey("SPARK_WORKER_MEMORY") && !hasMemoryLimit)) {
+      log.warn(
+          "{} has neither SPARK_WORKER_CORES and SPARK_WORKER_MEMORY nor CPU and memory limits. "
+              + "The Kueue Workload accounts only the minimum requests of the worker.",
+          statefulSet.getMetadata().getName());
+    }
+    // Like Kubernetes, a missing request defaults to the limit.
+    fillMissingRequest(requests, limits, "cpu", new Quantity(cpu));
+    fillMissingRequest(requests, limits, "memory", new Quantity(memoryMiB + "Mi"));
     return PodSet.builder()
-        .name(name)
+        .name(role)
         .count(statefulSet.getSpec().getReplicas())
-        .template(statefulSet.getSpec().getTemplate())
+        .template(templateSpec)
         .build();
+  }
+
+  private static void fillMissingRequest(
+      final Map<String, Quantity> requests,
+      final Map<String, Quantity> limits,
+      final String name,
+      final Quantity defaultValue) {
+    if (!requests.containsKey(name)) {
+      requests.put(
+          name, limits != null && limits.containsKey(name) ? limits.get(name) : defaultValue);
+    }
   }
 
   /**
@@ -301,6 +346,27 @@ public final class KueueWorkloadFactory {
   }
 
   /**
+   * Calculates total memory in MiB including overhead for Spark standalone master or worker.
+   *
+   * @param daemonMemory `SPARK_DAEMON_MEMORY`, the JVM heap of the master or worker daemon.
+   * @param workerMemory `SPARK_WORKER_MEMORY`, the memory which the worker gives to executors.
+   */
+  static long calculateDaemonMemoryMiB(final String daemonMemory, final String workerMemory) {
+    // Like Spark, the memory is in bytes unless otherwise specified.
+    String memory = StringUtils.isEmpty(daemonMemory) ? DEFAULT_MEMORY : daemonMemory;
+    long memMiB = JavaUtils.byteStringAsBytes(memory) / 1024 / 1024;
+    long minOverheadMiB = JavaUtils.byteStringAsMb(DEFAULT_MIN_MEMORY_OVERHEAD);
+    long total =
+        memMiB + Math.max((long) (DEFAULT_MEMORY_OVERHEAD_FACTOR * memMiB), minOverheadMiB);
+    // The overhead is applied to the daemon heap only because the worker memory is shared by
+    // an unknown number of executor processes.
+    if (StringUtils.isNotEmpty(workerMemory)) {
+      total += JavaUtils.byteStringAsBytes(workerMemory) / 1024 / 1024;
+    }
+    return total;
+  }
+
+  /**
    * Calculates total executor memory in MiB including overhead, off-heap memory and PySpark
    * memory.
    */
@@ -395,17 +461,8 @@ public final class KueueWorkloadFactory {
       final String resourcePrefix,
       final String cpu,
       final long memoryMiB) {
+    Map<String, Quantity> requests = getOrCreateRequests(container);
     ResourceRequirements resources = container.getResources();
-    if (resources == null) {
-      resources = new ResourceRequirementsBuilder().build();
-      container.setResources(resources);
-    }
-
-    Map<String, Quantity> requests = resources.getRequests();
-    if (requests == null) {
-      requests = new HashMap<>();
-      resources.setRequests(requests);
-    }
 
     // Like Spark, overwrite the requests of the pod template.
     requests.put("cpu", new Quantity(cpu));
@@ -435,6 +492,35 @@ public final class KueueWorkloadFactory {
       requests.put(vendor + "/" + name, new Quantity(e.getValue()));
       limits.put(vendor + "/" + name, new Quantity(e.getValue()));
     }
+  }
+
+  /**
+   * Returns the environment variables with the literal `value`s of the container. Anything the
+   * operator cannot read at build time is ignored: `valueFrom`, `envFrom`, and `conf/spark-env.sh`
+   * inside the image, which `load-spark-env.sh` sources for the master and worker daemons.
+   */
+  private static Map<String, String> getEnv(final Container container) {
+    Map<String, String> env = new HashMap<>();
+    if (container.getEnv() != null) {
+      for (EnvVar e : container.getEnv()) {
+        if (StringUtils.isNotEmpty(e.getValue())) {
+          env.put(e.getName(), e.getValue().trim());
+        }
+      }
+    }
+    return env;
+  }
+
+  private static Map<String, Quantity> getOrCreateRequests(final Container container) {
+    ResourceRequirements resources = container.getResources();
+    if (resources == null) {
+      resources = new ResourceRequirementsBuilder().build();
+      container.setResources(resources);
+    }
+    if (resources.getRequests() == null) {
+      resources.setRequests(new HashMap<>());
+    }
+    return resources.getRequests();
   }
 
   private static void decorateNodeSelector(
