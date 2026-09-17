@@ -670,14 +670,138 @@ class KueueWorkloadFactoryTest {
             .findFirst()
             .orElseThrow();
     assertEquals(new Quantity("2"), masterContainer.getResources().getRequests().get("cpu"));
+    // A missing request is filled with the default 1g plus 384m overhead
+    assertEquals(
+        new Quantity("1408Mi"), masterContainer.getResources().getRequests().get("memory"));
 
     // The number of workers comes from `initWorkers`
     PodSet workerPodSet = workload.getSpec().getPodSets().get(1);
     assertEquals("worker", workerPodSet.getName());
     assertEquals(3, workerPodSet.getCount());
     assertNull(workerPodSet.getMinCount());
+    Container workerContainer = workerPodSet.getTemplate().getSpec().getContainers().get(0);
+    assertEquals("worker", workerContainer.getName());
+    assertEquals(new Quantity("1"), workerContainer.getResources().getRequests().get("cpu"));
     assertEquals(
-        "worker", workerPodSet.getTemplate().getSpec().getContainers().get(0).getName());
+        new Quantity("1408Mi"), workerContainer.getResources().getRequests().get("memory"));
+  }
+
+  @Test
+  void testBuildWorkloadForSparkClusterFillsMissingRequests() {
+    SparkCluster cluster = buildSparkCluster("test-cluster-requests", 2, 2, 2);
+    PodTemplateSpec masterTemplate =
+        new PodTemplateSpecBuilder()
+            .withNewSpec()
+            .addNewContainer()
+            .withName("master")
+            .addNewEnv()
+            .withName("SPARK_DAEMON_MEMORY")
+            .withValue("2g")
+            .endEnv()
+            // Spark standalone ignores the worker settings in the master
+            .addNewEnv()
+            .withName("SPARK_WORKER_CORES")
+            .withValue("4")
+            .endEnv()
+            .addNewEnv()
+            .withName("SPARK_WORKER_MEMORY")
+            .withValue("8g")
+            .endEnv()
+            .endContainer()
+            .endSpec()
+            .build();
+    PodTemplateSpec workerTemplate =
+        new PodTemplateSpecBuilder()
+            .withNewSpec()
+            .addNewContainer()
+            .withName("worker")
+            .addNewEnv()
+            .withName("SPARK_WORKER_CORES")
+            .withValue("4")
+            .endEnv()
+            .addNewEnv()
+            .withName("SPARK_WORKER_MEMORY")
+            .withValue("8g")
+            .endEnv()
+            .endContainer()
+            .endSpec()
+            .build();
+    cluster
+        .getSpec()
+        .setMasterSpec(
+            MasterSpec.builder()
+                .statefulSetSpec(new StatefulSetSpecBuilder().withTemplate(masterTemplate).build())
+                .build());
+    cluster
+        .getSpec()
+        .setWorkerSpec(
+            WorkerSpec.builder()
+                .statefulSetSpec(new StatefulSetSpecBuilder().withTemplate(workerTemplate).build())
+                .build());
+
+    Workload workload = KueueWorkloadFactory.buildWorkload(cluster);
+
+    // 2048 + 384 = 2432
+    Map<String, Quantity> masterRequests =
+        workload.getSpec().getPodSets().get(0).getTemplate().getSpec().getContainers().get(0)
+            .getResources().getRequests();
+    assertEquals(new Quantity("1"), masterRequests.get("cpu"));
+    assertEquals(new Quantity("2432Mi"), masterRequests.get("memory"));
+
+    // 1024 + 8192 + 921 = 10137
+    Map<String, Quantity> workerRequests =
+        workload.getSpec().getPodSets().get(1).getTemplate().getSpec().getContainers().get(0)
+            .getResources().getRequests();
+    assertEquals(new Quantity("4"), workerRequests.get("cpu"));
+    assertEquals(new Quantity("10137Mi"), workerRequests.get("memory"));
+  }
+
+  @Test
+  void testBuildWorkloadForSparkClusterUsesLimitsAsMissingRequests() {
+    SparkCluster cluster = buildSparkCluster("test-cluster-limits", 1, 1, 1);
+    PodTemplateSpec workerTemplate =
+        new PodTemplateSpecBuilder()
+            .withNewSpec()
+            .addNewContainer()
+            .withName("worker")
+            .addNewEnv()
+            .withName("SPARK_WORKER_CORES")
+            .withValue("4")
+            .endEnv()
+            .withResources(
+                new ResourceRequirementsBuilder()
+                    .withLimits(Map.of("memory", new Quantity("16Gi")))
+                    .withRequests(Map.of("cpu", new Quantity("500m")))
+                    .build())
+            .endContainer()
+            .endSpec()
+            .build();
+    cluster
+        .getSpec()
+        .setWorkerSpec(
+            WorkerSpec.builder()
+                .statefulSetSpec(new StatefulSetSpecBuilder().withTemplate(workerTemplate).build())
+                .build());
+
+    Workload workload = KueueWorkloadFactory.buildWorkload(cluster);
+
+    // Like Kubernetes, the memory request defaults to the limit and the given request is kept
+    Map<String, Quantity> workerRequests =
+        workload.getSpec().getPodSets().get(1).getTemplate().getSpec().getContainers().get(0)
+            .getResources().getRequests();
+    assertEquals(new Quantity("500m"), workerRequests.get("cpu"));
+    assertEquals(new Quantity("16Gi"), workerRequests.get("memory"));
+  }
+
+  @Test
+  void testCalculateDaemonMemoryMiB() {
+    // The default `SPARK_DAEMON_MEMORY` 1g -> 1024 + 384 = 1408
+    assertEquals(1408L, KueueWorkloadFactory.calculateDaemonMemoryMiB(null, null));
+    assertEquals(1408L, KueueWorkloadFactory.calculateDaemonMemoryMiB("", ""));
+    // Like Spark, the memory is in bytes unless otherwise specified. 512 + 384 = 896
+    assertEquals(896L, KueueWorkloadFactory.calculateDaemonMemoryMiB("536870912", null));
+    // 4096 + 8192 = 12288. Overhead: 1228. Total = 13516
+    assertEquals(13516L, KueueWorkloadFactory.calculateDaemonMemoryMiB("4g", "8192m"));
   }
 
   @Test
