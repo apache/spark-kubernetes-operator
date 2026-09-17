@@ -287,6 +287,7 @@ class SparkClusterReconcilerTest {
       reconciler.prepareEventSources(eventSourceContext);
       InformerEventSourceConfiguration<Pod> podConfig =
           (InformerEventSourceConfiguration<Pod>) configs.get(0);
+      assertEquals(LABEL_SPARK_CLUSTER_NAME, podConfig.getInformerConfig().getLabelSelector());
       Pod pod = new Pod();
       pod.setMetadata(
           new ObjectMetaBuilder()

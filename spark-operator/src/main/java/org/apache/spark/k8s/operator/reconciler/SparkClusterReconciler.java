@@ -24,7 +24,6 @@ import static org.apache.spark.k8s.operator.config.SparkOperatorConf.KUEUE_WORKL
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.completeAndDefaultRequeue;
 import static org.apache.spark.k8s.operator.utils.ReconcilerUtils.isFirstAttempt;
 import static org.apache.spark.k8s.operator.utils.Utils.basicLabelSecondaryToPrimaryMapper;
-import static org.apache.spark.k8s.operator.utils.Utils.commonResourceLabelsStr;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -155,7 +154,7 @@ public class SparkClusterReconciler implements Reconciler<SparkCluster>, Cleaner
             InformerEventSourceConfiguration.from(Pod.class, SparkCluster.class)
                 .withSecondaryToPrimaryMapper(
                     basicLabelSecondaryToPrimaryMapper(LABEL_SPARK_CLUSTER_NAME))
-                .withLabelSelector(commonResourceLabelsStr())
+                .withLabelSelector(LABEL_SPARK_CLUSTER_NAME)
                 .build(),
             context);
     List<EventSource<?, SparkCluster>> eventSources = new ArrayList<>();
