@@ -23,21 +23,29 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HexFormat;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.TreeMap;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.OwnerReference;
+import io.fabric8.kubernetes.api.model.Toleration;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import lombok.extern.slf4j.Slf4j;
 
+import org.apache.spark.k8s.operator.kueue.v1beta2.PodSet;
+import org.apache.spark.k8s.operator.kueue.v1beta2.PodSetAssignment;
+import org.apache.spark.k8s.operator.kueue.v1beta2.ResourceFlavor;
 import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
 import org.apache.spark.k8s.operator.kueue.v1beta2.WorkloadStatus;
 import org.apache.spark.k8s.operator.utils.ModelUtils;
@@ -55,6 +63,8 @@ public final class KueueWorkloadUtils {
    * goes away shortly, while an unchanged admission is watched with the default interval.
    */
   public static final Duration STALE_WORKLOAD_REQUEUE_INTERVAL = Duration.ofSeconds(5);
+
+  private static final int HTTP_NOT_FOUND = 404;
 
   private KueueWorkloadUtils() {}
 
@@ -125,6 +135,97 @@ public final class KueueWorkloadUtils {
       return AdmissionResult.STALE;
     }
     return AdmissionResult.PENDING;
+  }
+
+  /**
+   * Resolves the node selector and tolerations of the ResourceFlavors which Kueue assigned to each
+   * pod set of the admitted Workload, in the same way as Kueue built-in integrations. The flavors
+   * of a pod set are applied in the order of the resource names, so that a later flavor overwrites
+   * a node label deterministically.
+   *
+   * @param client The KubernetesClient.
+   * @param admitted The admitted Workload.
+   * @param desired The Workload built for the resource, whose pod set templates have the node
+   *     selectors of the pods.
+   * @return The KueuePodSetFlavor by the pod set name. A pod set without an assignment is absent.
+   * @throws KubernetesClientException if a ResourceFlavor cannot be read.
+   * @throws IllegalArgumentException if a node label of the flavors conflicts with the node
+   *     selector of the pod set. Like Kueue built-in integrations, this is permanent.
+   */
+  public static Map<String, KueuePodSetFlavor> resolvePodSetFlavors(
+      final KubernetesClient client, final Workload admitted, final Workload desired) {
+    Map<String, KueuePodSetFlavor> result = new HashMap<>();
+    WorkloadStatus status = admitted.getStatus();
+    if (status == null || status.getAdmission() == null) {
+      return result;
+    }
+    Map<String, ResourceFlavor> flavorCache = new HashMap<>();
+    for (PodSetAssignment assignment : status.getAdmission().getPodSetAssignments()) {
+      Map<String, String> nodeSelector = new HashMap<>();
+      List<Toleration> tolerations = new ArrayList<>();
+      if (assignment.getFlavors() != null) {
+        // Like Kueue, a flavor assigned to several resources is applied once.
+        Set<String> flavorNames =
+            new LinkedHashSet<>(new TreeMap<>(assignment.getFlavors()).values());
+        for (String flavorName : flavorNames) {
+          ResourceFlavor flavor =
+              flavorCache.computeIfAbsent(flavorName, name -> getResourceFlavor(client, name));
+          if (flavor.getSpec().getNodeLabels() != null) {
+            nodeSelector.putAll(flavor.getSpec().getNodeLabels());
+          }
+          if (flavor.getSpec().getTolerations() != null) {
+            KueuePodSetFlavor.addTolerations(tolerations, flavor.getSpec().getTolerations());
+          }
+        }
+      }
+      checkNoNodeSelectorConflict(
+          assignment.getName(), podSetNodeSelector(desired, assignment.getName()), nodeSelector);
+      result.put(assignment.getName(), new KueuePodSetFlavor(nodeSelector, tolerations));
+    }
+    return result;
+  }
+
+  private static ResourceFlavor getResourceFlavor(
+      final KubernetesClient client, final String name) {
+    ResourceFlavor flavor = client.resources(ResourceFlavor.class).withName(name).get();
+    if (flavor == null) {
+      throw new KubernetesClientException(
+          "Kueue ResourceFlavor " + name + " is not found.", HTTP_NOT_FOUND, null);
+    }
+    return flavor;
+  }
+
+  private static Map<String, String> podSetNodeSelector(
+      final Workload workload, final String podSetName) {
+    return workload.getSpec().getPodSets().stream()
+        .filter(podSet -> podSetName.equals(podSet.getName()))
+        .map(PodSet::getTemplate)
+        .filter(template -> template != null && template.getSpec() != null)
+        .map(template -> template.getSpec().getNodeSelector())
+        .filter(Objects::nonNull)
+        .findFirst()
+        .orElse(Map.of());
+  }
+
+  /** Like Kueue's podset.Merge, a node label must not change the node selector of the pods. */
+  private static void checkNoNodeSelectorConflict(
+      final String podSetName,
+      final Map<String, String> podNodeSelector,
+      final Map<String, String> flavorNodeLabels) {
+    for (Map.Entry<String, String> e : podNodeSelector.entrySet()) {
+      String flavorValue = flavorNodeLabels.get(e.getKey());
+      if (flavorValue != null && !flavorValue.equals(e.getValue())) {
+        throw new IllegalArgumentException(
+            "The node labels of the Kueue ResourceFlavors conflict with the node selector of the "
+                + podSetName
+                + " pods for key="
+                + e.getKey()
+                + ", value1="
+                + e.getValue()
+                + ", value2="
+                + flavorValue);
+      }
+    }
   }
 
   /**
