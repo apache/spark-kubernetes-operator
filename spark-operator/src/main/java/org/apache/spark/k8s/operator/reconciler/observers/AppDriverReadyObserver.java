@@ -51,6 +51,6 @@ public final class AppDriverReadyObserver extends BaseAppDriverObserver {
     if (PodUtils.isPodReady(driver)) {
       return Optional.of(new ApplicationState(DriverReady, DRIVER_READY_MESSAGE));
     }
-    return observeDriverTermination(driver, true, spec);
+    return observeDriverTermination(driver, spec);
   }
 }

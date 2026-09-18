@@ -595,7 +595,7 @@ spec:
 * A queued resource spends one more reconciliation on the admission itself. With the default rate
   limiter (5 reconciliations per 15 seconds), an application that finishes within the first 15
   seconds may be observed only after its driver completed. It then reports its terminal state up
-  to one refresh period late, and records `Failed` before `Succeeded`.
+  to one refresh period late, without the driver states in between such as `DriverStarted`.
 * When a `SparkApplication` attempt stops and its resources are released, the operator deletes the
   `Workload` so that Kueue releases the quota. A restarted attempt is queued again. Resources
   retained by `resourceRetainPolicy` keep the quota until they are released.
