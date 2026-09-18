@@ -64,24 +64,22 @@ public abstract sealed class BaseAppDriverObserver
    * <ul>
    *   <li>1. failed (isTerminated, non-zero)
    *   <li>2. restarted
-   *   <li>3. (corner case) exited 0 without SparkContext / SparkSession initialization
    * </ul>
    *
    * <p>Driver is considered as 'succeeded', if
    *
    * <ul>
    *   <li>1. The pod is succeeded phase, or
-   *   <li>2. The container(s) has exited 0 after SparkContext / SparkSession initialization
+   *   <li>2. The container(s) has exited 0
    * </ul>
    *
    * @param driverPod The driver Pod object.
-   * @param driverReady A boolean indicating if the SparkContext/SparkSession was initialized.
    * @param spec The ApplicationSpec of the Spark application.
    * @return An Optional containing the new ApplicationState if the driver is terminated, otherwise
    *     empty.
    */
   protected Optional<ApplicationState> observeDriverTermination(
-      final Pod driverPod, final boolean driverReady, final ApplicationSpec spec) {
+      final Pod driverPod, final ApplicationSpec spec) {
     PodStatus status = driverPod.getStatus();
     if (status == null
         || status.getContainerStatuses() == null
@@ -100,14 +98,7 @@ public abstract sealed class BaseAppDriverObserver
     }
 
     if (PodPhase.SUCCEEDED == PodPhase.getPhase(driverPod)) {
-      ApplicationState state;
-      if (driverReady) {
-        state = new ApplicationState(Succeeded, DRIVER_COMPLETED_MESSAGE);
-      } else {
-        state = new ApplicationState(Failed, DRIVER_TERMINATED_BEFORE_INITIALIZATION_MESSAGE);
-        state.setLastObservedDriverStatus(status);
-      }
-      return Optional.of(state);
+      return Optional.of(new ApplicationState(Succeeded, DRIVER_COMPLETED_MESSAGE));
     }
 
     List<ContainerStatus> initContainerStatusList = status.getInitContainerStatuses();

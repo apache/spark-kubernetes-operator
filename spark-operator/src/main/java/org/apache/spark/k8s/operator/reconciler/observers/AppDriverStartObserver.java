@@ -39,8 +39,8 @@ public final class AppDriverStartObserver extends BaseAppDriverObserver {
    * @param driver The driver Pod object.
    * @param spec The ApplicationSpec of the Spark application.
    * @param currentStatus The current ApplicationStatus of the Spark application.
-   * @return An Optional containing the new ApplicationState if the driver has started or
-   *     terminated, otherwise empty.
+   * @return An Optional containing the new ApplicationState if the driver has started, otherwise
+   *     empty. Driver termination is observed by {@link AppDriverReadyObserver} in the same step.
    */
   @Override
   public Optional<ApplicationState> observe(
@@ -52,6 +52,6 @@ public final class AppDriverStartObserver extends BaseAppDriverObserver {
     if (PodUtils.isDriverPodStarted(driver, spec)) {
       return Optional.of(new ApplicationState(DriverStarted, DRIVER_RUNNING_MESSAGE));
     }
-    return observeDriverTermination(driver, false, spec);
+    return Optional.empty();
   }
 }

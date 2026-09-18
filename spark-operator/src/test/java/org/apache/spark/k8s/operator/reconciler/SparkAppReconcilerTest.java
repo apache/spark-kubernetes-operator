@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import io.fabric8.kubernetes.api.model.ConditionBuilder;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
@@ -81,12 +82,16 @@ import org.apache.spark.k8s.operator.context.SparkAppContext;
 import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
 import org.apache.spark.k8s.operator.kueue.v1beta2.WorkloadStatus;
 import org.apache.spark.k8s.operator.metrics.healthcheck.SentinelManager;
+import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppReconcileStep;
+import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppResourceObserveStep;
+import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
 import org.apache.spark.k8s.operator.utils.EventUtils;
 import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
+import org.apache.spark.k8s.operator.utils.Utils;
 
 class SparkAppReconcilerTest {
   private final SparkAppStatusRecorder mockRecorder = mock(SparkAppStatusRecorder.class);
@@ -391,6 +396,63 @@ class SparkAppReconcilerTest {
       assertNull(informerConfig.getOnDeleteFilter());
     } finally {
       setConfigKey(SparkOperatorConf.KUEUE_WORKLOAD_INFORMER_ENABLED, false);
+    }
+  }
+
+  @Test
+  void observeStepsRecordDriverCompletedBeforeFirstObservationAsSucceededOnly() {
+    app.setMetadata(new ObjectMetaBuilder().withName("app").withNamespace("default").build());
+    app.setSpec(new ApplicationSpec());
+    Pod driver =
+        new PodBuilder()
+            .withNewMetadata()
+            .withName("app-driver")
+            .withNamespace("default")
+            .withLabels(Utils.driverLabels(app))
+            .endMetadata()
+            .withNewStatus()
+            .withPhase("Succeeded")
+            .addNewContainerStatus()
+            .withName("spark-kubernetes-driver")
+            .withReady(false)
+            .withRestartCount(0)
+            .withNewState()
+            .withNewTerminated()
+            .withExitCode(0)
+            .endTerminated()
+            .endState()
+            .endContainerStatus()
+            .endStatus()
+            .build();
+    when(mockContext.getSecondaryResourcesAsStream(Pod.class))
+        .thenAnswer(invocation -> Stream.of(driver));
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    when(recorder.persistStatus(any(SparkAppContext.class), any(ApplicationStatus.class)))
+        .thenAnswer(
+            invocation -> {
+              app.setStatus(invocation.getArgument(1));
+              return true;
+            });
+
+    for (ApplicationStateSummary summary :
+        List.of(ApplicationStateSummary.DriverRequested, ApplicationStateSummary.DriverStarted)) {
+      app.setStatus(new ApplicationStatus().appendNewState(new ApplicationState(summary, "")));
+      int previousSize = app.getStatus().getStateTransitionHistory().size();
+      SparkAppContext context = new SparkAppContext(app, mockContext, mockWorker);
+      // Run the observe steps selected by the reconciler until one completes the reconciliation
+      for (AppReconcileStep step : reconciler.getReconcileSteps(app)) {
+        if (step instanceof AppResourceObserveStep
+            && step.reconcile(context, recorder).isCompleted()) {
+          break;
+        }
+      }
+      assertEquals(
+          List.of(ApplicationStateSummary.Succeeded),
+          app.getStatus().getStateTransitionHistory().values().stream()
+              .skip(previousSize)
+              .map(ApplicationState::getCurrentStateSummary)
+              .toList(),
+          summary.name());
     }
   }
 }

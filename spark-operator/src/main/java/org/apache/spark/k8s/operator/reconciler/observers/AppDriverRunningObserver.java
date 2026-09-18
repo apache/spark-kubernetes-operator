@@ -45,6 +45,6 @@ public final class AppDriverRunningObserver extends BaseAppDriverObserver {
   @Override
   public Optional<ApplicationState> observe(
       Pod driver, ApplicationSpec spec, ApplicationStatus currentStatus) {
-    return observeDriverTermination(driver, true, spec);
+    return observeDriverTermination(driver, spec);
   }
 }
