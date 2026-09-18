@@ -27,6 +27,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -55,6 +56,9 @@ import io.fabric8.kubernetes.client.dsl.NamespaceableResource;
 import io.fabric8.kubernetes.client.dsl.ServerSideApplicable;
 import io.fabric8.kubernetes.client.server.mock.EnableKubernetesMockClient;
 import io.fabric8.kubernetes.client.server.mock.KubernetesMockServer;
+import io.javaoperatorsdk.operator.api.event.EventRecord;
+import io.javaoperatorsdk.operator.api.event.EventType;
+import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -76,6 +80,7 @@ import org.apache.spark.k8s.operator.status.ApplicationAttemptSummary;
 import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
+import org.apache.spark.k8s.operator.utils.EventUtils;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 
 @EnableKubernetesMockClient(crud = true)
@@ -85,6 +90,8 @@ import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 class AppInitStepTest {
   private KubernetesMockServer mockServer;
   private KubernetesClient kubernetesClient;
+
+  private final ResourceEventRecorder eventRecorder = mock(ResourceEventRecorder.class);
 
   private final ConfigMap preResourceConfigMapSpec =
       new ConfigMapBuilder()
@@ -624,6 +631,7 @@ class AppInitStepTest {
     application.setMetadata(kueueApplicationMetadata);
     when(mockContext.getResource()).thenReturn(application);
     when(mockContext.getClient()).thenReturn(kubernetesClient);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
 
     ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
 
@@ -634,6 +642,13 @@ class AppInitStepTest {
     Assertions.assertTrue(workload.getSpec().getActive());
     verify(mockContext, never()).getDriverPodSpec();
     verifyNoInteractions(recorder);
+    EventRecord event = captureEvents(1).get(0);
+    Assertions.assertEquals(EventType.NORMAL, event.type());
+    Assertions.assertEquals(EventUtils.REASON_KUEUE_ADMISSION_PENDING, event.reason());
+    Assertions.assertTrue(
+        event.message().contains("sparkapplication-sparkapp1")
+            && event.message().contains("test-queue"),
+        event.message());
     Assertions.assertEquals(
         ApplicationStateSummary.Submitted,
         application.getStatus().getCurrentState().getCurrentStateSummary());
@@ -651,6 +666,7 @@ class AppInitStepTest {
     when(mockContext.getDriverPreResourcesSpec()).thenReturn(List.of());
     when(mockContext.getDriverPodSpec()).thenReturn(driverPodSpec);
     when(mockContext.getDriverResourcesSpec()).thenReturn(List.of());
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
     when(recorder.persistStatus(any(), any()))
         .thenAnswer(
             invocation -> {
@@ -675,6 +691,34 @@ class AppInitStepTest {
     Assertions.assertEquals(
         ApplicationStateSummary.DriverRequested,
         application.getStatus().getCurrentState().getCurrentStateSummary());
+    List<EventRecord> events = captureEvents(2);
+    Assertions.assertEquals(EventUtils.REASON_KUEUE_ADMISSION_PENDING, events.get(0).reason());
+    Assertions.assertEquals(EventType.NORMAL, events.get(1).type());
+    Assertions.assertEquals(EventUtils.REASON_KUEUE_ADMITTED, events.get(1).reason());
+    Assertions.assertTrue(
+        events.get(1).message().contains("sparkapplication-sparkapp1"), events.get(1).message());
+  }
+
+  @Test
+  void pendingKueueWorkloadPublishesEventOnlyWhenQueued() {
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(kueueApplicationMetadata);
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+
+    // Every requeue while the Workload waits must not cost another event write
+    for (int i = 0; i < 3; i++) {
+      Assertions.assertEquals(
+          ReconcileProgress.completeAndDefaultRequeue(),
+          appInitStep.reconcile(mockContext, recorder));
+    }
+
+    Assertions.assertEquals(
+        EventUtils.REASON_KUEUE_ADMISSION_PENDING, captureEvents(1).get(0).reason());
   }
 
   @Test
@@ -704,6 +748,7 @@ class AppInitStepTest {
     application.setMetadata(kueueApplicationMetadata);
     when(mockContext.getResource()).thenReturn(application);
     when(mockContext.getClient()).thenReturn(kubernetesClient);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
 
     // Queued: the Workload waits for the admission
     Assertions.assertEquals(
@@ -730,6 +775,7 @@ class AppInitStepTest {
     application.setMetadata(kueueApplicationMetadata);
     when(mockContext.getResource()).thenReturn(application);
     when(mockContext.getClient()).thenReturn(kubernetesClient);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
     // A Workload of a deleted application that had the same name is not garbage collected yet
     Workload stale = KueueWorkloadFactory.buildWorkload(application);
     stale.getMetadata().getOwnerReferences().get(0).setUid("stale-uid");
@@ -744,6 +790,8 @@ class AppInitStepTest {
     Assertions.assertNull(getWorkload());
     verify(mockContext, never()).getDriverPodSpec();
     verifyNoInteractions(recorder);
+    // The operator replaces the stale Workload by itself, which needs no attention of users
+    verifyNoInteractions(eventRecorder);
   }
 
   @Test
@@ -784,6 +832,7 @@ class AppInitStepTest {
         .thenThrow(new KubernetesClientException("forbidden", 403, null));
     when(mockContext.getResource()).thenReturn(application);
     when(mockContext.getClient()).thenReturn(failingClient);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
 
     ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
 
@@ -796,6 +845,34 @@ class AppInitStepTest {
     Assertions.assertEquals(
         ApplicationStateSummary.Submitted,
         application.getStatus().getCurrentState().getCurrentStateSummary());
+    EventRecord event = captureEvents(1).get(0);
+    Assertions.assertEquals(EventType.WARNING, event.type());
+    Assertions.assertEquals(EventUtils.REASON_KUEUE_ADMISSION_REQUEST_FAILED, event.reason());
+    Assertions.assertTrue(event.message().contains("forbidden"), event.message());
+  }
+
+  @Test
+  void kueueTransientApiFailurePublishesNoEvent() {
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(kueueApplicationMetadata);
+    // An unavailable API server must not be loaded with event writes on top of the retries
+    KubernetesClient failingClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    when(failingClient.resource(any(Workload.class)).create())
+        .thenThrow(new KubernetesClientException("unavailable", 503, null));
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getClient()).thenReturn(failingClient);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+
+    ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
+
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndRequeueAfter(
+            KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL),
+        progress);
+    verifyNoInteractions(eventRecorder);
   }
 
   @Test
@@ -836,6 +913,12 @@ class AppInitStepTest {
         .inNamespace("default")
         .withName("sparkapplication-sparkapp1")
         .get();
+  }
+
+  private List<EventRecord> captureEvents(int count) {
+    ArgumentCaptor<EventRecord> captor = ArgumentCaptor.forClass(EventRecord.class);
+    verify(eventRecorder, times(count)).record(captor.capture());
+    return captor.getAllValues();
   }
 
   private void admitWorkload() {

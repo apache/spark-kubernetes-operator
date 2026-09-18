@@ -72,6 +72,12 @@ public final class KueueWorkloadUtils {
   public enum AdmissionResult {
     /** Kueue admitted the Workload, so the requested resources can be created. */
     ADMITTED,
+    /**
+     * The Workload has just been created and waits for quota, so the resource creation is held
+     * like {@link #PENDING}. It is reported apart so that callers can tell a new request from an
+     * unchanged one.
+     */
+    QUEUED,
     /** The Workload waits for quota, so the resource creation is held. */
     PENDING,
     /**
@@ -90,9 +96,9 @@ public final class KueueWorkloadUtils {
    *     is added to it in place.
    * @return The AdmissionResult for the Workload.
    * @throws IllegalStateException if the Workload can neither be read nor created.
-   * @throws KubernetesClientException if a stale Workload cannot be deleted. Unlike {@link
-   *     #releaseWorkload}, this is not swallowed so that the resource is not created until the
-   *     stale Workload is gone.
+   * @throws KubernetesClientException if the Workload cannot be read, or a stale Workload cannot be
+   *     deleted. Unlike {@link #releaseWorkload}, this is not swallowed so that the resource is not
+   *     created until the stale Workload is gone.
    */
   public static AdmissionResult requestAdmission(
       final KubernetesClient client, final Workload desired) {
@@ -103,12 +109,19 @@ public final class KueueWorkloadUtils {
     }
     desiredAnnotations.put(ANNOTATION_POD_SETS_HASH, podSetsHash);
     desired.getMetadata().setAnnotations(desiredAnnotations);
-    Optional<Workload> created = ReconcilerUtils.getOrCreateSecondaryResource(client, desired);
-    if (created.isEmpty()) {
-      throw new IllegalStateException(
-          "Failed to request Kueue Workload with name: " + desired.getMetadata().getName());
+    // Looked up apart from the creation to tell QUEUED from PENDING. Only the reconciliation that
+    // creates the Workload reads it twice. Unlike ReconcilerUtils#getResource, a failed read is
+    // not taken for a missing Workload, since get() returns null only for 404.
+    Optional<Workload> current = Optional.ofNullable(client.resource(desired).get());
+    boolean absent = current.isEmpty();
+    if (absent) {
+      current = ReconcilerUtils.getOrCreateSecondaryResource(client, desired);
+      if (current.isEmpty()) {
+        throw new IllegalStateException(
+            "Failed to request Kueue Workload with name: " + desired.getMetadata().getName());
+      }
     }
-    Workload workload = created.get();
+    Workload workload = current.get();
     if (workload.getMetadata().getDeletionTimestamp() != null) {
       log.debug(
           "Waiting for the Kueue Workload {} to be deleted.", workload.getMetadata().getName());
@@ -134,7 +147,7 @@ public final class KueueWorkloadUtils {
       deleteWorkload(client, workload);
       return AdmissionResult.STALE;
     }
-    return AdmissionResult.PENDING;
+    return absent ? AdmissionResult.QUEUED : AdmissionResult.PENDING;
   }
 
   /**
