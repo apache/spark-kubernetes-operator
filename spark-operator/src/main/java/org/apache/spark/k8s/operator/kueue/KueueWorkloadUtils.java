@@ -112,8 +112,7 @@ public final class KueueWorkloadUtils {
       deleteWorkload(client, workload);
       return AdmissionResult.STALE;
     }
-    WorkloadStatus status = workload.getStatus();
-    if (status != null && status.isAdmitted()) {
+    if (isAdmitted(workload)) {
       return AdmissionResult.ADMITTED;
     }
     Map<String, String> annotations = workload.getMetadata().getAnnotations();
@@ -126,6 +125,31 @@ public final class KueueWorkloadUtils {
       return AdmissionResult.STALE;
     }
     return AdmissionResult.PENDING;
+  }
+
+  /**
+   * Checks whether Kueue admitted the given Workload.
+   *
+   * @param workload The Workload to check.
+   * @return True if the Workload has the `Admitted` condition with status `True`.
+   */
+  public static boolean isAdmitted(final Workload workload) {
+    WorkloadStatus status = workload.getStatus();
+    return status != null && status.isAdmitted();
+  }
+
+  /**
+   * Checks whether an update of a Workload changes its admission. The Workload informer passes
+   * only such updates, because Kueue updates the status of a pending Workload repeatedly, and the
+   * reconciliations for them would use up the per-resource rate limit before the driver or the
+   * master is observed.
+   *
+   * @param newWorkload The Workload after the update.
+   * @param oldWorkload The Workload before the update.
+   * @return True if exactly one of them is admitted.
+   */
+  public static boolean isAdmissionChanged(final Workload newWorkload, final Workload oldWorkload) {
+    return isAdmitted(newWorkload) != isAdmitted(oldWorkload);
   }
 
   /**

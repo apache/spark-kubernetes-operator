@@ -31,6 +31,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -48,12 +49,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import io.fabric8.kubernetes.api.model.ConditionBuilder;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.dsl.NamespaceableResource;
+import io.javaoperatorsdk.operator.api.config.informer.InformerConfiguration;
 import io.javaoperatorsdk.operator.api.config.informer.InformerEventSourceConfiguration;
 import io.javaoperatorsdk.operator.api.event.EventRecord;
 import io.javaoperatorsdk.operator.api.event.EventType;
@@ -76,6 +79,7 @@ import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.config.SparkOperatorConf;
 import org.apache.spark.k8s.operator.context.SparkAppContext;
 import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
+import org.apache.spark.k8s.operator.kueue.v1beta2.WorkloadStatus;
 import org.apache.spark.k8s.operator.metrics.healthcheck.SentinelManager;
 import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
@@ -371,6 +375,20 @@ class SparkAppReconcilerTest {
       assertEquals(
           Set.of(new ResourceID("app-1", "default")),
           workloadConfig.getSecondaryToPrimaryMapper().toPrimaryResourceIDs(workload));
+
+      // Only an admission change or a deletion of a Workload triggers a reconciliation
+      InformerConfiguration<Workload> informerConfig = workloadConfig.getInformerConfig();
+      Workload admitted = new Workload();
+      admitted.setMetadata(workload.getMetadata());
+      admitted.setStatus(
+          WorkloadStatus.builder()
+              .conditions(
+                  List.of(new ConditionBuilder().withType("Admitted").withStatus("True").build()))
+              .build());
+      assertFalse(informerConfig.getOnAddFilter().accept(workload));
+      assertTrue(informerConfig.getOnUpdateFilter().accept(admitted, workload));
+      assertFalse(informerConfig.getOnUpdateFilter().accept(workload, workload));
+      assertNull(informerConfig.getOnDeleteFilter());
     } finally {
       setConfigKey(SparkOperatorConf.KUEUE_WORKLOAD_INFORMER_ENABLED, false);
     }

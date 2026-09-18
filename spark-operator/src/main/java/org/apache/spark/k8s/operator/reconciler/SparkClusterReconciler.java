@@ -46,6 +46,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.spark.k8s.operator.SparkCluster;
 import org.apache.spark.k8s.operator.SparkClusterSubmissionWorker;
 import org.apache.spark.k8s.operator.context.SparkClusterContext;
+import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils;
 import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
 import org.apache.spark.k8s.operator.metrics.healthcheck.SentinelManager;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.*;
@@ -166,6 +167,11 @@ public class SparkClusterReconciler implements Reconciler<SparkCluster>, Cleaner
                   .withSecondaryToPrimaryMapper(
                       basicLabelSecondaryToPrimaryMapper(LABEL_SPARK_CLUSTER_NAME))
                   .withLabelSelector(LABEL_SPARK_CLUSTER_NAME)
+                  // Only an admission change or a deletion needs a reconciliation. The operator
+                  // creates the Workload itself, and the other updates would use up the rate
+                  // limit before the driver or the master is observed.
+                  .withOnAddFilter(workload -> false)
+                  .withOnUpdateFilter(KueueWorkloadUtils::isAdmissionChanged)
                   .build(),
               context));
     }
