@@ -49,6 +49,7 @@ import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
+import io.fabric8.kubernetes.api.model.scheduling.v1.PriorityClassList;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.dsl.NamespaceListVisitFromServerGetDeleteRecreateWaitApplicable;
@@ -830,6 +831,9 @@ class AppInitStepTest {
     application.setMetadata(kueueApplicationMetadata);
     // e.g. the operator lacks the Kueue RBAC rules or Kueue is briefly unreachable
     KubernetesClient failingClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    // Mockito cannot deep-stub the generic list, so it is stubbed without any priority class
+    when(failingClient.scheduling().v1().priorityClasses().list())
+        .thenReturn(new PriorityClassList());
     when(failingClient.resource(any(Workload.class)).create())
         .thenThrow(new KubernetesClientException("forbidden", 403, null));
     when(mockContext.getResource()).thenReturn(application);
