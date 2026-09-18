@@ -20,7 +20,7 @@
 package org.apache.spark.k8s.operator.reconciler.reconcilesteps;
 
 import static org.apache.spark.k8s.operator.Constants.*;
-import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.completeAndDefaultRequeue;
+import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.completeAndImmediateRequeue;
 
 import java.util.List;
 import java.util.Set;
@@ -107,7 +107,7 @@ public final class AppRunningStep extends AppReconcileStep {
               .getStatus()
               .appendNewState(new ApplicationState(proposedStateSummary, stateMessage));
       return attemptStatusUpdate(
-          context, statusRecorder, updatedStatus, completeAndDefaultRequeue());
+          context, statusRecorder, updatedStatus, completeAndImmediateRequeue());
     }
   }
 
