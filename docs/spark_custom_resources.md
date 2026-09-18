@@ -589,9 +589,11 @@ spec:
 * While the `Workload` waits for quota, the resource stays in its initializing state (`Submitted`,
   or `ScheduledToRestart` for a restarted attempt) and no driver (or master / worker) is created.
   Like `spec.suspend`, the initial `Submitted` status of the first attempt is not persisted to the
-  API server, so `kubectl get` shows an empty `Current State` and no events are published until the
-  `Workload` is admitted. Use `kubectl get workload` to see the admission status. If the spec
-  changes while waiting, the `Workload` is recreated with the new resource requests.
+  API server, so `kubectl get` shows an empty `Current State` and no state transition events are
+  published until the `Workload` is admitted. Instead, the `KueueAdmissionPending` and
+  `KueueAdmitted` [events](configuration.md#kubernetes-events) are published when enabled. Use
+  `kubectl get workload` to see the admission status. If the spec changes while waiting, the
+  `Workload` is recreated with the new resource requests.
 * A queued resource spends one more reconciliation on the admission itself. With the default rate
   limiter (5 reconciliations per 15 seconds), an application that finishes within the first 15
   seconds may be observed only after its driver completed. It then reports its terminal state up
