@@ -37,6 +37,7 @@ import org.junit.jupiter.api.Test;
 
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.context.SparkAppContext;
+import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 import org.apache.spark.k8s.operator.spec.ApplicationTolerations;
 import org.apache.spark.k8s.operator.spec.ExecutorInstanceConfig;
@@ -162,6 +163,24 @@ class AppRunningStepTest {
     ApplicationStateSummary currentState =
         app.getStatus().getCurrentState().getCurrentStateSummary();
     assertEquals(ApplicationStateSummary.RunningHealthy, currentState);
+  }
+
+  @Test
+  void immediateRequeueWhenRunningStateChanges() {
+    // Requeue immediately so that the next reconcile observes the driver in the new state
+    appSpec.setApplicationTolerations(ApplicationTolerations.builder().build());
+
+    appStatus =
+        appStatus.appendNewState(
+            new ApplicationState(ApplicationStateSummary.DriverReady, "Driver ready"));
+    app.setStatus(appStatus);
+
+    ReconcileProgress progress = appRunningStep.reconcile(mockContext, mockRecorder);
+
+    assertEquals(
+        ApplicationStateSummary.RunningHealthy,
+        app.getStatus().getCurrentState().getCurrentStateSummary());
+    assertEquals(ReconcileProgress.completeAndImmediateRequeue(), progress);
   }
 
   @Test
