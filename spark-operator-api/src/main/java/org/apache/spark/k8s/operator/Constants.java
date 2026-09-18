@@ -47,6 +47,9 @@ public class Constants {
   /** The label for the Kueue queue name. */
   public static final String LABEL_QUEUE_NAME = "kueue.x-k8s.io/queue-name";
 
+  /** The label for the Kueue WorkloadPriorityClass name. */
+  public static final String LABEL_WORKLOAD_PRIORITY_CLASS = "kueue.x-k8s.io/priority-class";
+
   /** The API group for Kueue resources. */
   public static final String KUEUE_API_GROUP = "kueue.x-k8s.io";
 

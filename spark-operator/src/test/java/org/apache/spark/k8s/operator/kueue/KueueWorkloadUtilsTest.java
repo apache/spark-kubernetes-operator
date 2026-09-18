@@ -19,6 +19,7 @@
 
 package org.apache.spark.k8s.operator.kueue;
 
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -33,6 +34,7 @@ import io.fabric8.kubernetes.api.model.KubernetesResourceList;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.OwnerReferenceBuilder;
 import io.fabric8.kubernetes.api.model.PodTemplateSpecBuilder;
+import io.fabric8.kubernetes.api.model.scheduling.v1.PriorityClassBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.dsl.MixedOperation;
@@ -42,10 +44,13 @@ import io.fabric8.kubernetes.client.server.mock.EnableKubernetesMockClient;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils.AdmissionResult;
 import org.apache.spark.k8s.operator.kueue.v1beta2.PodSet;
+import org.apache.spark.k8s.operator.kueue.v1beta2.PriorityClassRef;
 import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
+import org.apache.spark.k8s.operator.kueue.v1beta2.WorkloadPriorityClass;
 import org.apache.spark.k8s.operator.kueue.v1beta2.WorkloadSpec;
 import org.apache.spark.k8s.operator.kueue.v1beta2.WorkloadStatus;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
@@ -220,6 +225,172 @@ class KueueWorkloadUtilsTest {
     Assertions.assertDoesNotThrow(() -> KueueWorkloadUtils.releaseWorkload(client, owner()));
   }
 
+  @Test
+  void workloadPriorityClassLabelTakesPrecedence() {
+    createWorkloadPriorityClass("high", 1000);
+    createPriorityClass("driver-priority", 100, false);
+    Workload desired = workloadWithPriorityClasses("driver-priority", null);
+    desired.getMetadata().setLabels(Map.of(Constants.LABEL_WORKLOAD_PRIORITY_CLASS, "high"));
+
+    Assertions.assertEquals(
+        AdmissionResult.PENDING, KueueWorkloadUtils.requestAdmission(kubernetesClient, desired));
+    Assertions.assertEquals(
+        new PriorityClassRef("kueue.x-k8s.io", "WorkloadPriorityClass", "high"),
+        getWorkload().getSpec().getPriorityClassRef());
+    Assertions.assertEquals(1000, getWorkload().getSpec().getPriority());
+  }
+
+  @Test
+  void priorityClassOfTheFirstPodSetIsUsed() {
+    createPriorityClass("driver-priority", 100, false);
+    createPriorityClass("executor-priority", 200, false);
+
+    Workload desired = workloadWithPriorityClasses("driver-priority", "executor-priority");
+    KueueWorkloadUtils.setPriority(kubernetesClient, desired);
+    Assertions.assertEquals(
+        new PriorityClassRef("scheduling.k8s.io", "PriorityClass", "driver-priority"),
+        desired.getSpec().getPriorityClassRef());
+    Assertions.assertEquals(100, desired.getSpec().getPriority());
+
+    // A pod set without a priority class is skipped
+    desired = workloadWithPriorityClasses(null, "executor-priority");
+    KueueWorkloadUtils.setPriority(kubernetesClient, desired);
+    Assertions.assertEquals(
+        new PriorityClassRef("scheduling.k8s.io", "PriorityClass", "executor-priority"),
+        desired.getSpec().getPriorityClassRef());
+    Assertions.assertEquals(200, desired.getSpec().getPriority());
+  }
+
+  @Test
+  void globalDefaultPriorityClassIsUsedWithoutPriorityClass() {
+    createPriorityClass("not-default", 10, false);
+    createPriorityClass("default-high", 100, true);
+    createPriorityClass("default-low", 50, true);
+
+    Workload desired = workloadWithPriorityClasses(null, null);
+    KueueWorkloadUtils.setPriority(kubernetesClient, desired);
+    // Like Kueue, the lowest one wins if there are more than one global default
+    Assertions.assertEquals(
+        new PriorityClassRef("scheduling.k8s.io", "PriorityClass", "default-low"),
+        desired.getSpec().getPriorityClassRef());
+    Assertions.assertEquals(50, desired.getSpec().getPriority());
+  }
+
+  @Test
+  void priorityIsZeroWithoutAnyPriorityClass() {
+    Workload desired = workloadWithPriorityClasses(null, null);
+    KueueWorkloadUtils.setPriority(kubernetesClient, desired);
+    Assertions.assertNull(desired.getSpec().getPriorityClassRef());
+    Assertions.assertEquals(0, desired.getSpec().getPriority());
+  }
+
+  @Test
+  void workloadIsNotCreatedWithMissingPriorityClass() {
+    Workload desired = workload("owner-uid-1", 1);
+    desired.getMetadata().setLabels(Map.of(Constants.LABEL_WORKLOAD_PRIORITY_CLASS, "missing"));
+    Assertions.assertThrows(
+        IllegalStateException.class,
+        () -> KueueWorkloadUtils.requestAdmission(kubernetesClient, desired));
+    Assertions.assertNull(getWorkload());
+
+    Assertions.assertThrows(
+        IllegalStateException.class,
+        () ->
+            KueueWorkloadUtils.requestAdmission(
+                kubernetesClient, workloadWithPriorityClasses("missing", null)));
+    Assertions.assertNull(getWorkload());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void priorityIsNotSetWithoutPermission() {
+    KubernetesClient client = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    KubernetesClientException forbidden = new KubernetesClientException("forbidden", 403, null);
+    MixedOperation<
+            WorkloadPriorityClass,
+            KubernetesResourceList<WorkloadPriorityClass>,
+            Resource<WorkloadPriorityClass>>
+        operation = mock(MixedOperation.class);
+    Resource<WorkloadPriorityClass> resource = mock(Resource.class);
+    when(client.resources(WorkloadPriorityClass.class)).thenReturn(operation);
+    when(operation.withName("high")).thenReturn(resource);
+    when(resource.get()).thenThrow(forbidden);
+    when(client.scheduling().v1().priorityClasses().list()).thenThrow(forbidden);
+
+    Workload labeled = workload("owner-uid-1", 1);
+    labeled.getMetadata().setLabels(Map.of(Constants.LABEL_WORKLOAD_PRIORITY_CLASS, "high"));
+    KueueWorkloadUtils.setPriority(client, labeled);
+    Assertions.assertNull(labeled.getSpec().getPriorityClassRef());
+    Assertions.assertNull(labeled.getSpec().getPriority());
+
+    Workload unlabeled = workload("owner-uid-1", 1);
+    KueueWorkloadUtils.setPriority(client, unlabeled);
+    Assertions.assertNull(unlabeled.getSpec().getPriorityClassRef());
+    Assertions.assertNull(unlabeled.getSpec().getPriority());
+
+    // Other failures are not ignored
+    KubernetesClient unavailableClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    when(unavailableClient.scheduling().v1().priorityClasses().list())
+        .thenThrow(new KubernetesClientException("unavailable", 503, null));
+    Assertions.assertThrows(
+        KubernetesClientException.class,
+        () -> KueueWorkloadUtils.setPriority(unavailableClient, workload("owner-uid-1", 1)));
+  }
+
+  @Test
+  void pendingWorkloadFollowsPriorityClassChange() {
+    createWorkloadPriorityClass("low", 10);
+    createWorkloadPriorityClass("high", 1000);
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithPriorityClass("low"));
+    String uid = getWorkload().getMetadata().getUid();
+    Assertions.assertEquals(10, getWorkload().getSpec().getPriority());
+
+    Assertions.assertEquals(
+        AdmissionResult.PENDING,
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithPriorityClass("high")));
+    // The Workload is updated in place so that it keeps its position in the queue
+    Workload updated = getWorkload();
+    Assertions.assertEquals(uid, updated.getMetadata().getUid());
+    Assertions.assertEquals("high", updated.getSpec().getPriorityClassRef().getName());
+    Assertions.assertEquals(1000, updated.getSpec().getPriority());
+  }
+
+  @Test
+  void pendingWorkloadKeepsPriorityOfTheSameClass() {
+    createWorkloadPriorityClass("low", 10);
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithPriorityClass("low"));
+    // Like Kueue, a changed value of the class does not affect the existing Workload
+    kubernetesClient
+        .resources(WorkloadPriorityClass.class)
+        .withName("low")
+        .edit(
+            workloadPriorityClass -> {
+              workloadPriorityClass.setValue(20);
+              return workloadPriorityClass;
+            });
+
+    Assertions.assertEquals(
+        AdmissionResult.PENDING,
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithPriorityClass("low")));
+    Assertions.assertEquals(10, getWorkload().getSpec().getPriority());
+  }
+
+  @Test
+  void quotaReservedWorkloadKeepsPriorityClass() {
+    createWorkloadPriorityClass("low", 10);
+    createWorkloadPriorityClass("high", 1000);
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithPriorityClass("low"));
+    Workload workload = getWorkload();
+    workload.setStatus(status("QuotaReserved", "True"));
+    kubernetesClient.resource(workload).update();
+
+    Assertions.assertEquals(
+        AdmissionResult.PENDING,
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithPriorityClass("high")));
+    Assertions.assertEquals("low", getWorkload().getSpec().getPriorityClassRef().getName());
+    Assertions.assertEquals(10, getWorkload().getSpec().getPriority());
+  }
+
   private Workload getWorkload() {
     return kubernetesClient.resources(Workload.class).inNamespace("default").withName(NAME).get();
   }
@@ -257,6 +428,60 @@ class KueueWorkloadUtilsTest {
 
   private static String hashPodSets(final SparkApplication app) {
     return KueueWorkloadUtils.hashPodSets(KueueWorkloadFactory.buildWorkload(app));
+  }
+
+  private void createWorkloadPriorityClass(final String name, final int value) {
+    WorkloadPriorityClass workloadPriorityClass = new WorkloadPriorityClass();
+    workloadPriorityClass.setMetadata(new ObjectMetaBuilder().withName(name).build());
+    workloadPriorityClass.setValue(value);
+    kubernetesClient.resource(workloadPriorityClass).create();
+  }
+
+  private void createPriorityClass(
+      final String name, final int value, final boolean globalDefault) {
+    kubernetesClient
+        .resource(
+            new PriorityClassBuilder()
+                .withNewMetadata()
+                .withName(name)
+                .endMetadata()
+                .withValue(value)
+                .withGlobalDefault(globalDefault)
+                .build())
+        .create();
+  }
+
+  private static Workload workloadWithPriorityClass(final String workloadPriorityClass) {
+    Workload workload = workload("owner-uid-1", 1);
+    workload
+        .getMetadata()
+        .setLabels(Map.of(Constants.LABEL_WORKLOAD_PRIORITY_CLASS, workloadPriorityClass));
+    return workload;
+  }
+
+  private static Workload workloadWithPriorityClasses(
+      final String driverPriorityClass, final String executorPriorityClass) {
+    Workload workload = workload("owner-uid-1", 1);
+    workload
+        .getSpec()
+        .setPodSets(
+            List.of(
+                podSetWithPriorityClass("driver", driverPriorityClass),
+                podSetWithPriorityClass("executor", executorPriorityClass)));
+    return workload;
+  }
+
+  private static PodSet podSetWithPriorityClass(final String name, final String priorityClass) {
+    return PodSet.builder()
+        .name(name)
+        .count(1)
+        .template(
+            new PodTemplateSpecBuilder()
+                .withNewSpec()
+                .withPriorityClassName(priorityClass)
+                .endSpec()
+                .build())
+        .build();
   }
 
   private static Workload workloadWithNodeSelector(final Map<String, String> nodeSelector) {
