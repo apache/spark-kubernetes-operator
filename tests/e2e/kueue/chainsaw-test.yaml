@@ -206,6 +206,67 @@ spec:
           kubectl delete localqueue "$LOCAL_QUEUE" -n default --ignore-not-found=true --wait=false
           kubectl delete clusterqueue "$CLUSTER_QUEUE" --ignore-not-found=true --wait=false
           kubectl delete resourceflavor "$FLAVOR" --ignore-not-found=true --wait=false
+  - name: spark-application-workload-has-priority
+    # Each step uses its own queue objects, so that a step never waits for Kueue to finish
+    # deleting the objects of another step.
+    bindings:
+      - name: FLAVOR
+        value: spark-e2e-priority-flavor
+      - name: CLUSTER_QUEUE
+        value: spark-e2e-priority-cluster-queue
+      - name: LOCAL_QUEUE
+        value: spark-e2e-priority-queue
+      - name: PRIORITY_CLASS
+        value: spark-e2e-high-priority
+    try:
+    - apply:
+        file: kueue-queues.yaml
+    - apply:
+        file: spark-example-prioritized.yaml
+    # The Workload waits for quota, which is enough to check its priority
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: kueue.x-k8s.io/v1beta2
+          kind: Workload
+          metadata:
+            name: sparkapplication-spark-job-kueue-prioritized-test
+            namespace: default
+          spec:
+            queueName: ($LOCAL_QUEUE)
+            priorityClassRef:
+              group: kueue.x-k8s.io
+              kind: WorkloadPriorityClass
+              name: ($PRIORITY_CLASS)
+            priority: 1000
+    catch:
+    - describe:
+        apiVersion: spark.apache.org/v1
+        kind: SparkApplication
+        namespace: default
+    - describe:
+        apiVersion: kueue.x-k8s.io/v1beta2
+        kind: Workload
+        namespace: default
+    finally:
+    - script:
+        timeout: 120s
+        env:
+          - name: FLAVOR
+            value: ($FLAVOR)
+          - name: CLUSTER_QUEUE
+            value: ($CLUSTER_QUEUE)
+          - name: LOCAL_QUEUE
+            value: ($LOCAL_QUEUE)
+          - name: PRIORITY_CLASS
+            value: ($PRIORITY_CLASS)
+        content: |
+          kubectl delete sparkapplication spark-job-kueue-prioritized-test -n default --ignore-not-found=true
+          # Kueue finalizers may delay the deletion, which later steps do not depend on.
+          kubectl delete localqueue "$LOCAL_QUEUE" -n default --ignore-not-found=true --wait=false
+          kubectl delete clusterqueue "$CLUSTER_QUEUE" --ignore-not-found=true --wait=false
+          kubectl delete resourceflavor "$FLAVOR" --ignore-not-found=true --wait=false
+          kubectl delete workloadpriorityclass "$PRIORITY_CLASS" --ignore-not-found=true --wait=false
   - name: spark-cluster-waits-for-kueue-admission
     # Each step uses its own queue objects, so that a step never waits for Kueue to finish
     # deleting the objects of another step.

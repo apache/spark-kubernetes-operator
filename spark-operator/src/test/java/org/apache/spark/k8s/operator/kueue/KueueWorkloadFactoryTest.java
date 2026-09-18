@@ -820,4 +820,86 @@ class KueueWorkloadFactoryTest {
     Workload workload = KueueWorkloadFactory.buildWorkload(cluster);
     assertFalse(workload.getSpec().getActive());
   }
+
+  @Test
+  void testBuildWorkloadKeepsPriorityClasses() {
+    // The priority of the Workload is resolved from the label and the pod set templates
+    SparkApplication app = new SparkApplication();
+    app.setMetadata(
+        new ObjectMetaBuilder()
+            .withName("spark-priority")
+            .withNamespace("default")
+            .withLabels(
+                Map.of(
+                    Constants.LABEL_QUEUE_NAME, "test-queue",
+                    Constants.LABEL_WORKLOAD_PRIORITY_CLASS, "high"))
+            .build());
+    ApplicationSpec spec = new ApplicationSpec();
+    spec.setDriverSpec(
+        new BaseApplicationTemplateSpec(
+            new PodTemplateSpecBuilder()
+                .withNewSpec()
+                .withPriorityClassName("driver-priority")
+                .endSpec()
+                .build()));
+    spec.setExecutorSpec(
+        new BaseApplicationTemplateSpec(
+            new PodTemplateSpecBuilder()
+                .withNewSpec()
+                .withPriorityClassName("executor-priority")
+                .endSpec()
+                .build()));
+    app.setSpec(spec);
+
+    Workload workload = KueueWorkloadFactory.buildWorkload(app);
+    assertEquals(
+        "high", workload.getMetadata().getLabels().get(Constants.LABEL_WORKLOAD_PRIORITY_CLASS));
+    assertNull(workload.getSpec().getPriorityClassRef());
+    assertNull(workload.getSpec().getPriority());
+    assertEquals(
+        "driver-priority",
+        workload.getSpec().getPodSets().get(0).getTemplate().getSpec().getPriorityClassName());
+    assertEquals(
+        "executor-priority",
+        workload.getSpec().getPodSets().get(1).getTemplate().getSpec().getPriorityClassName());
+  }
+
+  @Test
+  void testBuildWorkloadForSparkClusterKeepsPriorityClasses() {
+    SparkCluster cluster = buildSparkCluster("test-cluster-priority", 1, 1, 1);
+    cluster
+        .getSpec()
+        .setMasterSpec(
+            MasterSpec.builder()
+                .statefulSetSpec(
+                    new StatefulSetSpecBuilder()
+                        .withNewTemplate()
+                        .withNewSpec()
+                        .withPriorityClassName("master-priority")
+                        .endSpec()
+                        .endTemplate()
+                        .build())
+                .build());
+    cluster
+        .getSpec()
+        .setWorkerSpec(
+            WorkerSpec.builder()
+                .statefulSetSpec(
+                    new StatefulSetSpecBuilder()
+                        .withNewTemplate()
+                        .withNewSpec()
+                        .withPriorityClassName("worker-priority")
+                        .endSpec()
+                        .endTemplate()
+                        .build())
+                .build());
+
+    Workload workload = KueueWorkloadFactory.buildWorkload(cluster);
+    assertEquals(
+        "master-priority",
+        workload.getSpec().getPodSets().get(0).getTemplate().getSpec().getPriorityClassName());
+    assertEquals(
+        "worker-priority",
+        workload.getSpec().getPodSets().get(1).getTemplate().getSpec().getPriorityClassName());
+  }
 }
