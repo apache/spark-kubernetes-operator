@@ -592,17 +592,29 @@ spec:
   API server, so `kubectl get` shows an empty `Current State` and no events are published until the
   `Workload` is admitted. Use `kubectl get workload` to see the admission status. If the spec
   changes while waiting, the `Workload` is recreated with the new resource requests.
+* A queued resource spends one more reconciliation on the admission itself. With the default rate
+  limiter (5 reconciliations per 15 seconds), an application that finishes within the first 15
+  seconds may be observed only after its driver completed. It then reports its terminal state up
+  to one refresh period late, and records `Failed` before `Succeeded`.
 * When a `SparkApplication` attempt stops and its resources are released, the operator deletes the
   `Workload` so that Kueue releases the quota. A restarted attempt is queued again. Resources
   retained by `resourceRetainPolicy` keep the quota until they are released.
 * A `SparkCluster` requests the resources set on the `master` and `worker` containers of its pod
   templates. A missing request defaults to the limit, or else to 1 CPU and `SPARK_DAEMON_MEMORY`
   plus overhead. A worker uses `SPARK_WORKER_CORES` for the CPU and adds `SPARK_WORKER_MEMORY` to
-  the memory when they are set. A `SparkCluster` keeps the quota until it is deleted.
-* `spec.suspend` takes precedence. A suspended resource does not get a `Workload` at all.
+  the memory when they are set. A `SparkCluster` keeps the quota until it is deleted. Set a cpu and
+  memory request or limit on the `worker` container, or `SPARK_WORKER_CORES` and
+  `SPARK_WORKER_MEMORY`: a worker with none of them advertises the whole node to its executors,
+  well above the default the `Workload` requests.
+* `spec.suspend` takes precedence. A suspended resource does not get a `Workload`, and suspending
+  a queued resource deletes its `Workload` to release the quota. The resource is queued again when
+  it is resumed.
 * Dynamic allocation, a `SparkCluster` with `minWorkers < maxWorkers`, and pod template files set
   through `spark.kubernetes.{driver,executor}.podTemplateFile` are not supported yet. Such a
   resource fails with `SchedulingFailure` instead of being queued.
+* Preemption is not honored yet. The operator checks the admission only before it creates the
+  resources, so a later eviction (or `spec.active` set to `false` on the `Workload`) releases the
+  Kueue quota while the driver and executors, or the master and workers, keep running.
 
 ## Spark Cluster
 

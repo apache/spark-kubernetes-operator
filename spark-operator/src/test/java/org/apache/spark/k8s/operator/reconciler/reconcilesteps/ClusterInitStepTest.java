@@ -42,6 +42,7 @@ import io.fabric8.kubernetes.api.model.apps.StatefulSetBuilder;
 import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicy;
 import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicyBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.dsl.Resource;
 import io.fabric8.kubernetes.client.dsl.RollableScalableResource;
 import io.fabric8.kubernetes.client.dsl.ServerSideApplicable;
@@ -311,6 +312,61 @@ class ClusterInitStepTest {
     Assertions.assertEquals(
         ClusterStateSummary.RunningHealthy,
         captor.getValue().getCurrentState().getCurrentStateSummary());
+  }
+
+  @Test
+  void suspendingQueuedClusterReleasesKueueWorkload() {
+    ClusterInitStep clusterInitStep = new ClusterInitStep();
+    SparkClusterContext mockContext = mock(SparkClusterContext.class);
+    SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
+    SparkCluster cluster = buildKueueCluster();
+    when(mockContext.getResource()).thenReturn(cluster);
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
+    when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
+
+    // Queued: the Workload waits for the admission
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndDefaultRequeue(),
+        clusterInitStep.reconcile(mockContext, recorder));
+    Assertions.assertNotNull(getWorkload());
+
+    // Suspended while queued: the Workload is deleted so that it does not hold the quota
+    cluster.getSpec().setSuspend(true);
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndDefaultRequeue(),
+        clusterInitStep.reconcile(mockContext, recorder));
+    Assertions.assertNull(getWorkload());
+    verify(mockContext, never()).getMasterServiceSpec();
+    verifyNoInteractions(recorder);
+  }
+
+  @Test
+  void kueueApiFailureIsRetried() {
+    ClusterInitStep clusterInitStep = new ClusterInitStep();
+    SparkClusterContext mockContext = mock(SparkClusterContext.class);
+    SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
+    SparkCluster cluster = buildKueueCluster();
+    // e.g. the operator lacks the Kueue RBAC rules or Kueue is briefly unreachable
+    KubernetesClient failingClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    when(failingClient.resource(masterStatefulSetSpec).get()).thenReturn(null);
+    when(failingClient.resource(any(Workload.class)).create())
+        .thenThrow(new KubernetesClientException("forbidden", 403, null));
+    when(mockContext.getResource()).thenReturn(cluster);
+    when(mockContext.getClient()).thenReturn(failingClient);
+    when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
+
+    ReconcileProgress progress = clusterInitStep.reconcile(mockContext, recorder);
+
+    // The cluster is not failed permanently, the admission is requested again
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndRequeueAfter(
+            KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL),
+        progress);
+    verify(mockContext, never()).getMasterServiceSpec();
+    verifyNoInteractions(recorder);
+    Assertions.assertEquals(
+        ClusterStateSummary.Submitted,
+        cluster.getStatus().getCurrentState().getCurrentStateSummary());
   }
 
   private SparkCluster buildKueueCluster() {

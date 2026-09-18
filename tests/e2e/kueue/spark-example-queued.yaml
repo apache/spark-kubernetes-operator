@@ -25,9 +25,11 @@ metadata:
 spec:
   mainClass: "org.apache.spark.examples.SparkPi"
   jars: "local:///opt/spark/examples/jars/spark-examples.jar"
-  # The Kueue admission takes one more reconciliation, which uses up the per-resource rate limit
-  # (5 reconciliations per 15 seconds) before the driver starts. Run longer than that window so
-  # that the driver transitions are observed after the rate limit is refreshed.
+  # The Kueue admission takes one more reconciliation, so a queued application that finishes
+  # within the first rate limit window (5 reconciliations per 15 seconds) is observed only after
+  # its driver completed. This is a property of every queued resource, which is documented in
+  # docs/spark_custom_resources.md. This test runs longer than the window to check the regular
+  # state transitions.
   driverArgs: ["10000"]
   sparkConf:
     spark.executor.instances: "1"

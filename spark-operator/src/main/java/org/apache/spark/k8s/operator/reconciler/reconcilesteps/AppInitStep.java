@@ -34,6 +34,7 @@ import java.util.SortedMap;
 
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.client.KubernetesClientException;
 import lombok.extern.slf4j.Slf4j;
 
 import org.apache.spark.k8s.operator.Constants;
@@ -43,6 +44,7 @@ import org.apache.spark.k8s.operator.decorators.DriverResourceDecorator;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadFactory;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils.AdmissionResult;
+import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.spec.RestartConfig;
 import org.apache.spark.k8s.operator.status.ApplicationAttemptSummary;
@@ -72,6 +74,10 @@ public final class AppInitStep extends AppReconcileStep {
     SparkApplication app = context.getResource();
     if (app.getSpec().isSuspend() && !isDriverRequested(context)) {
       log.debug("Application is suspended, driver resources would not be requested.");
+      if (KueueWorkloadFactory.hasQueueName(app)) {
+        // A resource suspended while queued must not keep holding the Kueue quota.
+        KueueWorkloadUtils.releaseWorkload(context.getClient(), app);
+      }
       return completeAndDefaultRequeue();
     }
     if (app.getStatus().getPreviousAttemptSummary() != null) {
@@ -103,19 +109,9 @@ public final class AppInitStep extends AppReconcileStep {
       }
     }
     try {
-      // Like the suspend hold, a driver requested before must not be left unobserved.
-      if (KueueWorkloadFactory.hasQueueName(app) && !isDriverRequested(context)) {
-        AdmissionResult admission =
-            KueueWorkloadUtils.requestAdmission(
-                context.getClient(), KueueWorkloadFactory.buildWorkload(app));
-        if (admission == AdmissionResult.STALE) {
-          return ReconcileProgress.completeAndRequeueAfter(
-              KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL);
-        }
-        if (admission == AdmissionResult.PENDING) {
-          log.debug("Kueue has not admitted the application, driver would not be requested.");
-          return completeAndDefaultRequeue();
-        }
+      Optional<ReconcileProgress> kueueHold = holdForKueueAdmission(context, app);
+      if (kueueHold.isPresent()) {
+        return kueueHold.get();
       }
       List<HasMetadata> preResourcesSpec = context.getDriverPreResourcesSpec();
       for (HasMetadata resource : preResourcesSpec) {
@@ -167,6 +163,43 @@ public final class AppInitStep extends AppReconcileStep {
                 new ApplicationState(
                     ApplicationStateSummary.DriverRequested, Constants.DRIVER_REQUESTED_MESSAGE));
     return attemptStatusUpdate(context, statusRecorder, updatedStatus, completeAndDefaultRequeue());
+  }
+
+  /**
+   * Requests the Kueue admission of an application labeled with a queue name. Like the suspend
+   * hold, a driver requested before must not be left unobserved, so the check is skipped then.
+   * An unsupported spec fails to build the Workload, which the caller turns into SchedulingFailure.
+   * Unlike the driver resources, an API failure of the admission request is retried.
+   *
+   * @param context The SparkAppContext for the application.
+   * @param app The SparkApplication.
+   * @return The progress to return while the admission is not granted, or empty to proceed.
+   */
+  private Optional<ReconcileProgress> holdForKueueAdmission(
+      SparkAppContext context, SparkApplication app) {
+    if (!KueueWorkloadFactory.hasQueueName(app) || isDriverRequested(context)) {
+      return Optional.empty();
+    }
+    Workload desired = KueueWorkloadFactory.buildWorkload(app);
+    AdmissionResult admission;
+    try {
+      admission = KueueWorkloadUtils.requestAdmission(context.getClient(), desired);
+    } catch (IllegalStateException | KubernetesClientException e) {
+      log.warn("Failed to request Kueue admission, will retry.", e);
+      return Optional.of(
+          ReconcileProgress.completeAndRequeueAfter(
+              KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL));
+    }
+    if (admission == AdmissionResult.STALE) {
+      return Optional.of(
+          ReconcileProgress.completeAndRequeueAfter(
+              KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL));
+    }
+    if (admission == AdmissionResult.PENDING) {
+      log.debug("Kueue has not admitted the application, driver would not be requested.");
+      return Optional.of(completeAndDefaultRequeue());
+    }
+    return Optional.empty();
   }
 
   /**

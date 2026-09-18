@@ -22,6 +22,7 @@ package org.apache.spark.k8s.operator.reconciler.reconcilesteps;
 import static org.apache.spark.k8s.operator.utils.Utils.driverLabels;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -48,6 +49,7 @@ import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.dsl.NamespaceListVisitFromServerGetDeleteRecreateWaitApplicable;
 import io.fabric8.kubernetes.client.dsl.NamespaceableResource;
 import io.fabric8.kubernetes.client.dsl.ServerSideApplicable;
@@ -684,12 +686,38 @@ class AppInitStepTest {
     application.setMetadata(kueueApplicationMetadata);
     application.getSpec().setSuspend(true);
     when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
 
     ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
 
     Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
     Assertions.assertNull(getWorkload());
-    verify(mockContext, never()).getClient();
+    verifyNoInteractions(recorder);
+  }
+
+  @Test
+  void suspendingQueuedAppReleasesKueueWorkload() {
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(kueueApplicationMetadata);
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
+
+    // Queued: the Workload waits for the admission
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndDefaultRequeue(),
+        appInitStep.reconcile(mockContext, recorder));
+    Assertions.assertNotNull(getWorkload());
+
+    // Suspended while queued: the Workload is deleted so that it does not hold the quota
+    application.getSpec().setSuspend(true);
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndDefaultRequeue(),
+        appInitStep.reconcile(mockContext, recorder));
+    Assertions.assertNull(getWorkload());
+    verify(mockContext, never()).getDriverPodSpec();
     verifyNoInteractions(recorder);
   }
 
@@ -738,6 +766,36 @@ class AppInitStepTest {
     Assertions.assertEquals(
         ApplicationStateSummary.SchedulingFailure,
         captor.getValue().getCurrentState().getCurrentStateSummary());
+    Assertions.assertTrue(
+        captor.getValue().getCurrentState().getMessage().contains("dynamic allocation"),
+        captor.getValue().getCurrentState().getMessage());
+  }
+
+  @Test
+  void kueueApiFailureIsRetried() {
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(kueueApplicationMetadata);
+    // e.g. the operator lacks the Kueue RBAC rules or Kueue is briefly unreachable
+    KubernetesClient failingClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    when(failingClient.resource(any(Workload.class)).create())
+        .thenThrow(new KubernetesClientException("forbidden", 403, null));
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getClient()).thenReturn(failingClient);
+
+    ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
+
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndRequeueAfter(
+            KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL),
+        progress);
+    verify(mockContext, never()).getDriverPodSpec();
+    verifyNoInteractions(recorder);
+    Assertions.assertEquals(
+        ApplicationStateSummary.Submitted,
+        application.getStatus().getCurrentState().getCurrentStateSummary());
   }
 
   @Test

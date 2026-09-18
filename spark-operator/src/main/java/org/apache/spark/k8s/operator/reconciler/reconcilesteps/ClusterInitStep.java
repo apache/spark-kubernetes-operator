@@ -28,10 +28,12 @@ import static org.apache.spark.k8s.operator.utils.SparkExceptionUtils.buildGener
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Optional;
 
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.apps.StatefulSet;
 import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicy;
+import io.fabric8.kubernetes.client.KubernetesClientException;
 import lombok.extern.slf4j.Slf4j;
 
 import org.apache.spark.k8s.operator.SparkCluster;
@@ -39,6 +41,7 @@ import org.apache.spark.k8s.operator.context.SparkClusterContext;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadFactory;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils.AdmissionResult;
+import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.status.ClusterState;
 import org.apache.spark.k8s.operator.status.ClusterStatus;
@@ -67,6 +70,10 @@ public final class ClusterInitStep extends ClusterReconcileStep {
     // update to RunningHealthy failed), so let it complete its initialization even if suspended.
     if (cluster.getSpec().isSuspend() && !isMasterRequested(context)) {
       log.debug("Cluster is suspended, master and worker resources would not be requested.");
+      if (KueueWorkloadFactory.hasQueueName(cluster)) {
+        // A resource suspended while queued must not keep holding the Kueue quota.
+        KueueWorkloadUtils.releaseWorkload(context.getClient(), cluster);
+      }
       return completeAndDefaultRequeue();
     }
     if (cluster.getStatus().getPreviousAttemptSummary() != null) {
@@ -78,18 +85,9 @@ public final class ClusterInitStep extends ClusterReconcileStep {
       }
     }
     try {
-      // Like the suspend hold, a master requested before must complete its initialization.
-      if (KueueWorkloadFactory.hasQueueName(cluster) && !isMasterRequested(context)) {
-        AdmissionResult admission =
-            KueueWorkloadUtils.requestAdmission(
-                context.getClient(), KueueWorkloadFactory.buildWorkload(cluster));
-        if (admission == AdmissionResult.STALE) {
-          return completeAndRequeueAfter(KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL);
-        }
-        if (admission == AdmissionResult.PENDING) {
-          log.debug("Kueue has not admitted the cluster, master would not be requested.");
-          return completeAndDefaultRequeue();
-        }
+      Optional<ReconcileProgress> kueueHold = holdForKueueAdmission(context, cluster);
+      if (kueueHold.isPresent()) {
+        return kueueHold.get();
       }
       Service masterService = context.getMasterServiceSpec();
       context.getClient().services().resource(masterService).forceConflicts().serverSideApply();
@@ -162,6 +160,42 @@ public final class ClusterInitStep extends ClusterReconcileStep {
               .appendNewState(new ClusterState(SchedulingFailure, msg)));
       return completeAndImmediateRequeue();
     }
+  }
+
+  /**
+   * Requests the Kueue admission of a cluster labeled with a queue name. Like the suspend hold, a
+   * master requested before must complete its initialization, so the check is skipped then. An
+   * unsupported spec fails to build the Workload, which the caller turns into SchedulingFailure.
+   * SchedulingFailure is terminal for a cluster, so an API failure of the admission request is
+   * retried instead.
+   *
+   * @param context The SparkClusterContext for the cluster.
+   * @param cluster The SparkCluster.
+   * @return The progress to return while the admission is not granted, or empty to proceed.
+   */
+  private Optional<ReconcileProgress> holdForKueueAdmission(
+      SparkClusterContext context, SparkCluster cluster) {
+    if (!KueueWorkloadFactory.hasQueueName(cluster) || isMasterRequested(context)) {
+      return Optional.empty();
+    }
+    Workload desired = KueueWorkloadFactory.buildWorkload(cluster);
+    AdmissionResult admission;
+    try {
+      admission = KueueWorkloadUtils.requestAdmission(context.getClient(), desired);
+    } catch (IllegalStateException | KubernetesClientException e) {
+      log.warn("Failed to request Kueue admission, will retry.", e);
+      return Optional.of(
+          completeAndRequeueAfter(KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL));
+    }
+    if (admission == AdmissionResult.STALE) {
+      return Optional.of(
+          completeAndRequeueAfter(KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL));
+    }
+    if (admission == AdmissionResult.PENDING) {
+      log.debug("Kueue has not admitted the cluster, master would not be requested.");
+      return Optional.of(completeAndDefaultRequeue());
+    }
+    return Optional.empty();
   }
 
   /**
