@@ -233,9 +233,11 @@ class KueueWorkloadUtilsTest {
     createFlavor("gpu-flavor", Map.of("pool", "gpu", "accelerator", "a100"), List.of(spot, gpu));
     // Like Kueue, a flavor assigned to several resources is applied once
     Map<String, String> driverFlavors = Map.of("cpu", "cpu-flavor", "memory", "cpu-flavor");
-    // Like Kueue, a later flavor overwrites a node label, which is in the resource name order
-    Map<String, String> executorFlavors =
-        Map.of("cpu", "cpu-flavor", "nvidia.com/gpu", "gpu-flavor");
+    // Like Kueue, a later flavor overwrites a node label, which is in the resource name order.
+    // The reverse insertion order pins the assertion to the sorting of `resolvePodSetFlavors`.
+    Map<String, String> executorFlavors = new LinkedHashMap<>();
+    executorFlavors.put("nvidia.com/gpu", "gpu-flavor");
+    executorFlavors.put("cpu", "cpu-flavor");
 
     Map<String, KueuePodSetFlavor> flavors =
         KueueWorkloadUtils.resolvePodSetFlavors(

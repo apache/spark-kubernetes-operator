@@ -19,6 +19,8 @@
 
 package org.apache.spark.k8s.operator.kueue;
 
+import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
+
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -63,8 +65,6 @@ public final class KueueWorkloadUtils {
    * goes away shortly, while an unchanged admission is watched with the default interval.
    */
   public static final Duration STALE_WORKLOAD_REQUEUE_INTERVAL = Duration.ofSeconds(5);
-
-  private static final int HTTP_NOT_FOUND = 404;
 
   private KueueWorkloadUtils() {}
 
