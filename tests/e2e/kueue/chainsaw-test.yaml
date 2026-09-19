@@ -155,6 +155,19 @@ spec:
             namespace: default
             labels:
               spark.operator/spark-app-name: spark-job-kueue-queued-test
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: v1
+          kind: Event
+          metadata:
+            namespace: default
+          involvedObject:
+            kind: SparkApplication
+            name: spark-job-kueue-queued-test
+          type: Normal
+          reason: KueueAdmissionPending
+          (contains(message || '', 'sparkapplication-spark-job-kueue-queued-test')): true
     - script:
         timeout: 30s
         env:
@@ -172,6 +185,19 @@ spec:
             value: spark-job-kueue-queued-test
         timeout: 10m
         file: "../assertions/spark-application/spark-state-transition.yaml"
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: v1
+          kind: Event
+          metadata:
+            namespace: default
+          involvedObject:
+            kind: SparkApplication
+            name: spark-job-kueue-queued-test
+          type: Normal
+          reason: KueueAdmitted
+          (contains(message || '', 'sparkapplication-spark-job-kueue-queued-test')): true
     # The Workload is deleted to release the quota once the application stops.
     - error:
         timeout: 60s
@@ -189,6 +215,8 @@ spec:
     - describe:
         apiVersion: kueue.x-k8s.io/v1beta2
         kind: Workload
+        namespace: default
+    - events:
         namespace: default
     finally:
     - script:
@@ -246,6 +274,19 @@ spec:
           metadata:
             name: spark-cluster-kueue-queued-test-master
             namespace: default
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: v1
+          kind: Event
+          metadata:
+            namespace: default
+          involvedObject:
+            kind: SparkCluster
+            name: spark-cluster-kueue-queued-test
+          type: Normal
+          reason: KueueAdmissionPending
+          (contains(message || '', 'sparkcluster-spark-cluster-kueue-queued-test')): true
     - script:
         timeout: 30s
         env:
@@ -271,6 +312,19 @@ spec:
             value: spark-cluster-kueue-queued-test
         timeout: 10m
         file: "../assertions/spark-cluster/spark-cluster-worker-statefulset.yaml"
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: v1
+          kind: Event
+          metadata:
+            namespace: default
+          involvedObject:
+            kind: SparkCluster
+            name: spark-cluster-kueue-queued-test
+          type: Normal
+          reason: KueueAdmitted
+          (contains(message || '', 'sparkcluster-spark-cluster-kueue-queued-test')): true
     catch:
     - describe:
         apiVersion: spark.apache.org/v1
@@ -279,6 +333,8 @@ spec:
     - describe:
         apiVersion: kueue.x-k8s.io/v1beta2
         kind: Workload
+        namespace: default
+    - events:
         namespace: default
     finally:
     - script:

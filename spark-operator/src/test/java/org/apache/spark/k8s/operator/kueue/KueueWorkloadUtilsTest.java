@@ -19,7 +19,10 @@
 
 package org.apache.spark.k8s.operator.kueue;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.HashMap;
@@ -36,6 +39,7 @@ import io.fabric8.kubernetes.api.model.PodTemplateSpecBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.dsl.MixedOperation;
+import io.fabric8.kubernetes.client.dsl.NamespaceableResource;
 import io.fabric8.kubernetes.client.dsl.NonNamespaceOperation;
 import io.fabric8.kubernetes.client.dsl.Resource;
 import io.fabric8.kubernetes.client.server.mock.EnableKubernetesMockClient;
@@ -64,7 +68,7 @@ class KueueWorkloadUtilsTest {
     Workload desired = workload("owner-uid-1", 1);
 
     Assertions.assertEquals(
-        AdmissionResult.PENDING, KueueWorkloadUtils.requestAdmission(kubernetesClient, desired));
+        AdmissionResult.QUEUED, KueueWorkloadUtils.requestAdmission(kubernetesClient, desired));
     Workload created = getWorkload();
     Assertions.assertNotNull(created);
     Assertions.assertEquals("test-queue", created.getSpec().getQueueName());
@@ -112,7 +116,7 @@ class KueueWorkloadUtilsTest {
     Assertions.assertNull(getWorkload());
 
     Assertions.assertEquals(
-        AdmissionResult.PENDING,
+        AdmissionResult.QUEUED,
         KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 5)));
     Assertions.assertEquals(5, getWorkload().getSpec().getPodSets().get(0).getCount());
   }
@@ -218,6 +222,21 @@ class KueueWorkloadUtilsTest {
     when(resource.delete()).thenThrow(new KubernetesClientException("forbidden", 403, null));
 
     Assertions.assertDoesNotThrow(() -> KueueWorkloadUtils.releaseWorkload(client, owner()));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void workloadReadFailureIsNotReportedAsQueued() {
+    // A failed read must not be taken for a missing Workload, which would report QUEUED again
+    KubernetesClient client = mock(KubernetesClient.class);
+    NamespaceableResource<Workload> resource = mock(NamespaceableResource.class);
+    when(client.resource(any(Workload.class))).thenReturn(resource);
+    when(resource.get()).thenThrow(new KubernetesClientException("unavailable", 503, null));
+
+    Assertions.assertThrows(
+        KubernetesClientException.class,
+        () -> KueueWorkloadUtils.requestAdmission(client, workload("owner-uid-1", 1)));
+    verify(resource, never()).create();
   }
 
   private Workload getWorkload() {

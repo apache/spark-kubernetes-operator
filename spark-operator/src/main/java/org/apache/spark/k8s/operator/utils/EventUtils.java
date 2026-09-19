@@ -49,6 +49,15 @@ public final class EventUtils {
   /** Reason for an event describing an unhandled error thrown out of a cleanup. */
   public static final String REASON_CLEANUP_ERROR = "CleanupError";
 
+  /** Reason for an event describing that a resource waits for Kueue to admit its Workload. */
+  public static final String REASON_KUEUE_ADMISSION_PENDING = "KueueAdmissionPending";
+
+  /** Reason for an event describing that Kueue admitted the Workload of a resource. */
+  public static final String REASON_KUEUE_ADMITTED = "KueueAdmitted";
+
+  /** Reason for an event describing a failure to request the Kueue admission of a resource. */
+  public static final String REASON_KUEUE_ADMISSION_REQUEST_FAILED = "KueueAdmissionRequestFailed";
+
   /** Maximum number of characters an event message may have, including the ellipsis. */
   static final int MAX_MESSAGE_LENGTH = 1024;
 
