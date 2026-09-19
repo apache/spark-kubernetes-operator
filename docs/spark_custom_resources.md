@@ -590,8 +590,8 @@ spec:
   named by the `kueue.x-k8s.io/priority-class` label. Without the label, the `priorityClassName` of
   the driver (or master) pod template is used, then the one of the executor (or worker) pod
   template, and then the `globalDefault` `PriorityClass`. The resource keeps waiting without a
-  `Workload` while the named priority class does not exist. Changing the label while the
-  `Workload` waits for quota updates its priority in place, while a changed value of the same class
+  `Workload` while the named priority class does not exist. Changing the label before the
+  `Workload` is admitted updates its priority in place, while a changed value of the same class
   does not affect the existing `Workload`.
 * While the `Workload` waits for quota, the resource stays in its initializing state (`Submitted`,
   or `ScheduledToRestart` for a restarted attempt) and no driver (or master / worker) is created.

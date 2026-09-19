@@ -19,6 +19,7 @@
 
 package org.apache.spark.k8s.operator.kueue;
 
+import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 
 import java.nio.charset.StandardCharsets;
@@ -81,7 +82,8 @@ public final class KueueWorkloadUtils {
   /** Like Kueue, the priority of a Workload without any priority class. */
   private static final int DEFAULT_PRIORITY = 0;
 
-  private static final int HTTP_FORBIDDEN = 403;
+  /** The API group of the Kubernetes PriorityClass, which a pod template refers to. */
+  private static final String SCHEDULING_API_GROUP = "scheduling.k8s.io";
 
   private KueueWorkloadUtils() {}
 
@@ -154,15 +156,16 @@ public final class KueueWorkloadUtils {
       return AdmissionResult.STALE;
     }
     WorkloadSpec spec = workload.getSpec();
+    PriorityClassRef desiredPriorityClassRef = desired.getSpec().getPriorityClassRef();
     if (desired.getSpec().getPriority() != null
-        && !Objects.equals(spec.getPriorityClassRef(), desired.getSpec().getPriorityClassRef())
-        && (workload.getStatus() == null || !workload.getStatus().isQuotaReserved())) {
+        && !Objects.equals(spec.getPriorityClassRef(), desiredPriorityClassRef)
+        && isPriorityClassChangeAllowed(workload, desiredPriorityClassRef)) {
       // Like Kueue, a changed priority class is applied in place so that the Workload keeps its
-      // position in the queue. Kueue does not allow the change once the quota is reserved.
+      // position in the queue.
       log.info(
           "Updating the priority class of the pending Kueue Workload {}.",
           workload.getMetadata().getName());
-      spec.setPriorityClassRef(desired.getSpec().getPriorityClassRef());
+      spec.setPriorityClassRef(desiredPriorityClassRef);
       spec.setPriority(desired.getSpec().getPriority());
       client.resource(workload).update();
     }
@@ -333,6 +336,26 @@ public final class KueueWorkloadUtils {
   }
 
   /**
+   * Checks whether Kueue accepts the priority class change of the given Workload. Like the Workload
+   * CEL rules, the presence, the group and the kind of the priorityClassRef are frozen once the
+   * quota is reserved, and so is the name of a Kubernetes PriorityClass. The name of a
+   * WorkloadPriorityClass stays mutable, which is what Kueue relies on to raise the priority of a
+   * Workload waiting for its admission checks.
+   */
+  private static boolean isPriorityClassChangeAllowed(
+      final Workload workload, final PriorityClassRef desired) {
+    if (workload.getStatus() == null || !workload.getStatus().isQuotaReserved()) {
+      return true;
+    }
+    PriorityClassRef current = workload.getSpec().getPriorityClassRef();
+    return current != null
+        && desired != null
+        && Objects.equals(current.getGroup(), desired.getGroup())
+        && Objects.equals(current.getKind(), desired.getKind())
+        && !SCHEDULING_API_GROUP.equals(desired.getGroup());
+  }
+
+  /**
    * Sets the priority of the desired Workload in the same way as Kueue built-in integrations. The
    * WorkloadPriorityClass of the `kueue.x-k8s.io/priority-class` label takes precedence over the
    * PriorityClass of the first pod set which has one, and the global default PriorityClass is used
@@ -369,7 +392,7 @@ public final class KueueWorkloadUtils {
       } else {
         spec.setPriorityClassRef(
             new PriorityClassRef(
-                "scheduling.k8s.io", "PriorityClass", priorityClass.getMetadata().getName()));
+                SCHEDULING_API_GROUP, "PriorityClass", priorityClass.getMetadata().getName()));
         spec.setPriority(priorityClass.getValue());
       }
     } catch (KubernetesClientException e) {

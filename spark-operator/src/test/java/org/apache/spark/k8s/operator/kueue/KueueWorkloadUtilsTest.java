@@ -19,9 +19,12 @@
 
 package org.apache.spark.k8s.operator.kueue;
 
+import static org.mockito.AdditionalAnswers.delegatesTo;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -501,23 +504,63 @@ class KueueWorkloadUtilsTest {
   }
 
   @Test
-  void quotaReservedWorkloadKeepsPriorityClass() {
+  void quotaReservedWorkloadKeepsFrozenPriorityClass() {
     createWorkloadPriorityClass("low", 10);
-    createWorkloadPriorityClass("high", 1000);
     KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithPriorityClass("low"));
-    Workload workload = getWorkload();
-    workload.setStatus(status("QuotaReserved", "True"));
-    kubernetesClient.resource(workload).update();
+    reserveQuota();
 
+    // Kueue freezes the presence of the priority class once the quota is reserved
     Assertions.assertEquals(
         AdmissionResult.PENDING,
-        KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithPriorityClass("high")));
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1)));
     Assertions.assertEquals("low", getWorkload().getSpec().getPriorityClassRef().getName());
     Assertions.assertEquals(10, getWorkload().getSpec().getPriority());
   }
 
+  @Test
+  void quotaReservedWorkloadFollowsWorkloadPriorityClassChange() {
+    createWorkloadPriorityClass("low", 10);
+    createWorkloadPriorityClass("high", 1000);
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithPriorityClass("low"));
+    reserveQuota();
+
+    // Unlike its group and kind, the name of a WorkloadPriorityClass stays mutable, so that the
+    // priority of a Workload waiting for its admission checks can still be raised
+    Assertions.assertEquals(
+        AdmissionResult.PENDING,
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithPriorityClass("high")));
+    Assertions.assertEquals("high", getWorkload().getSpec().getPriorityClassRef().getName());
+    Assertions.assertEquals(1000, getWorkload().getSpec().getPriority());
+  }
+
+  @Test
+  void pendingWorkloadKeepsItsPriorityWithoutPermission() {
+    createWorkloadPriorityClass("high", 1000);
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithPriorityClass("high"));
+    Assertions.assertEquals(1000, getWorkload().getSpec().getPriority());
+
+    // The operator loses the permission while the Workload waits for quota
+    KubernetesClient forbiddenClient =
+        mock(KubernetesClient.class, withSettings().defaultAnswer(delegatesTo(kubernetesClient)));
+    KubernetesClientException forbidden = new KubernetesClientException("forbidden", 403, null);
+    doThrow(forbidden).when(forbiddenClient).resources(WorkloadPriorityClass.class);
+    doThrow(forbidden).when(forbiddenClient).scheduling();
+
+    Assertions.assertEquals(
+        AdmissionResult.PENDING,
+        KueueWorkloadUtils.requestAdmission(forbiddenClient, workloadWithPriorityClass("high")));
+    Assertions.assertEquals("high", getWorkload().getSpec().getPriorityClassRef().getName());
+    Assertions.assertEquals(1000, getWorkload().getSpec().getPriority());
+  }
+
   private Workload getWorkload() {
     return kubernetesClient.resources(Workload.class).inNamespace("default").withName(NAME).get();
+  }
+
+  private void reserveQuota() {
+    Workload workload = getWorkload();
+    workload.setStatus(status("QuotaReserved", "True"));
+    kubernetesClient.resource(workload).update();
   }
 
   private void admitWorkload() {
