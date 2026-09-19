@@ -26,7 +26,7 @@ dropwizard-metrics = "4.2.39"
 spark = "4.2.0"
 hadoop = "3.5.0"
 log4j = "2.26.1"
-slf4j = "2.0.18"
+slf4j = "2.0.19"
 
 # Test
 junit = "6.1.3"
