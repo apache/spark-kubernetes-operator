@@ -155,6 +155,47 @@ class ClusterInitStepTest {
   }
 
   @Test
+  void invalidWorkerNetworkPolicyDoesNotCreateStatefulSets() {
+    ClusterInitStep clusterInitStep = new ClusterInitStep();
+    SparkClusterContext mockContext = mock(SparkClusterContext.class);
+    SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
+    SparkCluster cluster = buildCluster();
+    KubernetesClient mockClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    when(mockContext.getResource()).thenReturn(cluster);
+    when(mockContext.getClient()).thenReturn(mockClient);
+    when(mockContext.getMasterServiceSpec()).thenReturn(service("cluster1-master-svc"));
+    when(mockContext.getWorkerServiceSpec()).thenReturn(service("cluster1-worker-svc"));
+    when(mockContext.getWorkerNetworkPolicySpec()).thenReturn(networkPolicy("cluster1-worker"));
+    @SuppressWarnings("unchecked")
+    ServerSideApplicable<Service> serviceApplicable = mock(ServerSideApplicable.class);
+    @SuppressWarnings("unchecked")
+    ServiceResource<Service> serviceResource = mock(ServiceResource.class);
+    when(serviceResource.forceConflicts()).thenReturn(serviceApplicable);
+    when(mockClient.services().resource(any(Service.class))).thenReturn(serviceResource);
+    @SuppressWarnings("unchecked")
+    ServerSideApplicable<NetworkPolicy> policyApplicable = mock(ServerSideApplicable.class);
+    @SuppressWarnings("unchecked")
+    Resource<NetworkPolicy> policyResource = mock(Resource.class);
+    when(policyResource.forceConflicts()).thenReturn(policyApplicable);
+    when(mockClient.network().networkPolicies().resource(any(NetworkPolicy.class)))
+        .thenReturn(policyResource);
+    when(policyApplicable.serverSideApply())
+        .thenThrow(new IllegalArgumentException("Invalid NetworkPolicyPeer"));
+
+    ReconcileProgress progress = clusterInitStep.reconcile(mockContext, recorder);
+
+    Assertions.assertEquals(ReconcileProgress.completeAndImmediateRequeue(), progress);
+    verify(mockClient, never()).apps();
+    verify(mockContext, never()).getMasterStatefulSetSpec();
+    verify(mockContext, never()).getWorkerStatefulSetSpec();
+    ArgumentCaptor<ClusterStatus> statusCaptor = ArgumentCaptor.forClass(ClusterStatus.class);
+    verify(recorder).persistStatus(any(), statusCaptor.capture());
+    Assertions.assertEquals(
+        ClusterStateSummary.SchedulingFailure,
+        statusCaptor.getValue().getCurrentState().getCurrentStateSummary());
+  }
+
+  @Test
   void nonInitializingClusterProceeds() {
     ClusterInitStep clusterInitStep = new ClusterInitStep();
     SparkClusterContext mockContext = mock(SparkClusterContext.class);

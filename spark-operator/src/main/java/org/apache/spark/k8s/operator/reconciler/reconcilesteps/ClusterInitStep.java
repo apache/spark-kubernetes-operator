@@ -93,6 +93,14 @@ public final class ClusterInitStep extends ClusterReconcileStep {
       context.getClient().services().resource(masterService).forceConflicts().serverSideApply();
       Service workerService = context.getWorkerServiceSpec();
       context.getClient().services().resource(workerService).forceConflicts().serverSideApply();
+      NetworkPolicy workerNetworkPolicy = context.getWorkerNetworkPolicySpec();
+      context
+          .getClient()
+          .network()
+          .networkPolicies()
+          .resource(workerNetworkPolicy)
+          .forceConflicts()
+          .serverSideApply();
       StatefulSet masterStatefulSet = context.getMasterStatefulSetSpec();
       context
           .getClient()
@@ -107,14 +115,6 @@ public final class ClusterInitStep extends ClusterReconcileStep {
           .apps()
           .statefulSets()
           .resource(workerStatefulSet)
-          .forceConflicts()
-          .serverSideApply();
-      NetworkPolicy workerNetworkPolicy = context.getWorkerNetworkPolicySpec();
-      context
-          .getClient()
-          .network()
-          .networkPolicies()
-          .resource(workerNetworkPolicy)
           .forceConflicts()
           .serverSideApply();
       var horizontalPodAutoscaler = context.getHorizontalPodAutoscalerSpec();
