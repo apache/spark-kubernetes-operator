@@ -591,8 +591,10 @@ spec:
   Like `spec.suspend`, the initial `Submitted` status of the first attempt is not persisted to the
   API server, so `kubectl get` shows an empty `Current State` and no state transition events are
   published until the `Workload` is admitted. Instead, the `KueueAdmissionPending` and
-  `KueueAdmitted` [events](configuration.md#kubernetes-events) are published when enabled. Use
-  `kubectl get workload` to see the admission status. If the spec changes while waiting, the
+  `KueueAdmitted` [events](configuration.md#kubernetes-events) are published when enabled. Since
+  the status is not there to fall back on, the pending event is republished while the `Workload`
+  waits, so that it outlives the event retention of the API server. Use `kubectl get workload` to
+  see the admission status. If the spec changes while waiting, the
   `Workload` is recreated with the new resource requests.
 * A queued resource spends one more reconciliation on the admission itself. With the default rate
   limiter (5 reconciliations per 15 seconds), an application that finishes within the first 15

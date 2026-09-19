@@ -212,7 +212,7 @@ class ClusterInitStepTest {
   }
 
   @Test
-  void pendingKueueWorkloadPublishesEventOnlyWhenQueued() {
+  void pendingKueueWorkloadPublishesEventOnEveryReconcile() {
     ClusterInitStep clusterInitStep = new ClusterInitStep();
     SparkClusterContext mockContext = mock(SparkClusterContext.class);
     SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
@@ -222,15 +222,17 @@ class ClusterInitStepTest {
     when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
     when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
 
-    // Every requeue while the Workload waits must not cost another event write
+    // The event sink aggregates the repeats into one Event, while republishing restores an Event
+    // the API server has already dropped, which the queued first attempt has no status to replace.
     for (int i = 0; i < 3; i++) {
       Assertions.assertEquals(
           ReconcileProgress.completeAndDefaultRequeue(),
           clusterInitStep.reconcile(mockContext, recorder));
     }
 
-    Assertions.assertEquals(
-        EventUtils.REASON_KUEUE_ADMISSION_PENDING, captureEvents(1).get(0).reason());
+    for (EventRecord event : captureEvents(3)) {
+      Assertions.assertEquals(EventUtils.REASON_KUEUE_ADMISSION_PENDING, event.reason());
+    }
   }
 
   @Test
@@ -403,11 +405,10 @@ class ClusterInitStepTest {
 
     ReconcileProgress progress = clusterInitStep.reconcile(mockContext, recorder);
 
-    // The cluster is not failed permanently, the admission is requested again
-    Assertions.assertEquals(
-        ReconcileProgress.completeAndRequeueAfter(
-            KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL),
-        progress);
+    // The cluster is not failed permanently, the admission is requested again. A persistent
+    // failure is retried with the default interval, so that the event of a cluster waiting for a
+    // user to fix the cause is not rewritten every few seconds.
+    Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
     verify(mockContext, never()).getMasterServiceSpec();
     verifyNoInteractions(recorder);
     Assertions.assertEquals(

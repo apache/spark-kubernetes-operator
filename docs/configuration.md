@@ -74,14 +74,14 @@ In addition, the operator publishes the following `Warning` events.
 | `ReconcileError` | A reconciliation throws. Only the first attempt of a failure episode publishes. |
 | `CleanupError` | A cleanup throws, so the resource cannot finish deleting. |
 | `StatusUpdateFailed` | A status patch is rejected. Transport-level errors are skipped. |
-| `KueueAdmissionRequestFailed` | Creating, reading or deleting a stale Kueue `Workload` fails. It is retried every 5 seconds. Transport-level errors are skipped. |
+| `KueueAdmissionRequestFailed` | Creating, reading or deleting a stale Kueue `Workload` fails. Transport-level errors are skipped and retried every 5 seconds, while a persistent failure is retried with the default interval. |
 
 For a resource queued by [Kueue](spark_custom_resources.md#kueue), the operator also publishes the
 following `Normal` events, since the resource stays in its initializing state while it waits.
 
 | Reason | When |
 |---|---|
-| `KueueAdmissionPending` | The Kueue `Workload` is created and waits for the admission. It is not published again for each periodic reconcile while the `Workload` waits. |
+| `KueueAdmissionPending` | The Kueue `Workload` waits for the admission. It is republished while it waits, so a repeat bumps the `count` of the one event rather than creating another. |
 | `KueueAdmitted` | Kueue admitted the `Workload`, so the driver (or master and worker) is requested. |
 
 The `reason` values are stable, while the `message` values may change between releases. Note that

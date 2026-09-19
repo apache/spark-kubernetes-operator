@@ -33,20 +33,15 @@ import java.util.Optional;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.apps.StatefulSet;
 import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicy;
-import io.fabric8.kubernetes.client.KubernetesClientException;
-import io.javaoperatorsdk.operator.api.event.EventType;
 import lombok.extern.slf4j.Slf4j;
 
 import org.apache.spark.k8s.operator.SparkCluster;
 import org.apache.spark.k8s.operator.context.SparkClusterContext;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadFactory;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils;
-import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils.AdmissionResult;
-import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.status.ClusterState;
 import org.apache.spark.k8s.operator.status.ClusterStatus;
-import org.apache.spark.k8s.operator.utils.EventUtils;
 import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
 
@@ -169,10 +164,7 @@ public final class ClusterInitStep extends ClusterReconcileStep {
    * master requested before must complete its initialization, so the check is skipped then. An
    * unsupported spec fails to build the Workload, which the caller turns into SchedulingFailure.
    * SchedulingFailure is terminal for a cluster, so an API failure of the admission request is
-   * retried instead. Events are published only when the Workload is created and admitted, not per
-   * requeue while it waits, so that a long queue does not add API calls. A stale Workload is
-   * replaced by the operator itself shortly, so it publishes nothing until the new Workload is
-   * queued.
+   * retried instead, see {@link KueueWorkloadUtils#holdForAdmission}.
    *
    * @param context The SparkClusterContext for the cluster.
    * @param cluster The SparkCluster.
@@ -183,49 +175,8 @@ public final class ClusterInitStep extends ClusterReconcileStep {
     if (!KueueWorkloadFactory.hasQueueName(cluster) || isMasterRequested(context)) {
       return Optional.empty();
     }
-    Workload desired = KueueWorkloadFactory.buildWorkload(cluster);
-    AdmissionResult admission;
-    try {
-      admission = KueueWorkloadUtils.requestAdmission(context.getClient(), desired);
-    } catch (IllegalStateException | KubernetesClientException e) {
-      log.warn("Failed to request Kueue admission, will retry.", e);
-      // Like a status update failure, a transport level failure is not published, since writing
-      // an event would only add load to an API server that is often the cause of the failure.
-      if (!(e instanceof KubernetesClientException kce && ReconcilerUtils.isTransientError(kce))) {
-        EventUtils.warn(
-            context.getEventRecorder(),
-            EventUtils.REASON_KUEUE_ADMISSION_REQUEST_FAILED,
-            "Failed to request Kueue admission, will retry. " + EventUtils.describe(e));
-      }
-      return Optional.of(
-          completeAndRequeueAfter(KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL));
-    }
-    if (admission == AdmissionResult.STALE) {
-      return Optional.of(
-          completeAndRequeueAfter(KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL));
-    }
-    String workloadName = desired.getMetadata().getName();
-    if (admission == AdmissionResult.QUEUED) {
-      EventUtils.record(
-          context.getEventRecorder(),
-          EventType.NORMAL,
-          EventUtils.REASON_KUEUE_ADMISSION_PENDING,
-          "Waiting for Kueue to admit Workload "
-              + workloadName
-              + " in queue "
-              + desired.getSpec().getQueueName()
-              + ", master and workers would be requested after the admission.");
-    }
-    if (admission == AdmissionResult.QUEUED || admission == AdmissionResult.PENDING) {
-      log.debug("Kueue has not admitted the cluster, master would not be requested.");
-      return Optional.of(completeAndDefaultRequeue());
-    }
-    EventUtils.record(
-        context.getEventRecorder(),
-        EventType.NORMAL,
-        EventUtils.REASON_KUEUE_ADMITTED,
-        "Kueue admitted Workload " + workloadName + ", requesting master and workers.");
-    return Optional.empty();
+    return KueueWorkloadUtils.holdForAdmission(
+        context, KueueWorkloadFactory.buildWorkload(cluster), "master and workers");
   }
 
   /**

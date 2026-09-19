@@ -66,6 +66,19 @@ class EventUtilsTest {
   }
 
   @Test
+  void normalPublishesNormalWithReasonAndMessage() {
+    EventUtils.normal(recorder, EventUtils.REASON_KUEUE_ADMITTED, "Kueue admitted Workload app-1");
+
+    ArgumentCaptor<EventRecord> captor = ArgumentCaptor.forClass(EventRecord.class);
+    verify(recorder).record(captor.capture());
+    EventRecord event = captor.getValue();
+    assertThat(event.type()).isEqualTo(EventType.NORMAL);
+    assertThat(event.reason()).isEqualTo(EventUtils.REASON_KUEUE_ADMITTED);
+    assertThat(event.message()).isEqualTo("Kueue admitted Workload app-1");
+    assertThat(event.key()).contains(EventUtils.REASON_KUEUE_ADMITTED);
+  }
+
+  @Test
   void recordPublishesTheGivenType() {
     EventUtils.record(recorder, EventType.NORMAL, "DriverRequested", "driver requested");
 

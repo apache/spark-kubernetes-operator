@@ -34,8 +34,6 @@ import java.util.SortedMap;
 
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Pod;
-import io.fabric8.kubernetes.client.KubernetesClientException;
-import io.javaoperatorsdk.operator.api.event.EventType;
 import lombok.extern.slf4j.Slf4j;
 
 import org.apache.spark.k8s.operator.Constants;
@@ -44,15 +42,12 @@ import org.apache.spark.k8s.operator.context.SparkAppContext;
 import org.apache.spark.k8s.operator.decorators.DriverResourceDecorator;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadFactory;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils;
-import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils.AdmissionResult;
-import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.spec.RestartConfig;
 import org.apache.spark.k8s.operator.status.ApplicationAttemptSummary;
 import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
-import org.apache.spark.k8s.operator.utils.EventUtils;
 import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 
@@ -171,10 +166,8 @@ public final class AppInitStep extends AppReconcileStep {
    * Requests the Kueue admission of an application labeled with a queue name. Like the suspend
    * hold, a driver requested before must not be left unobserved, so the check is skipped then.
    * An unsupported spec fails to build the Workload, which the caller turns into SchedulingFailure.
-   * Unlike the driver resources, an API failure of the admission request is retried. Events are
-   * published only when the Workload is created and admitted, not per requeue while it waits, so
-   * that a long queue does not add API calls. A stale Workload is replaced by the operator itself
-   * shortly, so it publishes nothing until the new Workload is queued.
+   * Unlike the driver resources, an API failure of the admission request is retried, see {@link
+   * KueueWorkloadUtils#holdForAdmission}.
    *
    * @param context The SparkAppContext for the application.
    * @param app The SparkApplication.
@@ -185,51 +178,8 @@ public final class AppInitStep extends AppReconcileStep {
     if (!KueueWorkloadFactory.hasQueueName(app) || isDriverRequested(context)) {
       return Optional.empty();
     }
-    Workload desired = KueueWorkloadFactory.buildWorkload(app);
-    AdmissionResult admission;
-    try {
-      admission = KueueWorkloadUtils.requestAdmission(context.getClient(), desired);
-    } catch (IllegalStateException | KubernetesClientException e) {
-      log.warn("Failed to request Kueue admission, will retry.", e);
-      // Like a status update failure, a transport level failure is not published, since writing
-      // an event would only add load to an API server that is often the cause of the failure.
-      if (!(e instanceof KubernetesClientException kce && ReconcilerUtils.isTransientError(kce))) {
-        EventUtils.warn(
-            context.getEventRecorder(),
-            EventUtils.REASON_KUEUE_ADMISSION_REQUEST_FAILED,
-            "Failed to request Kueue admission, will retry. " + EventUtils.describe(e));
-      }
-      return Optional.of(
-          ReconcileProgress.completeAndRequeueAfter(
-              KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL));
-    }
-    if (admission == AdmissionResult.STALE) {
-      return Optional.of(
-          ReconcileProgress.completeAndRequeueAfter(
-              KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL));
-    }
-    String workloadName = desired.getMetadata().getName();
-    if (admission == AdmissionResult.QUEUED) {
-      EventUtils.record(
-          context.getEventRecorder(),
-          EventType.NORMAL,
-          EventUtils.REASON_KUEUE_ADMISSION_PENDING,
-          "Waiting for Kueue to admit Workload "
-              + workloadName
-              + " in queue "
-              + desired.getSpec().getQueueName()
-              + ", driver would be requested after the admission.");
-    }
-    if (admission == AdmissionResult.QUEUED || admission == AdmissionResult.PENDING) {
-      log.debug("Kueue has not admitted the application, driver would not be requested.");
-      return Optional.of(completeAndDefaultRequeue());
-    }
-    EventUtils.record(
-        context.getEventRecorder(),
-        EventType.NORMAL,
-        EventUtils.REASON_KUEUE_ADMITTED,
-        "Kueue admitted Workload " + workloadName + ", requesting driver.");
-    return Optional.empty();
+    return KueueWorkloadUtils.holdForAdmission(
+        context, KueueWorkloadFactory.buildWorkload(app), "driver");
   }
 
   /**

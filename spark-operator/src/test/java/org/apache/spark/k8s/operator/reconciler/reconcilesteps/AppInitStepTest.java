@@ -700,7 +700,7 @@ class AppInitStepTest {
   }
 
   @Test
-  void pendingKueueWorkloadPublishesEventOnlyWhenQueued() {
+  void pendingKueueWorkloadPublishesEventOnEveryReconcile() {
     AppInitStep appInitStep = new AppInitStep();
     SparkAppContext mockContext = mock(SparkAppContext.class);
     SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
@@ -710,15 +710,17 @@ class AppInitStepTest {
     when(mockContext.getClient()).thenReturn(kubernetesClient);
     when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
 
-    // Every requeue while the Workload waits must not cost another event write
+    // The event sink aggregates the repeats into one Event, while republishing restores an Event
+    // the API server has already dropped, which the queued first attempt has no status to replace.
     for (int i = 0; i < 3; i++) {
       Assertions.assertEquals(
           ReconcileProgress.completeAndDefaultRequeue(),
           appInitStep.reconcile(mockContext, recorder));
     }
 
-    Assertions.assertEquals(
-        EventUtils.REASON_KUEUE_ADMISSION_PENDING, captureEvents(1).get(0).reason());
+    for (EventRecord event : captureEvents(3)) {
+      Assertions.assertEquals(EventUtils.REASON_KUEUE_ADMISSION_PENDING, event.reason());
+    }
   }
 
   @Test
@@ -836,10 +838,9 @@ class AppInitStepTest {
 
     ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
 
-    Assertions.assertEquals(
-        ReconcileProgress.completeAndRequeueAfter(
-            KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL),
-        progress);
+    // A persistent failure is retried with the default interval, so that the event of an
+    // application waiting for a user to fix the cause is not rewritten every few seconds.
+    Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
     verify(mockContext, never()).getDriverPodSpec();
     verifyNoInteractions(recorder);
     Assertions.assertEquals(

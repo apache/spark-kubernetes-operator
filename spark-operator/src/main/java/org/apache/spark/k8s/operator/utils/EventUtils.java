@@ -113,6 +113,18 @@ public final class EventUtils {
   }
 
   /**
+   * Publishes a normal event about a Spark resource. The reason doubles as the event key, see
+   * {@link #warn(ResourceEventRecorder, String, String)}.
+   *
+   * @param recorder The event recorder bound to the resource.
+   * @param reason A short CamelCase reason, as expected by Kubernetes.
+   * @param message The message, truncated to {@value #MAX_MESSAGE_LENGTH} characters.
+   */
+  public static void normal(ResourceEventRecorder recorder, String reason, String message) {
+    record(recorder, EventType.NORMAL, reason, message);
+  }
+
+  /**
    * Publishes an event of the given type about a Spark resource. The reason doubles as the event
    * key, see {@link #warn(ResourceEventRecorder, String, String)}.
    *
