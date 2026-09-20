@@ -25,7 +25,7 @@ package org.apache.spark.k8s.operator;
  * @since 0.1.0
  */
 @SuppressWarnings("PMD.DataClass")
-public class Constants {
+public final class Constants {
   /** The API group for Spark K8s Operator CRD resources. */
   public static final String API_GROUP = "spark.apache.org";
 
@@ -247,4 +247,6 @@ public class Constants {
 
   /** HTTP 429 Too Many Requests (not defined in {@link java.net.HttpURLConnection}). */
   public static final int HTTP_TOO_MANY_REQUESTS = 429;
+
+  private Constants() {}
 }
