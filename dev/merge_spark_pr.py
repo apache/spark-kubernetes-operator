@@ -292,6 +292,17 @@ def get_jira_issue(prompt, default_jira_id=""):
         return get_jira_issue("Enter the revised JIRA ID again or leave blank to skip")
 
 
+def get_current_version():
+    """
+    Read the version of the current branch from `build.gradle`
+
+    e.g. `version = "1.1.0-SNAPSHOT"` -> `1.1.0`
+    """
+    with open(os.path.join(SPARK_HOME, "build.gradle")) as f:
+        m = re.search(r'version\s*=\s*"(\d+\.\d+\.\d+)(?:-SNAPSHOT)?"', f.read())
+    return m.group(1) if m else None
+
+
 def resolve_jira_issue(merge_branches, comment, default_jira_id=""):
     issue = get_jira_issue("Enter a JIRA id", default_jira_id)
     if issue is None:
@@ -310,11 +321,16 @@ def resolve_jira_issue(merge_branches, comment, default_jira_id=""):
         and re.match(r"kubernetes-operator-\d+\.\d+\.\d+", x.name)
     ]
     versions = sorted(versions, key=lambda x: x.name, reverse=True)
+    available_versions = set(list(map(lambda v: v.name, versions)))
 
     default_fix_versions = []
     for b in merge_branches:
         if b == "main":
-            default_fix_versions.append(versions[0].name)
+            # Prefer the version of the current branch over the latest version on JIRA
+            current_version = "kubernetes-operator-%s" % get_current_version()
+            default_fix_versions.append(
+                current_version if current_version in available_versions else versions[0].name
+            )
         else:
             found = False
             found_versions = []
@@ -346,7 +362,6 @@ def resolve_jira_issue(merge_branches, comment, default_jira_id=""):
                 default_fix_versions = list(filter(lambda x: x != v, default_fix_versions))
     default_fix_versions = ",".join(default_fix_versions)
 
-    available_versions = set(list(map(lambda v: v.name, versions)))
     while True:
         try:
             fix_versions = bold_input(
