@@ -258,7 +258,7 @@ public final class ReconcilerUtils {
    * @param e The failure to classify.
    * @return True if the request did not reach a healthy API server, false otherwise.
    */
-  static boolean isTransientError(KubernetesClientException e) {
+  public static boolean isTransientError(KubernetesClientException e) {
     // code 0 is fabric8's sentinel for network-level failures (timeouts, connection resets, etc.)
     return switch (e.getCode()) {
       case 0, HTTP_CLIENT_TIMEOUT, HTTP_BAD_GATEWAY,

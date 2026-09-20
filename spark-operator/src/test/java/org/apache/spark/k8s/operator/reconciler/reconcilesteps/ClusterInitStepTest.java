@@ -48,6 +48,9 @@ import io.fabric8.kubernetes.client.dsl.RollableScalableResource;
 import io.fabric8.kubernetes.client.dsl.ServerSideApplicable;
 import io.fabric8.kubernetes.client.dsl.ServiceResource;
 import io.fabric8.kubernetes.client.server.mock.EnableKubernetesMockClient;
+import io.javaoperatorsdk.operator.api.event.EventRecord;
+import io.javaoperatorsdk.operator.api.event.EventType;
+import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -67,6 +70,7 @@ import org.apache.spark.k8s.operator.spec.WorkerInstanceConfig;
 import org.apache.spark.k8s.operator.status.ClusterState;
 import org.apache.spark.k8s.operator.status.ClusterStateSummary;
 import org.apache.spark.k8s.operator.status.ClusterStatus;
+import org.apache.spark.k8s.operator.utils.EventUtils;
 import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
 
 @EnableKubernetesMockClient(crud = true)
@@ -75,6 +79,8 @@ import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
     justification = "Unwritten fields are covered by Kubernetes mock client")
 class ClusterInitStepTest {
   private KubernetesClient kubernetesClient;
+
+  private final ResourceEventRecorder eventRecorder = mock(ResourceEventRecorder.class);
 
   private final StatefulSet masterStatefulSetSpec = statefulSet("cluster1-master");
   private final StatefulSet workerStatefulSetSpec = statefulSet("cluster1-worker");
@@ -182,6 +188,7 @@ class ClusterInitStepTest {
     when(mockContext.getResource()).thenReturn(cluster);
     when(mockContext.getClient()).thenReturn(kubernetesClient);
     when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
 
     ReconcileProgress progress = clusterInitStep.reconcile(mockContext, recorder);
 
@@ -195,6 +202,37 @@ class ClusterInitStepTest {
     Assertions.assertEquals(
         ClusterStateSummary.Submitted,
         cluster.getStatus().getCurrentState().getCurrentStateSummary());
+    EventRecord event = captureEvents(1).get(0);
+    Assertions.assertEquals(EventType.NORMAL, event.type());
+    Assertions.assertEquals(EventUtils.REASON_KUEUE_ADMISSION_PENDING, event.reason());
+    Assertions.assertTrue(
+        event.message().contains("sparkcluster-cluster1")
+            && event.message().contains("cluster-queue"),
+        event.message());
+  }
+
+  @Test
+  void pendingKueueWorkloadPublishesEventOnEveryReconcile() {
+    ClusterInitStep clusterInitStep = new ClusterInitStep();
+    SparkClusterContext mockContext = mock(SparkClusterContext.class);
+    SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
+    SparkCluster cluster = buildKueueCluster();
+    when(mockContext.getResource()).thenReturn(cluster);
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
+    when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+
+    // The event sink aggregates the repeats into one Event, while republishing restores an Event
+    // the API server has already dropped, which the queued first attempt has no status to replace.
+    for (int i = 0; i < 3; i++) {
+      Assertions.assertEquals(
+          ReconcileProgress.completeAndDefaultRequeue(),
+          clusterInitStep.reconcile(mockContext, recorder));
+    }
+
+    for (EventRecord event : captureEvents(3)) {
+      Assertions.assertEquals(EventUtils.REASON_KUEUE_ADMISSION_PENDING, event.reason());
+    }
   }
 
   @Test
@@ -231,6 +269,7 @@ class ClusterInitStepTest {
     when(mockContext.getWorkerNetworkPolicySpec()).thenReturn(networkPolicy("cluster1-worker"));
     when(mockContext.getHorizontalPodAutoscalerSpec()).thenReturn(Optional.empty());
     when(mockContext.getPodDisruptionBudgetSpec()).thenReturn(Optional.empty());
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
 
     ReconcileProgress progress = clusterInitStep.reconcile(mockContext, recorder);
 
@@ -242,6 +281,10 @@ class ClusterInitStepTest {
     Assertions.assertEquals(
         ClusterStateSummary.RunningHealthy,
         captor.getValue().getCurrentState().getCurrentStateSummary());
+    EventRecord event = captureEvents(1).get(0);
+    Assertions.assertEquals(EventType.NORMAL, event.type());
+    Assertions.assertEquals(EventUtils.REASON_KUEUE_ADMITTED, event.reason());
+    Assertions.assertTrue(event.message().contains("sparkcluster-cluster1"), event.message());
   }
 
   @Test
@@ -253,6 +296,7 @@ class ClusterInitStepTest {
     when(mockContext.getResource()).thenReturn(cluster);
     when(mockContext.getClient()).thenReturn(kubernetesClient);
     when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
     Workload stale = KueueWorkloadFactory.buildWorkload(cluster);
     stale.getMetadata().getOwnerReferences().get(0).setUid("stale-uid");
     kubernetesClient.resource(stale).create();
@@ -266,6 +310,8 @@ class ClusterInitStepTest {
     Assertions.assertNull(getWorkload());
     verify(mockContext, never()).getMasterServiceSpec();
     verifyNoInteractions(recorder);
+    // The operator replaces the stale Workload by itself, which needs no attention of users
+    verifyNoInteractions(eventRecorder);
   }
 
   @Test
@@ -323,6 +369,7 @@ class ClusterInitStepTest {
     when(mockContext.getResource()).thenReturn(cluster);
     when(mockContext.getClient()).thenReturn(kubernetesClient);
     when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
 
     // Queued: the Workload waits for the admission
     Assertions.assertEquals(
@@ -354,19 +401,48 @@ class ClusterInitStepTest {
     when(mockContext.getResource()).thenReturn(cluster);
     when(mockContext.getClient()).thenReturn(failingClient);
     when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
 
     ReconcileProgress progress = clusterInitStep.reconcile(mockContext, recorder);
 
-    // The cluster is not failed permanently, the admission is requested again
-    Assertions.assertEquals(
-        ReconcileProgress.completeAndRequeueAfter(
-            KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL),
-        progress);
+    // The cluster is not failed permanently, the admission is requested again. A persistent
+    // failure is retried with the default interval, so that the event of a cluster waiting for a
+    // user to fix the cause is not rewritten every few seconds.
+    Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
     verify(mockContext, never()).getMasterServiceSpec();
     verifyNoInteractions(recorder);
     Assertions.assertEquals(
         ClusterStateSummary.Submitted,
         cluster.getStatus().getCurrentState().getCurrentStateSummary());
+    EventRecord event = captureEvents(1).get(0);
+    Assertions.assertEquals(EventType.WARNING, event.type());
+    Assertions.assertEquals(EventUtils.REASON_KUEUE_ADMISSION_REQUEST_FAILED, event.reason());
+    Assertions.assertTrue(event.message().contains("forbidden"), event.message());
+  }
+
+  @Test
+  void kueueTransientApiFailurePublishesNoEvent() {
+    ClusterInitStep clusterInitStep = new ClusterInitStep();
+    SparkClusterContext mockContext = mock(SparkClusterContext.class);
+    SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
+    SparkCluster cluster = buildKueueCluster();
+    // An unavailable API server must not be loaded with event writes on top of the retries
+    KubernetesClient failingClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    when(failingClient.resource(masterStatefulSetSpec).get()).thenReturn(null);
+    when(failingClient.resource(any(Workload.class)).create())
+        .thenThrow(new KubernetesClientException("unavailable", 503, null));
+    when(mockContext.getResource()).thenReturn(cluster);
+    when(mockContext.getClient()).thenReturn(failingClient);
+    when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+
+    ReconcileProgress progress = clusterInitStep.reconcile(mockContext, recorder);
+
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndRequeueAfter(
+            KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL),
+        progress);
+    verifyNoInteractions(eventRecorder);
   }
 
   private SparkCluster buildKueueCluster() {
@@ -395,6 +471,12 @@ class ClusterInitStepTest {
         .inNamespace("default")
         .withName("sparkcluster-cluster1")
         .get();
+  }
+
+  private List<EventRecord> captureEvents(int count) {
+    ArgumentCaptor<EventRecord> captor = ArgumentCaptor.forClass(EventRecord.class);
+    verify(eventRecorder, times(count)).record(captor.capture());
+    return captor.getAllValues();
   }
 
   private static Workload admittedWorkload(SparkCluster cluster) {

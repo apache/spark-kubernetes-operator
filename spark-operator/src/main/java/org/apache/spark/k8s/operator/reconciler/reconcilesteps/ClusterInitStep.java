@@ -33,15 +33,12 @@ import java.util.Optional;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.apps.StatefulSet;
 import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicy;
-import io.fabric8.kubernetes.client.KubernetesClientException;
 import lombok.extern.slf4j.Slf4j;
 
 import org.apache.spark.k8s.operator.SparkCluster;
 import org.apache.spark.k8s.operator.context.SparkClusterContext;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadFactory;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils;
-import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils.AdmissionResult;
-import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.status.ClusterState;
 import org.apache.spark.k8s.operator.status.ClusterStatus;
@@ -167,7 +164,7 @@ public final class ClusterInitStep extends ClusterReconcileStep {
    * master requested before must complete its initialization, so the check is skipped then. An
    * unsupported spec fails to build the Workload, which the caller turns into SchedulingFailure.
    * SchedulingFailure is terminal for a cluster, so an API failure of the admission request is
-   * retried instead.
+   * retried instead, see {@link KueueWorkloadUtils#holdForAdmission}.
    *
    * @param context The SparkClusterContext for the cluster.
    * @param cluster The SparkCluster.
@@ -178,24 +175,8 @@ public final class ClusterInitStep extends ClusterReconcileStep {
     if (!KueueWorkloadFactory.hasQueueName(cluster) || isMasterRequested(context)) {
       return Optional.empty();
     }
-    Workload desired = KueueWorkloadFactory.buildWorkload(cluster);
-    AdmissionResult admission;
-    try {
-      admission = KueueWorkloadUtils.requestAdmission(context.getClient(), desired);
-    } catch (IllegalStateException | KubernetesClientException e) {
-      log.warn("Failed to request Kueue admission, will retry.", e);
-      return Optional.of(
-          completeAndRequeueAfter(KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL));
-    }
-    if (admission == AdmissionResult.STALE) {
-      return Optional.of(
-          completeAndRequeueAfter(KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL));
-    }
-    if (admission == AdmissionResult.PENDING) {
-      log.debug("Kueue has not admitted the cluster, master would not be requested.");
-      return Optional.of(completeAndDefaultRequeue());
-    }
-    return Optional.empty();
+    return KueueWorkloadUtils.holdForAdmission(
+        context, KueueWorkloadFactory.buildWorkload(cluster), "master and workers");
   }
 
   /**

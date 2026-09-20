@@ -45,11 +45,14 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import lombok.extern.slf4j.Slf4j;
 
+import org.apache.spark.k8s.operator.context.BaseContext;
 import org.apache.spark.k8s.operator.kueue.v1beta2.PodSet;
 import org.apache.spark.k8s.operator.kueue.v1beta2.PodSetAssignment;
 import org.apache.spark.k8s.operator.kueue.v1beta2.ResourceFlavor;
 import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
 import org.apache.spark.k8s.operator.kueue.v1beta2.WorkloadStatus;
+import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
+import org.apache.spark.k8s.operator.utils.EventUtils;
 import org.apache.spark.k8s.operator.utils.ModelUtils;
 import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 
@@ -61,8 +64,9 @@ public final class KueueWorkloadUtils {
   public static final String ANNOTATION_POD_SETS_HASH = "spark.operator/kueue-pod-sets-hash";
 
   /**
-   * Requeue interval after {@link AdmissionResult#STALE}. It is short because the stale Workload
-   * goes away shortly, while an unchanged admission is watched with the default interval.
+   * Requeue interval after {@link AdmissionResult#STALE} and after a transient API failure. It is
+   * short because both go away shortly, while an unchanged admission and a persistent failure are
+   * retried with the default interval.
    */
   public static final Duration STALE_WORKLOAD_REQUEUE_INTERVAL = Duration.ofSeconds(5);
 
@@ -90,9 +94,9 @@ public final class KueueWorkloadUtils {
    *     is added to it in place.
    * @return The AdmissionResult for the Workload.
    * @throws IllegalStateException if the Workload can neither be read nor created.
-   * @throws KubernetesClientException if a stale Workload cannot be deleted. Unlike {@link
-   *     #releaseWorkload}, this is not swallowed so that the resource is not created until the
-   *     stale Workload is gone.
+   * @throws KubernetesClientException if the Workload cannot be created, or a stale Workload cannot
+   *     be deleted. Unlike {@link #releaseWorkload}, this is not swallowed so that the resource is
+   *     not created until the stale Workload is gone.
    */
   public static AdmissionResult requestAdmission(
       final KubernetesClient client, final Workload desired) {
@@ -103,12 +107,12 @@ public final class KueueWorkloadUtils {
     }
     desiredAnnotations.put(ANNOTATION_POD_SETS_HASH, podSetsHash);
     desired.getMetadata().setAnnotations(desiredAnnotations);
-    Optional<Workload> created = ReconcilerUtils.getOrCreateSecondaryResource(client, desired);
-    if (created.isEmpty()) {
+    Optional<Workload> current = ReconcilerUtils.getOrCreateSecondaryResource(client, desired);
+    if (current.isEmpty()) {
       throw new IllegalStateException(
           "Failed to request Kueue Workload with name: " + desired.getMetadata().getName());
     }
-    Workload workload = created.get();
+    Workload workload = current.get();
     if (workload.getMetadata().getDeletionTimestamp() != null) {
       log.debug(
           "Waiting for the Kueue Workload {} to be deleted.", workload.getMetadata().getName());
@@ -135,6 +139,78 @@ public final class KueueWorkloadUtils {
       return AdmissionResult.STALE;
     }
     return AdmissionResult.PENDING;
+  }
+
+  /**
+   * Requests the Kueue admission of the resource of the given context and reports the progress to
+   * return until it is granted. The pending event is published on every reconcile while the
+   * Workload waits, since it is the only signal a queued first attempt has. A stale Workload is
+   * replaced by the operator itself shortly, so it publishes nothing until the new Workload is
+   * queued. An API failure of the request is retried rather than failing the resource: a transient
+   * one shortly, a persistent one with the default interval, so that its event is not rewritten
+   * every few seconds until a user fixes the cause.
+   *
+   * @param context The context of the resource to be admitted.
+   * @param desired The Workload built for the resource. The pod sets hash annotation is added to it
+   *     in place.
+   * @param requested The resources held until the admission, as named in the events and logs, e.g.
+   *     {@code "driver"}.
+   * @return The progress to return while the admission is not granted, or empty to proceed.
+   */
+  public static Optional<ReconcileProgress> holdForAdmission(
+      final BaseContext<?> context, final Workload desired, final String requested) {
+    AdmissionResult admission;
+    try {
+      admission = requestAdmission(context.getClient(), desired);
+    } catch (IllegalStateException | KubernetesClientException e) {
+      log.warn("Failed to request Kueue admission, will retry.", e);
+      // Like a status update failure, a transport level failure is not published, since writing
+      // an event would only add load to an API server that is often the cause of the failure.
+      // It goes away on its own, so it keeps the short interval.
+      if (e instanceof KubernetesClientException kce && ReconcilerUtils.isTransientError(kce)) {
+        return Optional.of(
+            ReconcileProgress.completeAndRequeueAfter(STALE_WORKLOAD_REQUEUE_INTERVAL));
+      }
+      // A persistent failure, such as a missing Kueue or the RBAC rules for it, is retried with
+      // the default interval, so that its event is not rewritten every few seconds until a user
+      // fixes the cause.
+      EventUtils.warn(
+          context.getEventRecorder(),
+          EventUtils.REASON_KUEUE_ADMISSION_REQUEST_FAILED,
+          "Failed to request Kueue admission, will retry. " + EventUtils.describe(e));
+      return Optional.of(ReconcileProgress.completeAndDefaultRequeue());
+    }
+    if (admission == AdmissionResult.STALE) {
+      return Optional.of(
+          ReconcileProgress.completeAndRequeueAfter(STALE_WORKLOAD_REQUEUE_INTERVAL));
+    }
+    String workloadName = desired.getMetadata().getName();
+    if (admission == AdmissionResult.PENDING) {
+      // Republished while the Workload waits, rather than once when it is created. The event sink
+      // keys the Event on the reason, so a repeat bumps the count of the one Event instead of
+      // creating another, and it restores an Event that the API server has already dropped after
+      // its retention: a queued first attempt has no persisted status to fall back on.
+      EventUtils.normal(
+          context.getEventRecorder(),
+          EventUtils.REASON_KUEUE_ADMISSION_PENDING,
+          "Waiting for Kueue to admit Workload "
+              + workloadName
+              + " in queue "
+              + desired.getSpec().getQueueName()
+              + ", "
+              + requested
+              + " would be requested after the admission.");
+      log.debug(
+          "Kueue has not admitted the Workload {}, {} would not be requested.",
+          workloadName,
+          requested);
+      return Optional.of(ReconcileProgress.completeAndDefaultRequeue());
+    }
+    EventUtils.normal(
+        context.getEventRecorder(),
+        EventUtils.REASON_KUEUE_ADMITTED,
+        "Kueue admitted Workload " + workloadName + ", requesting " + requested + ".");
+    return Optional.empty();
   }
 
   /**

@@ -34,7 +34,6 @@ import java.util.SortedMap;
 
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Pod;
-import io.fabric8.kubernetes.client.KubernetesClientException;
 import lombok.extern.slf4j.Slf4j;
 
 import org.apache.spark.k8s.operator.Constants;
@@ -43,8 +42,6 @@ import org.apache.spark.k8s.operator.context.SparkAppContext;
 import org.apache.spark.k8s.operator.decorators.DriverResourceDecorator;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadFactory;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils;
-import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils.AdmissionResult;
-import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.spec.RestartConfig;
 import org.apache.spark.k8s.operator.status.ApplicationAttemptSummary;
@@ -169,7 +166,8 @@ public final class AppInitStep extends AppReconcileStep {
    * Requests the Kueue admission of an application labeled with a queue name. Like the suspend
    * hold, a driver requested before must not be left unobserved, so the check is skipped then.
    * An unsupported spec fails to build the Workload, which the caller turns into SchedulingFailure.
-   * Unlike the driver resources, an API failure of the admission request is retried.
+   * Unlike the driver resources, an API failure of the admission request is retried, see {@link
+   * KueueWorkloadUtils#holdForAdmission}.
    *
    * @param context The SparkAppContext for the application.
    * @param app The SparkApplication.
@@ -180,26 +178,8 @@ public final class AppInitStep extends AppReconcileStep {
     if (!KueueWorkloadFactory.hasQueueName(app) || isDriverRequested(context)) {
       return Optional.empty();
     }
-    Workload desired = KueueWorkloadFactory.buildWorkload(app);
-    AdmissionResult admission;
-    try {
-      admission = KueueWorkloadUtils.requestAdmission(context.getClient(), desired);
-    } catch (IllegalStateException | KubernetesClientException e) {
-      log.warn("Failed to request Kueue admission, will retry.", e);
-      return Optional.of(
-          ReconcileProgress.completeAndRequeueAfter(
-              KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL));
-    }
-    if (admission == AdmissionResult.STALE) {
-      return Optional.of(
-          ReconcileProgress.completeAndRequeueAfter(
-              KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL));
-    }
-    if (admission == AdmissionResult.PENDING) {
-      log.debug("Kueue has not admitted the application, driver would not be requested.");
-      return Optional.of(completeAndDefaultRequeue());
-    }
-    return Optional.empty();
+    return KueueWorkloadUtils.holdForAdmission(
+        context, KueueWorkloadFactory.buildWorkload(app), "driver");
   }
 
   /**
