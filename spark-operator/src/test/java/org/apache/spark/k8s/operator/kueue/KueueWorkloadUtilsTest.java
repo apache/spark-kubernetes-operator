@@ -375,7 +375,7 @@ class KueueWorkloadUtilsTest {
     createPriorityClass("executor-priority", 200, false);
 
     Workload desired = workloadWithPriorityClasses("driver-priority", "executor-priority");
-    KueueWorkloadUtils.setPriority(kubernetesClient, desired);
+    KueueWorkloadPriority.setPriority(kubernetesClient, desired);
     Assertions.assertEquals(
         new PriorityClassRef("scheduling.k8s.io", "PriorityClass", "driver-priority"),
         desired.getSpec().getPriorityClassRef());
@@ -383,7 +383,7 @@ class KueueWorkloadUtilsTest {
 
     // A pod set without a priority class is skipped
     desired = workloadWithPriorityClasses(null, "executor-priority");
-    KueueWorkloadUtils.setPriority(kubernetesClient, desired);
+    KueueWorkloadPriority.setPriority(kubernetesClient, desired);
     Assertions.assertEquals(
         new PriorityClassRef("scheduling.k8s.io", "PriorityClass", "executor-priority"),
         desired.getSpec().getPriorityClassRef());
@@ -397,7 +397,7 @@ class KueueWorkloadUtilsTest {
     createPriorityClass("default-low", 50, true);
 
     Workload desired = workloadWithPriorityClasses(null, null);
-    KueueWorkloadUtils.setPriority(kubernetesClient, desired);
+    KueueWorkloadPriority.setPriority(kubernetesClient, desired);
     // Like Kueue, the lowest one wins if there are more than one global default
     Assertions.assertEquals(
         new PriorityClassRef("scheduling.k8s.io", "PriorityClass", "default-low"),
@@ -408,7 +408,7 @@ class KueueWorkloadUtilsTest {
   @Test
   void priorityIsZeroWithoutAnyPriorityClass() {
     Workload desired = workloadWithPriorityClasses(null, null);
-    KueueWorkloadUtils.setPriority(kubernetesClient, desired);
+    KueueWorkloadPriority.setPriority(kubernetesClient, desired);
     Assertions.assertNull(desired.getSpec().getPriorityClassRef());
     Assertions.assertEquals(0, desired.getSpec().getPriority());
   }
@@ -448,12 +448,12 @@ class KueueWorkloadUtilsTest {
 
     Workload labeled = workload("owner-uid-1", 1);
     labeled.getMetadata().setLabels(Map.of(Constants.LABEL_WORKLOAD_PRIORITY_CLASS, "high"));
-    KueueWorkloadUtils.setPriority(client, labeled);
+    KueueWorkloadPriority.setPriority(client, labeled);
     Assertions.assertNull(labeled.getSpec().getPriorityClassRef());
     Assertions.assertNull(labeled.getSpec().getPriority());
 
     Workload unlabeled = workload("owner-uid-1", 1);
-    KueueWorkloadUtils.setPriority(client, unlabeled);
+    KueueWorkloadPriority.setPriority(client, unlabeled);
     Assertions.assertNull(unlabeled.getSpec().getPriorityClassRef());
     Assertions.assertNull(unlabeled.getSpec().getPriority());
 
@@ -463,7 +463,7 @@ class KueueWorkloadUtilsTest {
         .thenThrow(new KubernetesClientException("unavailable", 503, null));
     Assertions.assertThrows(
         KubernetesClientException.class,
-        () -> KueueWorkloadUtils.setPriority(unavailableClient, workload("owner-uid-1", 1)));
+        () -> KueueWorkloadPriority.setPriority(unavailableClient, workload("owner-uid-1", 1)));
   }
 
   @Test
@@ -592,6 +592,21 @@ class KueueWorkloadUtilsTest {
     Assertions.assertEquals(
         "kueue.x-k8s.io", getWorkload().getSpec().getPriorityClassRef().getGroup());
     Assertions.assertEquals(10, getWorkload().getSpec().getPriority());
+  }
+
+  @Test
+  void pendingWorkloadWithoutPriorityClassFollowsAnAddedLabel() {
+    createWorkloadPriorityClass("high", 1000);
+    // No label and no pod priority class, so the Workload is created without a ref
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1));
+    Assertions.assertNull(getWorkload().getSpec().getPriorityClassRef());
+
+    // The label is added while the Workload waits for quota
+    Assertions.assertEquals(
+        AdmissionResult.PENDING,
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithPriorityClass("high")));
+    Assertions.assertEquals("high", getWorkload().getSpec().getPriorityClassRef().getName());
+    Assertions.assertEquals(1000, getWorkload().getSpec().getPriority());
   }
 
   @Test

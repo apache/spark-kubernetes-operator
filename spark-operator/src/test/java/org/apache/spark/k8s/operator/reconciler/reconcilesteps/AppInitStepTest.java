@@ -865,6 +865,9 @@ class AppInitStepTest {
     application.setMetadata(kueueApplicationMetadata);
     // An unavailable API server must not be loaded with event writes on top of the retries
     KubernetesClient failingClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    // Mockito cannot deep-stub the generic list, so it is stubbed without any priority class
+    when(failingClient.scheduling().v1().priorityClasses().list())
+        .thenReturn(new PriorityClassList());
     when(failingClient.resource(any(Workload.class)).create())
         .thenThrow(new KubernetesClientException("unavailable", 503, null));
     when(mockContext.getResource()).thenReturn(application);
