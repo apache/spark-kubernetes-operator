@@ -66,12 +66,7 @@ public final class ClusterInitStep extends ClusterReconcileStep {
     // A cluster whose master StatefulSet already exists has been requested before (e.g. the status
     // update to RunningHealthy failed), so let it complete its initialization even if suspended.
     if (cluster.getSpec().isSuspend() && !isMasterRequested(context)) {
-      log.debug("Cluster is suspended, master and worker resources would not be requested.");
-      if (KueueWorkloadFactory.hasQueueName(cluster)) {
-        // A resource suspended while queued must not keep holding the Kueue quota.
-        KueueWorkloadUtils.releaseWorkload(context.getClient(), cluster);
-      }
-      return completeAndDefaultRequeue();
+      return SuspendUtils.holdForSuspend(context, "master and workers");
     }
     if (cluster.getStatus().getPreviousAttemptSummary() != null) {
       Instant lastTransitionTime = Instant.parse(currentState.getLastTransitionTime());

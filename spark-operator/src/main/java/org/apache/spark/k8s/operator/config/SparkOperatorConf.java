@@ -292,10 +292,10 @@ public final class SparkOperatorConf {
                   + "namespace via 'kubectl describe' and 'kubectl get events'. Events are "
                   + "published when a resource transitions into a new state, as Warning for "
                   + "failure states and Normal for most other states, when the operator "
-                  + "cannot reconcile or update the status of a resource, and when a resource "
-                  + "queued by Kueue waits for, gets or fails to request the admission. These "
-                  + "are Event resources in the core API group, unrelated to the internal "
-                  + "events that trigger reconciliation.")
+                  + "cannot reconcile or update the status of a resource, when a resource is "
+                  + "held by spec.suspend, and when a resource queued by Kueue waits for, gets "
+                  + "or fails to request the admission. These are Event resources in the core "
+                  + "API group, unrelated to the internal events that trigger reconciliation.")
           .typeParameterClass(Boolean.class)
           .defaultValue(false)
           .build();

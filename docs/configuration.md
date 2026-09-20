@@ -76,17 +76,20 @@ In addition, the operator publishes the following `Warning` events.
 | `StatusUpdateFailed` | A status patch is rejected. Transport-level errors are skipped. |
 | `KueueAdmissionRequestFailed` | Creating, reading or deleting a stale Kueue `Workload` fails. Transport-level errors are skipped and retried every 5 seconds, while a persistent failure is retried with the default interval. |
 
-For a resource queued by [Kueue](spark_custom_resources.md#kueue), the operator also publishes the
-following `Normal` events, since the resource stays in its initializing state while it waits.
+For a resource held by [`spec.suspend`](spark_custom_resources.md#suspend) or queued by
+[Kueue](spark_custom_resources.md#kueue), the operator also publishes the following `Normal`
+events, since the resource stays in its initializing state without a state transition.
 
 | Reason | When |
 |---|---|
+| `SuspendHeld` | The resource is held by `spec.suspend`, so the driver (or master and worker) is not requested. It is republished every 30 minutes while the hold lasts, so a repeat bumps the `count` of the one event rather than creating another. Suspending a queued resource releases its Kueue `Workload`, and the message says so, since the `KueueAdmissionPending` event it was queued with outlives that `Workload`. |
 | `KueueAdmissionPending` | The Kueue `Workload` waits for the admission. It is republished while it waits, so a repeat bumps the `count` of the one event rather than creating another. |
 | `KueueAdmitted` | Kueue admitted the `Workload`, so the driver (or master and worker) is requested. |
 
 The `reason` values are stable, while the `message` values may change between releases. Note that
 Kubernetes retains events only for a limited time (one hour by default), so the resource status
-remains the source of truth.
+remains the source of truth. The exception is a first attempt held by `spec.suspend` or by Kueue,
+which has no persisted status yet; that is why its event is republished while the hold lasts.
 
 To reduce noise, set `spark.kubernetes.operator.events.excludedReasons` to a comma-separated list
 of Java regular expressions. The operator does not publish events whose `reason` fully matches any

@@ -83,6 +83,9 @@ class ClusterInitStepTest {
 
   private final ResourceEventRecorder eventRecorder = mock(ResourceEventRecorder.class);
 
+  private static final ReconcileProgress SUSPEND_HOLD_PROGRESS =
+      ReconcileProgress.completeAndRequeueAfter(SuspendUtils.SUSPEND_HOLD_REQUEUE_INTERVAL);
+
   private final StatefulSet masterStatefulSetSpec = statefulSet("cluster1-master");
   private final StatefulSet workerStatefulSetSpec = statefulSet("cluster1-worker");
 
@@ -98,10 +101,11 @@ class ClusterInitStepTest {
     when(mockContext.getResource()).thenReturn(cluster);
     when(mockContext.getClient()).thenReturn(mockClient);
     when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
 
     ReconcileProgress progress = clusterInitStep.reconcile(mockContext, recorder);
 
-    Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
+    Assertions.assertEquals(SUSPEND_HOLD_PROGRESS, progress);
     verify(mockContext, never()).getMasterServiceSpec();
     verify(mockContext, never()).getWorkerStatefulSetSpec();
     verify(mockClient, never()).apps();
@@ -110,6 +114,102 @@ class ClusterInitStepTest {
     Assertions.assertEquals(
         ClusterStateSummary.Submitted,
         cluster.getStatus().getCurrentState().getCurrentStateSummary());
+    // The Submitted status of a suspended cluster is never persisted, so the event is the only
+    // signal users have
+    EventRecord event = captureEvents(1).get(0);
+    Assertions.assertEquals(EventType.NORMAL, event.type());
+    Assertions.assertEquals(EventUtils.REASON_SUSPEND_HELD, event.reason());
+    Assertions.assertEquals(
+        "The SparkCluster is suspended by spec.suspend, master and workers would not be "
+            + "requested. Set spec.suspend to false to resume it.",
+        event.message());
+  }
+
+  @Test
+  void suspendedClusterPublishesEventOnEveryReconcile() {
+    ClusterInitStep clusterInitStep = new ClusterInitStep();
+    SparkClusterContext mockContext = mock(SparkClusterContext.class);
+    SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
+    SparkCluster cluster = buildCluster();
+    cluster.getSpec().setSuspend(true);
+    KubernetesClient mockClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    when(mockClient.resource(masterStatefulSetSpec).get()).thenReturn(null);
+    when(mockContext.getResource()).thenReturn(cluster);
+    when(mockContext.getClient()).thenReturn(mockClient);
+    when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+
+    // The event sink aggregates the repeats into one Event, and each repeat refreshes it, which
+    // keeps the hold visible past the event retention: the suspended cluster has no status to
+    // fall back on.
+    for (int i = 0; i < 3; i++) {
+      Assertions.assertEquals(
+          SUSPEND_HOLD_PROGRESS,
+          clusterInitStep.reconcile(mockContext, recorder));
+    }
+
+    for (EventRecord event : captureEvents(3)) {
+      Assertions.assertEquals(EventUtils.REASON_SUSPEND_HELD, event.reason());
+    }
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void unsuspendedClusterRequestsResourcesOnNextReconcile() {
+    ClusterInitStep clusterInitStep = new ClusterInitStep();
+    SparkClusterContext mockContext = mock(SparkClusterContext.class);
+    SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
+    SparkCluster cluster = buildCluster();
+    cluster.getSpec().setSuspend(true);
+    KubernetesClient mockClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    when(mockClient.resource(masterStatefulSetSpec).get()).thenReturn(null);
+    ServerSideApplicable<Service> serviceApplicable = mock(ServerSideApplicable.class);
+    ServiceResource<Service> serviceResource = mock(ServiceResource.class);
+    when(serviceResource.forceConflicts()).thenReturn(serviceApplicable);
+    when(mockClient.services().resource(any(Service.class))).thenReturn(serviceResource);
+    ServerSideApplicable<StatefulSet> statefulSetApplicable = mock(ServerSideApplicable.class);
+    RollableScalableResource<StatefulSet> statefulSetResource =
+        mock(RollableScalableResource.class);
+    when(statefulSetResource.forceConflicts()).thenReturn(statefulSetApplicable);
+    when(mockClient.apps().statefulSets().resource(any(StatefulSet.class)))
+        .thenReturn(statefulSetResource);
+    ServerSideApplicable<NetworkPolicy> networkPolicyApplicable = mock(ServerSideApplicable.class);
+    Resource<NetworkPolicy> networkPolicyResource = mock(Resource.class);
+    when(networkPolicyResource.forceConflicts()).thenReturn(networkPolicyApplicable);
+    when(mockClient.network().networkPolicies().resource(any(NetworkPolicy.class)))
+        .thenReturn(networkPolicyResource);
+    when(mockContext.getResource()).thenReturn(cluster);
+    when(mockContext.getClient()).thenReturn(mockClient);
+    when(mockContext.getMasterServiceSpec()).thenReturn(service("cluster1-master-svc"));
+    when(mockContext.getWorkerServiceSpec()).thenReturn(service("cluster1-worker-svc"));
+    when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
+    when(mockContext.getWorkerStatefulSetSpec()).thenReturn(workerStatefulSetSpec);
+    when(mockContext.getWorkerNetworkPolicySpec()).thenReturn(networkPolicy("cluster1-worker"));
+    when(mockContext.getHorizontalPodAutoscalerSpec()).thenReturn(Optional.empty());
+    when(mockContext.getPodDisruptionBudgetSpec()).thenReturn(Optional.empty());
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+
+    // Suspended: nothing is requested and the status stays unpersisted
+    Assertions.assertEquals(
+        SUSPEND_HOLD_PROGRESS,
+        clusterInitStep.reconcile(mockContext, recorder));
+    verify(mockContext, never()).getMasterServiceSpec();
+    verifyNoInteractions(recorder);
+
+    // Unsuspended: the regular init path requests the master and workers
+    cluster.getSpec().setSuspend(false);
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndDefaultRequeue(),
+        clusterInitStep.reconcile(mockContext, recorder));
+    verify(mockClient.apps().statefulSets()).resource(masterStatefulSetSpec);
+    verify(mockClient.apps().statefulSets()).resource(workerStatefulSetSpec);
+    ArgumentCaptor<ClusterStatus> statusCaptor = ArgumentCaptor.forClass(ClusterStatus.class);
+    verify(recorder).persistStatus(any(), statusCaptor.capture());
+    Assertions.assertEquals(
+        ClusterStateSummary.RunningHealthy,
+        statusCaptor.getValue().getCurrentState().getCurrentStateSummary());
+    // Resuming adds no event of its own, the RunningHealthy state transition reports it
+    Assertions.assertEquals(EventUtils.REASON_SUSPEND_HELD, captureEvents(1).get(0).reason());
   }
 
   @Test
@@ -384,11 +484,24 @@ class ClusterInitStepTest {
     // Suspended while queued: the Workload is deleted so that it does not hold the quota
     cluster.getSpec().setSuspend(true);
     Assertions.assertEquals(
-        ReconcileProgress.completeAndDefaultRequeue(),
+        SUSPEND_HOLD_PROGRESS,
         clusterInitStep.reconcile(mockContext, recorder));
     Assertions.assertNull(getWorkload());
     verify(mockContext, never()).getMasterServiceSpec();
     verifyNoInteractions(recorder);
+    List<EventRecord> events = captureEvents(2);
+    Assertions.assertEquals(EventUtils.REASON_KUEUE_ADMISSION_PENDING, events.get(0).reason());
+    Assertions.assertEquals(EventUtils.REASON_SUSPEND_HELD, events.get(1).reason());
+    // The pending event above outlives the Workload, so the suspend event supersedes it
+    Assertions.assertTrue(
+        events
+            .get(1)
+            .message()
+            .endsWith(
+                "It holds no Kueue Workload while suspended, so an earlier "
+                    + EventUtils.REASON_KUEUE_ADMISSION_PENDING
+                    + " event no longer applies."),
+        events.get(1).message());
   }
 
   @Test

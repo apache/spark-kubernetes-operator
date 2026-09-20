@@ -70,12 +70,7 @@ public final class AppInitStep extends AppReconcileStep {
     }
     SparkApplication app = context.getResource();
     if (app.getSpec().isSuspend() && !isDriverRequested(context)) {
-      log.debug("Application is suspended, driver resources would not be requested.");
-      if (KueueWorkloadFactory.hasQueueName(app)) {
-        // A resource suspended while queued must not keep holding the Kueue quota.
-        KueueWorkloadUtils.releaseWorkload(context.getClient(), app);
-      }
-      return completeAndDefaultRequeue();
+      return SuspendUtils.holdForSuspend(context, "driver");
     }
     if (app.getStatus().getPreviousAttemptSummary() != null) {
       Instant lastTransitionTime = Instant.parse(currentState.getLastTransitionTime());

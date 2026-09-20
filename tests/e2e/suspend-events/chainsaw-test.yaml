@@ -1,0 +1,117 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# Asserts the `SuspendHeld` event of a held SparkApplication and SparkCluster.
+#
+# Unlike the `suspend` suite, which covers the hold itself with the shipped defaults, this suite
+# requires an operator installed with `spark.kubernetes.operator.events.enabled=true`, as the
+# `events` CI mode does with tests/e2e/helm/events-config-values.yaml. Run it locally with:
+#
+#   helm install spark --create-namespace \
+#     -f build-tools/helm/spark-kubernetes-operator/values.yaml \
+#     -f tests/e2e/helm/events-config-values.yaml \
+#     build-tools/helm/spark-kubernetes-operator/
+#
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: spark-operator-suspend-events
+spec:
+  steps:
+  - name: suspended-application-publishes-suspend-held-event
+    try:
+    - apply:
+        file: spark-example-suspend.yaml
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: v1
+          kind: Event
+          metadata:
+            namespace: default
+          involvedObject:
+            kind: SparkApplication
+            name: spark-job-suspend-events-test
+          type: Normal
+          reason: SuspendHeld
+          (contains(message || '', 'spec.suspend')): true
+    # The driver stays unrequested for the whole hold.
+    - error:
+        timeout: 10s
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            namespace: default
+            labels:
+              spark.operator/spark-app-name: spark-job-suspend-events-test
+    catch:
+    - describe:
+        apiVersion: spark.apache.org/v1
+        kind: SparkApplication
+        namespace: default
+    - events:
+        namespace: default
+    - podLogs:
+        selector: app.kubernetes.io/name=spark-kubernetes-operator
+        namespace: default
+    finally:
+    - script:
+        timeout: 30s
+        content: |
+          kubectl delete sparkapplication spark-job-suspend-events-test -n default --ignore-not-found=true
+  - name: suspended-cluster-publishes-suspend-held-event
+    try:
+    - apply:
+        file: spark-cluster-example-suspend.yaml
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: v1
+          kind: Event
+          metadata:
+            namespace: default
+          involvedObject:
+            kind: SparkCluster
+            name: spark-cluster-suspend-events-test
+          type: Normal
+          reason: SuspendHeld
+          (contains(message || '', 'spec.suspend')): true
+    # The master stays unrequested for the whole hold.
+    - error:
+        timeout: 10s
+        resource:
+          apiVersion: apps/v1
+          kind: StatefulSet
+          metadata:
+            name: spark-cluster-suspend-events-test-master
+            namespace: default
+    catch:
+    - describe:
+        apiVersion: spark.apache.org/v1
+        kind: SparkCluster
+        namespace: default
+    - events:
+        namespace: default
+    - podLogs:
+        selector: app.kubernetes.io/name=spark-kubernetes-operator
+        namespace: default
+    finally:
+    - script:
+        timeout: 30s
+        content: |
+          kubectl delete sparkcluster spark-cluster-suspend-events-test -n default --ignore-not-found=true
