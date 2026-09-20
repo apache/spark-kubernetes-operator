@@ -67,6 +67,7 @@ import org.apache.spark.k8s.operator.utils.StringUtils;
 
 /** Utilities to create, check and release Kueue Workloads. */
 @Slf4j
+@SuppressWarnings("PMD.GodClass")
 public final class KueueWorkloadUtils {
 
   /** Annotation holding the hash of the pod sets which the Workload was created with. */
@@ -336,23 +337,26 @@ public final class KueueWorkloadUtils {
   }
 
   /**
-   * Checks whether Kueue accepts the priority class change of the given Workload. Like the Workload
-   * CEL rules, the presence, the group and the kind of the priorityClassRef are frozen once the
-   * quota is reserved, and so is the name of a Kubernetes PriorityClass. The name of a
-   * WorkloadPriorityClass stays mutable, which is what Kueue relies on to raise the priority of a
-   * Workload waiting for its admission checks.
+   * Checks whether the priority class of the given Workload is followed and whether Kueue accepts
+   * the change. Like Kueue's `classifyWorkloadsForPriorityUpdate`, only a Workload without a
+   * priority class or with a WorkloadPriorityClass follows the owner, so the priority of a Workload
+   * backed by a Kubernetes PriorityClass is never rewritten, e.g. when the global default changes.
+   * Once the quota is reserved, the Workload CEL rules freeze the presence, the group and the kind
+   * of the priorityClassRef. The name of a WorkloadPriorityClass stays mutable, which is what Kueue
+   * relies on to raise the priority of a Workload waiting for its admission checks.
    */
   private static boolean isPriorityClassChangeAllowed(
       final Workload workload, final PriorityClassRef desired) {
+    PriorityClassRef current = workload.getSpec().getPriorityClassRef();
+    if (current != null && !Constants.KUEUE_API_GROUP.equals(current.getGroup())) {
+      return false;
+    }
     if (workload.getStatus() == null || !workload.getStatus().isQuotaReserved()) {
       return true;
     }
-    PriorityClassRef current = workload.getSpec().getPriorityClassRef();
     return current != null
         && desired != null
-        && Objects.equals(current.getGroup(), desired.getGroup())
-        && Objects.equals(current.getKind(), desired.getKind())
-        && !SCHEDULING_API_GROUP.equals(desired.getGroup());
+        && Constants.KUEUE_API_GROUP.equals(desired.getGroup());
   }
 
   /**

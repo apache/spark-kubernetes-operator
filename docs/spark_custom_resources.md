@@ -591,8 +591,10 @@ spec:
   the driver (or master) pod template is used, then the one of the executor (or worker) pod
   template, and then the `globalDefault` `PriorityClass`. The resource keeps waiting without a
   `Workload` while the named priority class does not exist. Changing the label before the
-  `Workload` is admitted updates its priority in place, while a changed value of the same class
-  does not affect the existing `Workload`.
+  `Workload` reserves quota updates its priority in place. After that Kueue freezes the presence,
+  the group and the kind of the priority class, so only the name of a `WorkloadPriorityClass` still
+  changes. Like Kueue, a `Workload` which took its priority from a `PriorityClass` never follows
+  the label, and a changed value of the same class does not affect the existing `Workload`.
 * While the `Workload` waits for quota, the resource stays in its initializing state (`Submitted`,
   or `ScheduledToRestart` for a restarted attempt) and no driver (or master / worker) is created.
   Like `spec.suspend`, the initial `Submitted` status of the first attempt is not persisted to the

@@ -38,6 +38,7 @@ import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.OwnerReferenceBuilder;
 import io.fabric8.kubernetes.api.model.PodTemplateSpecBuilder;
 import io.fabric8.kubernetes.api.model.Toleration;
+import io.fabric8.kubernetes.api.model.scheduling.v1.PriorityClass;
 import io.fabric8.kubernetes.api.model.scheduling.v1.PriorityClassBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
@@ -540,17 +541,81 @@ class KueueWorkloadUtilsTest {
     Assertions.assertEquals(1000, getWorkload().getSpec().getPriority());
 
     // The operator loses the permission while the Workload waits for quota
-    KubernetesClient forbiddenClient =
-        mock(KubernetesClient.class, withSettings().defaultAnswer(delegatesTo(kubernetesClient)));
-    KubernetesClientException forbidden = new KubernetesClientException("forbidden", 403, null);
-    doThrow(forbidden).when(forbiddenClient).resources(WorkloadPriorityClass.class);
-    doThrow(forbidden).when(forbiddenClient).scheduling();
+    Assertions.assertEquals(
+        AdmissionResult.PENDING,
+        KueueWorkloadUtils.requestAdmission(forbiddenClient(), workloadWithPriorityClass("high")));
+    Assertions.assertEquals("high", getWorkload().getSpec().getPriorityClassRef().getName());
+    Assertions.assertEquals(1000, getWorkload().getSpec().getPriority());
+  }
+
+  @Test
+  void pendingWorkloadWithPodPriorityClassDoesNotFollowTheLabel() {
+    createPriorityClass("default-a", 50, true);
+    createWorkloadPriorityClass("high", 1000);
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1));
+
+    // Like Kueue, a Workload backed by a Kubernetes PriorityClass does not follow the label
+    Assertions.assertEquals(
+        AdmissionResult.PENDING,
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithPriorityClass("high")));
+    Assertions.assertEquals("default-a", getWorkload().getSpec().getPriorityClassRef().getName());
+    Assertions.assertEquals(50, getWorkload().getSpec().getPriority());
+  }
+
+  @Test
+  void pendingWorkloadKeepsItsPodPriorityClassName() {
+    createPriorityClass("default-a", 50, true);
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1));
+
+    // The cluster-wide default changed, which Kueue does not apply to an existing Workload
+    kubernetesClient.resource(priorityClass("default-a", 50, false)).update();
+    createPriorityClass("default-b", 70, true);
 
     Assertions.assertEquals(
         AdmissionResult.PENDING,
-        KueueWorkloadUtils.requestAdmission(forbiddenClient, workloadWithPriorityClass("high")));
-    Assertions.assertEquals("high", getWorkload().getSpec().getPriorityClassRef().getName());
-    Assertions.assertEquals(1000, getWorkload().getSpec().getPriority());
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1)));
+    Assertions.assertEquals("default-a", getWorkload().getSpec().getPriorityClassRef().getName());
+    Assertions.assertEquals(50, getWorkload().getSpec().getPriority());
+  }
+
+  @Test
+  void quotaReservedWorkloadDoesNotSwitchPriorityClassGroup() {
+    createWorkloadPriorityClass("low", 10);
+    createPriorityClass("default-a", 50, true);
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithPriorityClass("low"));
+    reserveQuota();
+
+    // Removing the label would switch the group and the kind, which Kueue freezes
+    Assertions.assertEquals(
+        AdmissionResult.PENDING,
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1)));
+    Assertions.assertEquals(
+        "kueue.x-k8s.io", getWorkload().getSpec().getPriorityClassRef().getGroup());
+    Assertions.assertEquals(10, getWorkload().getSpec().getPriority());
+  }
+
+  @Test
+  void quotaReservedWorkloadWithoutPriorityClassDoesNotGainOne() {
+    createWorkloadPriorityClass("high", 1000);
+    // The Workload is created while the operator cannot read the classes, so it has no ref
+    KueueWorkloadUtils.requestAdmission(forbiddenClient(), workloadWithPriorityClass("high"));
+    Assertions.assertNull(getWorkload().getSpec().getPriorityClassRef());
+    reserveQuota();
+
+    // The permission is back, but Kueue no longer accepts adding a priority class
+    Assertions.assertEquals(
+        AdmissionResult.PENDING,
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithPriorityClass("high")));
+    Assertions.assertNull(getWorkload().getSpec().getPriorityClassRef());
+  }
+
+  private KubernetesClient forbiddenClient() {
+    KubernetesClient client =
+        mock(KubernetesClient.class, withSettings().defaultAnswer(delegatesTo(kubernetesClient)));
+    KubernetesClientException forbidden = new KubernetesClientException("forbidden", 403, null);
+    doThrow(forbidden).when(client).resources(WorkloadPriorityClass.class);
+    doThrow(forbidden).when(client).scheduling();
+    return client;
   }
 
   private Workload getWorkload() {
@@ -607,16 +672,18 @@ class KueueWorkloadUtilsTest {
 
   private void createPriorityClass(
       final String name, final int value, final boolean globalDefault) {
-    kubernetesClient
-        .resource(
-            new PriorityClassBuilder()
-                .withNewMetadata()
-                .withName(name)
-                .endMetadata()
-                .withValue(value)
-                .withGlobalDefault(globalDefault)
-                .build())
-        .create();
+    kubernetesClient.resource(priorityClass(name, value, globalDefault)).create();
+  }
+
+  private static PriorityClass priorityClass(
+      final String name, final int value, final boolean globalDefault) {
+    return new PriorityClassBuilder()
+        .withNewMetadata()
+        .withName(name)
+        .endMetadata()
+        .withValue(value)
+        .withGlobalDefault(globalDefault)
+        .build();
   }
 
   private static Workload workloadWithPriorityClass(final String workloadPriorityClass) {
