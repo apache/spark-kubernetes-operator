@@ -55,6 +55,7 @@ import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 
 /** Utility class for reconciler operations. */
 @Slf4j
+@SuppressWarnings("PMD.GodClass")
 public final class ReconcilerUtils {
 
   private ReconcilerUtils() {}
@@ -101,16 +102,22 @@ public final class ReconcilerUtils {
   }
 
   /**
-   * Gets or creates a secondary Kubernetes resource.
+   * Gets or creates a secondary Kubernetes resource. The initial lookup reports the resource as
+   * missing only when the API server said so or when the failure is one the create loop retries
+   * anyway, so that a read the API server refused is not taken for a missing resource and created
+   * again. The lookups of the retry loop stay lenient, since a failed read there only means that
+   * the create has to be retried.
    *
    * @param client The KubernetesClient.
    * @param resource The desired resource to get or create.
    * @param <T> The type of the resource, extending HasMetadata.
    * @return An Optional containing the created or existing resource.
+   * @throws KubernetesClientException if the API server refused the read, or if the resource
+   *     could not be created.
    */
   public static <T extends HasMetadata> Optional<T> getOrCreateSecondaryResource(
       final KubernetesClient client, final T resource) {
-    Optional<T> current = getResource(client, resource);
+    Optional<T> current = getResourceStrictly(client, resource);
     if (current.isEmpty()) {
       // Adding retry logic to overcome known k8s issue:
       // https://github.com/kubernetes/kubernetes/issues/67761
@@ -181,24 +188,59 @@ public final class ReconcilerUtils {
   }
 
   /**
-   * Retrieves a Kubernetes resource by its desired state.
+   * Retrieves a Kubernetes resource by its desired state, reporting a resource that could not be
+   * read as absent.
    *
    * @param client The KubernetesClient.
    * @param desired The desired state of the resource.
    * @param <T> The type of the resource, extending HasMetadata.
-   * @return An Optional containing the retrieved resource, or empty if not found.
+   * @return An Optional containing the retrieved resource, or empty if not found or not readable.
    */
   public static <T extends HasMetadata> Optional<T> getResource(
       final KubernetesClient client, final T desired) {
-    T resource = null;
     try {
-      resource = client.resource(desired).get();
+      return getResourceStrictly(client, desired);
+    } catch (KubernetesClientException e) {
+      log.warn(
+          "The API server refused to read the resource with responseCode={}, considering it"
+              + " absent.",
+          e.getCode(),
+          e);
+      return Optional.empty();
+    }
+  }
+
+  /**
+   * Retrieves a Kubernetes resource by its desired state, telling a missing resource apart from a
+   * read the API server refused. A failure the create path retries anyway, such as a transient one
+   * or a throttled request, keeps reporting the resource as absent, since that path re-reads on an
+   * AlreadyExists conflict and still resolves the actual state.
+   *
+   * @param client The KubernetesClient.
+   * @param desired The desired state of the resource.
+   * @param <T> The type of the resource, extending HasMetadata.
+   * @return An Optional containing the retrieved resource, or empty if not found or not reachable.
+   * @throws KubernetesClientException if the API server refused the read.
+   */
+  private static <T extends HasMetadata> Optional<T> getResourceStrictly(
+      final KubernetesClient client, final T desired) {
+    try {
+      return Optional.ofNullable(client.resource(desired).get());
     } catch (KubernetesClientException e) {
       if (e.getCode() == HTTP_NOT_FOUND) {
         return Optional.empty();
       }
+      if (isTransientError(e)
+          || e.getCode() == HTTP_INTERNAL_ERROR
+          || e.getCode() == Constants.HTTP_TOO_MANY_REQUESTS) {
+        log.warn(
+            "Failed to read the resource with responseCode={}, considering it absent.",
+            e.getCode(),
+            e);
+        return Optional.empty();
+      }
+      throw e;
     }
-    return Optional.ofNullable(resource);
   }
 
   /**

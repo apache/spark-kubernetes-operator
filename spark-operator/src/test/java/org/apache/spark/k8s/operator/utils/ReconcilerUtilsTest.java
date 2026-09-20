@@ -19,9 +19,12 @@
 
 package org.apache.spark.k8s.operator.utils;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Optional;
@@ -188,5 +191,96 @@ class ReconcilerUtilsTest {
 
     assertTrue(result.isPresent());
     assertTrue(elapsedMillis >= 1000L, "should have slept for the server-requested 1s");
+  }
+
+  @Test
+  void returnsExistingResourceWithoutCreating() {
+    Pod pod = buildPod();
+    KubernetesClient mockClient = mock(KubernetesClient.class);
+    NamespaceableResource<Pod> mockResource = mockClientReturning(mockClient, pod);
+    when(mockResource.get()).thenReturn(pod);
+
+    Optional<Pod> result = ReconcilerUtils.getOrCreateSecondaryResource(mockClient, pod);
+
+    assertTrue(result.isPresent());
+    verify(mockResource, never()).create();
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {401, 403, 422})
+  void propagatesRefusedInitialReadInsteadOfReportingMissingResource(int errorCode) {
+    Pod pod = buildPod();
+    KubernetesClient mockClient = mock(KubernetesClient.class);
+    NamespaceableResource<Pod> mockResource = mockClientReturning(mockClient, pod);
+    when(mockResource.get())
+        .thenThrow(new KubernetesClientException("Read failed", errorCode, null));
+
+    KubernetesClientException e =
+        assertThrows(
+            KubernetesClientException.class,
+            () -> ReconcilerUtils.getOrCreateSecondaryResource(mockClient, pod));
+
+    assertEquals(errorCode, e.getCode());
+    // the resource state is unknown, so it must not be created as if it were missing
+    verify(mockResource, never()).create();
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {0, 408, 429, 500, 502, 503, 504})
+  void createsResourceWhenInitialReadFailsRetriably(int errorCode) {
+    Pod pod = buildPod();
+    KubernetesClient mockClient = mock(KubernetesClient.class);
+    NamespaceableResource<Pod> mockResource = mockClientReturning(mockClient, pod);
+    when(mockResource.get())
+        .thenThrow(new KubernetesClientException("Read failed", errorCode, null));
+    when(mockResource.create()).thenReturn(pod);
+
+    // the create path re-reads on an AlreadyExists conflict, so it resolves the actual state
+    Optional<Pod> result = ReconcilerUtils.getOrCreateSecondaryResource(mockClient, pod);
+
+    assertTrue(result.isPresent());
+  }
+
+  @Test
+  void createsResourceWhenInitialReadReportsNotFound() {
+    Pod pod = buildPod();
+    KubernetesClient mockClient = mock(KubernetesClient.class);
+    NamespaceableResource<Pod> mockResource = mockClientReturning(mockClient, pod);
+    when(mockResource.get()).thenThrow(new KubernetesClientException("Not found", 404, null));
+    when(mockResource.create()).thenReturn(pod);
+
+    Optional<Pod> result = ReconcilerUtils.getOrCreateSecondaryResource(mockClient, pod);
+
+    assertTrue(result.isPresent());
+  }
+
+  @Test
+  void keepsRetryPathReadLenientOnFailure() {
+    Pod pod = buildPod();
+    KubernetesClient mockClient = mock(KubernetesClient.class);
+    NamespaceableResource<Pod> mockResource = mockClientReturning(mockClient, pod);
+    // 1st GET -> not found; GET after the failed create -> refused, which only means retry.
+    // The code has to be one the strict read rethrows, or the lenient read is never exercised.
+    when(mockResource.get())
+        .thenReturn(null)
+        .thenThrow(new KubernetesClientException("Forbidden", 403, null));
+    // 1st CREATE -> transient failure; 2nd CREATE -> success
+    when(mockResource.create())
+        .thenThrow(new KubernetesClientException("Service unavailable", 503, null))
+        .thenReturn(pod);
+
+    Optional<Pod> result = ReconcilerUtils.getOrCreateSecondaryResource(mockClient, pod);
+
+    assertTrue(result.isPresent());
+  }
+
+  @Test
+  void lenientReadReportsRefusedReadAsAbsent() {
+    Pod pod = buildPod();
+    KubernetesClient mockClient = mock(KubernetesClient.class);
+    NamespaceableResource<Pod> mockResource = mockClientReturning(mockClient, pod);
+    when(mockResource.get()).thenThrow(new KubernetesClientException("Forbidden", 403, null));
+
+    assertTrue(ReconcilerUtils.getResource(mockClient, pod).isEmpty());
   }
 }
