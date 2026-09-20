@@ -45,10 +45,5 @@ public class WorkerSpec {
   protected ServiceSpec serviceSpec;
   protected ObjectMeta serviceMetadata;
   protected HorizontalPodAutoscalerSpec horizontalPodAutoscalerSpec;
-
-  /**
-   * Network policy controlling ingress to the worker pods. When null, the generated worker
-   * NetworkPolicy stays as restrictive as it is without these fields.
-   */
   protected WorkerNetworkPolicySpec networkPolicy;
 }
