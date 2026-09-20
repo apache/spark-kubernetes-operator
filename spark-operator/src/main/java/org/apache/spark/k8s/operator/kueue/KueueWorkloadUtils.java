@@ -48,8 +48,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.spark.k8s.operator.context.BaseContext;
 import org.apache.spark.k8s.operator.kueue.v1beta2.PodSet;
 import org.apache.spark.k8s.operator.kueue.v1beta2.PodSetAssignment;
+import org.apache.spark.k8s.operator.kueue.v1beta2.PriorityClassRef;
 import org.apache.spark.k8s.operator.kueue.v1beta2.ResourceFlavor;
 import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
+import org.apache.spark.k8s.operator.kueue.v1beta2.WorkloadSpec;
 import org.apache.spark.k8s.operator.kueue.v1beta2.WorkloadStatus;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.utils.EventUtils;
@@ -90,16 +92,18 @@ public final class KueueWorkloadUtils {
    * Creates the given Workload if it does not exist yet and reports whether Kueue admitted it.
    *
    * @param client The KubernetesClient.
-   * @param desired The Workload built for the resource to be admitted. The pod sets hash annotation
-   *     is added to it in place.
+   * @param desired The Workload built for the resource to be admitted. The priority and the pod
+   *     sets hash annotation are added to it in place.
    * @return The AdmissionResult for the Workload.
-   * @throws IllegalStateException if the Workload can neither be read nor created.
+   * @throws IllegalStateException if the Workload can neither be read nor created, or if its
+   *     priority class does not exist.
    * @throws KubernetesClientException if the Workload cannot be created, or a stale Workload cannot
    *     be deleted. Unlike {@link #releaseWorkload}, this is not swallowed so that the resource is
    *     not created until the stale Workload is gone.
    */
   public static AdmissionResult requestAdmission(
       final KubernetesClient client, final Workload desired) {
+    KueueWorkloadPriority.setPriority(client, desired);
     String podSetsHash = hashPodSets(desired);
     Map<String, String> desiredAnnotations = new HashMap<>();
     if (desired.getMetadata().getAnnotations() != null) {
@@ -137,6 +141,21 @@ public final class KueueWorkloadUtils {
           workload.getMetadata().getName());
       deleteWorkload(client, workload);
       return AdmissionResult.STALE;
+    }
+    WorkloadSpec spec = workload.getSpec();
+    PriorityClassRef desiredPriorityClassRef = desired.getSpec().getPriorityClassRef();
+    if (desired.getSpec().getPriority() != null
+        && !Objects.equals(spec.getPriorityClassRef(), desiredPriorityClassRef)
+        && KueueWorkloadPriority.isPriorityClassChangeAllowed(
+            workload, desiredPriorityClassRef)) {
+      // Like Kueue, a changed priority class is applied in place so that the Workload keeps its
+      // position in the queue.
+      log.info(
+          "Updating the priority class of the pending Kueue Workload {}.",
+          workload.getMetadata().getName());
+      spec.setPriorityClassRef(desiredPriorityClassRef);
+      spec.setPriority(desired.getSpec().getPriority());
+      client.resource(workload).update();
     }
     return AdmissionResult.PENDING;
   }

@@ -59,6 +59,20 @@ public class WorkloadStatus {
   }
 
   /**
+   * Checks if Kueue reserved the quota for the workload, which precedes the admission.
+   *
+   * @return true if a "QuotaReserved" condition exists with status "True", false otherwise.
+   */
+  public boolean isQuotaReserved() {
+    return conditions != null
+        && conditions.stream()
+            .anyMatch(
+                c ->
+                    "QuotaReserved".equalsIgnoreCase(c.getType())
+                        && "True".equalsIgnoreCase(c.getStatus()));
+  }
+
+  /**
    * Checks if the workload has finished.
    *
    * @return true if a "Finished" condition exists with status "True", false otherwise.
