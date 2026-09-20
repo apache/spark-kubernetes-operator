@@ -33,6 +33,7 @@ import java.util.Optional;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.apps.StatefulSet;
 import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicy;
+import io.fabric8.kubernetes.client.KubernetesClientException;
 import lombok.extern.slf4j.Slf4j;
 
 import org.apache.spark.k8s.operator.SparkCluster;
@@ -42,7 +43,6 @@ import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.status.ClusterState;
 import org.apache.spark.k8s.operator.status.ClusterStatus;
-import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
 
 /** Request cluster master and its resources when starting an attempt. */
@@ -65,8 +65,20 @@ public final class ClusterInitStep extends ClusterReconcileStep {
     SparkCluster cluster = context.getResource();
     // A cluster whose master StatefulSet already exists has been requested before (e.g. the status
     // update to RunningHealthy failed), so let it complete its initialization even if suspended.
-    if (cluster.getSpec().isSuspend() && !isMasterRequested(context)) {
-      return SuspendUtils.holdForSuspend(context, "master and workers");
+    if (cluster.getSpec().isSuspend()) {
+      final boolean masterRequested;
+      try {
+        masterRequested = isMasterRequested(context);
+      } catch (KubernetesClientException e) {
+        // Whether the master is live is unknown, not answered. Holding would claim in an event
+        // that none was requested, and would release the Kueue quota of a running master, so
+        // look again with the steady-state interval instead.
+        log.error("Failed to check whether the master of a suspended cluster exists.", e);
+        return completeAndDefaultRequeue();
+      }
+      if (!masterRequested) {
+        return SuspendUtils.holdForSuspend(context, "master and workers");
+      }
     }
     if (cluster.getStatus().getPreviousAttemptSummary() != null) {
       Instant lastTransitionTime = Instant.parse(currentState.getLastTransitionTime());
@@ -167,8 +179,19 @@ public final class ClusterInitStep extends ClusterReconcileStep {
    */
   private Optional<ReconcileProgress> holdForKueueAdmission(
       SparkClusterContext context, SparkCluster cluster) {
-    if (!KueueWorkloadFactory.hasQueueName(cluster) || isMasterRequested(context)) {
+    if (!KueueWorkloadFactory.hasQueueName(cluster)) {
       return Optional.empty();
+    }
+    try {
+      if (isMasterRequested(context)) {
+        return Optional.empty();
+      }
+    } catch (KubernetesClientException e) {
+      // Requesting the admission of a master which is already running would be wrong, so the
+      // lookup is retried rather than failing the cluster with the terminal SchedulingFailure.
+      log.error("Failed to check whether the master exists before requesting admission.", e);
+      return Optional.of(
+          completeAndRequeueAfter(KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL));
     }
     return KueueWorkloadUtils.holdForAdmission(
         context, KueueWorkloadFactory.buildWorkload(cluster), "master and workers");
@@ -180,9 +203,13 @@ public final class ClusterInitStep extends ClusterReconcileStep {
    *
    * @param context The SparkClusterContext for the cluster.
    * @return True if the master StatefulSet exists, false otherwise.
+   * @throws KubernetesClientException if the lookup fails, so that a running master is not
+   *     mistaken for one that was never requested.
    */
   private boolean isMasterRequested(SparkClusterContext context) {
-    return ReconcilerUtils.getResource(context.getClient(), context.getMasterStatefulSetSpec())
-        .isPresent();
+    // The lenient ReconcilerUtils.getResource is not used here, since it reports a StatefulSet it
+    // could not read as absent, which would release the Kueue quota of a running master. The
+    // client itself reports a StatefulSet which does not exist as null.
+    return context.getClient().resource(context.getMasterStatefulSetSpec()).get() != null;
   }
 }

@@ -183,8 +183,21 @@ public final class AppInitStep extends AppReconcileStep {
    */
   private Optional<ReconcileProgress> holdForKueueAdmission(
       SparkAppContext context, SparkApplication app) {
-    if (!KueueWorkloadFactory.hasQueueName(app) || isDriverRequested(context)) {
+    if (!KueueWorkloadFactory.hasQueueName(app)) {
       return Optional.empty();
+    }
+    try {
+      if (isDriverRequested(context)) {
+        return Optional.empty();
+      }
+    } catch (KubernetesClientException e) {
+      // Requesting the admission of a driver which is already running would be wrong, so the
+      // lookup is retried rather than failing the application with the terminal
+      // SchedulingFailure.
+      log.error("Failed to check whether the driver exists before requesting admission.", e);
+      return Optional.of(
+          ReconcileProgress.completeAndRequeueAfter(
+              KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL));
     }
     return KueueWorkloadUtils.holdForAdmission(
         context, KueueWorkloadFactory.buildWorkload(app), "driver");
@@ -194,14 +207,16 @@ public final class AppInitStep extends AppReconcileStep {
    * Checks whether the driver pod of the current attempt has already been requested. This covers
    * the case where the driver was created but the status update to DriverRequested failed, so that
    * a suspended application still completes its initialization instead of being held with a live
-   * driver. See {@link SparkAppContext#getCurrentAttemptDriverPod()} for how a pod left from a
-   * previous attempt is told apart.
+   * driver. See {@link SparkAppContext#getCurrentAttemptDriverPodStrictly()} for how a pod left
+   * from a previous attempt is told apart.
    *
    * @param context The SparkAppContext for the application.
    * @return True if the driver pod of the current attempt exists, false otherwise.
+   * @throws KubernetesClientException if the lookup fails, so that a running driver is not
+   *     mistaken for one that was never requested.
    */
   private boolean isDriverRequested(SparkAppContext context) {
-    return context.getCurrentAttemptDriverPod().isPresent();
+    return context.getCurrentAttemptDriverPodStrictly().isPresent();
   }
 
   /**

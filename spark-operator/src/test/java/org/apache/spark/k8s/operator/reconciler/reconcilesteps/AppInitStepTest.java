@@ -990,6 +990,35 @@ class AppInitStepTest {
   }
 
   @Test
+  void failedDriverLookupBeforeKueueAdmissionIsRetried() {
+    // A failed verification is not an answer either before the admission: requesting quota for a
+    // driver which is already running would hold a live application
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(kueueApplicationMetadata);
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
+    when(mockContext.getCurrentAttemptDriverPodStrictly())
+        .thenThrow(new KubernetesClientException("unavailable", 503, null));
+
+    ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
+
+    // The application is retried rather than failed with the terminal SchedulingFailure
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndRequeueAfter(
+            KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL),
+        progress);
+    Assertions.assertNull(getWorkload());
+    verify(mockContext, never()).getDriverPreResourcesSpec();
+    verifyNoInteractions(recorder);
+    Assertions.assertEquals(
+        ApplicationStateSummary.Submitted,
+        application.getStatus().getCurrentState().getCurrentStateSummary());
+  }
+
+  @Test
   void driverRequestedBeforeBypassesKueueAdmission() {
     // The driver was created, but the status update to DriverRequested did not land. The Workload
     // is gone meanwhile (e.g. evicted and deleted), which must not hold the live driver.
@@ -1001,7 +1030,7 @@ class AppInitStepTest {
     kubernetesClient.resource(driverPodSpec).create();
     when(mockContext.getResource()).thenReturn(application);
     when(mockContext.getClient()).thenReturn(kubernetesClient);
-    when(mockContext.getCurrentAttemptDriverPod()).thenReturn(Optional.of(driverPodSpec));
+    when(mockContext.getCurrentAttemptDriverPodStrictly()).thenReturn(Optional.of(driverPodSpec));
     when(mockContext.getDriverPreResourcesSpec()).thenReturn(List.of());
     when(mockContext.getDriverPodSpec()).thenReturn(driverPodSpec);
     when(mockContext.getDriverResourcesSpec()).thenReturn(List.of());
