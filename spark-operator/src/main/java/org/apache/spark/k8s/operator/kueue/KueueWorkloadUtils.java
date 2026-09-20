@@ -139,9 +139,9 @@ public final class KueueWorkloadUtils {
 
   /**
    * Resolves the node selector and tolerations of the ResourceFlavors which Kueue assigned to each
-   * pod set of the admitted Workload, in the same way as Kueue built-in integrations. The flavors
-   * of a pod set are applied in the order of the resource names, so that a later flavor overwrites
-   * a node label deterministically.
+   * pod set of the admitted Workload, like Kueue's `podset.FromAssignment`. The Topology Aware
+   * Scheduling gate and annotation are not handled. The flavors of a pod set are applied in the
+   * order of the resource names, so that a later flavor overwrites a node label deterministically.
    *
    * @param client The KubernetesClient.
    * @param admitted The admitted Workload.
