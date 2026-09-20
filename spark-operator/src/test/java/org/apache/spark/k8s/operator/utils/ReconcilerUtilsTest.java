@@ -193,6 +193,19 @@ class ReconcilerUtilsTest {
     assertTrue(elapsedMillis >= 1000L, "should have slept for the server-requested 1s");
   }
 
+  @Test
+  void returnsExistingResourceWithoutCreating() {
+    Pod pod = buildPod();
+    KubernetesClient mockClient = mock(KubernetesClient.class);
+    NamespaceableResource<Pod> mockResource = mockClientReturning(mockClient, pod);
+    when(mockResource.get()).thenReturn(pod);
+
+    Optional<Pod> result = ReconcilerUtils.getOrCreateSecondaryResource(mockClient, pod);
+
+    assertTrue(result.isPresent());
+    verify(mockResource, never()).create();
+  }
+
   @ParameterizedTest
   @ValueSource(ints = {401, 403, 422})
   void propagatesRefusedInitialReadInsteadOfReportingMissingResource(int errorCode) {
@@ -213,8 +226,8 @@ class ReconcilerUtilsTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {0, 408, 500, 502, 503, 504})
-  void createsResourceWhenInitialReadDoesNotReachApiServer(int errorCode) {
+  @ValueSource(ints = {0, 408, 429, 500, 502, 503, 504})
+  void createsResourceWhenInitialReadFailsRetriably(int errorCode) {
     Pod pod = buildPod();
     KubernetesClient mockClient = mock(KubernetesClient.class);
     NamespaceableResource<Pod> mockResource = mockClientReturning(mockClient, pod);
@@ -246,10 +259,11 @@ class ReconcilerUtilsTest {
     Pod pod = buildPod();
     KubernetesClient mockClient = mock(KubernetesClient.class);
     NamespaceableResource<Pod> mockResource = mockClientReturning(mockClient, pod);
-    // 1st GET -> not found; GET after the failed create -> fails, which only means retry
+    // 1st GET -> not found; GET after the failed create -> refused, which only means retry.
+    // The code has to be one the strict read rethrows, or the lenient read is never exercised.
     when(mockResource.get())
         .thenReturn(null)
-        .thenThrow(new KubernetesClientException("Service unavailable", 503, null));
+        .thenThrow(new KubernetesClientException("Forbidden", 403, null));
     // 1st CREATE -> transient failure; 2nd CREATE -> success
     when(mockResource.create())
         .thenThrow(new KubernetesClientException("Service unavailable", 503, null))
@@ -260,14 +274,12 @@ class ReconcilerUtilsTest {
     assertTrue(result.isPresent());
   }
 
-  @ParameterizedTest
-  @ValueSource(ints = {403, 503})
-  void lenientReadReportsUnreadableResourceAsAbsent(int errorCode) {
+  @Test
+  void lenientReadReportsRefusedReadAsAbsent() {
     Pod pod = buildPod();
     KubernetesClient mockClient = mock(KubernetesClient.class);
     NamespaceableResource<Pod> mockResource = mockClientReturning(mockClient, pod);
-    when(mockResource.get())
-        .thenThrow(new KubernetesClientException("Read failed", errorCode, null));
+    when(mockResource.get()).thenThrow(new KubernetesClientException("Forbidden", 403, null));
 
     assertTrue(ReconcilerUtils.getResource(mockClient, pod).isEmpty());
   }
