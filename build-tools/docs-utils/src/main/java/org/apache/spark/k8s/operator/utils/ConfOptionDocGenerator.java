@@ -23,6 +23,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import lombok.extern.slf4j.Slf4j;
@@ -48,7 +49,7 @@ public class ConfOptionDocGenerator {
     if (generated.createNewFile()) {
       log.info("Creating props at {}/{}", docsPath, CONF_FILE_NAME);
     }
-    PrintWriter printWriter = new PrintWriter(generated, "UTF-8");
+    PrintWriter printWriter = new PrintWriter(generated, StandardCharsets.UTF_8);
     printWriter.println(String.format("[//]: # (%s)", GENERATED_FILE_HEADER));
     printWriter.println("# Spark Operator Config Properties");
     DocTable table =

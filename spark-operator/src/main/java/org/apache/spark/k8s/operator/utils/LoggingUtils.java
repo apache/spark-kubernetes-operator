@@ -33,7 +33,12 @@ import org.apache.spark.k8s.operator.status.BaseState;
 import org.apache.spark.k8s.operator.status.BaseStatus;
 
 /** Utility class for logging. */
-public class LoggingUtils {
+// The nested TrackedMDC is the only member, so the private constructor leaves no static member.
+@SuppressWarnings("PMD.MissingStaticMethodInNonInstantiatableClass")
+public final class LoggingUtils {
+
+  private LoggingUtils() {}
+
   /** Utility class for managing MDC (Mapped Diagnostic Context) for logging. */
   public static final class TrackedMDC {
     public static final String AppAttemptIdKey = "resource.app.attemptId";

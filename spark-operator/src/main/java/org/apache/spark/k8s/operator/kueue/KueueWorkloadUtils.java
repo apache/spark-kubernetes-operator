@@ -181,18 +181,26 @@ public final class KueueWorkloadUtils {
     AdmissionResult admission;
     try {
       admission = requestAdmission(context.getClient(), desired);
-    } catch (IllegalStateException | KubernetesClientException e) {
+    } catch (KubernetesClientException e) {
       log.warn("Failed to request Kueue admission, will retry.", e);
       // Like a status update failure, a transport level failure is not published, since writing
       // an event would only add load to an API server that is often the cause of the failure.
       // It goes away on its own, so it keeps the short interval.
-      if (e instanceof KubernetesClientException kce && ReconcilerUtils.isTransientError(kce)) {
+      if (ReconcilerUtils.isTransientError(e)) {
         return Optional.of(
             ReconcileProgress.completeAndRequeueAfter(STALE_WORKLOAD_REQUEUE_INTERVAL));
       }
       // A persistent failure, such as a missing Kueue or the RBAC rules for it, is retried with
       // the default interval, so that its event is not rewritten every few seconds until a user
       // fixes the cause.
+      EventUtils.warn(
+          context.getEventRecorder(),
+          EventUtils.REASON_KUEUE_ADMISSION_REQUEST_FAILED,
+          "Failed to request Kueue admission, will retry. " + EventUtils.describe(e));
+      return Optional.of(ReconcileProgress.completeAndDefaultRequeue());
+    } catch (IllegalStateException e) {
+      log.warn("Failed to request Kueue admission, will retry.", e);
+      // A malformed Workload is never transient, so it is reported like the persistent API failure.
       EventUtils.warn(
           context.getEventRecorder(),
           EventUtils.REASON_KUEUE_ADMISSION_REQUEST_FAILED,
