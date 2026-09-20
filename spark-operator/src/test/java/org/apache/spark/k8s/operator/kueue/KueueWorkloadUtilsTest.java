@@ -33,6 +33,7 @@ import io.fabric8.kubernetes.api.model.KubernetesResourceList;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.OwnerReferenceBuilder;
 import io.fabric8.kubernetes.api.model.PodTemplateSpecBuilder;
+import io.fabric8.kubernetes.api.model.Toleration;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.dsl.MixedOperation;
@@ -44,7 +45,11 @@ import org.junit.jupiter.api.Test;
 
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils.AdmissionResult;
+import org.apache.spark.k8s.operator.kueue.v1beta2.Admission;
 import org.apache.spark.k8s.operator.kueue.v1beta2.PodSet;
+import org.apache.spark.k8s.operator.kueue.v1beta2.PodSetAssignment;
+import org.apache.spark.k8s.operator.kueue.v1beta2.ResourceFlavor;
+import org.apache.spark.k8s.operator.kueue.v1beta2.ResourceFlavorSpec;
 import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
 import org.apache.spark.k8s.operator.kueue.v1beta2.WorkloadSpec;
 import org.apache.spark.k8s.operator.kueue.v1beta2.WorkloadStatus;
@@ -218,6 +223,126 @@ class KueueWorkloadUtilsTest {
     when(resource.delete()).thenThrow(new KubernetesClientException("forbidden", 403, null));
 
     Assertions.assertDoesNotThrow(() -> KueueWorkloadUtils.releaseWorkload(client, owner()));
+  }
+
+  @Test
+  void resolvePodSetFlavorsMergesFlavorsOfEachPodSet() {
+    Toleration spot = toleration("spot");
+    Toleration gpu = toleration("gpu");
+    createFlavor("cpu-flavor", Map.of("pool", "cpu", "zone", "a"), List.of(spot));
+    createFlavor("gpu-flavor", Map.of("pool", "gpu", "accelerator", "a100"), List.of(spot, gpu));
+    // Like Kueue, a flavor assigned to several resources is applied once
+    Map<String, String> driverFlavors = Map.of("cpu", "cpu-flavor", "memory", "cpu-flavor");
+    // Like Kueue, a later flavor overwrites a node label, which is in the resource name order.
+    // The reverse insertion order pins the assertion to the sorting of `resolvePodSetFlavors`.
+    Map<String, String> executorFlavors = new LinkedHashMap<>();
+    executorFlavors.put("nvidia.com/gpu", "gpu-flavor");
+    executorFlavors.put("cpu", "cpu-flavor");
+
+    Map<String, KueuePodSetFlavor> flavors =
+        KueueWorkloadUtils.resolvePodSetFlavors(
+            kubernetesClient,
+            admittedWorkload(Map.of("driver", driverFlavors, "executor", executorFlavors)),
+            workload("owner-uid-1", 1));
+
+    Assertions.assertEquals(
+        Map.of(
+            "driver",
+            new KueuePodSetFlavor(Map.of("pool", "cpu", "zone", "a"), List.of(spot)),
+            "executor",
+            new KueuePodSetFlavor(
+                Map.of("pool", "gpu", "zone", "a", "accelerator", "a100"), List.of(spot, gpu))),
+        flavors);
+  }
+
+  @Test
+  void resolvePodSetFlavorsWithoutAdmissionIsEmpty() {
+    Workload admitted = workload("owner-uid-1", 1);
+    admitted.setStatus(status("Admitted", "True"));
+
+    Assertions.assertEquals(
+        Map.of(),
+        KueueWorkloadUtils.resolvePodSetFlavors(
+            kubernetesClient, admitted, workload("owner-uid-1", 1)));
+    Assertions.assertEquals(
+        Map.of(),
+        KueueWorkloadUtils.resolvePodSetFlavors(
+            kubernetesClient, admittedWorkload(Map.of()), workload("owner-uid-1", 1)));
+  }
+
+  @Test
+  void resolvePodSetFlavorsAllowsTheSameNodeSelector() {
+    createFlavor("cpu-flavor", Map.of("pool", "cpu"), List.of());
+
+    Map<String, KueuePodSetFlavor> flavors =
+        KueueWorkloadUtils.resolvePodSetFlavors(
+            kubernetesClient,
+            admittedWorkload(Map.of("executor", Map.of("cpu", "cpu-flavor"))),
+            workloadWithNodeSelector(Map.of("pool", "cpu", "zone", "a")));
+
+    Assertions.assertEquals(Map.of("pool", "cpu"), flavors.get("executor").nodeSelector());
+  }
+
+  @Test
+  void resolvePodSetFlavorsFailsOnNodeSelectorConflict() {
+    createFlavor("cpu-flavor", Map.of("pool", "cpu"), List.of());
+
+    IllegalArgumentException e =
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                KueueWorkloadUtils.resolvePodSetFlavors(
+                    kubernetesClient,
+                    admittedWorkload(Map.of("executor", Map.of("cpu", "cpu-flavor"))),
+                    workloadWithNodeSelector(Map.of("pool", "gpu"))));
+    Assertions.assertTrue(e.getMessage().contains("executor"), e.getMessage());
+    Assertions.assertTrue(e.getMessage().contains("pool"), e.getMessage());
+  }
+
+  @Test
+  void resolvePodSetFlavorsFailsOnMissingFlavor() {
+    KubernetesClientException e =
+        Assertions.assertThrows(
+            KubernetesClientException.class,
+            () ->
+                KueueWorkloadUtils.resolvePodSetFlavors(
+                    kubernetesClient,
+                    admittedWorkload(Map.of("executor", Map.of("cpu", "missing-flavor"))),
+                    workload("owner-uid-1", 1)));
+    Assertions.assertEquals(404, e.getCode());
+  }
+
+  private void createFlavor(
+      final String name, final Map<String, String> nodeLabels, final List<Toleration> tolerations) {
+    ResourceFlavor flavor = new ResourceFlavor();
+    flavor.setMetadata(new ObjectMetaBuilder().withName(name).build());
+    flavor.setSpec(
+        ResourceFlavorSpec.builder().nodeLabels(nodeLabels).tolerations(tolerations).build());
+    kubernetesClient.resource(flavor).create();
+  }
+
+  private static Workload admittedWorkload(final Map<String, Map<String, String>> podSetFlavors) {
+    Workload workload = workload("owner-uid-1", 1);
+    WorkloadStatus status = status("Admitted", "True");
+    status.setAdmission(
+        Admission.builder()
+            .clusterQueue("cluster-queue")
+            .podSetAssignments(
+                podSetFlavors.entrySet().stream()
+                    .map(
+                        e ->
+                            PodSetAssignment.builder()
+                                .name(e.getKey())
+                                .flavors(e.getValue())
+                                .build())
+                    .toList())
+            .build());
+    workload.setStatus(status);
+    return workload;
+  }
+
+  private static Toleration toleration(final String key) {
+    return new Toleration("NoSchedule", key, "Exists", null, null);
   }
 
   private Workload getWorkload() {
