@@ -49,7 +49,6 @@ import org.apache.spark.k8s.operator.status.ApplicationAttemptSummary;
 import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
-import org.apache.spark.k8s.operator.utils.EventUtils;
 import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 
@@ -74,7 +73,7 @@ public final class AppInitStep extends AppReconcileStep {
     if (app.getSpec().isSuspend()) {
       Optional<Pod> currentAttemptDriverPod;
       try {
-        currentAttemptDriverPod = context.getCurrentAttemptDriverPodStrictly();
+        currentAttemptDriverPod = context.getCurrentAttemptDriverPod();
       } catch (KubernetesClientException e) {
         // Whether a driver of this attempt is live is unknown, not answered. Holding would claim
         // in an event that none was requested, and would do so for the whole suspend hold
@@ -194,25 +193,12 @@ public final class AppInitStep extends AppReconcileStep {
     } catch (KubernetesClientException e) {
       // Requesting the admission of a driver which is already running would be wrong, so the
       // lookup is retried rather than failing the application with the terminal
-      // SchedulingFailure. Like a failed admission request, a transport level failure is not
-      // published, since writing an event would only add load to an API server that is often the
-      // cause of the failure, and it goes away on its own, so it keeps the short interval.
-      log.warn("Failed to check whether the driver exists before requesting admission.", e);
-      if (ReconcilerUtils.isTransientError(e)) {
-        return Optional.of(
-            ReconcileProgress.completeAndRequeueAfter(
-                KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL));
-      }
-      // A persistent failure, such as the RBAC rules for reading pods, is retried with the
-      // default interval, so that its event is not rewritten every few seconds until a user
-      // fixes the cause.
-      EventUtils.warn(
-          context.getEventRecorder(),
-          EventUtils.REASON_KUEUE_ADMISSION_REQUEST_FAILED,
-          "Failed to check whether the driver exists before requesting Kueue admission, will "
-              + "retry. "
-              + EventUtils.describe(e));
-      return Optional.of(completeAndDefaultRequeue());
+      // SchedulingFailure, and it is reported like the admission request it precedes.
+      return Optional.of(
+          KueueWorkloadUtils.retryAfterRequestFailure(
+              context,
+              e,
+              "Failed to check whether the driver exists before requesting Kueue admission"));
     }
     return KueueWorkloadUtils.holdForAdmission(
         context, KueueWorkloadFactory.buildWorkload(app), "driver");
@@ -222,7 +208,7 @@ public final class AppInitStep extends AppReconcileStep {
    * Checks whether the driver pod of the current attempt has already been requested. This covers
    * the case where the driver was created but the status update to DriverRequested failed, so that
    * a suspended application still completes its initialization instead of being held with a live
-   * driver. See {@link SparkAppContext#getCurrentAttemptDriverPodStrictly()} for how a pod left
+   * driver. See {@link SparkAppContext#getCurrentAttemptDriverPod()} for how a pod left
    * from a previous attempt is told apart.
    *
    * @param context The SparkAppContext for the application.
@@ -231,7 +217,7 @@ public final class AppInitStep extends AppReconcileStep {
    *     mistaken for one that was never requested.
    */
   private boolean isDriverRequested(SparkAppContext context) {
-    return context.getCurrentAttemptDriverPodStrictly().isPresent();
+    return context.getCurrentAttemptDriverPod().isPresent();
   }
 
   /**

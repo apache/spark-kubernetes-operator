@@ -43,8 +43,6 @@ import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.status.ClusterState;
 import org.apache.spark.k8s.operator.status.ClusterStatus;
-import org.apache.spark.k8s.operator.utils.EventUtils;
-import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
 
 /** Request cluster master and its resources when starting an attempt. */
@@ -190,25 +188,13 @@ public final class ClusterInitStep extends ClusterReconcileStep {
       }
     } catch (KubernetesClientException e) {
       // Requesting the admission of a master which is already running would be wrong, so the
-      // lookup is retried rather than failing the cluster with the terminal SchedulingFailure.
-      // Like a failed admission request, a transport level failure is not published, since
-      // writing an event would only add load to an API server that is often the cause of the
-      // failure, and it goes away on its own, so it keeps the short interval.
-      log.warn("Failed to check whether the master exists before requesting admission.", e);
-      if (ReconcilerUtils.isTransientError(e)) {
-        return Optional.of(
-            completeAndRequeueAfter(KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL));
-      }
-      // A persistent failure, such as the RBAC rules for reading StatefulSets, is retried with
-      // the default interval, so that its event is not rewritten every few seconds until a user
-      // fixes the cause.
-      EventUtils.warn(
-          context.getEventRecorder(),
-          EventUtils.REASON_KUEUE_ADMISSION_REQUEST_FAILED,
-          "Failed to check whether the master exists before requesting Kueue admission, will "
-              + "retry. "
-              + EventUtils.describe(e));
-      return Optional.of(completeAndDefaultRequeue());
+      // lookup is retried rather than failing the cluster with the terminal SchedulingFailure,
+      // and it is reported like the admission request it precedes.
+      return Optional.of(
+          KueueWorkloadUtils.retryAfterRequestFailure(
+              context,
+              e,
+              "Failed to check whether the master exists before requesting Kueue admission"));
     }
     return KueueWorkloadUtils.holdForAdmission(
         context, KueueWorkloadFactory.buildWorkload(cluster), "master and workers");

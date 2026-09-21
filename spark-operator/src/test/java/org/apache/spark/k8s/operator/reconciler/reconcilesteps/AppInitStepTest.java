@@ -514,7 +514,7 @@ class AppInitStepTest {
     application.setMetadata(applicationMetadata);
     application.getSpec().setSuspend(true);
     when(mockContext.getResource()).thenReturn(application);
-    when(mockContext.getCurrentAttemptDriverPodStrictly())
+    when(mockContext.getCurrentAttemptDriverPod())
         .thenThrow(new KubernetesClientException("unavailable", 503, null));
     when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
 
@@ -586,7 +586,7 @@ class AppInitStepTest {
     when(mockContext.getDriverPodSpec()).thenReturn(driverPodSpec);
     when(mockContext.getDriverResourcesSpec()).thenReturn(List.of());
     when(mockContext.getClient()).thenReturn(kubernetesClient);
-    when(mockContext.getCurrentAttemptDriverPodStrictly())
+    when(mockContext.getCurrentAttemptDriverPod())
         .thenAnswer(
             invocation ->
                 Optional.ofNullable(
@@ -637,7 +637,7 @@ class AppInitStepTest {
             .build();
     when(mockContext.getResource()).thenReturn(application);
     when(mockContext.getDriverPod()).thenReturn(Optional.of(previousAttemptDriver));
-    when(mockContext.getCurrentAttemptDriverPodStrictly()).thenReturn(Optional.empty());
+    when(mockContext.getCurrentAttemptDriverPod()).thenReturn(Optional.empty());
     when(mockContext.getDriverPodSpec()).thenReturn(driverPodSpec);
     when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
 
@@ -1000,7 +1000,7 @@ class AppInitStepTest {
     application.setMetadata(kueueApplicationMetadata);
     when(mockContext.getResource()).thenReturn(application);
     when(mockContext.getClient()).thenReturn(kubernetesClient);
-    when(mockContext.getCurrentAttemptDriverPodStrictly())
+    when(mockContext.getCurrentAttemptDriverPod())
         .thenThrow(new KubernetesClientException("unavailable", 503, null));
 
     ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
@@ -1031,7 +1031,7 @@ class AppInitStepTest {
     when(mockContext.getResource()).thenReturn(application);
     when(mockContext.getClient()).thenReturn(kubernetesClient);
     when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
-    when(mockContext.getCurrentAttemptDriverPodStrictly())
+    when(mockContext.getCurrentAttemptDriverPod())
         .thenThrow(new KubernetesClientException("forbidden", 403, null));
 
     ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
@@ -1059,7 +1059,7 @@ class AppInitStepTest {
     kubernetesClient.resource(driverPodSpec).create();
     when(mockContext.getResource()).thenReturn(application);
     when(mockContext.getClient()).thenReturn(kubernetesClient);
-    when(mockContext.getCurrentAttemptDriverPodStrictly()).thenReturn(Optional.of(driverPodSpec));
+    when(mockContext.getCurrentAttemptDriverPod()).thenReturn(Optional.of(driverPodSpec));
     when(mockContext.getDriverPreResourcesSpec()).thenReturn(List.of());
     when(mockContext.getDriverPodSpec()).thenReturn(driverPodSpec);
     when(mockContext.getDriverResourcesSpec()).thenReturn(List.of());

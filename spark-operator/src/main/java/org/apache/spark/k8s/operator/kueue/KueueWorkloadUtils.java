@@ -60,6 +60,7 @@ import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 
 /** Utilities to create, check and release Kueue Workloads. */
 @Slf4j
+@SuppressWarnings("PMD.GodClass")
 public final class KueueWorkloadUtils {
 
   /** Annotation holding the hash of the pod sets which the Workload was created with. */
@@ -182,22 +183,7 @@ public final class KueueWorkloadUtils {
     try {
       admission = requestAdmission(context.getClient(), desired);
     } catch (KubernetesClientException e) {
-      log.warn("Failed to request Kueue admission, will retry.", e);
-      // Like a status update failure, a transport level failure is not published, since writing
-      // an event would only add load to an API server that is often the cause of the failure.
-      // It goes away on its own, so it keeps the short interval.
-      if (ReconcilerUtils.isTransientError(e)) {
-        return Optional.of(
-            ReconcileProgress.completeAndRequeueAfter(STALE_WORKLOAD_REQUEUE_INTERVAL));
-      }
-      // A persistent failure, such as a missing Kueue or the RBAC rules for it, is retried with
-      // the default interval, so that its event is not rewritten every few seconds until a user
-      // fixes the cause.
-      EventUtils.warn(
-          context.getEventRecorder(),
-          EventUtils.REASON_KUEUE_ADMISSION_REQUEST_FAILED,
-          "Failed to request Kueue admission, will retry. " + EventUtils.describe(e));
-      return Optional.of(ReconcileProgress.completeAndDefaultRequeue());
+      return Optional.of(retryAfterRequestFailure(context, e, "Failed to request Kueue admission"));
     } catch (IllegalStateException e) {
       log.warn("Failed to request Kueue admission, will retry.", e);
       // A malformed Workload is never transient, so it is reported like the persistent API failure.
@@ -238,6 +224,33 @@ public final class KueueWorkloadUtils {
         EventUtils.REASON_KUEUE_ADMITTED,
         "Kueue admitted Workload " + workloadName + ", requesting " + requested + ".");
     return Optional.empty();
+  }
+
+  /**
+   * Reports a failed Kueue admission request, or a failed read that has to happen before one, and
+   * returns the progress to retry it with. Like a status update failure, a transport level
+   * failure is not published, since writing an event would only add load to an API server that is
+   * often the cause of it, and it goes away on its own, so it keeps the short interval. Anything
+   * else, such as a missing Kueue or the RBAC rules for it, is retried with the default interval,
+   * so that its event is not rewritten every few seconds until a user fixes the cause.
+   *
+   * @param context The context of the resource whose admission is held.
+   * @param e The failure to report.
+   * @param what What failed, as named in the event and the log, e.g. {@code "Failed to request
+   *     Kueue admission"}.
+   * @return The progress to return while the admission is not granted.
+   */
+  public static ReconcileProgress retryAfterRequestFailure(
+      final BaseContext<?> context, final KubernetesClientException e, final String what) {
+    log.warn("{}, will retry.", what, e);
+    if (ReconcilerUtils.isTransientError(e)) {
+      return ReconcileProgress.completeAndRequeueAfter(STALE_WORKLOAD_REQUEUE_INTERVAL);
+    }
+    EventUtils.warn(
+        context.getEventRecorder(),
+        EventUtils.REASON_KUEUE_ADMISSION_REQUEST_FAILED,
+        what + ", will retry. " + EventUtils.describe(e));
+    return ReconcileProgress.completeAndDefaultRequeue();
   }
 
   /**
