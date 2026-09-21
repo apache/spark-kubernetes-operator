@@ -188,15 +188,18 @@ public final class ReconcilerUtils {
   }
 
   /**
-   * Retrieves a Kubernetes resource by its desired state, reporting a resource that could not be
-   * read as absent.
+   * Retrieves a Kubernetes resource by its desired state for the create path, reporting a resource
+   * that could not be read as absent. The create loop re-reads on an AlreadyExists conflict and
+   * resolves the actual state anyway, so a failed read there only means that the create has to be
+   * retried. A caller which decides from the answer must not read this way, since it cannot tell
+   * a missing resource from one it failed to read.
    *
    * @param client The KubernetesClient.
    * @param desired The desired state of the resource.
    * @param <T> The type of the resource, extending HasMetadata.
    * @return An Optional containing the retrieved resource, or empty if not found or not readable.
    */
-  public static <T extends HasMetadata> Optional<T> getResource(
+  static <T extends HasMetadata> Optional<T> getResource(
       final KubernetesClient client, final T desired) {
     try {
       return getResourceStrictly(client, desired);

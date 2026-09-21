@@ -43,6 +43,8 @@ import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.status.ClusterState;
 import org.apache.spark.k8s.operator.status.ClusterStatus;
+import org.apache.spark.k8s.operator.utils.EventUtils;
+import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
 
 /** Request cluster master and its resources when starting an attempt. */
@@ -73,7 +75,7 @@ public final class ClusterInitStep extends ClusterReconcileStep {
         // Whether the master is live is unknown, not answered. Holding would claim in an event
         // that none was requested, and would release the Kueue quota of a running master, so
         // look again with the steady-state interval instead.
-        log.error("Failed to check whether the master of a suspended cluster exists.", e);
+        log.warn("Failed to check whether the master of a suspended cluster exists.", e);
         return completeAndDefaultRequeue();
       }
       if (!masterRequested) {
@@ -189,9 +191,24 @@ public final class ClusterInitStep extends ClusterReconcileStep {
     } catch (KubernetesClientException e) {
       // Requesting the admission of a master which is already running would be wrong, so the
       // lookup is retried rather than failing the cluster with the terminal SchedulingFailure.
-      log.error("Failed to check whether the master exists before requesting admission.", e);
-      return Optional.of(
-          completeAndRequeueAfter(KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL));
+      // Like a failed admission request, a transport level failure is not published, since
+      // writing an event would only add load to an API server that is often the cause of the
+      // failure, and it goes away on its own, so it keeps the short interval.
+      log.warn("Failed to check whether the master exists before requesting admission.", e);
+      if (ReconcilerUtils.isTransientError(e)) {
+        return Optional.of(
+            completeAndRequeueAfter(KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL));
+      }
+      // A persistent failure, such as the RBAC rules for reading StatefulSets, is retried with
+      // the default interval, so that its event is not rewritten every few seconds until a user
+      // fixes the cause.
+      EventUtils.warn(
+          context.getEventRecorder(),
+          EventUtils.REASON_KUEUE_ADMISSION_REQUEST_FAILED,
+          "Failed to check whether the master exists before requesting Kueue admission, will "
+              + "retry. "
+              + EventUtils.describe(e));
+      return Optional.of(completeAndDefaultRequeue());
     }
     return KueueWorkloadUtils.holdForAdmission(
         context, KueueWorkloadFactory.buildWorkload(cluster), "master and workers");
@@ -207,9 +224,10 @@ public final class ClusterInitStep extends ClusterReconcileStep {
    *     mistaken for one that was never requested.
    */
   private boolean isMasterRequested(SparkClusterContext context) {
-    // The lenient ReconcilerUtils.getResource is not used here, since it reports a StatefulSet it
-    // could not read as absent, which would release the Kueue quota of a running master. The
-    // client itself reports a StatefulSet which does not exist as null.
+    // Neither ReconcilerUtils read is used here: getResource reports a StatefulSet it could not
+    // read as absent, and getResourceStrictly does the same for a transient failure, a 500 or a
+    // 429, since the create path it serves re-reads anyway. Either would release the Kueue quota
+    // of a running master. Only a 404 may mean absent, which the client reports as null.
     return context.getClient().resource(context.getMasterStatefulSetSpec()).get() != null;
   }
 }

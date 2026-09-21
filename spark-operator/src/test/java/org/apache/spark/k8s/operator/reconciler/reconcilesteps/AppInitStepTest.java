@@ -1013,9 +1013,38 @@ class AppInitStepTest {
     Assertions.assertNull(getWorkload());
     verify(mockContext, never()).getDriverPreResourcesSpec();
     verifyNoInteractions(recorder);
+    // An unavailable API server must not be loaded with event writes on top of the retries
+    verifyNoInteractions(eventRecorder);
     Assertions.assertEquals(
         ApplicationStateSummary.Submitted,
         application.getStatus().getCurrentState().getCurrentStateSummary());
+  }
+
+  @Test
+  void refusedDriverLookupBeforeKueueAdmissionPublishesEvent() {
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(kueueApplicationMetadata);
+    // e.g. the operator lacks the RBAC rules for reading pods, which a user has to fix
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+    when(mockContext.getCurrentAttemptDriverPodStrictly())
+        .thenThrow(new KubernetesClientException("forbidden", 403, null));
+
+    ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
+
+    // A persistent failure keeps the default interval, so that its event is not rewritten every
+    // few seconds until a user fixes the cause
+    Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
+    Assertions.assertNull(getWorkload());
+    verifyNoInteractions(recorder);
+    EventRecord event = captureEvents(1).get(0);
+    Assertions.assertEquals(EventType.WARNING, event.type());
+    Assertions.assertEquals(EventUtils.REASON_KUEUE_ADMISSION_REQUEST_FAILED, event.reason());
+    Assertions.assertTrue(event.message().contains("forbidden"), event.message());
   }
 
   @Test
