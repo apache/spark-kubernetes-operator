@@ -60,7 +60,6 @@ import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 
 /** Utilities to create, check and release Kueue Workloads. */
 @Slf4j
-@SuppressWarnings("PMD.GodClass")
 public final class KueueWorkloadUtils {
 
   /** Annotation holding the hash of the pod sets which the Workload was created with. */

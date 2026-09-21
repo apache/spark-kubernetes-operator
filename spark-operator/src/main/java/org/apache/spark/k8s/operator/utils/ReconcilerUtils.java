@@ -55,7 +55,6 @@ import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 
 /** Utility class for reconciler operations. */
 @Slf4j
-@SuppressWarnings("PMD.GodClass")
 public final class ReconcilerUtils {
 
   private ReconcilerUtils() {}

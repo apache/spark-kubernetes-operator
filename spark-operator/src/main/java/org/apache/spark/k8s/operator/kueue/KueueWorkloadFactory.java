@@ -63,7 +63,6 @@ import org.apache.spark.network.util.JavaUtils;
  * and {@link SparkCluster} (master and worker pod sets).
  */
 @Slf4j
-@SuppressWarnings("PMD.GodClass")
 public final class KueueWorkloadFactory {
 
   public static final String PODSET_DRIVER = "driver";
