@@ -357,22 +357,26 @@ public final class KueueWorkloadUtils {
   }
 
   /**
-   * Deletes the Workload of the given resource so that Kueue releases its quota. Failures are
-   * logged only, because the Workload is garbage collected with its owner anyway.
+   * Deletes the Workload of the given resource so that Kueue releases its quota, and reports
+   * whether one was there to delete. Failures are logged only, because the Workload is garbage
+   * collected with its owner anyway.
    *
    * @param client The KubernetesClient.
    * @param owner The SparkApplication or SparkCluster owning the Workload.
+   * @return True if a Workload was deleted, false if there was none or the deletion failed.
    */
-  public static void releaseWorkload(final KubernetesClient client, final HasMetadata owner) {
+  public static boolean releaseWorkload(final KubernetesClient client, final HasMetadata owner) {
     String name = KueueWorkloadFactory.getWorkloadName(owner);
     try {
-      client
+      return !client
           .resources(Workload.class)
           .inNamespace(owner.getMetadata().getNamespace())
           .withName(name)
-          .delete();
+          .delete()
+          .isEmpty();
     } catch (KubernetesClientException e) {
       log.warn("Failed to release the Kueue Workload {}.", name, e);
+      return false;
     }
   }
 

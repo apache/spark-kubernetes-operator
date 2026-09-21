@@ -263,6 +263,35 @@ public final class SparkOperatorConf {
           .build();
 
   /**
+   * Requeue interval (in seconds) at which a resource held by {@code spec.suspend} is reconciled,
+   * so that its {@code SuspendHeld} event is republished. The hold ends only when a user clears
+   * {@code spec.suspend}, which arrives as a watch event and reconciles right away, so nothing
+   * waits for this interval. It is deliberately much coarser than {@link
+   * #RECONCILER_INTERVAL_SECONDS}, since a suspended resource has nothing to observe while each
+   * republish costs a read and a write on the API server. Keep it below the {@code --event-ttl} of
+   * the API server (one hour by default), or the event expires between repeats and the hold stops
+   * being visible.
+   */
+  public static final ConfigOption<Long> SUSPEND_HOLD_REQUEUE_INTERVAL_SECONDS =
+      ConfigOption.<Long>builder()
+          .key("spark.kubernetes.operator.reconciler.suspendHoldRequeueIntervalSeconds")
+          .enableDynamicOverride(true)
+          .description(
+              "Requeue interval (in seconds) at which a resource held by spec.suspend is "
+                  + "reconciled, so that its SuspendHeld event is republished. The hold ends only "
+                  + "when a user clears spec.suspend, which arrives as a watch event and "
+                  + "reconciles right away, so nothing waits for this interval. It is "
+                  + "deliberately much coarser than "
+                  + "spark.kubernetes.operator.reconciler.intervalSeconds, since a suspended "
+                  + "resource has nothing to observe while each republish costs a read and a "
+                  + "write on the API server. Keep it below the '--event-ttl' of the API server "
+                  + "(one hour by default), or the event expires between repeats and the hold "
+                  + "stops being visible.")
+          .typeParameterClass(Long.class)
+          .defaultValue(1800L)
+          .build();
+
+  /**
    * When enabled, operator would trim state transition history when a new attempt starts, keeping
    * previous attempt summary only.
    */
@@ -292,10 +321,10 @@ public final class SparkOperatorConf {
                   + "namespace via 'kubectl describe' and 'kubectl get events'. Events are "
                   + "published when a resource transitions into a new state, as Warning for "
                   + "failure states and Normal for most other states, when the operator "
-                  + "cannot reconcile or update the status of a resource, and when a resource "
-                  + "queued by Kueue waits for, gets or fails to request the admission. These "
-                  + "are Event resources in the core API group, unrelated to the internal "
-                  + "events that trigger reconciliation.")
+                  + "cannot reconcile or update the status of a resource, when a resource is "
+                  + "held by spec.suspend, and when a resource queued by Kueue waits for, gets "
+                  + "or fails to request the admission. These are Event resources in the core "
+                  + "API group, unrelated to the internal events that trigger reconciliation.")
           .typeParameterClass(Boolean.class)
           .defaultValue(false)
           .build();

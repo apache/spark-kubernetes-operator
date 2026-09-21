@@ -536,8 +536,13 @@ StatefulSets. Setting it back to `false` resumes the regular lifecycle.
 
 `Submitted` here is the operator's in-memory view. For a valid resource created with
 `suspend: true`, the initial `Submitted` status is not persisted to the API server, so
-`kubectl get` shows an empty `Current State` until initialization resumes. An application held
-later, in `ScheduledToRestart`, keeps the status its previous attempt already wrote.
+`kubectl get` shows an empty `Current State` and no state transition events are published until
+initialization resumes. Instead, the `SuspendHeld` [event](configuration.md#kubernetes-events) is
+published when enabled. Since the status is not there to fall back on, it is republished every 30
+minutes by default while the hold lasts, so that it outlives the event retention of the API
+server. An application held later, in `ScheduledToRestart`, keeps the status its previous attempt
+already wrote and gets the same event, since that status says that a restart is due, not that the
+next attempt is withheld.
 
 ``` yaml
 apiVersion: spark.apache.org/v1

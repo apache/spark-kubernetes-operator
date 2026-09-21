@@ -146,6 +146,9 @@ jobs:
             mode: static
             test-group: pi-java25
           - kubernetes-version: "1.37.0"
+            mode: events
+            test-group: suspend-events
+          - kubernetes-version: "1.37.0"
             mode: kueue
             test-group: kueue
     steps:
@@ -242,6 +245,21 @@ jobs:
           minikube docker-env --unset
       - name: Run E2E Test with Resource Selector Enabled
         if: matrix.mode == 'selector'
+        run: |
+          chainsaw test --test-dir ./tests/e2e/${{ matrix.test-group }} --parallel 1
+      - name: Run Spark K8s Operator on K8S with Kubernetes Events Enabled
+        if: matrix.mode == 'events'
+        run: |
+          eval $(minikube docker-env)
+          ./gradlew buildDockerImage
+          helm install spark --create-namespace -f \
+          build-tools/helm/spark-kubernetes-operator/values.yaml -f \
+          tests/e2e/helm/events-config-values.yaml \
+          build-tools/helm/spark-kubernetes-operator/
+          helm test spark
+          minikube docker-env --unset
+      - name: Run E2E Test with Kubernetes Events Enabled
+        if: matrix.mode == 'events'
         run: |
           chainsaw test --test-dir ./tests/e2e/${{ matrix.test-group }} --parallel 1
       - name: Run Spark K8s Operator on K8S with Kueue Enabled
