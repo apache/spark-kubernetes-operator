@@ -31,11 +31,13 @@ import static org.apache.spark.k8s.operator.config.SparkOperatorConf.RECONCILER_
 import static org.apache.spark.k8s.operator.utils.ModelUtils.buildOwnerReferenceTo;
 import static org.apache.spark.k8s.operator.utils.SparkExceptionUtils.isConflictForExistingResource;
 
+import java.security.cert.CertPathBuilderException;
+import java.security.cert.CertPathValidatorException;
+import java.security.cert.CertificateException;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
-import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLPeerUnverifiedException;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -332,10 +334,11 @@ public final class ReconcilerUtils {
 
   /**
    * Whether the given failure left the request unanswered, so that asking again may yet work. It
-   * is defined as the complement of the two status-less failures that repeating cannot change: a
-   * rejection the client raised before sending anything, which carries no cause at all, and an
-   * answer that arrived but could not be used, which carries the parsing or certificate failure
-   * that rejected it. Anything else that carries a cause counts as unanswered.
+   * is defined as the complement of the status-less failures that repeating cannot change: a
+   * rejection the client raised before sending anything, which carries no cause at all; an answer
+   * that arrived but could not be parsed; a certificate the peer could not prove; and the caller
+   * being interrupted, which is a decision to stop rather than a failure. Anything else that
+   * carries a cause counts as unanswered.
    *
    * <p>Naming what cannot work, rather than what can, keeps this from tracking the exception types
    * of whichever HTTP client is plugged in. A connection the peer closes mid-response is the case
@@ -350,11 +353,16 @@ public final class ReconcilerUtils {
     // fabric8 wraps the failure and its own HTTP client wraps it again.
     Throwable cause = e.getCause();
     for (int depth = 0; cause != null && depth < MAX_CAUSE_DEPTH; depth++) {
-      // A handshake that failed over a certificate, a host name or a trust store is the one
-      // answer-less failure that repeating cannot fix, so it is grouped with the unusable answers.
+      // The trust failures are the ones fabric8 itself refuses to retry. Keying on them rather
+      // than on the handshake that reported them keeps a handshake that merely timed out
+      // retriable. An interruption is matched on InterruptedException rather than on
+      // InterruptedIOException, which a plain read timeout also extends.
       if (cause instanceof JsonProcessingException
-          || cause instanceof SSLHandshakeException
-          || cause instanceof SSLPeerUnverifiedException) {
+          || cause instanceof CertificateException
+          || cause instanceof CertPathValidatorException
+          || cause instanceof CertPathBuilderException
+          || cause instanceof SSLPeerUnverifiedException
+          || cause instanceof InterruptedException) {
         return false;
       }
       cause = cause.getCause();

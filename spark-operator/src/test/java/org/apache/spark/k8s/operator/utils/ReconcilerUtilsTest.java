@@ -30,9 +30,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.net.ConnectException;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
+import java.security.cert.CertificateException;
 import java.util.Optional;
 import java.util.concurrent.TimeoutException;
 
@@ -46,6 +48,7 @@ import io.fabric8.kubernetes.api.model.StatusBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.dsl.NamespaceableResource;
+import io.netty.handler.ssl.SslHandshakeTimeoutException;
 import io.vertx.core.http.HttpClosedException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -170,15 +173,38 @@ class ReconcilerUtilsTest {
   }
 
   @Test
-  void doesNotClassifyCertificateFailureAsTransient() {
-    // A handshake rejected over a certificate, a host name or a trust store is answer-less like a
-    // broken connection, but repeating it cannot fix it.
-    assertFalse(
+  void classifiesHandshakeTimeoutAsTransient() {
+    // A handshake that merely ran out of time says nothing about the certificate, so it is the
+    // temporarily unresponsive server it points at, not a trust decision that will not change.
+    assertTrue(
         ReconcilerUtils.isTransientError(
             new KubernetesClientException(
                 "Handshake failed",
-                new IOException(
-                    "wrapped", new SSLHandshakeException("PKIX path building failed")))));
+                new IOException("wrapped", new SslHandshakeTimeoutException("timed out")))));
+  }
+
+  @Test
+  void doesNotClassifyInterruptionAsTransient() {
+    // An interrupted caller is a decision to stop, not a failure to retry. It is matched on the
+    // InterruptedException rather than on the InterruptedIOException wrapping it, since a plain
+    // read timeout extends that same class and has to stay retriable.
+    InterruptedIOException interrupted = new InterruptedIOException("interrupted");
+    interrupted.initCause(new InterruptedException());
+    assertFalse(
+        ReconcilerUtils.isTransientError(
+            new KubernetesClientException("Operation failed", interrupted)));
+  }
+
+  @Test
+  void doesNotClassifyCertificateFailureAsTransient() {
+    // A handshake rejected over a certificate, a host name or a trust store is answer-less like a
+    // broken connection, but repeating it cannot fix it.
+    SSLHandshakeException handshake = new SSLHandshakeException("PKIX path building failed");
+    handshake.initCause(new CertificateException("unable to find valid certification path"));
+    assertFalse(
+        ReconcilerUtils.isTransientError(
+            new KubernetesClientException(
+                "Handshake failed", new IOException("wrapped", handshake))));
   }
 
   @Test

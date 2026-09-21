@@ -32,6 +32,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.net.SocketException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -987,6 +988,57 @@ class AppInitStepTest {
             KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL),
         progress);
     verifyNoInteractions(eventRecorder);
+  }
+
+  @Test
+  void kueueUnansweredRequestPublishesNoEvent() {
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(kueueApplicationMetadata);
+    // A request that never reached the API server carries no response code, so only its cause
+    // marks it as one to wait out rather than report.
+    KubernetesClient failingClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    when(failingClient.scheduling().v1().priorityClasses().list())
+        .thenReturn(new PriorityClassList());
+    when(failingClient.resource(any(Workload.class)).create())
+        .thenThrow(new KubernetesClientException("closed", new SocketException("reset")));
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getClient()).thenReturn(failingClient);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+
+    ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
+
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndRequeueAfter(
+            KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL),
+        progress);
+    verifyNoInteractions(eventRecorder);
+  }
+
+  @Test
+  void kueueClientSideRejectionPublishesAnEvent() {
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(kueueApplicationMetadata);
+    // A rejection raised before the request was sent shares the absent response code, but nothing
+    // clears it on its own, so it keeps its event and the default interval.
+    KubernetesClient failingClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    when(failingClient.scheduling().v1().priorityClasses().list())
+        .thenReturn(new PriorityClassList());
+    when(failingClient.resource(any(Workload.class)).create())
+        .thenThrow(new KubernetesClientException("resourceVersion cannot be null"));
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getClient()).thenReturn(failingClient);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+
+    ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
+
+    Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
+    verify(eventRecorder).record(any(EventRecord.class));
   }
 
   @Test
