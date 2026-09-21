@@ -73,7 +73,7 @@ public final class AppInitStep extends AppReconcileStep {
     if (app.getSpec().isSuspend()) {
       Optional<Pod> currentAttemptDriverPod;
       try {
-        currentAttemptDriverPod = context.getCurrentAttemptDriverPodStrictly();
+        currentAttemptDriverPod = context.getCurrentAttemptDriverPod();
       } catch (KubernetesClientException e) {
         // Whether a driver of this attempt is live is unknown, not answered. Holding would claim
         // in an event that none was requested, and would do so for the whole suspend hold
@@ -183,8 +183,22 @@ public final class AppInitStep extends AppReconcileStep {
    */
   private Optional<ReconcileProgress> holdForKueueAdmission(
       SparkAppContext context, SparkApplication app) {
-    if (!KueueWorkloadFactory.hasQueueName(app) || isDriverRequested(context)) {
+    if (!KueueWorkloadFactory.hasQueueName(app)) {
       return Optional.empty();
+    }
+    try {
+      if (isDriverRequested(context)) {
+        return Optional.empty();
+      }
+    } catch (KubernetesClientException e) {
+      // Requesting the admission of a driver which is already running would be wrong, so the
+      // lookup is retried rather than failing the application with the terminal
+      // SchedulingFailure, and it is reported like the admission request it precedes.
+      return Optional.of(
+          KueueWorkloadUtils.retryAfterRequestFailure(
+              context,
+              e,
+              "Failed to check whether the driver exists before requesting Kueue admission"));
     }
     return KueueWorkloadUtils.holdForAdmission(
         context, KueueWorkloadFactory.buildWorkload(app), "driver");
@@ -194,11 +208,13 @@ public final class AppInitStep extends AppReconcileStep {
    * Checks whether the driver pod of the current attempt has already been requested. This covers
    * the case where the driver was created but the status update to DriverRequested failed, so that
    * a suspended application still completes its initialization instead of being held with a live
-   * driver. See {@link SparkAppContext#getCurrentAttemptDriverPod()} for how a pod left from a
-   * previous attempt is told apart.
+   * driver. See {@link SparkAppContext#getCurrentAttemptDriverPod()} for how a pod left
+   * from a previous attempt is told apart.
    *
    * @param context The SparkAppContext for the application.
    * @return True if the driver pod of the current attempt exists, false otherwise.
+   * @throws KubernetesClientException if the lookup fails, so that a running driver is not
+   *     mistaken for one that was never requested.
    */
   private boolean isDriverRequested(SparkAppContext context) {
     return context.getCurrentAttemptDriverPod().isPresent();

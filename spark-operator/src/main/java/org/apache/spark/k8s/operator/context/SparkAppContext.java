@@ -31,7 +31,6 @@ import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
-import lombok.extern.slf4j.Slf4j;
 
 import org.apache.spark.k8s.operator.SparkAppResourceSpec;
 import org.apache.spark.k8s.operator.SparkAppSubmissionWorker;
@@ -42,7 +41,6 @@ import org.apache.spark.k8s.operator.reconciler.SparkAppResourceSpecFactory;
  * Context for {@link org.apache.spark.k8s.operator.SparkApplication} resource, including secondary
  * resource(s) and desired secondary resource spec
  */
-@Slf4j
 public class SparkAppContext extends BaseContext<SparkApplication> {
   private final SparkApplication sparkApplication;
   private final SparkAppSubmissionWorker submissionWorker;
@@ -96,33 +94,14 @@ public class SparkAppContext extends BaseContext<SparkApplication> {
    *
    * <p>The informer cache is only used to find a candidate. Since the cache may still hold the
    * pre-deletion snapshot of a previous attempt's pod, the candidate is verified against the API
-   * server and returned only if it exists there and is not terminating. If the verification fails
-   * because of an API error, the pod is considered absent for this reconciliation. Callers that
-   * must not act on that assumption use {@link #getCurrentAttemptDriverPodStrictly()} instead.
-   *
-   * @return An Optional containing the driver Pod of the current attempt, or empty if not found.
-   */
-  public Optional<Pod> getCurrentAttemptDriverPod() {
-    try {
-      return getCurrentAttemptDriverPodStrictly();
-    } catch (KubernetesClientException e) {
-      log.warn(
-          "Failed to verify driver pod {} against the API server, considering it absent.",
-          getDriverPodSpec().getMetadata().getName(),
-          e);
-      return Optional.empty();
-    }
-  }
-
-  /**
-   * Same as {@link #getCurrentAttemptDriverPod()}, but reports a failed verification instead of
-   * reading it as an absent pod. A caller that would otherwise conclude that no driver has been
-   * requested, and act on that, uses this so that an API error does not look like an answer.
+   * server and returned only if it exists there and is not terminating. A failed verification is
+   * reported rather than read as an absent pod, since a caller concludes from the answer that no
+   * driver has been requested and acts on that.
    *
    * @return An Optional containing the driver Pod of the current attempt, or empty if not found.
    * @throws KubernetesClientException if the candidate cannot be verified against the API server.
    */
-  public Optional<Pod> getCurrentAttemptDriverPodStrictly() {
+  public Optional<Pod> getCurrentAttemptDriverPod() {
     List<Pod> driverPods =
         josdkContext
             .getSecondaryResourcesAsStream(Pod.class)

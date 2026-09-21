@@ -96,12 +96,15 @@ class SparkAppContextTest {
   }
 
   @Test
-  void apiErrorDuringVerificationIsTreatedAsAbsent() {
+  void apiErrorDuringVerificationIsPropagated() {
+    // A failed verification must not be reported as an absent driver, which would let a
+    // suspended application release the Kueue quota of its running driver
     SparkAppContext context = buildContext(List.of(driverPodSpec), null);
     when(context.getClient().pods().inNamespace("default").withName(anyString()).get())
         .thenThrow(new KubernetesClientException("boom", 500, null));
 
-    Assertions.assertTrue(context.getCurrentAttemptDriverPod().isEmpty());
+    Assertions.assertThrows(
+        KubernetesClientException.class, context::getCurrentAttemptDriverPod);
   }
 
   @Test

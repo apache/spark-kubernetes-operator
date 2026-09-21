@@ -514,7 +514,7 @@ class AppInitStepTest {
     application.setMetadata(applicationMetadata);
     application.getSpec().setSuspend(true);
     when(mockContext.getResource()).thenReturn(application);
-    when(mockContext.getCurrentAttemptDriverPodStrictly())
+    when(mockContext.getCurrentAttemptDriverPod())
         .thenThrow(new KubernetesClientException("unavailable", 503, null));
     when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
 
@@ -586,7 +586,7 @@ class AppInitStepTest {
     when(mockContext.getDriverPodSpec()).thenReturn(driverPodSpec);
     when(mockContext.getDriverResourcesSpec()).thenReturn(List.of());
     when(mockContext.getClient()).thenReturn(kubernetesClient);
-    when(mockContext.getCurrentAttemptDriverPodStrictly())
+    when(mockContext.getCurrentAttemptDriverPod())
         .thenAnswer(
             invocation ->
                 Optional.ofNullable(
@@ -637,7 +637,7 @@ class AppInitStepTest {
             .build();
     when(mockContext.getResource()).thenReturn(application);
     when(mockContext.getDriverPod()).thenReturn(Optional.of(previousAttemptDriver));
-    when(mockContext.getCurrentAttemptDriverPodStrictly()).thenReturn(Optional.empty());
+    when(mockContext.getCurrentAttemptDriverPod()).thenReturn(Optional.empty());
     when(mockContext.getDriverPodSpec()).thenReturn(driverPodSpec);
     when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
 
@@ -987,6 +987,64 @@ class AppInitStepTest {
             KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL),
         progress);
     verifyNoInteractions(eventRecorder);
+  }
+
+  @Test
+  void failedDriverLookupBeforeKueueAdmissionIsRetried() {
+    // A failed verification is not an answer either before the admission: requesting quota for a
+    // driver which is already running would hold a live application
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(kueueApplicationMetadata);
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
+    when(mockContext.getCurrentAttemptDriverPod())
+        .thenThrow(new KubernetesClientException("unavailable", 503, null));
+
+    ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
+
+    // The application is retried rather than failed with the terminal SchedulingFailure
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndRequeueAfter(
+            KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL),
+        progress);
+    Assertions.assertNull(getWorkload());
+    verify(mockContext, never()).getDriverPreResourcesSpec();
+    verifyNoInteractions(recorder);
+    // An unavailable API server must not be loaded with event writes on top of the retries
+    verifyNoInteractions(eventRecorder);
+    Assertions.assertEquals(
+        ApplicationStateSummary.Submitted,
+        application.getStatus().getCurrentState().getCurrentStateSummary());
+  }
+
+  @Test
+  void refusedDriverLookupBeforeKueueAdmissionPublishesEvent() {
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(kueueApplicationMetadata);
+    // e.g. the operator lacks the RBAC rules for reading pods, which a user has to fix
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+    when(mockContext.getCurrentAttemptDriverPod())
+        .thenThrow(new KubernetesClientException("forbidden", 403, null));
+
+    ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
+
+    // A persistent failure keeps the default interval, so that its event is not rewritten every
+    // few seconds until a user fixes the cause
+    Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
+    Assertions.assertNull(getWorkload());
+    verifyNoInteractions(recorder);
+    EventRecord event = captureEvents(1).get(0);
+    Assertions.assertEquals(EventType.WARNING, event.type());
+    Assertions.assertEquals(EventUtils.REASON_KUEUE_ADMISSION_REQUEST_FAILED, event.reason());
+    Assertions.assertTrue(event.message().contains("forbidden"), event.message());
   }
 
   @Test

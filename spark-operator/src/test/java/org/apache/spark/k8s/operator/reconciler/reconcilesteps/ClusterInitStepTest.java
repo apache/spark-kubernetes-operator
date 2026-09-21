@@ -571,6 +571,97 @@ class ClusterInitStepTest {
     verifyNoInteractions(eventRecorder);
   }
 
+  @Test
+  void suspendedClusterWithUnverifiableMasterIsNotHeld() {
+    // A failed lookup is not an answer: the master may be running, so the cluster must not be
+    // held with an event claiming that none was requested, and its Kueue quota must not be
+    // released either
+    ClusterInitStep clusterInitStep = new ClusterInitStep();
+    SparkClusterContext mockContext = mock(SparkClusterContext.class);
+    SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
+    SparkCluster cluster = buildKueueCluster();
+    cluster.getSpec().setSuspend(true);
+    KubernetesClient mockClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    when(mockClient.resource(masterStatefulSetSpec).get())
+        .thenThrow(new KubernetesClientException("unavailable", 503, null));
+    when(mockContext.getResource()).thenReturn(cluster);
+    when(mockContext.getClient()).thenReturn(mockClient);
+    when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+
+    ReconcileProgress progress = clusterInitStep.reconcile(mockContext, recorder);
+
+    Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
+    verify(mockClient, never()).resources(Workload.class);
+    verify(mockContext, never()).getMasterServiceSpec();
+    verifyNoInteractions(recorder);
+    verifyNoInteractions(eventRecorder);
+    Assertions.assertEquals(
+        ClusterStateSummary.Submitted,
+        cluster.getStatus().getCurrentState().getCurrentStateSummary());
+  }
+
+  @Test
+  void failedMasterLookupBeforeKueueAdmissionIsRetried() {
+    // A failed lookup is not an answer either before the admission: requesting quota for a master
+    // which is already running would hold a live cluster
+    ClusterInitStep clusterInitStep = new ClusterInitStep();
+    SparkClusterContext mockContext = mock(SparkClusterContext.class);
+    SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
+    SparkCluster cluster = buildKueueCluster();
+    KubernetesClient mockClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    when(mockClient.resource(masterStatefulSetSpec).get())
+        .thenThrow(new KubernetesClientException("unavailable", 503, null));
+    when(mockContext.getResource()).thenReturn(cluster);
+    when(mockContext.getClient()).thenReturn(mockClient);
+    when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
+
+    ReconcileProgress progress = clusterInitStep.reconcile(mockContext, recorder);
+
+    // The cluster is retried rather than failed with the terminal SchedulingFailure
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndRequeueAfter(
+            KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL),
+        progress);
+    verify(mockClient, never()).resource(any(Workload.class));
+    verify(mockContext, never()).getMasterServiceSpec();
+    verifyNoInteractions(recorder);
+    // An unavailable API server must not be loaded with event writes on top of the retries
+    verifyNoInteractions(eventRecorder);
+    Assertions.assertEquals(
+        ClusterStateSummary.Submitted,
+        cluster.getStatus().getCurrentState().getCurrentStateSummary());
+  }
+
+  @Test
+  void refusedMasterLookupBeforeKueueAdmissionPublishesEvent() {
+    ClusterInitStep clusterInitStep = new ClusterInitStep();
+    SparkClusterContext mockContext = mock(SparkClusterContext.class);
+    SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
+    SparkCluster cluster = buildKueueCluster();
+    // e.g. the operator lacks the RBAC rules for reading StatefulSets, which a user has to fix
+    KubernetesClient mockClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    when(mockClient.resource(masterStatefulSetSpec).get())
+        .thenThrow(new KubernetesClientException("forbidden", 403, null));
+    when(mockContext.getResource()).thenReturn(cluster);
+    when(mockContext.getClient()).thenReturn(mockClient);
+    when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+
+    ReconcileProgress progress = clusterInitStep.reconcile(mockContext, recorder);
+
+    // A persistent failure keeps the default interval, so that its event is not rewritten every
+    // few seconds until a user fixes the cause
+    Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
+    verify(mockClient, never()).resource(any(Workload.class));
+    verify(mockContext, never()).getMasterServiceSpec();
+    verifyNoInteractions(recorder);
+    EventRecord event = captureEvents(1).get(0);
+    Assertions.assertEquals(EventType.WARNING, event.type());
+    Assertions.assertEquals(EventUtils.REASON_KUEUE_ADMISSION_REQUEST_FAILED, event.reason());
+    Assertions.assertTrue(event.message().contains("forbidden"), event.message());
+  }
+
   private SparkCluster buildKueueCluster() {
     SparkCluster cluster = buildCluster();
     cluster.getMetadata().setUid("cluster-uid");
