@@ -810,8 +810,9 @@ public final class SparkOperatorConf {
 
   /**
    * Initial backoff (in milliseconds) between retries when creating secondary resources. Backoff
-   * is applied whenever the API server response carries a Retry-After hint, or on 409 (Conflict)
-   * and 429 (Too Many Requests) responses.
+   * is applied whenever the API server response carries a Retry-After hint, on 409 (Conflict) and
+   * 429 (Too Many Requests) responses, and on a request the API server never answered, which
+   * carries no response status and so can never supply a Retry-After hint.
    */
   public static final ConfigOption<Long> API_SECONDARY_RESOURCE_CREATE_INITIAL_BACKOFF_MILLIS =
       ConfigOption.<Long>builder()
@@ -821,8 +822,9 @@ public final class SparkOperatorConf {
               "Initial backoff (in milliseconds) between retries "
                   + "when creating secondary resources for Spark application. "
                   + "Backoff is applied whenever the API server response carries a "
-                  + "Retry-After hint, or on 409 (Conflict) and "
-                  + "429 (Too Many Requests) responses.")
+                  + "Retry-After hint, on 409 (Conflict) and 429 (Too Many Requests) "
+                  + "responses, and on a request the API server never answered, which "
+                  + "carries no response status and so can never supply a Retry-After hint.")
           .typeParameterClass(Long.class)
           .defaultValue(1000L)
           .build();
