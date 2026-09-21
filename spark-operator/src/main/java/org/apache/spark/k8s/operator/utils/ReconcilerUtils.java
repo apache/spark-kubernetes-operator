@@ -35,6 +35,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import javax.net.ssl.SSLHandshakeException;
+import javax.net.ssl.SSLPeerUnverifiedException;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.fabric8.kubernetes.api.model.DeletionPropagation;
@@ -56,6 +59,20 @@ import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 /** Utility class for reconciler operations. */
 @Slf4j
 public final class ReconcilerUtils {
+
+  /**
+   * The code fabric8 reports whenever no response status was received. It is the sentinel of
+   * {@link KubernetesClientException#getCode()}, not an HTTP status, and it covers three unrelated
+   * cases: a connection that broke on its way to the API server, which carries the failure that
+   * broke it; a rejection the client raised before sending the request, such as a missing name or
+   * resource version, which carries no cause at all; and a response that arrived but could not be
+   * parsed, which carries the parsing failure. Only the first heals on its own, see
+   * {@link #brokeOnTheWayToTheApiServer}.
+   */
+  private static final int NO_RESPONSE_CODE = -1;
+
+  /** Maximum number of links followed when looking for the cause that broke a request. */
+  private static final int MAX_CAUSE_DEPTH = 10;
 
   private ReconcilerUtils() {}
 
@@ -144,7 +161,7 @@ public final class ReconcilerUtils {
           } else if (e.getCode() == Constants.HTTP_TOO_MANY_REQUESTS) {
             log.debug("Server returned 429 Too Many Requests, will retry with backoff");
           } else if (isTransientError(e) || e.getCode() == HTTP_INTERNAL_ERROR) {
-            // GET to avoid duplicate create attempt for timeouts (0) and transient 5xx
+            // GET to avoid a duplicate create for transport failures, timeouts and transient 5xx
             current = getResource(client, resource);
             if (current.isPresent()) {
               return current;
@@ -279,7 +296,8 @@ public final class ReconcilerUtils {
       return true;
     }
     return switch (e.getCode()) {
-      case HTTP_CONFLICT, Constants.HTTP_TOO_MANY_REQUESTS -> true;
+      // A broken connection needs the delay most, and never carries a Retry-After to ask for one.
+      case HTTP_CONFLICT, Constants.HTTP_TOO_MANY_REQUESTS, NO_RESPONSE_CODE -> true;
       default -> false;
     };
   }
@@ -297,18 +315,51 @@ public final class ReconcilerUtils {
   }
 
   /**
-   * Whether the given failure is transport level rather than a decision by the API server.
+   * Whether the given failure is expected to clear without anyone acting on it, so that a caller
+   * may wait it out rather than report it. A broken connection and an overloaded or proxied server
+   * qualify; a rejection by a reachable API server and a client side rejection do not.
    *
    * @param e The failure to classify.
-   * @return True if the request did not reach a healthy API server, false otherwise.
+   * @return True if the failure is expected to clear on its own, false otherwise.
    */
   public static boolean isTransientError(KubernetesClientException e) {
-    // code 0 is fabric8's sentinel for network-level failures (timeouts, connection resets, etc.)
     return switch (e.getCode()) {
-      case 0, HTTP_CLIENT_TIMEOUT, HTTP_BAD_GATEWAY,
-           HTTP_UNAVAILABLE, HTTP_GATEWAY_TIMEOUT -> true;
+      case NO_RESPONSE_CODE -> brokeOnTheWayToTheApiServer(e);
+      case HTTP_CLIENT_TIMEOUT, HTTP_BAD_GATEWAY, HTTP_UNAVAILABLE, HTTP_GATEWAY_TIMEOUT -> true;
       default -> false;
     };
+  }
+
+  /**
+   * Whether the given failure left the request unanswered, so that asking again may yet work. It
+   * is defined as the complement of the two status-less failures that repeating cannot change: a
+   * rejection the client raised before sending anything, which carries no cause at all, and an
+   * answer that arrived but could not be used, which carries the parsing or certificate failure
+   * that rejected it. Anything else that carries a cause counts as unanswered.
+   *
+   * <p>Naming what cannot work, rather than what can, keeps this from tracking the exception types
+   * of whichever HTTP client is plugged in. A connection the peer closes mid-response is the case
+   * that matters: the client in use reports it with a type of its own which is not even an {@link
+   * java.io.IOException}, so any list of recognized connection failures would silently miss it.
+   *
+   * @param e The failure to inspect.
+   * @return True if the request went unanswered, false otherwise.
+   */
+  private static boolean brokeOnTheWayToTheApiServer(KubernetesClientException e) {
+    // Bounded walk: a cyclic cause chain must not hang the reconciler. The marker is nested, since
+    // fabric8 wraps the failure and its own HTTP client wraps it again.
+    Throwable cause = e.getCause();
+    for (int depth = 0; cause != null && depth < MAX_CAUSE_DEPTH; depth++) {
+      // A handshake that failed over a certificate, a host name or a trust store is the one
+      // answer-less failure that repeating cannot fix, so it is grouped with the unusable answers.
+      if (cause instanceof JsonProcessingException
+          || cause instanceof SSLHandshakeException
+          || cause instanceof SSLPeerUnverifiedException) {
+        return false;
+      }
+      cause = cause.getCause();
+    }
+    return e.getCause() != null;
   }
 
   /**

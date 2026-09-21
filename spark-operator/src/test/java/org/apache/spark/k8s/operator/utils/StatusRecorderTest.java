@@ -318,7 +318,7 @@ class StatusRecorderTest {
   }
 
   @Test
-  void publishesNoEventWhenTheApiServerIsUnreachable() {
+  void publishesNoEventWhenTheApiServerIsDegraded() {
     var testResource = getSparkApplication("1");
     var context = contextFor(testResource);
     // 503 means the control plane is already degraded. Writing an event costs two more requests
@@ -328,6 +328,21 @@ class StatusRecorderTest {
     assertThat(statusRecorder.persistStatus(context, new ApplicationStatus())).isFalse();
 
     verifyNoInteractions(mockEventRecorder);
+  }
+
+  @Test
+  void publishesAnEventWhenTheRequestIsRejectedBeforeItIsSent() {
+    // A resource carrying no resourceVersion is rejected by the client itself, which reports the
+    // same absent response code as a broken connection but never reaches the API server. Nothing
+    // clears such a rejection on its own, so it has to be reported rather than waited out.
+    var testResource = getSparkApplication(null);
+    var context = contextFor(testResource);
+
+    assertThat(statusRecorder.persistStatus(context, new ApplicationStatus())).isFalse();
+
+    var event = captureRecordedEvent();
+    assertThat(event.reason()).isEqualTo(EventUtils.REASON_STATUS_UPDATE_FAILED);
+    assertThat(event.message()).contains("the reported status may be stale");
   }
 
   private BaseContext<SparkApplication> contextFor(SparkApplication resource) {
