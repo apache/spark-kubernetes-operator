@@ -19,6 +19,7 @@
 
 package org.apache.spark.k8s.operator.reconciler.reconcilesteps;
 
+import static org.apache.spark.k8s.operator.config.SparkOperatorConf.SUSPEND_HOLD_REQUEUE_INTERVAL_SECONDS;
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.completeAndRequeueAfter;
 
 import java.time.Duration;
@@ -35,16 +36,6 @@ import org.apache.spark.k8s.operator.utils.EventUtils;
 /** Utilities to hold the resources of a suspended SparkApplication or SparkCluster. */
 @Slf4j
 final class SuspendUtils {
-
-  /**
-   * Interval at which a suspended resource is reconciled, so that its event is republished well
-   * within the one hour that the API server retains events by default. It is deliberately much
-   * coarser than the steady-state reconcile interval: a suspended resource has nothing to observe,
-   * while each republish costs a read and a write on the API server for as long as the hold lasts.
-   * Nothing waits for this interval, since clearing spec.suspend arrives as a watch event that
-   * reconciles the resource right away.
-   */
-  static final Duration SUSPEND_HOLD_REQUEUE_INTERVAL = Duration.ofMinutes(30);
 
   private SuspendUtils() {}
 
@@ -64,14 +55,15 @@ final class SuspendUtils {
    * does not say that the next attempt is withheld by spec.suspend, so it gets the same event.
    *
    * <p>Unlike the Kueue hold, which ends when quota arrives, this one ends only when a user clears
-   * spec.suspend, so the republishing is paced by {@link #SUSPEND_HOLD_REQUEUE_INTERVAL} rather
-   * than by the steady-state reconcile interval.
+   * spec.suspend, so the republishing is paced by {@link
+   * org.apache.spark.k8s.operator.config.SparkOperatorConf#SUSPEND_HOLD_REQUEUE_INTERVAL_SECONDS}
+   * rather than by the steady-state reconcile interval.
    *
    * @param context The context of the suspended resource.
    * @param requested The resources held until the resource is resumed, as named in the event and
    *     the log, e.g. {@code "driver"}.
-   * @return The progress to return while the resource is suspended, requeued after {@link
-   *     #SUSPEND_HOLD_REQUEUE_INTERVAL}.
+   * @return The progress to return while the resource is suspended, requeued after the suspend
+   *     hold interval.
    */
   static ReconcileProgress holdForSuspend(final BaseContext<?> context, final String requested) {
     HasMetadata resource = context.getResource();
@@ -82,17 +74,19 @@ final class SuspendUtils {
             + " is suspended by spec.suspend, "
             + requested
             + " would not be requested. Set spec.suspend to false to resume it.";
-    if (KueueWorkloadFactory.hasQueueName(resource)) {
-      KueueWorkloadUtils.releaseWorkload(context.getClient(), resource);
-      // The pending event of a resource that was queued before stays until the API server drops
-      // it, and the operator may not delete events, so say that it no longer applies rather than
-      // leaving a contradicting pair behind.
+    // Only a Workload that was actually there leaves a pending event behind, so a resource
+    // suspended before it was ever queued is not told about one. That event stays until the API
+    // server drops it, and the operator may not delete events, so say that it no longer applies
+    // rather than leaving a contradicting pair behind.
+    if (KueueWorkloadFactory.hasQueueName(resource)
+        && KueueWorkloadUtils.releaseWorkload(context.getClient(), resource)) {
       message +=
           " It holds no Kueue Workload while suspended, so an earlier "
               + EventUtils.REASON_KUEUE_ADMISSION_PENDING
               + " event no longer applies.";
     }
     EventUtils.normal(context.getEventRecorder(), EventUtils.REASON_SUSPEND_HELD, message);
-    return completeAndRequeueAfter(SUSPEND_HOLD_REQUEUE_INTERVAL);
+    return completeAndRequeueAfter(
+        Duration.ofSeconds(SUSPEND_HOLD_REQUEUE_INTERVAL_SECONDS.getValue()));
   }
 }

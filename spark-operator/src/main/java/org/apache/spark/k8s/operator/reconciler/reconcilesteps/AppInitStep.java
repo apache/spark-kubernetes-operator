@@ -34,6 +34,7 @@ import java.util.SortedMap;
 
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.client.KubernetesClientException;
 import lombok.extern.slf4j.Slf4j;
 
 import org.apache.spark.k8s.operator.Constants;
@@ -69,8 +70,20 @@ public final class AppInitStep extends AppReconcileStep {
       return proceed();
     }
     SparkApplication app = context.getResource();
-    if (app.getSpec().isSuspend() && !isDriverRequested(context)) {
-      return SuspendUtils.holdForSuspend(context, "driver");
+    if (app.getSpec().isSuspend()) {
+      Optional<Pod> currentAttemptDriverPod;
+      try {
+        currentAttemptDriverPod = context.getCurrentAttemptDriverPodStrictly();
+      } catch (KubernetesClientException e) {
+        // Whether a driver of this attempt is live is unknown, not answered. Holding would claim
+        // in an event that none was requested, and would do so for the whole suspend hold
+        // interval, so look again with the steady-state interval instead.
+        log.warn("Failed to verify the driver pod of a suspended application, will retry.", e);
+        return completeAndDefaultRequeue();
+      }
+      if (currentAttemptDriverPod.isEmpty()) {
+        return SuspendUtils.holdForSuspend(context, "driver");
+      }
     }
     if (app.getStatus().getPreviousAttemptSummary() != null) {
       Instant lastTransitionTime = Instant.parse(currentState.getLastTransitionTime());

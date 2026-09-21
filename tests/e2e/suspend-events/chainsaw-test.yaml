@@ -26,6 +26,9 @@
 #     -f tests/e2e/helm/events-config-values.yaml \
 #     build-tools/helm/spark-kubernetes-operator/
 #
+# The `count` assertions need that same file, which shortens
+# `spark.kubernetes.operator.reconciler.suspendHoldRequeueIntervalSeconds` from its 1800 second
+# default so that a repeat lands inside the assert timeout.
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
@@ -49,6 +52,20 @@ spec:
           type: Normal
           reason: SuspendHeld
           (contains(message || '', 'spec.suspend')): true
+    # The hold has no state transition and no persisted status, so the event is republished. The
+    # sink keys the Event on the reason, so a repeat bumps `count` rather than creating another.
+    - assert:
+        timeout: 120s
+        resource:
+          apiVersion: v1
+          kind: Event
+          metadata:
+            namespace: default
+          involvedObject:
+            kind: SparkApplication
+            name: spark-job-suspend-events-test
+          reason: SuspendHeld
+          (count > `1`): true
     # The driver stays unrequested for the whole hold.
     - error:
         timeout: 10s
@@ -91,6 +108,20 @@ spec:
           type: Normal
           reason: SuspendHeld
           (contains(message || '', 'spec.suspend')): true
+    # The hold has no state transition and no persisted status, so the event is republished. The
+    # sink keys the Event on the reason, so a repeat bumps `count` rather than creating another.
+    - assert:
+        timeout: 120s
+        resource:
+          apiVersion: v1
+          kind: Event
+          metadata:
+            namespace: default
+          involvedObject:
+            kind: SparkCluster
+            name: spark-cluster-suspend-events-test
+          reason: SuspendHeld
+          (count > `1`): true
     # The master stays unrequested for the whole hold.
     - error:
         timeout: 10s

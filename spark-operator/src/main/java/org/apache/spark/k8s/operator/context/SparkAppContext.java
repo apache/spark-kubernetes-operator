@@ -97,11 +97,32 @@ public class SparkAppContext extends BaseContext<SparkApplication> {
    * <p>The informer cache is only used to find a candidate. Since the cache may still hold the
    * pre-deletion snapshot of a previous attempt's pod, the candidate is verified against the API
    * server and returned only if it exists there and is not terminating. If the verification fails
-   * because of an API error, the pod is considered absent for this reconciliation.
+   * because of an API error, the pod is considered absent for this reconciliation. Callers that
+   * must not act on that assumption use {@link #getCurrentAttemptDriverPodStrictly()} instead.
    *
    * @return An Optional containing the driver Pod of the current attempt, or empty if not found.
    */
   public Optional<Pod> getCurrentAttemptDriverPod() {
+    try {
+      return getCurrentAttemptDriverPodStrictly();
+    } catch (KubernetesClientException e) {
+      log.warn(
+          "Failed to verify driver pod {} against the API server, considering it absent.",
+          getDriverPodSpec().getMetadata().getName(),
+          e);
+      return Optional.empty();
+    }
+  }
+
+  /**
+   * Same as {@link #getCurrentAttemptDriverPod()}, but reports a failed verification instead of
+   * reading it as an absent pod. A caller that would otherwise conclude that no driver has been
+   * requested, and act on that, uses this so that an API error does not look like an answer.
+   *
+   * @return An Optional containing the driver Pod of the current attempt, or empty if not found.
+   * @throws KubernetesClientException if the candidate cannot be verified against the API server.
+   */
+  public Optional<Pod> getCurrentAttemptDriverPodStrictly() {
     List<Pod> driverPods =
         josdkContext
             .getSecondaryResourcesAsStream(Pod.class)
@@ -120,25 +141,17 @@ public class SparkAppContext extends BaseContext<SparkApplication> {
     if (driverPods.stream().noneMatch(p -> driverPodName.equals(p.getMetadata().getName()))) {
       return Optional.empty();
     }
-    try {
-      Pod livePod =
-          josdkContext
-              .getClient()
-              .pods()
-              .inNamespace(sparkApplication.getMetadata().getNamespace())
-              .withName(driverPodName)
-              .get();
-      if (livePod == null || livePod.getMetadata().getDeletionTimestamp() != null) {
-        return Optional.empty();
-      }
-      return Optional.of(livePod);
-    } catch (KubernetesClientException e) {
-      log.warn(
-          "Failed to verify driver pod {} against the API server, considering it absent.",
-          driverPodName,
-          e);
+    Pod livePod =
+        josdkContext
+            .getClient()
+            .pods()
+            .inNamespace(sparkApplication.getMetadata().getNamespace())
+            .withName(driverPodName)
+            .get();
+    if (livePod == null || livePod.getMetadata().getDeletionTimestamp() != null) {
       return Optional.empty();
     }
+    return Optional.of(livePod);
   }
 
   /**

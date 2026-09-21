@@ -28,6 +28,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -83,8 +84,10 @@ class ClusterInitStepTest {
 
   private final ResourceEventRecorder eventRecorder = mock(ResourceEventRecorder.class);
 
+  // The default of spark.kubernetes.operator.reconciler.suspendHoldRequeueIntervalSeconds, which
+  // docs/configuration.md and docs/spark_custom_resources.md both state as 30 minutes.
   private static final ReconcileProgress SUSPEND_HOLD_PROGRESS =
-      ReconcileProgress.completeAndRequeueAfter(SuspendUtils.SUSPEND_HOLD_REQUEUE_INTERVAL);
+      ReconcileProgress.completeAndRequeueAfter(Duration.ofMinutes(30));
 
   private final StatefulSet masterStatefulSetSpec = statefulSet("cluster1-master");
   private final StatefulSet workerStatefulSetSpec = statefulSet("cluster1-worker");

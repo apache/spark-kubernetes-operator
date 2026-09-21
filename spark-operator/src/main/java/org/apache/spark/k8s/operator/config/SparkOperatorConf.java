@@ -263,6 +263,35 @@ public final class SparkOperatorConf {
           .build();
 
   /**
+   * Requeue interval (in seconds) at which a resource held by {@code spec.suspend} is reconciled,
+   * so that its {@code SuspendHeld} event is republished. The hold ends only when a user clears
+   * {@code spec.suspend}, which arrives as a watch event and reconciles right away, so nothing
+   * waits for this interval. It is deliberately much coarser than {@link
+   * #RECONCILER_INTERVAL_SECONDS}, since a suspended resource has nothing to observe while each
+   * republish costs a read and a write on the API server. Keep it below the {@code --event-ttl} of
+   * the API server (one hour by default), or the event expires between repeats and the hold stops
+   * being visible.
+   */
+  public static final ConfigOption<Long> SUSPEND_HOLD_REQUEUE_INTERVAL_SECONDS =
+      ConfigOption.<Long>builder()
+          .key("spark.kubernetes.operator.reconciler.suspendHoldRequeueIntervalSeconds")
+          .enableDynamicOverride(true)
+          .description(
+              "Requeue interval (in seconds) at which a resource held by spec.suspend is "
+                  + "reconciled, so that its SuspendHeld event is republished. The hold ends only "
+                  + "when a user clears spec.suspend, which arrives as a watch event and "
+                  + "reconciles right away, so nothing waits for this interval. It is "
+                  + "deliberately much coarser than "
+                  + "spark.kubernetes.operator.reconciler.intervalSeconds, since a suspended "
+                  + "resource has nothing to observe while each republish costs a read and a "
+                  + "write on the API server. Keep it below the '--event-ttl' of the API server "
+                  + "(one hour by default), or the event expires between repeats and the hold "
+                  + "stops being visible.")
+          .typeParameterClass(Long.class)
+          .defaultValue(1800L)
+          .build();
+
+  /**
    * When enabled, operator would trim state transition history when a new attempt starts, keeping
    * previous attempt summary only.
    */

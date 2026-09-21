@@ -16,3 +16,6 @@
 operatorConfiguration:
   spark-operator.properties: |+
     spark.kubernetes.operator.events.enabled=true
+    # The suspend-events suite asserts that a held resource republishes its SuspendHeld event.
+    # The default is 1800 seconds, which no assert can wait for.
+    spark.kubernetes.operator.reconciler.suspendHoldRequeueIntervalSeconds=10

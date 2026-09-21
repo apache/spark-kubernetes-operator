@@ -32,6 +32,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -94,8 +95,10 @@ class AppInitStepTest {
 
   private final ResourceEventRecorder eventRecorder = mock(ResourceEventRecorder.class);
 
+  // The default of spark.kubernetes.operator.reconciler.suspendHoldRequeueIntervalSeconds, which
+  // docs/configuration.md and docs/spark_custom_resources.md both state as 30 minutes.
   private static final ReconcileProgress SUSPEND_HOLD_PROGRESS =
-      ReconcileProgress.completeAndRequeueAfter(SuspendUtils.SUSPEND_HOLD_REQUEUE_INTERVAL);
+      ReconcileProgress.completeAndRequeueAfter(Duration.ofMinutes(30));
 
   private final ConfigMap preResourceConfigMapSpec =
       new ConfigMapBuilder()
@@ -500,6 +503,33 @@ class AppInitStepTest {
   }
 
   @Test
+  void suspendedAppWithUnverifiableDriverIsNotHeld() {
+    // A failed verification is not an answer: the driver of this attempt may be live, so the app
+    // must not be held with an event claiming that none was requested, nor for the whole suspend
+    // hold interval.
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(applicationMetadata);
+    application.getSpec().setSuspend(true);
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getCurrentAttemptDriverPodStrictly())
+        .thenThrow(new KubernetesClientException("unavailable", 503, null));
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+
+    ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
+
+    Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
+    verify(mockContext, never()).getDriverPodSpec();
+    verifyNoInteractions(recorder);
+    verifyNoInteractions(eventRecorder);
+    Assertions.assertEquals(
+        ApplicationStateSummary.Submitted,
+        application.getStatus().getCurrentState().getCurrentStateSummary());
+  }
+
+  @Test
   void suspendedAppPublishesEventOnEveryReconcile() {
     AppInitStep appInitStep = new AppInitStep();
     SparkAppContext mockContext = mock(SparkAppContext.class);
@@ -556,7 +586,7 @@ class AppInitStepTest {
     when(mockContext.getDriverPodSpec()).thenReturn(driverPodSpec);
     when(mockContext.getDriverResourcesSpec()).thenReturn(List.of());
     when(mockContext.getClient()).thenReturn(kubernetesClient);
-    when(mockContext.getCurrentAttemptDriverPod())
+    when(mockContext.getCurrentAttemptDriverPodStrictly())
         .thenAnswer(
             invocation ->
                 Optional.ofNullable(
@@ -607,7 +637,7 @@ class AppInitStepTest {
             .build();
     when(mockContext.getResource()).thenReturn(application);
     when(mockContext.getDriverPod()).thenReturn(Optional.of(previousAttemptDriver));
-    when(mockContext.getCurrentAttemptDriverPod()).thenReturn(Optional.empty());
+    when(mockContext.getCurrentAttemptDriverPodStrictly()).thenReturn(Optional.empty());
     when(mockContext.getDriverPodSpec()).thenReturn(driverPodSpec);
     when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
 
@@ -795,7 +825,14 @@ class AppInitStepTest {
     Assertions.assertEquals(SUSPEND_HOLD_PROGRESS, progress);
     Assertions.assertNull(getWorkload());
     verifyNoInteractions(recorder);
-    Assertions.assertEquals(EventUtils.REASON_SUSPEND_HELD, captureEvents(1).get(0).reason());
+    // Never queued, so nothing is said about a KueueAdmissionPending event that was never
+    // published
+    EventRecord event = captureEvents(1).get(0);
+    Assertions.assertEquals(EventUtils.REASON_SUSPEND_HELD, event.reason());
+    Assertions.assertEquals(
+        "The SparkApplication is suspended by spec.suspend, driver would not be requested. "
+            + "Set spec.suspend to false to resume it.",
+        event.message());
   }
 
   @Test
