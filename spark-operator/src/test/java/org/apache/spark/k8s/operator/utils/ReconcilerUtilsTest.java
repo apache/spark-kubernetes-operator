@@ -19,7 +19,9 @@
 
 package org.apache.spark.k8s.operator.utils;
 
+import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -27,14 +29,27 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.net.ConnectException;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
+import java.security.cert.CertificateException;
 import java.util.Optional;
+import java.util.concurrent.TimeoutException;
 
+import javax.net.ssl.SSLHandshakeException;
+
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.api.model.StatusBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.dsl.NamespaceableResource;
+import io.netty.handler.ssl.SslHandshakeTimeoutException;
+import io.vertx.core.http.HttpClosedException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -93,17 +108,151 @@ class ReconcilerUtilsTest {
 
   @Test
   void retriesOnNetworkLevelTimeout() {
-    // Network-level timeout surfaces as KubernetesClientException with code 0 in fabric8
+    // A connection that broke carries no response status, so fabric8 reports it with the absent
+    // response code and the exception that broke it, which is what marks it as retriable.
     Pod pod = buildPod();
     KubernetesClient mockClient = mock(KubernetesClient.class);
     NamespaceableResource<Pod> mockResource = mockClientReturning(mockClient, pod);
     // 1st GET -> not found; and GET (after timeout) -> resource found
     when(mockResource.get()).thenReturn(null).thenReturn(pod);
     when(mockResource.create())
-        .thenThrow(new KubernetesClientException("Connection timeout", 0, null));
+        .thenThrow(
+            new KubernetesClientException("Connection timeout", new SocketTimeoutException()));
 
     Optional<Pod> result = ReconcilerUtils.getOrCreateSecondaryResource(mockClient, pod);
     assertTrue(result.isPresent());
+  }
+
+  @Test
+  void classifiesTransportFailureAsTransient() {
+    // fabric8 reports a broken connection with no response code and the exception that broke it.
+    assertTrue(
+        ReconcilerUtils.isTransientError(
+            new KubernetesClientException("Connection reset", new SocketException())));
+  }
+
+  @Test
+  void classifiesNestedConnectionFailureAsTransient() {
+    // fabric8 wraps the failure its HTTP client already wrapped, so the chain has to be walked.
+    assertTrue(
+        ReconcilerUtils.isTransientError(
+            new KubernetesClientException(
+                "Operation failed", new IOException("wrapped", new ConnectException("refused")))));
+  }
+
+  @Test
+  void classifiesRequestTimeoutOfTheHttpClientAsTransient() {
+    // The HTTP client reports its request timeout outside the IOException hierarchy.
+    assertTrue(
+        ReconcilerUtils.isTransientError(
+            new KubernetesClientException("Timed out", new TimeoutException("1000ms exceeded"))));
+  }
+
+  @Test
+  void classifiesConnectionClosedByThePeerAsTransient() {
+    // The connection the API server closes mid-response, as it does on a rolling restart, is
+    // reported by the HTTP client in use with a type of its own that is not an IOException. It is
+    // the most common way a request goes unanswered, so no list of socket types may gate it.
+    assertTrue(
+        ReconcilerUtils.isTransientError(
+            new KubernetesClientException(
+                "Operation failed", new HttpClosedException("Connection was closed"))));
+  }
+
+  @Test
+  void doesNotClassifyUnreadableResponseAsTransient() {
+    // An answer that arrived but could not be parsed carries the parsing failure as its cause,
+    // and shares the absent response code of a connection that broke. The server answered and the
+    // body will not change, so waiting it out would retry forever.
+    assertFalse(
+        ReconcilerUtils.isTransientError(
+            new KubernetesClientException(
+                "Unreadable response",
+                MismatchedInputException.from(
+                    (JsonParser) null, Pod.class, "Unrecognized field \"foo\""))));
+  }
+
+  @Test
+  void classifiesHandshakeTimeoutAsTransient() {
+    // A handshake that merely ran out of time says nothing about the certificate, so it is the
+    // temporarily unresponsive server it points at, not a trust decision that will not change.
+    assertTrue(
+        ReconcilerUtils.isTransientError(
+            new KubernetesClientException(
+                "Handshake failed",
+                new IOException("wrapped", new SslHandshakeTimeoutException("timed out")))));
+  }
+
+  @Test
+  void doesNotClassifyInterruptionAsTransient() {
+    // An interrupted caller is a decision to stop, not a failure to retry. It is matched on the
+    // InterruptedException rather than on the InterruptedIOException wrapping it, since a plain
+    // read timeout extends that same class and has to stay retriable.
+    InterruptedIOException interrupted = new InterruptedIOException("interrupted");
+    interrupted.initCause(new InterruptedException());
+    assertFalse(
+        ReconcilerUtils.isTransientError(
+            new KubernetesClientException("Operation failed", interrupted)));
+  }
+
+  @Test
+  void doesNotClassifyCertificateFailureAsTransient() {
+    // A handshake rejected over a certificate, a host name or a trust store is answer-less like a
+    // broken connection, but repeating it cannot fix it.
+    SSLHandshakeException handshake = new SSLHandshakeException("PKIX path building failed");
+    handshake.initCause(new CertificateException("unable to find valid certification path"));
+    assertFalse(
+        ReconcilerUtils.isTransientError(
+            new KubernetesClientException(
+                "Handshake failed", new IOException("wrapped", handshake))));
+  }
+
+  @Test
+  void doesNotClassifyPermanentClientSideRejectionAsTransient() {
+    // A rejection raised before the request is sent shares the response code of a transport
+    // failure and is told apart only by having no cause. It never clears on its own, so it must
+    // keep its Warning event and its longer requeue interval.
+    assertFalse(
+        ReconcilerUtils.isTransientError(
+            new KubernetesClientException("resourceVersion cannot be null")));
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {408, 502, 503, 504})
+  void classifiesTransientHttpStatusAsTransient(int errorCode) {
+    assertTrue(
+        ReconcilerUtils.isTransientError(
+            new KubernetesClientException("Transient error", errorCode, null)));
+  }
+
+  @Test
+  void doesNotClassifyInternalServerErrorAsTransient() {
+    // 500 is retried by getOrCreateSecondaryResource on its own, but it is a decision by a server
+    // that answered, so the callers that suppress events on a transient failure must still warn.
+    assertFalse(
+        ReconcilerUtils.isTransientError(
+            new KubernetesClientException("Internal error", HTTP_INTERNAL_ERROR, null)));
+  }
+
+  @Test
+  void backsOffBeforeRetryingTransportFailure() {
+    Pod pod = buildPod();
+    KubernetesClient mockClient = mock(KubernetesClient.class);
+    NamespaceableResource<Pod> mockResource = mockClientReturning(mockClient, pod);
+    // the resource never appears via GET, so the retry loop must go through backoffSleep
+    when(mockResource.get()).thenReturn(null);
+    // 1st CREATE -> connection reset; 2nd CREATE -> success
+    when(mockResource.create())
+        .thenThrow(new KubernetesClientException("Connection reset", new SocketException()))
+        .thenReturn(pod);
+
+    long start = System.nanoTime();
+    Optional<Pod> result = ReconcilerUtils.getOrCreateSecondaryResource(mockClient, pod);
+    long elapsedMillis = (System.nanoTime() - start) / 1_000_000;
+
+    assertTrue(result.isPresent());
+    assertTrue(
+        elapsedMillis >= 1000L, "a broken connection should back off before the next attempt");
   }
 
   @Test
@@ -226,7 +375,7 @@ class ReconcilerUtilsTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {0, 408, 429, 500, 502, 503, 504})
+  @ValueSource(ints = {408, 429, 500, 502, 503, 504})
   void createsResourceWhenInitialReadFailsRetriably(int errorCode) {
     Pod pod = buildPod();
     KubernetesClient mockClient = mock(KubernetesClient.class);
@@ -239,6 +388,38 @@ class ReconcilerUtilsTest {
     Optional<Pod> result = ReconcilerUtils.getOrCreateSecondaryResource(mockClient, pod);
 
     assertTrue(result.isPresent());
+  }
+
+  @Test
+  void createsResourceWhenInitialReadFailsInTransport() {
+    Pod pod = buildPod();
+    KubernetesClient mockClient = mock(KubernetesClient.class);
+    NamespaceableResource<Pod> mockResource = mockClientReturning(mockClient, pod);
+    // a broken connection carries no response code, so only its cause marks it as retriable
+    when(mockResource.get())
+        .thenThrow(new KubernetesClientException("Read failed", new SocketException()));
+    when(mockResource.create()).thenReturn(pod);
+
+    Optional<Pod> result = ReconcilerUtils.getOrCreateSecondaryResource(mockClient, pod);
+
+    assertTrue(result.isPresent());
+  }
+
+  @Test
+  void propagatesClientSideRejectionOfInitialReadInsteadOfReportingMissingResource() {
+    Pod pod = buildPod();
+    KubernetesClient mockClient = mock(KubernetesClient.class);
+    NamespaceableResource<Pod> mockResource = mockClientReturning(mockClient, pod);
+    // the client rejected the read before sending it, which shares the absent response code of a
+    // broken connection but says nothing about whether the resource exists
+    when(mockResource.get())
+        .thenThrow(new KubernetesClientException("resourceVersion cannot be null"));
+
+    assertThrows(
+        KubernetesClientException.class,
+        () -> ReconcilerUtils.getOrCreateSecondaryResource(mockClient, pod));
+
+    verify(mockResource, never()).create();
   }
 
   @Test

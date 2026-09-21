@@ -28,10 +28,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
+import java.net.ServerSocket;
 import java.util.List;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.fabric8.kubernetes.client.ConfigBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 import io.fabric8.kubernetes.client.server.mock.EnableKubernetesMockClient;
 import io.fabric8.kubernetes.client.server.mock.KubernetesMockServer;
 import io.javaoperatorsdk.operator.api.event.EventRecord;
@@ -318,7 +322,7 @@ class StatusRecorderTest {
   }
 
   @Test
-  void publishesNoEventWhenTheApiServerIsUnreachable() {
+  void publishesNoEventWhenTheApiServerIsDegraded() {
     var testResource = getSparkApplication("1");
     var context = contextFor(testResource);
     // 503 means the control plane is already degraded. Writing an event costs two more requests
@@ -326,6 +330,51 @@ class StatusRecorderTest {
     server.expect().withPath(statusPathOf(testResource)).andReturn(503, null).always();
 
     assertThat(statusRecorder.persistStatus(context, new ApplicationStatus())).isFalse();
+
+    verifyNoInteractions(mockEventRecorder);
+  }
+
+  @Test
+  void publishesAnEventWhenTheRequestIsRejectedBeforeItIsSent() {
+    // A resource carrying no resourceVersion is rejected by the client itself, which reports the
+    // same absent response code as a broken connection but never reaches the API server. Nothing
+    // clears such a rejection on its own, so it has to be reported rather than waited out.
+    var testResource = getSparkApplication(null);
+    var context = contextFor(testResource);
+
+    assertThat(statusRecorder.persistStatus(context, new ApplicationStatus())).isFalse();
+
+    var event = captureRecordedEvent();
+    assertThat(event.reason()).isEqualTo(EventUtils.REASON_STATUS_UPDATE_FAILED);
+    assertThat(event.message()).contains("the reported status may be stale");
+  }
+
+  @Test
+  void publishesNoEventWhenTheRequestGoesUnanswered() throws IOException {
+    // A request the API server never answered carries no response code. Writing an event would
+    // take the same broken path, so the observability path must not pile on. A closed port is the
+    // cheapest way to get a real unanswered request rather than a hand-built exception.
+    int deadPort;
+    try (ServerSocket reserved = new ServerSocket(0)) {
+      deadPort = reserved.getLocalPort();
+    }
+    var testResource = getSparkApplication("1");
+    var context = contextFor(testResource);
+    try (KubernetesClient unreachable =
+        new KubernetesClientBuilder()
+            .withConfig(
+                new ConfigBuilder()
+                    .withMasterUrl("http://127.0.0.1:" + deadPort)
+                    .withNamespace(DEFAULT_NS)
+                    .withConnectionTimeout(500)
+                    .withRequestTimeout(500)
+                    .withRequestRetryBackoffLimit(0)
+                    .build())
+            .build()) {
+      when(context.getClient()).thenReturn(unreachable);
+
+      assertThat(statusRecorder.persistStatus(context, new ApplicationStatus())).isFalse();
+    }
 
     verifyNoInteractions(mockEventRecorder);
   }

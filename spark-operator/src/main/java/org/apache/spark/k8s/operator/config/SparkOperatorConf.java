@@ -570,10 +570,11 @@ public final class SparkOperatorConf {
    * Maximal number of retry attempts of requesting secondary resource for Spark application. This
    * would be performed on top of k8s client spark.kubernetes.operator.retry.maxAttempts to overcome
    * potential conflicting reconcile on the same SparkApplication, as well as transient API server
-   * errors and network-level timeouts. Exponential backoff with jitter is applied before retrying
-   * whenever the API server response carries a Retry-After hint, or on 409 (Conflict) and 429 (Too
-   * Many Requests) responses. Other retryable errors (408/500/502/503/504 and network timeouts)
-   * without a Retry-After hint are retried immediately. This should be positive number
+   * errors and requests the API server never answered. Exponential backoff with jitter is applied
+   * before retrying whenever the API server response carries a Retry-After hint, on 409 (Conflict)
+   * and 429 (Too Many Requests) responses, and on a request that went unanswered, which carries no
+   * response status and so can never supply a Retry-After hint. The remaining retryable errors
+   * (408/500/502/503/504) are retried immediately. This should be positive number
    */
   public static final ConfigOption<Long> API_SECONDARY_RESOURCE_CREATE_MAX_ATTEMPTS =
       ConfigOption.<Long>builder()
@@ -584,11 +585,13 @@ public final class SparkOperatorConf {
                   + "application. This would be performed on top of k8s client "
                   + "spark.kubernetes.operator.retry.maxAttempts to overcome potential "
                   + "conflicting reconcile on the same SparkApplication, as well as API "
-                  + "server errors (408/500/502/503/504) and network-level timeouts. "
-                  + "Exponential backoff with jitter is applied before retrying whenever the "
-                  + "API server response carries a Retry-After hint, or on 409 (Conflict) and "
-                  + "429 (Too Many Requests) responses. Other retryable errors without a "
-                  + "Retry-After hint are retried immediately. This should be positive number.")
+                  + "server errors (408/500/502/503/504) and requests the API server never "
+                  + "answered. Exponential backoff with jitter is applied before retrying "
+                  + "whenever the API server response carries a Retry-After hint, on 409 "
+                  + "(Conflict) and 429 (Too Many Requests) responses, and on a request that "
+                  + "went unanswered, which carries no response status and so can never supply "
+                  + "a Retry-After hint. The remaining retryable errors are retried "
+                  + "immediately. This should be positive number.")
           .typeParameterClass(Long.class)
           .defaultValue(3L)
           .build();
@@ -807,8 +810,9 @@ public final class SparkOperatorConf {
 
   /**
    * Initial backoff (in milliseconds) between retries when creating secondary resources. Backoff
-   * is applied whenever the API server response carries a Retry-After hint, or on 409 (Conflict)
-   * and 429 (Too Many Requests) responses.
+   * is applied whenever the API server response carries a Retry-After hint, on 409 (Conflict) and
+   * 429 (Too Many Requests) responses, and on a request the API server never answered, which
+   * carries no response status and so can never supply a Retry-After hint.
    */
   public static final ConfigOption<Long> API_SECONDARY_RESOURCE_CREATE_INITIAL_BACKOFF_MILLIS =
       ConfigOption.<Long>builder()
@@ -818,8 +822,9 @@ public final class SparkOperatorConf {
               "Initial backoff (in milliseconds) between retries "
                   + "when creating secondary resources for Spark application. "
                   + "Backoff is applied whenever the API server response carries a "
-                  + "Retry-After hint, or on 409 (Conflict) and "
-                  + "429 (Too Many Requests) responses.")
+                  + "Retry-After hint, on 409 (Conflict) and 429 (Too Many Requests) "
+                  + "responses, and on a request the API server never answered, which "
+                  + "carries no response status and so can never supply a Retry-After hint.")
           .typeParameterClass(Long.class)
           .defaultValue(1000L)
           .build();
