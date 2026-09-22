@@ -20,5 +20,7 @@ operatorConfiguration:
     # The default is 1800 seconds, which no assert can wait for.
     spark.kubernetes.operator.reconciler.suspendHoldRequeueIntervalSeconds=10
     # The repeat above carries the same message, so the default 300 second minimum interval would
-    # drop every one of them and the count would never rise within the assert timeout.
-    spark.kubernetes.operator.events.minIntervalSeconds=0
+    # drop every one of them and the count would never rise within the assert timeout. A value of
+    # 15 exercises the minimum interval on a real resource, dropping every other repeat, while the
+    # count still rises every 20 seconds, well inside that timeout.
+    spark.kubernetes.operator.events.minIntervalSeconds=15

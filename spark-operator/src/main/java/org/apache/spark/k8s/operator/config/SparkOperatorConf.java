@@ -270,8 +270,9 @@ public final class SparkOperatorConf {
    * #RECONCILER_INTERVAL_SECONDS}, since a suspended resource has nothing to observe while each
    * republish costs a read and a write on the API server. Keep it below the {@code --event-ttl} of
    * the API server (one hour by default), or the event expires between repeats and the hold stops
-   * being visible, and keep {@link #KUBERNETES_EVENTS_MIN_INTERVAL_SECONDS} below this interval,
-   * or a repeat is dropped and the next one lands a further interval later.
+   * being visible, and keep {@link #KUBERNETES_EVENTS_MIN_INTERVAL_SECONDS} within the rest of
+   * that TTL, that is at most the TTL minus this interval, or a repeat is dropped and the next
+   * one lands after the event expired.
    */
   public static final ConfigOption<Long> SUSPEND_HOLD_REQUEUE_INTERVAL_SECONDS =
       ConfigOption.<Long>builder()
@@ -288,8 +289,9 @@ public final class SparkOperatorConf {
                   + "write on the API server. Keep it below the '--event-ttl' of the API server "
                   + "(one hour by default), or the event expires between repeats and the hold "
                   + "stops being visible, and keep "
-                  + "'spark.kubernetes.operator.events.minIntervalSeconds' below this interval, "
-                  + "or a repeat is dropped and the next one lands a further interval later.")
+                  + "'spark.kubernetes.operator.events.minIntervalSeconds' within the rest of "
+                  + "that TTL, that is at most the TTL minus this interval, or a repeat is "
+                  + "dropped and the next one lands after the event expired.")
           .typeParameterClass(Long.class)
           .defaultValue(1800L)
           .build();
@@ -370,13 +372,15 @@ public final class SparkOperatorConf {
                   + "differs, for instance because it embeds the cause of a failure, is always "
                   + "published, since the operator rewrites the message of the existing Event. "
                   + "An event is only published when a reconciliation emits it, so the effective "
-                  + "period is this interval rounded up to the next repeat: keep it below the "
-                  + "interval at which the repeats themselves are emitted, which is "
+                  + "period is this interval rounded up to the next repeat. Keep this interval "
+                  + "plus the interval at which the repeats are emitted within the '--event-ttl' "
+                  + "of the API server (one hour by default), or a repeat lands after the "
+                  + "previous event expired and the hold stops being visible. The repeats are "
+                  + "emitted every "
                   + "'spark.kubernetes.operator.reconciler.suspendHoldRequeueIntervalSeconds' for "
-                  + "SuspendHeld and 'spark.kubernetes.operator.reconciler.intervalSeconds' for "
-                  + "KueueAdmissionPending, or a repeat lands later than the '--event-ttl' of the "
-                  + "API server (one hour by default), the event expires in between and the hold "
-                  + "stops being visible. Unlike "
+                  + "SuspendHeld and every 'spark.kubernetes.operator.reconciler.intervalSeconds' "
+                  + "for KueueAdmissionPending, so with the defaults this option may be at most "
+                  + "1800 and 3480 seconds respectively. Unlike "
                   + "'spark.kubernetes.operator.events.excludedReasons', which blocks a reason "
                   + "entirely, this only limits how often it is published. If zero or negative, "
                   + "operator would publish every event.")

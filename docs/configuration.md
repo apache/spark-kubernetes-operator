@@ -136,11 +136,14 @@ interval **rounded up to the next repeat**, not the interval itself. With the de
 every 360 seconds, and `SuspendHeld` is emitted every 1800 seconds
 (`spark.kubernetes.operator.reconciler.suspendHoldRequeueIntervalSeconds`), so it is unaffected.
 
-Keep the interval **below the interval at which the repeats themselves are emitted**, i.e. below
-both of the two options named above. Keeping it merely below the `--event-ttl` of the API server
-(one hour by default) is not enough: at `minIntervalSeconds=2400` the `SuspendHeld` repeat at 1800
-seconds is dropped and the next one lands at 3600 seconds, exactly the TTL, so the event expires
-in between and the hold stops being visible.
+Keep this interval **plus the interval at which the repeats are emitted** within the `--event-ttl`
+of the API server (one hour by default), since the effective period is always below their sum. At
+the defaults that allows at most `3600 - 1800 = 1800` seconds for `SuspendHeld` and
+`3600 - 120 = 3480` seconds for `KueueAdmissionPending`, so the default of 300 leaves plenty of
+room. Keeping the interval merely below the `--event-ttl` is not enough: at
+`minIntervalSeconds=2400` the `SuspendHeld` repeat at 1800 seconds is dropped and the next one
+lands at 3600 seconds, exactly the TTL, so the event expires in between and the hold stops being
+visible.
 
 The interval is held from the moment an event is handed to the event sink, not from the moment it
 reaches the API server. The operator logs and swallows event write failures rather than failing

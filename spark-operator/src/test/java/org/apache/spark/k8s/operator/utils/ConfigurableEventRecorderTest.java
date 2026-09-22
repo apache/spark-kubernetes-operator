@@ -464,6 +464,27 @@ class ConfigurableEventRecorderTest {
   }
 
   @Test
+  void treatsAMalformedMinIntervalOverrideAsNoLimit() {
+    // The option is a boxed Long, so a malformed override can resolve to null. Unlike the enabled
+    // flag, which then drops every event, a limit that cannot be read must not drop any.
+    SparkOperatorConfManager.INSTANCE.refresh(
+        Map.of(
+            KUBERNETES_EVENTS_ENABLED.getKey(),
+            "true",
+            KUBERNETES_EVENTS_MIN_INTERVAL_SECONDS.getKey(),
+            "null"));
+    Context<?> context = contextOf("uid-1");
+    EventRecord first = EventRecord.normal("KueueAdmissionPending", "queued");
+    EventRecord second = EventRecord.normal("KueueAdmissionPending", "queued");
+
+    timedRecorder.record(first, context);
+    timedRecorder.record(second, context);
+
+    verify(delegate).record(first, context);
+    verify(delegate).record(second, context);
+  }
+
+  @Test
   void keepsSweepingAfterAHugeMinIntervalIsLowered() {
     // The sweep is due on the time elapsed since the last sweep, not on a deadline computed from
     // the interval in force when it last ran. A deadline would make a lowered interval wait out
