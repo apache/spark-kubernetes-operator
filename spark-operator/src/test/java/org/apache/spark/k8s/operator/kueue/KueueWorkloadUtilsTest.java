@@ -407,6 +407,27 @@ class KueueWorkloadUtilsTest {
   }
 
   @Test
+  void admittedFlavorsConflictingWithTheNodeSelectorFail() {
+    // A ResourceFlavor edited after the admission must fail the resource here too, rather than
+    // overriding the node selector which its pods were created with.
+    createFlavor("spot-flavor", Map.of("pool", "spot"), List.of());
+    KueueWorkloadUtils.requestAdmission(
+        kubernetesClient, workloadWithNodeSelector(Map.of("pool", "on-demand")));
+    admit(admittedWorkload(Map.of("executor", Map.of("cpu", "spot-flavor"))).getStatus());
+    SparkAppContext context = context(kubernetesClient);
+
+    IllegalArgumentException e =
+        Assertions.assertThrows(
+            IllegalArgumentException.class, () -> KueueWorkloadUtils.applyAdmittedFlavors(context));
+
+    Assertions.assertTrue(e.getMessage().contains("executor"), e.getMessage());
+    Assertions.assertTrue(e.getMessage().contains("pool"), e.getMessage());
+    verify(context, never()).setKueuePodSetFlavors(any());
+    // Unlike the admission, the quota is kept, since the pods it was reserved for are running
+    Assertions.assertNotNull(getWorkload());
+  }
+
+  @Test
   void admittedFlavorsOfAPendingOrMissingWorkloadAreNotApplied() {
     SparkAppContext context = context(kubernetesClient);
 

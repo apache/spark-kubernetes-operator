@@ -628,7 +628,8 @@ spec:
   assigned to a pod set are added to the node selector and tolerations of its pods. The executor
   pods get them through the executor pod template, which the operator creates if not set. A node
   label that conflicts with the node selector of the pods fails the resource with
-  `SchedulingFailure` and deletes the `Workload`. Only fixing the node selector or the flavor
+  `SchedulingFailure`, and deletes the `Workload` unless its driver or master is running already,
+  whose pods still hold the quota it reserved. Only fixing the node selector or the flavor
   resolves it: a restarted attempt requests the quota again and hits the same conflict, so an
   application which restarts on `SchedulingFailure` should bound the attempts with
   [`maxRestartOnSchedulingFailure`](#granular-restart-control). `ResourceFlavor`s are

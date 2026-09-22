@@ -266,6 +266,8 @@ public final class KueueWorkloadUtils {
    *
    * @param context The context of the resource to be reconciled.
    * @return The progress to return while the flavors cannot be read, or empty to proceed.
+   * @throws IllegalArgumentException if a node label of the flavors conflicts with the node
+   *     selector of a pod set, like {@link #holdForAdmission}.
    */
   public static Optional<ReconcileProgress> applyAdmittedFlavors(final BaseContext<?> context) {
     HasMetadata resource = context.getResource();
@@ -288,7 +290,12 @@ public final class KueueWorkloadUtils {
       return Optional.empty();
     }
     try {
-      context.setKueuePodSetFlavors(resolvePodSetFlavors(context.getClient(), workload));
+      Map<String, KueuePodSetFlavor> flavors = resolvePodSetFlavors(context.getClient(), workload);
+      // The pod set templates of the Workload hold the node selectors as of the admission, so the
+      // check reports a ResourceFlavor which was edited since. Unlike the admission, the quota is
+      // not released with the failure: the pods it was reserved for are running already.
+      checkNoNodeSelectorConflict(flavors, workload);
+      context.setKueuePodSetFlavors(flavors);
     } catch (KubernetesClientException e) {
       return Optional.of(retryAfterFlavorReadFailure(context, e, workloadName));
     }
