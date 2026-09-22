@@ -19,6 +19,7 @@
 
 package org.apache.spark.k8s.operator.kueue;
 
+import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 
 import java.nio.charset.StandardCharsets;
@@ -89,19 +90,28 @@ public final class KueueWorkloadUtils {
   }
 
   /**
+   * Response of {@link #requestAdmission(KubernetesClient, Workload)}.
+   *
+   * @param result The AdmissionResult for the Workload.
+   * @param workload The existing or created Workload, which carries the admission if {@link
+   *     AdmissionResult#ADMITTED}.
+   */
+  public record AdmissionResponse(AdmissionResult result, Workload workload) {}
+
+  /**
    * Creates the given Workload if it does not exist yet and reports whether Kueue admitted it.
    *
    * @param client The KubernetesClient.
    * @param desired The Workload built for the resource to be admitted. The priority and the pod
    *     sets hash annotation are added to it in place.
-   * @return The AdmissionResult for the Workload.
+   * @return The AdmissionResponse for the Workload.
    * @throws IllegalStateException if the Workload can neither be read nor created, or if its
    *     priority class does not exist.
    * @throws KubernetesClientException if the Workload cannot be created, or a stale Workload cannot
    *     be deleted. Unlike {@link #releaseWorkload}, this is not swallowed so that the resource is
    *     not created until the stale Workload is gone.
    */
-  public static AdmissionResult requestAdmission(
+  public static AdmissionResponse requestAdmission(
       final KubernetesClient client, final Workload desired) {
     KueueWorkloadPriority.setPriority(client, desired);
     String podSetsHash = hashPodSets(desired);
@@ -120,7 +130,7 @@ public final class KueueWorkloadUtils {
     if (workload.getMetadata().getDeletionTimestamp() != null) {
       log.debug(
           "Waiting for the Kueue Workload {} to be deleted.", workload.getMetadata().getName());
-      return AdmissionResult.STALE;
+      return new AdmissionResponse(AdmissionResult.STALE, workload);
     }
     if (!Objects.equals(controllerUid(workload), controllerUid(desired))) {
       // A Workload of a deleted resource that had the same name is not garbage collected yet.
@@ -128,10 +138,10 @@ public final class KueueWorkloadUtils {
           "Deleting the Kueue Workload {} which is owned by another resource.",
           workload.getMetadata().getName());
       deleteWorkload(client, workload);
-      return AdmissionResult.STALE;
+      return new AdmissionResponse(AdmissionResult.STALE, workload);
     }
     if (isAdmitted(workload)) {
-      return AdmissionResult.ADMITTED;
+      return new AdmissionResponse(AdmissionResult.ADMITTED, workload);
     }
     Map<String, String> annotations = workload.getMetadata().getAnnotations();
     if (annotations == null || !podSetsHash.equals(annotations.get(ANNOTATION_POD_SETS_HASH))) {
@@ -140,7 +150,7 @@ public final class KueueWorkloadUtils {
           "Deleting the pending Kueue Workload {} whose pod sets are outdated.",
           workload.getMetadata().getName());
       deleteWorkload(client, workload);
-      return AdmissionResult.STALE;
+      return new AdmissionResponse(AdmissionResult.STALE, workload);
     }
     WorkloadSpec spec = workload.getSpec();
     PriorityClassRef desiredPriorityClassRef = desired.getSpec().getPriorityClassRef();
@@ -157,7 +167,7 @@ public final class KueueWorkloadUtils {
       spec.setPriority(desired.getSpec().getPriority());
       client.resource(workload).update();
     }
-    return AdmissionResult.PENDING;
+    return new AdmissionResponse(AdmissionResult.PENDING, workload);
   }
 
   /**
@@ -167,7 +177,8 @@ public final class KueueWorkloadUtils {
    * replaced by the operator itself shortly, so it publishes nothing until the new Workload is
    * queued. An API failure of the request is retried rather than failing the resource: a transient
    * one shortly, a persistent one with the default interval, so that its event is not rewritten
-   * every few seconds until a user fixes the cause.
+   * every few seconds until a user fixes the cause. Once admitted, the flavors which Kueue
+   * assigned are set to the context, so that the secondary resources are built with them.
    *
    * @param context The context of the resource to be admitted.
    * @param desired The Workload built for the resource. The pod sets hash annotation is added to it
@@ -178,7 +189,7 @@ public final class KueueWorkloadUtils {
    */
   public static Optional<ReconcileProgress> holdForAdmission(
       final BaseContext<?> context, final Workload desired, final String requested) {
-    AdmissionResult admission;
+    AdmissionResponse admission;
     try {
       admission = requestAdmission(context.getClient(), desired);
     } catch (KubernetesClientException e) {
@@ -192,12 +203,12 @@ public final class KueueWorkloadUtils {
           "Failed to request Kueue admission, will retry. " + EventUtils.describe(e));
       return Optional.of(ReconcileProgress.completeAndDefaultRequeue());
     }
-    if (admission == AdmissionResult.STALE) {
+    if (admission.result() == AdmissionResult.STALE) {
       return Optional.of(
           ReconcileProgress.completeAndRequeueAfter(STALE_WORKLOAD_REQUEUE_INTERVAL));
     }
     String workloadName = desired.getMetadata().getName();
-    if (admission == AdmissionResult.PENDING) {
+    if (admission.result() == AdmissionResult.PENDING) {
       // Republished while the Workload waits, rather than once when it is created. The event sink
       // keys the Event on the reason, so a repeat bumps the count of the one Event instead of
       // creating another, and it restores an Event that the API server has already dropped after
@@ -218,11 +229,94 @@ public final class KueueWorkloadUtils {
           requested);
       return Optional.of(ReconcileProgress.completeAndDefaultRequeue());
     }
+    Map<String, KueuePodSetFlavor> flavors;
+    try {
+      flavors = resolvePodSetFlavors(context.getClient(), admission.workload());
+      checkNoNodeSelectorConflict(flavors, desired);
+    } catch (KubernetesClientException e) {
+      return Optional.of(retryAfterFlavorReadFailure(context, e, workloadName));
+    } catch (IllegalArgumentException e) {
+      // Like Kueue, a node selector conflict is permanent, so the quota is released before the
+      // caller fails the resource, which this step does not reach again. The release itself is
+      // retried, since a Workload left behind holds the quota of a resource that never starts.
+      try {
+        deleteWorkloadOf(context.getClient(), context.getResource());
+      } catch (KubernetesClientException releaseFailure) {
+        return Optional.of(
+            retryAfterRequestFailure(
+                context,
+                releaseFailure,
+                "Failed to release the Kueue Workload of a rejected admission"));
+      }
+      throw e;
+    }
     EventUtils.normal(
         context.getEventRecorder(),
         EventUtils.REASON_KUEUE_ADMITTED,
         "Kueue admitted Workload " + workloadName + ", requesting " + requested + ".");
+    context.setKueuePodSetFlavors(flavors);
     return Optional.empty();
+  }
+
+  /**
+   * Sets the flavors of the Workload which Kueue admitted before on the context of a resource
+   * whose driver or master exists already. Such a reconcile applies the secondary resources again
+   * without requesting the admission, so rebuilding them without the flavors would remove the node
+   * selector and the tolerations which Kueue assigned to the pods.
+   *
+   * @param context The context of the resource to be reconciled.
+   * @return The progress to return while the flavors cannot be read, or empty to proceed.
+   */
+  public static Optional<ReconcileProgress> applyAdmittedFlavors(final BaseContext<?> context) {
+    HasMetadata resource = context.getResource();
+    String workloadName = KueueWorkloadFactory.getWorkloadName(resource);
+    Workload workload;
+    try {
+      workload =
+          context
+              .getClient()
+              .resources(Workload.class)
+              .inNamespace(resource.getMetadata().getNamespace())
+              .withName(workloadName)
+              .get();
+    } catch (KubernetesClientException e) {
+      return Optional.of(retryAfterRequestFailure(context, e, "Failed to read the Kueue Workload"));
+    }
+    if (workload == null || !isAdmitted(workload)) {
+      // A Workload which is gone or evicted must not hold the resources which are already running.
+      log.debug("The Kueue Workload {} is not admitted, applying no flavors.", workloadName);
+      return Optional.empty();
+    }
+    try {
+      context.setKueuePodSetFlavors(resolvePodSetFlavors(context.getClient(), workload));
+    } catch (KubernetesClientException e) {
+      return Optional.of(retryAfterFlavorReadFailure(context, e, workloadName));
+    }
+    return Optional.empty();
+  }
+
+  /**
+   * Reports a failed read of the ResourceFlavors and returns the progress to retry it with. Like
+   * the admission request, a transport level failure goes away on its own, while a persistent one
+   * is retried with the default interval. Only a rejected read is reported as the missing
+   * ClusterRole for the cluster-scoped ResourceFlavors, since a flavor which an admitted Workload
+   * references is also missing when it was deleted or renamed.
+   */
+  private static ReconcileProgress retryAfterFlavorReadFailure(
+      final BaseContext<?> context, final KubernetesClientException e, final String workloadName) {
+    log.warn("Failed to read the Kueue ResourceFlavors of Workload {}.", workloadName, e);
+    if (ReconcilerUtils.isTransientError(e)) {
+      return ReconcileProgress.completeAndRequeueAfter(STALE_WORKLOAD_REQUEUE_INTERVAL);
+    }
+    String cause =
+        e.getCode() == HTTP_FORBIDDEN
+            ? "The operator needs the ClusterRole to read the cluster-scoped ResourceFlavors. "
+            : "";
+    EventUtils.warn(
+        context.getEventRecorder(),
+        EventUtils.REASON_KUEUE_RESOURCE_FLAVOR_READ_FAILED,
+        "Failed to read the Kueue ResourceFlavors, will retry. " + cause + EventUtils.describe(e));
+    return ReconcileProgress.completeAndDefaultRequeue();
   }
 
   /**
@@ -260,15 +354,13 @@ public final class KueueWorkloadUtils {
    *
    * @param client The KubernetesClient.
    * @param admitted The admitted Workload.
-   * @param desired The Workload built for the resource, whose pod set templates have the node
-   *     selectors of the pods.
-   * @return The KueuePodSetFlavor by the pod set name. A pod set without an assignment is absent.
+   * @return The KueuePodSetFlavor by the pod set name. A pod set without an assignment, or one
+   *     whose flavors have neither node labels nor tolerations, is absent, so that the resources
+   *     of such a pod set are built as they are without Kueue.
    * @throws KubernetesClientException if a ResourceFlavor cannot be read.
-   * @throws IllegalArgumentException if a node label of the flavors conflicts with the node
-   *     selector of the pod set. Like Kueue built-in integrations, this is permanent.
    */
   public static Map<String, KueuePodSetFlavor> resolvePodSetFlavors(
-      final KubernetesClient client, final Workload admitted, final Workload desired) {
+      final KubernetesClient client, final Workload admitted) {
     Map<String, KueuePodSetFlavor> result = new HashMap<>();
     WorkloadStatus status = admitted.getStatus();
     if (status == null || status.getAdmission() == null) {
@@ -293,8 +385,9 @@ public final class KueueWorkloadUtils {
           }
         }
       }
-      checkNoNodeSelectorConflict(
-          assignment.getName(), podSetNodeSelector(desired, assignment.getName()), nodeSelector);
+      if (nodeSelector.isEmpty() && tolerations.isEmpty()) {
+        continue;
+      }
       result.put(assignment.getName(), new KueuePodSetFlavor(nodeSelector, tolerations));
     }
     return result;
@@ -322,7 +415,25 @@ public final class KueueWorkloadUtils {
         .orElse(Map.of());
   }
 
-  /** Like Kueue's podset.Merge, a node label must not change the node selector of the pods. */
+  /**
+   * Like Kueue's podset.Merge, a node label must not change the node selector of the pods.
+   *
+   * @param flavors The resolved flavors by the pod set name.
+   * @param desired The Workload built for the resource, whose pod set templates have the node
+   *     selectors of the pods.
+   * @throws IllegalArgumentException if a node label of the flavors conflicts with the node
+   *     selector of a pod set. Like Kueue built-in integrations, this is permanent.
+   */
+  static void checkNoNodeSelectorConflict(
+      final Map<String, KueuePodSetFlavor> flavors, final Workload desired) {
+    for (Map.Entry<String, KueuePodSetFlavor> flavor : flavors.entrySet()) {
+      checkNoNodeSelectorConflict(
+          flavor.getKey(),
+          podSetNodeSelector(desired, flavor.getKey()),
+          flavor.getValue().nodeSelector());
+    }
+  }
+
   private static void checkNoNodeSelectorConflict(
       final String podSetName,
       final Map<String, String> podNodeSelector,
@@ -380,16 +491,26 @@ public final class KueueWorkloadUtils {
   public static boolean releaseWorkload(final KubernetesClient client, final HasMetadata owner) {
     String name = KueueWorkloadFactory.getWorkloadName(owner);
     try {
-      return !client
-          .resources(Workload.class)
-          .inNamespace(owner.getMetadata().getNamespace())
-          .withName(name)
-          .delete()
-          .isEmpty();
+      return deleteWorkloadOf(client, owner);
     } catch (KubernetesClientException e) {
       log.warn("Failed to release the Kueue Workload {}.", name, e);
       return false;
     }
+  }
+
+  /**
+   * Deletes the Workload of the given resource and reports whether one was there to delete, unlike
+   * {@link #releaseWorkload} without swallowing the failure.
+   *
+   * @throws KubernetesClientException if the Workload cannot be deleted.
+   */
+  private static boolean deleteWorkloadOf(final KubernetesClient client, final HasMetadata owner) {
+    return !client
+        .resources(Workload.class)
+        .inNamespace(owner.getMetadata().getNamespace())
+        .withName(KueueWorkloadFactory.getWorkloadName(owner))
+        .delete()
+        .isEmpty();
   }
 
   private static void deleteWorkload(final KubernetesClient client, final Workload workload) {

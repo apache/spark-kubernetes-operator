@@ -177,6 +177,36 @@ spec:
           kubectl patch clusterqueue "$CLUSTER_QUEUE" --type json -p \
             '[{"op": "replace", "path": "/spec/resourceGroups/0/flavors/0/resources/0/nominalQuota", "value": "4"},
               {"op": "replace", "path": "/spec/resourceGroups/0/flavors/0/resources/1/nominalQuota", "value": "8Gi"}]'
+    # The node labels and tolerations of the assigned ResourceFlavor are injected into the driver
+    # and the executor pods, which the driver creates.
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            namespace: default
+            labels:
+              spark.operator/spark-app-name: spark-job-kueue-queued-test
+              spark-role: driver
+          spec:
+            nodeSelector:
+              kubernetes.io/os: linux
+            (tolerations[?key == 'spark.apache.org/kueue-e2e'] | length(@)): 1
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            namespace: default
+            labels:
+              spark.operator/spark-app-name: spark-job-kueue-queued-test
+              spark-role: executor
+          spec:
+            nodeSelector:
+              kubernetes.io/os: linux
+            (tolerations[?key == 'spark.apache.org/kueue-e2e'] | length(@)): 1
     - assert:
         bindings:
           - name: SPARK_APP_NAMESPACE
@@ -357,6 +387,36 @@ spec:
           kubectl patch clusterqueue "$CLUSTER_QUEUE" --type json -p \
             '[{"op": "replace", "path": "/spec/resourceGroups/0/flavors/0/resources/0/nominalQuota", "value": "4"},
               {"op": "replace", "path": "/spec/resourceGroups/0/flavors/0/resources/1/nominalQuota", "value": "8Gi"}]'
+    # The node labels and tolerations of the assigned ResourceFlavor are injected into the master
+    # and the worker pods.
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: apps/v1
+          kind: StatefulSet
+          metadata:
+            name: spark-cluster-kueue-queued-test-master
+            namespace: default
+          spec:
+            template:
+              spec:
+                nodeSelector:
+                  kubernetes.io/os: linux
+                (tolerations[?key == 'spark.apache.org/kueue-e2e'] | length(@)): 1
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: apps/v1
+          kind: StatefulSet
+          metadata:
+            name: spark-cluster-kueue-queued-test-worker
+            namespace: default
+          spec:
+            template:
+              spec:
+                nodeSelector:
+                  kubernetes.io/os: linux
+                (tolerations[?key == 'spark.apache.org/kueue-e2e'] | length(@)): 1
     - assert:
         bindings:
           - name: SPARK_APP_NAMESPACE

@@ -624,6 +624,17 @@ spec:
   memory request or limit on the `worker` container, or `SPARK_WORKER_CORES` and
   `SPARK_WORKER_MEMORY`: a worker with none of them advertises the whole node to its executors,
   well above the default the `Workload` requests.
+* Like Kueue built-in integrations, the `nodeLabels` and `tolerations` of the `ResourceFlavor`s
+  assigned to a pod set are added to the node selector and tolerations of its pods. The executor
+  pods get them through the executor pod template, which the operator creates if not set. A node
+  label that conflicts with the node selector of the pods fails the resource with
+  `SchedulingFailure` and deletes the `Workload`. Only fixing the node selector or the flavor
+  resolves it: a restarted attempt requests the quota again and hits the same conflict, so an
+  application which restarts on `SchedulingFailure` should bound the attempts with
+  [`maxRestartOnSchedulingFailure`](#granular-restart-control). `ResourceFlavor`s are
+  cluster-scoped, so reading them needs the rules which `operatorRbac.kueue.enabled` grants
+  through the ClusterRole, hence `operatorRbac.clusterRole.create` as well. Until they can be
+  read, the resource is held and the read is retried.
 * `spec.suspend` takes precedence. A suspended resource does not get a `Workload`, and suspending
   a queued resource deletes its `Workload` to release the quota. The resource is queued again when
   it is resumed.

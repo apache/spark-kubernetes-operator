@@ -20,22 +20,27 @@
 package org.apache.spark.k8s.operator.context;
 
 import static org.apache.spark.k8s.operator.utils.Utils.driverLabels;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.api.model.PodList;
+import io.fabric8.kubernetes.api.model.PodSpec;
+import io.fabric8.kubernetes.api.model.Toleration;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.dsl.MixedOperation;
@@ -44,9 +49,12 @@ import io.fabric8.kubernetes.client.dsl.PodResource;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
+import org.apache.spark.k8s.operator.SparkAppResourceSpec;
 import org.apache.spark.k8s.operator.SparkAppSubmissionWorker;
 import org.apache.spark.k8s.operator.SparkApplication;
+import org.apache.spark.k8s.operator.kueue.KueuePodSetFlavor;
 
 class SparkAppContextTest {
   private final SparkApplication application = buildApplication();
@@ -123,6 +131,36 @@ class SparkAppContextTest {
     Assertions.assertTrue(context.getCurrentAttemptDriverPod().isEmpty());
     verify(context, never()).getDriverPodSpec();
     verify(context.getClient(), never()).pods();
+  }
+
+  @Test
+  void kueuePodSetFlavorsRebuildTheCachedResourceSpec() {
+    // The driver pod spec can be built before the Kueue admission, e.g. to find the driver pod of
+    // the current attempt, so setting the flavors drops the cached one.
+    KubernetesClient client = mock(KubernetesClient.class);
+    Context<?> josdkContext = mock(Context.class);
+    when(josdkContext.getClient()).thenReturn(client);
+    SparkAppResourceSpec resourceSpec = mock(SparkAppResourceSpec.class);
+    when(resourceSpec.getConfiguredPod()).thenReturn(driverPod("sparkapp1-1-driver"));
+    SparkAppSubmissionWorker worker = mock(SparkAppSubmissionWorker.class);
+    when(worker.getResourceSpec(any(), any(), any())).thenReturn(resourceSpec);
+    SparkAppContext context = new SparkAppContext(application, josdkContext, worker);
+
+    context.getDriverPodSpec();
+    context.getDriverPodSpec();
+    verify(worker, times(1)).getResourceSpec(any(), any(), any());
+
+    Toleration toleration = new Toleration("NoSchedule", "spot", "Exists", null, null);
+    context.setKueuePodSetFlavors(
+        Map.of("driver", new KueuePodSetFlavor(Map.of("pool", "cpu"), List.of(toleration))));
+    context.getDriverPodSpec();
+
+    ArgumentCaptor<SparkApplication> captor = ArgumentCaptor.forClass(SparkApplication.class);
+    verify(worker, times(2)).getResourceSpec(captor.capture(), any(), any());
+    PodSpec driverTemplate =
+        captor.getValue().getSpec().getDriverSpec().getPodTemplateSpec().getSpec();
+    Assertions.assertEquals(Map.of("pool", "cpu"), driverTemplate.getNodeSelector());
+    Assertions.assertEquals(List.of(toleration), driverTemplate.getTolerations());
   }
 
   /**

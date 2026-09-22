@@ -19,6 +19,15 @@ apiVersion: kueue.x-k8s.io/v1beta2
 kind: ResourceFlavor
 metadata:
   name: ($FLAVOR)
+spec:
+  # The operator injects these into the pods admitted with this flavor. The node label exists on
+  # every Linux node and the toleration matches no taint, so the scheduling is not changed.
+  nodeLabels:
+    kubernetes.io/os: linux
+  tolerations:
+  - key: spark.apache.org/kueue-e2e
+    operator: Exists
+    effect: NoSchedule
 ---
 apiVersion: kueue.x-k8s.io/v1beta2
 kind: ClusterQueue

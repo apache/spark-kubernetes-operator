@@ -19,11 +19,14 @@
 
 package org.apache.spark.k8s.operator.context;
 
+import java.util.Map;
+
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
 
 import org.apache.spark.k8s.operator.BaseResource;
+import org.apache.spark.k8s.operator.kueue.KueuePodSetFlavor;
 
 /**
  * Base class for context objects.
@@ -34,6 +37,9 @@ public abstract class BaseContext<CR extends BaseResource<?, ?, ?, ?, ?>> {
 
   /** The JOSDK context of the reconciliation this context belongs to. */
   protected final Context<?> josdkContext;
+
+  /** The flavors which Kueue assigned to the pod sets, applied to the secondary resources. */
+  protected Map<String, KueuePodSetFlavor> kueuePodSetFlavors = Map.of();
 
   /**
    * Constructs a context over the given JOSDK reconciliation context.
@@ -50,6 +56,26 @@ public abstract class BaseContext<CR extends BaseResource<?, ?, ?, ?, ?>> {
    * @return The custom resource.
    */
   public abstract CR getResource();
+
+  /**
+   * Sets the flavors which Kueue assigned to the pod sets of the resource, so that its secondary
+   * resources carry their node selectors and tolerations.
+   *
+   * @param kueuePodSetFlavors The KueuePodSetFlavor by the pod set name.
+   */
+  public void setKueuePodSetFlavors(Map<String, KueuePodSetFlavor> kueuePodSetFlavors) {
+    synchronized (this) {
+      this.kueuePodSetFlavors = kueuePodSetFlavors;
+      applyKueuePodSetFlavors();
+    }
+  }
+
+  /**
+   * Applies the flavors to the secondary resource spec which was built before them, e.g. to find
+   * the driver pod or to check whether the master exists. Called while holding the lock of this
+   * context, so that a reader sees either spec with its flavors.
+   */
+  protected abstract void applyKueuePodSetFlavors();
 
   /**
    * Returns the Kubernetes client associated with this context.

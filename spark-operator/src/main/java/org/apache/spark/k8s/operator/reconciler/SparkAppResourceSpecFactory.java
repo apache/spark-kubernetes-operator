@@ -35,6 +35,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import io.fabric8.kubernetes.api.model.PodSpec;
 import io.fabric8.kubernetes.api.model.PodTemplateSpec;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import lombok.extern.slf4j.Slf4j;
@@ -44,8 +45,12 @@ import org.apache.spark.k8s.operator.SparkAppSubmissionWorker;
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.decorators.OwnerResourceDecorator;
 import org.apache.spark.k8s.operator.decorators.SecurityContextDecorator;
+import org.apache.spark.k8s.operator.kueue.KueuePodSetFlavor;
+import org.apache.spark.k8s.operator.kueue.KueueWorkloadFactory;
+import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 import org.apache.spark.k8s.operator.spec.BaseApplicationTemplateSpec;
 import org.apache.spark.k8s.operator.utils.ModelUtils;
+import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 
 /** Factory for creating SparkAppResourceSpec objects. */
 @Slf4j
@@ -54,24 +59,64 @@ public final class SparkAppResourceSpecFactory {
   private SparkAppResourceSpecFactory() {}
 
   /**
-   * Builds a SparkAppResourceSpec for the given SparkApplication.
+   * Builds a SparkAppResourceSpec for the given SparkApplication with the flavors which Kueue
+   * assigned to the driver and executor pod sets. The flavors are applied to the pod templates,
+   * because the executor pods are created by the driver.
    *
    * @param app The SparkApplication.
    * @param client The KubernetesClient.
    * @param worker The SparkAppSubmissionWorker.
+   * @param kueuePodSetFlavors The KueuePodSetFlavor by the pod set name.
    * @return A SparkAppResourceSpec containing the configured resources.
    */
   public static SparkAppResourceSpec buildResourceSpec(
       final SparkApplication app,
       final KubernetesClient client,
-      final SparkAppSubmissionWorker worker) {
-    Map<String, String> confOverrides = overrideDependencyConf(app);
-    SparkAppResourceSpec resourceSpec = worker.getResourceSpec(app, client, confOverrides);
-    cleanUpTempResourcesForApp(app, confOverrides);
+      final SparkAppSubmissionWorker worker,
+      final Map<String, KueuePodSetFlavor> kueuePodSetFlavors) {
+    SparkApplication appToSubmit =
+        kueuePodSetFlavors.isEmpty() ? app : applyKueuePodSetFlavors(app, kueuePodSetFlavors);
+    Map<String, String> confOverrides = overrideDependencyConf(appToSubmit);
+    SparkAppResourceSpec resourceSpec = worker.getResourceSpec(appToSubmit, client, confOverrides);
+    cleanUpTempResourcesForApp(appToSubmit, confOverrides);
     OwnerResourceDecorator decorator = new OwnerResourceDecorator(app, sparkAppResourceLabels(app));
     decorator.decorate(resourceSpec.getConfiguredPod());
     new SecurityContextDecorator().decorate(resourceSpec.getConfiguredPod());
     return resourceSpec;
+  }
+
+  /**
+   * Returns a copy of the SparkApplication whose driver and executor pod templates have the
+   * flavors, so that the SparkApplication and its Kueue Workload are not changed.
+   */
+  private static SparkApplication applyKueuePodSetFlavors(
+      final SparkApplication app, final Map<String, KueuePodSetFlavor> kueuePodSetFlavors) {
+    SparkApplication copy = ReconcilerUtils.clone(app);
+    ApplicationSpec spec = copy.getSpec();
+    KueuePodSetFlavor driverFlavor = kueuePodSetFlavors.get(KueueWorkloadFactory.PODSET_DRIVER);
+    if (driverFlavor != null) {
+      spec.setDriverSpec(applyKueuePodSetFlavor(spec.getDriverSpec(), driverFlavor));
+    }
+    KueuePodSetFlavor executorFlavor =
+        kueuePodSetFlavors.get(KueueWorkloadFactory.PODSET_EXECUTOR);
+    if (executorFlavor != null) {
+      spec.setExecutorSpec(applyKueuePodSetFlavor(spec.getExecutorSpec(), executorFlavor));
+    }
+    return copy;
+  }
+
+  private static BaseApplicationTemplateSpec applyKueuePodSetFlavor(
+      final BaseApplicationTemplateSpec templateSpec, final KueuePodSetFlavor flavor) {
+    BaseApplicationTemplateSpec result =
+        templateSpec == null ? new BaseApplicationTemplateSpec() : templateSpec;
+    if (result.getPodTemplateSpec() == null) {
+      result.setPodTemplateSpec(new PodTemplateSpec());
+    }
+    if (result.getPodTemplateSpec().getSpec() == null) {
+      result.getPodTemplateSpec().setSpec(new PodSpec());
+    }
+    flavor.applyTo(result.getPodTemplateSpec().getSpec());
+    return result;
   }
 
   /**
