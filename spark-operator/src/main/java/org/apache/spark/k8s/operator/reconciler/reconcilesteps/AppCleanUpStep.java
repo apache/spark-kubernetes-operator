@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
 
 import io.fabric8.kubernetes.api.model.HasMetadata;
@@ -58,6 +59,18 @@ import org.apache.spark.k8s.operator.utils.StringUtils;
 @NoArgsConstructor
 @Slf4j
 public final class AppCleanUpStep extends AppReconcileStep {
+  /**
+   * The stopping states whose driver pod reached a terminal phase, so that the Kueue Workload of a
+   * retained application can be finished. An evicted driver is a `Failed` driver pod which is only
+   * told apart by its reason, see `BaseAppDriverObserver`, so it occupies no capacity either. The
+   * start timeouts and `SchedulingFailure` are absent because they can leave a live driver behind.
+   */
+  private static final Set<ApplicationStateSummary> FINISHED_KUEUE_STATES =
+      Set.of(
+          ApplicationStateSummary.Succeeded,
+          ApplicationStateSummary.Failed,
+          ApplicationStateSummary.DriverEvicted);
+
   private Supplier<ApplicationState> onDemandCleanUpReason;
   private String stateUpdateMessage;
 
@@ -124,6 +137,7 @@ public final class AppCleanUpStep extends AppReconcileStep {
               new ApplicationState(
                   ApplicationStateSummary.TerminatedWithoutReleaseResources,
                   "Application is terminated without releasing resources as configured.");
+          finishKueueWorkloadOfRetainedApp(context, currentState, terminationState);
           long requeueAfterMillis =
               tolerations.getApplicationTimeoutConfig().getTerminationRequeuePeriodMillis();
           return appendStateAndRequeueAfter(
@@ -199,6 +213,39 @@ public final class AppCleanUpStep extends AppReconcileStep {
       }
       return updateStatusAndRequeueAfter(
           context, statusRecorder, updatedStatus, Duration.ofMillis(requeueAfterMillis));
+    }
+  }
+
+  /**
+   * Records the Kueue `Finished` condition on the Workload of an application which terminated
+   * without releasing its resources. The Workload is retained with them, so Kueue releases its
+   * quota on that condition instead of the deletion which the other paths rely on. The
+   * application does not restart on this path, so no later attempt would find the finished
+   * Workload.
+   *
+   * <p>Only an application in one of the {@link #FINISHED_KUEUE_STATES} is finished. The other
+   * stopping states, the start timeouts and `SchedulingFailure`, leave a retained driver running,
+   * and it would keep occupying the capacity which Kueue reclaims on the condition.
+   *
+   * @param context The SparkAppContext for the application.
+   * @param currentState The state which the application terminated with.
+   * @param terminationState The state which the application is updated to.
+   */
+  private void finishKueueWorkloadOfRetainedApp(
+      final SparkAppContext context,
+      final ApplicationState currentState,
+      final ApplicationState terminationState) {
+    ApplicationStateSummary stateSummary = currentState.getCurrentStateSummary();
+    if (!FINISHED_KUEUE_STATES.contains(stateSummary)) {
+      return;
+    }
+    SparkApplication application = context.getResource();
+    if (KueueWorkloadFactory.hasQueueName(application)) {
+      KueueWorkloadUtils.finishWorkload(
+          context.getClient(),
+          application,
+          ApplicationStateSummary.Succeeded == stateSummary,
+          terminationState.getMessage());
     }
   }
 

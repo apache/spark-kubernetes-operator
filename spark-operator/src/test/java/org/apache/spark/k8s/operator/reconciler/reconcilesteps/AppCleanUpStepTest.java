@@ -206,6 +206,143 @@ class AppCleanUpStepTest {
     app.setStatus(prepareApplicationStatus(ApplicationStateSummary.Failed));
     SparkAppContext mockAppContext = mock(SparkAppContext.class);
     when(mockAppContext.getResource()).thenReturn(app);
+    KubernetesClient mockClient = mock(KubernetesClient.class);
+    when(mockAppContext.getClient()).thenReturn(mockClient);
+    when(mockRecorder.appendNewStateAndPersist(eq(mockAppContext), any())).thenReturn(true);
+
+    try (MockedStatic<KueueWorkloadUtils> kueue = Mockito.mockStatic(KueueWorkloadUtils.class)) {
+      routineCheck.reconcile(mockAppContext, mockRecorder);
+      // The Workload is not deleted, so Kueue releases its quota on the `Finished` condition
+      kueue.verify(
+          () ->
+              KueueWorkloadUtils.finishWorkload(
+                  mockClient,
+                  app,
+                  false,
+                  "Application is terminated without releasing resources as configured."));
+      kueue.verifyNoMoreInteractions();
+    }
+    ArgumentCaptor<ApplicationState> captor = ArgumentCaptor.forClass(ApplicationState.class);
+    verify(mockRecorder).appendNewStateAndPersist(eq(mockAppContext), captor.capture());
+    Assertions.assertEquals(
+        ApplicationStateSummary.TerminatedWithoutReleaseResources,
+        captor.getValue().getCurrentStateSummary());
+  }
+
+  @Test
+  void cleanupWithRetainPolicyFinishesKueueWorkloadAsSucceeded() {
+    SparkAppStatusRecorder mockRecorder = mock(SparkAppStatusRecorder.class);
+    AppCleanUpStep routineCheck = new AppCleanUpStep();
+    SparkApplication app = new SparkApplication();
+    app.setMetadata(
+        new ObjectMetaBuilder()
+            .withName("app1")
+            .withNamespace("default")
+            .withLabels(Map.of(Constants.LABEL_QUEUE_NAME, "test-queue"))
+            .build());
+    app.setSpec(alwaysRetain);
+    app.setStatus(prepareApplicationStatus(ApplicationStateSummary.Succeeded));
+    SparkAppContext mockAppContext = mock(SparkAppContext.class);
+    when(mockAppContext.getResource()).thenReturn(app);
+    KubernetesClient mockClient = mock(KubernetesClient.class);
+    when(mockAppContext.getClient()).thenReturn(mockClient);
+    when(mockRecorder.appendNewStateAndPersist(eq(mockAppContext), any())).thenReturn(true);
+
+    try (MockedStatic<KueueWorkloadUtils> kueue = Mockito.mockStatic(KueueWorkloadUtils.class)) {
+      routineCheck.reconcile(mockAppContext, mockRecorder);
+      kueue.verify(
+          () ->
+              KueueWorkloadUtils.finishWorkload(
+                  mockClient,
+                  app,
+                  true,
+                  "Application is terminated without releasing resources as configured."));
+      kueue.verifyNoMoreInteractions();
+    }
+  }
+
+  @Test
+  void cleanupWithRetainPolicyKeepsTheQuotaOfARetainedRunningDriver() {
+    SparkAppStatusRecorder mockRecorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication app = new SparkApplication();
+    app.setMetadata(
+        new ObjectMetaBuilder()
+            .withName("app1")
+            .withNamespace("default")
+            .withLabels(Map.of(Constants.LABEL_QUEUE_NAME, "test-queue"))
+            .build());
+    app.setSpec(alwaysRetain);
+    // These stopping states can retain a running driver, so its quota must not be released while
+    // it still occupies the capacity. An evicted driver is terminal and is covered separately.
+    for (ApplicationStateSummary stateSummary :
+        List.of(
+            ApplicationStateSummary.DriverStartTimedOut,
+            ApplicationStateSummary.ExecutorsStartTimedOut,
+            ApplicationStateSummary.DriverReadyTimedOut,
+            ApplicationStateSummary.SchedulingFailure)) {
+      AppCleanUpStep routineCheck = new AppCleanUpStep();
+      app.setStatus(prepareApplicationStatus(stateSummary));
+      SparkAppContext mockAppContext = mock(SparkAppContext.class);
+      when(mockAppContext.getResource()).thenReturn(app);
+      when(mockAppContext.getClient()).thenReturn(mock(KubernetesClient.class));
+      when(mockRecorder.appendNewStateAndPersist(eq(mockAppContext), any())).thenReturn(true);
+
+      try (MockedStatic<KueueWorkloadUtils> kueue = Mockito.mockStatic(KueueWorkloadUtils.class)) {
+        routineCheck.reconcile(mockAppContext, mockRecorder);
+        kueue.verifyNoInteractions();
+      }
+      ArgumentCaptor<ApplicationState> captor = ArgumentCaptor.forClass(ApplicationState.class);
+      verify(mockRecorder).appendNewStateAndPersist(eq(mockAppContext), captor.capture());
+      Assertions.assertEquals(
+          ApplicationStateSummary.TerminatedWithoutReleaseResources,
+          captor.getValue().getCurrentStateSummary());
+    }
+  }
+
+  @Test
+  void cleanupWithRetainPolicyFinishesTheWorkloadOfAnEvictedDriver() {
+    SparkAppStatusRecorder mockRecorder = mock(SparkAppStatusRecorder.class);
+    AppCleanUpStep routineCheck = new AppCleanUpStep();
+    SparkApplication app = new SparkApplication();
+    app.setMetadata(
+        new ObjectMetaBuilder()
+            .withName("app1")
+            .withNamespace("default")
+            .withLabels(Map.of(Constants.LABEL_QUEUE_NAME, "test-queue"))
+            .build());
+    app.setSpec(alwaysRetain);
+    app.setStatus(prepareApplicationStatus(ApplicationStateSummary.DriverEvicted));
+    SparkAppContext mockAppContext = mock(SparkAppContext.class);
+    when(mockAppContext.getResource()).thenReturn(app);
+    KubernetesClient mockClient = mock(KubernetesClient.class);
+    when(mockAppContext.getClient()).thenReturn(mockClient);
+    when(mockRecorder.appendNewStateAndPersist(eq(mockAppContext), any())).thenReturn(true);
+
+    try (MockedStatic<KueueWorkloadUtils> kueue = Mockito.mockStatic(KueueWorkloadUtils.class)) {
+      routineCheck.reconcile(mockAppContext, mockRecorder);
+      // An evicted driver is a Failed driver pod which occupies no capacity, so its quota is
+      // released with the `Failed` reason like the one of a Failed application
+      kueue.verify(
+          () ->
+              KueueWorkloadUtils.finishWorkload(
+                  mockClient,
+                  app,
+                  false,
+                  "Application is terminated without releasing resources as configured."));
+      kueue.verifyNoMoreInteractions();
+    }
+  }
+
+  @Test
+  void cleanupWithRetainPolicyWithoutQueueNameDoesNotFinishKueueWorkload() {
+    SparkAppStatusRecorder mockRecorder = mock(SparkAppStatusRecorder.class);
+    AppCleanUpStep routineCheck = new AppCleanUpStep();
+    SparkApplication app = new SparkApplication();
+    app.setMetadata(new ObjectMetaBuilder().withName("app1").withNamespace("default").build());
+    app.setSpec(alwaysRetain);
+    app.setStatus(prepareApplicationStatus(ApplicationStateSummary.Succeeded));
+    SparkAppContext mockAppContext = mock(SparkAppContext.class);
+    when(mockAppContext.getResource()).thenReturn(app);
     when(mockAppContext.getClient()).thenReturn(mock(KubernetesClient.class));
     when(mockRecorder.appendNewStateAndPersist(eq(mockAppContext), any())).thenReturn(true);
 
@@ -213,11 +350,6 @@ class AppCleanUpStepTest {
       routineCheck.reconcile(mockAppContext, mockRecorder);
       kueue.verifyNoInteractions();
     }
-    ArgumentCaptor<ApplicationState> captor = ArgumentCaptor.forClass(ApplicationState.class);
-    verify(mockRecorder).appendNewStateAndPersist(eq(mockAppContext), captor.capture());
-    Assertions.assertEquals(
-        ApplicationStateSummary.TerminatedWithoutReleaseResources,
-        captor.getValue().getCurrentStateSummary());
   }
 
   @Test

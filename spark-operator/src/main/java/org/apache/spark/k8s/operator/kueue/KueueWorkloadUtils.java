@@ -26,6 +26,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HexFormat;
@@ -39,6 +41,8 @@ import java.util.TreeMap;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import io.fabric8.kubernetes.api.model.Condition;
+import io.fabric8.kubernetes.api.model.ConditionBuilder;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.OwnerReference;
 import io.fabric8.kubernetes.api.model.Toleration;
@@ -65,6 +69,12 @@ public final class KueueWorkloadUtils {
 
   /** Annotation holding the hash of the pod sets which the Workload was created with. */
   public static final String ANNOTATION_POD_SETS_HASH = "spark.operator/kueue-pod-sets-hash";
+
+  /**
+   * Type of the Kueue condition which releases the quota of a terminated resource. It has to match
+   * the type which {@link WorkloadStatus#isFinished} checks, since that guards the recording.
+   */
+  private static final String CONDITION_FINISHED = "Finished";
 
   /**
    * Requeue interval after {@link AdmissionResult#STALE} and after a transient API failure. It is
@@ -518,6 +528,90 @@ public final class KueueWorkloadUtils {
         .withName(KueueWorkloadFactory.getWorkloadName(owner))
         .delete()
         .isEmpty();
+  }
+
+  /**
+   * Records the Kueue `Finished` condition on the Workload of the given resource, so that Kueue
+   * releases its quota while the Workload and the metrics of Kueue keep the finished attempt, and
+   * reports whether it was recorded. Like the built-in Kueue integrations, the controller which
+   * owns the resource is the one recording the condition, and it is recorded once: a Workload
+   * which already has it is left alone.
+   *
+   * <p>A failure falls back to {@link #releaseWorkload}, which releases the quota by deleting the
+   * Workload, at the cost of the record that a finished one keeps. The condition is recorded on a
+   * path which is not reconciled again, so a failure that is only logged would hold the quota
+   * until a user deletes the owner: the retain duration which would release it otherwise is
+   * disabled by default. The fallback covers a rejected status update, such as a missing
+   * permission for the `workloads/status` subresource, while an API server which is down rejects
+   * the deletion as well, and that is logged like any other release failure.
+   *
+   * @param client The KubernetesClient.
+   * @param owner The SparkApplication or SparkCluster owning the Workload.
+   * @param success Whether the owner terminated successfully, which selects the reason of the
+   *     condition like the `Succeeded` and `Failed` reasons of Kueue.
+   * @param message The message of the condition, describing why the owner terminated.
+   * @return True if the condition was recorded, false if there is no Workload, it is already
+   *     finished, or the update failed and the Workload was released instead.
+   */
+  public static boolean finishWorkload(
+      final KubernetesClient client,
+      final HasMetadata owner,
+      final boolean success,
+      final String message) {
+    String name = KueueWorkloadFactory.getWorkloadName(owner);
+    try {
+      Workload workload =
+          client
+              .resources(Workload.class)
+              .inNamespace(owner.getMetadata().getNamespace())
+              .withName(name)
+              .get();
+      if (workload == null) {
+        return false;
+      }
+      WorkloadStatus status = workload.getStatus();
+      if (status != null && status.isFinished()) {
+        return false;
+      }
+      client
+          .resource(workload)
+          .editStatus(current -> addFinishedCondition(current, success, message));
+      return true;
+    } catch (KubernetesClientException e) {
+      log.warn("Failed to finish the Kueue Workload {}, releasing it instead.", name, e);
+      releaseWorkload(client, owner);
+      return false;
+    }
+  }
+
+  private static Workload addFinishedCondition(
+      final Workload workload, final boolean success, final String message) {
+    WorkloadStatus status = workload.getStatus();
+    if (status == null) {
+      status = new WorkloadStatus();
+      workload.setStatus(status);
+    }
+    List<Condition> conditions = new ArrayList<>();
+    if (status.getConditions() != null) {
+      // Like Kueue's SetStatusCondition, an existing condition of the type is replaced rather than
+      // kept: the conditions are a map keyed by the type, so the API server rejects a second entry
+      // of it. The type is compared as `isFinished` does, which does not guard such an entry
+      // unless its status is `True`.
+      status.getConditions().stream()
+          .filter(condition -> !CONDITION_FINISHED.equalsIgnoreCase(condition.getType()))
+          .forEach(conditions::add);
+    }
+    conditions.add(
+        new ConditionBuilder()
+            .withType(CONDITION_FINISHED)
+            .withStatus("True")
+            .withReason(success ? "Succeeded" : "Failed")
+            .withMessage(message)
+            .withLastTransitionTime(Instant.now().truncatedTo(ChronoUnit.SECONDS).toString())
+            .withObservedGeneration(workload.getMetadata().getGeneration())
+            .build());
+    status.setConditions(conditions);
+    return workload;
   }
 
   private static void deleteWorkload(final KubernetesClient client, final Workload workload) {
