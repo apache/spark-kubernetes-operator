@@ -168,7 +168,8 @@ public final class ClusterInitStep extends ClusterReconcileStep {
 
   /**
    * Requests the Kueue admission of a cluster labeled with a queue name. Like the suspend hold, a
-   * master requested before must complete its initialization, so the check is skipped then. An
+   * master requested before must complete its initialization, so only the flavors which Kueue
+   * assigned to it are applied again then. An
    * unsupported spec fails to build the Workload, which the caller turns into SchedulingFailure.
    * SchedulingFailure is terminal for a cluster, so an API failure of the admission request is
    * retried instead, see {@link KueueWorkloadUtils#holdForAdmission}.
@@ -184,7 +185,10 @@ public final class ClusterInitStep extends ClusterReconcileStep {
     }
     try {
       if (isMasterRequested(context)) {
-        return Optional.empty();
+        // The master and worker StatefulSets are applied again in this reconcile, so the flavors
+        // of the Workload which was admitted before are resolved again instead of dropping them
+        // from the pod templates.
+        return KueueWorkloadUtils.applyAdmittedFlavors(context);
       }
     } catch (KubernetesClientException e) {
       // Requesting the admission of a master which is already running would be wrong, so the

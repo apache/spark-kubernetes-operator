@@ -24,6 +24,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -51,6 +52,7 @@ import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
+import io.fabric8.kubernetes.api.model.Toleration;
 import io.fabric8.kubernetes.api.model.scheduling.v1.PriorityClassList;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
@@ -66,13 +68,19 @@ import io.javaoperatorsdk.operator.api.reconciler.Context;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 
 import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.SparkAppSubmissionWorker;
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.context.SparkAppContext;
+import org.apache.spark.k8s.operator.kueue.KueuePodSetFlavor;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadFactory;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils;
+import org.apache.spark.k8s.operator.kueue.v1beta2.Admission;
+import org.apache.spark.k8s.operator.kueue.v1beta2.PodSetAssignment;
+import org.apache.spark.k8s.operator.kueue.v1beta2.ResourceFlavor;
+import org.apache.spark.k8s.operator.kueue.v1beta2.ResourceFlavorSpec;
 import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
 import org.apache.spark.k8s.operator.kueue.v1beta2.WorkloadStatus;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
@@ -1126,6 +1134,7 @@ class AppInitStepTest {
 
     Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
     Assertions.assertNull(getWorkload());
+    verify(mockContext, never()).setKueuePodSetFlavors(any());
     Assertions.assertEquals(
         ApplicationStateSummary.DriverRequested,
         application.getStatus().getCurrentState().getCurrentStateSummary());
@@ -1137,6 +1146,163 @@ class AppInitStepTest {
         .inNamespace("default")
         .withName("sparkapplication-sparkapp1")
         .get();
+  }
+
+  @Test
+  void admittedKueueFlavorsAreSetBeforeDriverSpecIsBuilt() {
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(kueueApplicationMetadata);
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+    when(mockContext.getDriverPreResourcesSpec()).thenReturn(List.of());
+    when(mockContext.getDriverPodSpec()).thenReturn(driverPodSpec);
+    when(mockContext.getDriverResourcesSpec()).thenReturn(List.of());
+    when(recorder.persistStatus(any(), any())).thenReturn(true);
+    Toleration spot = new Toleration("NoSchedule", "spot", "Exists", null, null);
+    createFlavor("spot-flavor", Map.of("pool", "spot"), List.of(spot));
+
+    appInitStep.reconcile(mockContext, recorder);
+    admitWorkload(
+        Map.of(
+            "driver", Map.of("cpu", "spot-flavor"),
+            "executor", Map.of("cpu", "spot-flavor", "memory", "spot-flavor")));
+    appInitStep.reconcile(mockContext, recorder);
+
+    KueuePodSetFlavor flavor = new KueuePodSetFlavor(Map.of("pool", "spot"), List.of(spot));
+    InOrder inOrder = inOrder(mockContext);
+    inOrder.verify(mockContext).setKueuePodSetFlavors(Map.of("driver", flavor, "executor", flavor));
+    inOrder.verify(mockContext).getDriverPreResourcesSpec();
+    Assertions.assertNotNull(
+        kubernetesClient.pods().inNamespace("default").withName("driver-pod").get());
+  }
+
+  @Test
+  void kueueFlavorConflictFailsSchedulingAndReleasesWorkload() {
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(kueueApplicationMetadata);
+    application.getSpec().getSparkConf().put("spark.kubernetes.node.selector.pool", "on-demand");
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+    createFlavor("spot-flavor", Map.of("pool", "spot"), List.of());
+    when(recorder.persistStatus(any(), any())).thenReturn(true);
+
+    appInitStep.reconcile(mockContext, recorder);
+    admitWorkload(Map.of("driver", Map.of("cpu", "spot-flavor")));
+    ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
+
+    // Like Kueue, the conflict is permanent, so the quota is released
+    Assertions.assertEquals(ReconcileProgress.completeAndImmediateRequeue(), progress);
+    Assertions.assertNull(getWorkload());
+    verify(mockContext, never()).setKueuePodSetFlavors(any());
+    ArgumentCaptor<ApplicationStatus> captor = ArgumentCaptor.forClass(ApplicationStatus.class);
+    verify(recorder).persistStatus(any(), captor.capture());
+    Assertions.assertEquals(
+        ApplicationStateSummary.SchedulingFailure,
+        captor.getValue().getCurrentState().getCurrentStateSummary());
+    Assertions.assertTrue(
+        captor.getValue().getCurrentState().getMessage().contains("pool"),
+        captor.getValue().getCurrentState().getMessage());
+  }
+
+  @Test
+  void kueueFlavorReadFailureIsRetried() {
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(kueueApplicationMetadata);
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+
+    appInitStep.reconcile(mockContext, recorder);
+    // The flavor of the admitted Workload was deleted or renamed meanwhile
+    admitWorkload(Map.of("driver", Map.of("cpu", "missing-flavor")));
+    ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
+
+    // Like a persistent admission failure, it is retried with the default interval
+    Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
+    Assertions.assertNotNull(getWorkload());
+    verify(mockContext, never()).setKueuePodSetFlavors(any());
+    verifyNoInteractions(recorder);
+    EventRecord event = captureEvents(2).get(1);
+    Assertions.assertEquals(EventType.WARNING, event.type());
+    Assertions.assertEquals(EventUtils.REASON_KUEUE_RESOURCE_FLAVOR_READ_FAILED, event.reason());
+    // The missing flavor is reported as such, rather than as the missing ClusterRole
+    Assertions.assertTrue(event.message().contains("missing-flavor"), event.message());
+    Assertions.assertFalse(event.message().contains("ClusterRole"), event.message());
+  }
+
+  @Test
+  void kueueFlavorsAreAppliedAgainWhenTheDriverExists() {
+    // The driver resources are applied again while the status update to DriverRequested is
+    // retried, so they must not be rebuilt without the flavors the driver was created with.
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(kueueApplicationMetadata);
+    kubernetesClient.resource(driverPodSpec).create();
+    Toleration spot = new Toleration("NoSchedule", "spot", "Exists", null, null);
+    createFlavor("spot-flavor", Map.of("pool", "spot"), List.of(spot));
+    kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(application)).create();
+    admitWorkload(Map.of("driver", Map.of("cpu", "spot-flavor")));
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+    when(mockContext.getCurrentAttemptDriverPod()).thenReturn(Optional.of(driverPodSpec));
+    when(mockContext.getDriverPreResourcesSpec()).thenReturn(List.of());
+    when(mockContext.getDriverPodSpec()).thenReturn(driverPodSpec);
+    when(mockContext.getDriverResourcesSpec()).thenReturn(List.of());
+    when(recorder.persistStatus(any(), any())).thenReturn(true);
+
+    ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
+
+    Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
+    verify(mockContext)
+        .setKueuePodSetFlavors(
+            Map.of("driver", new KueuePodSetFlavor(Map.of("pool", "spot"), List.of(spot))));
+    Assertions.assertNotNull(getWorkload());
+  }
+
+  private void createFlavor(
+      String name, Map<String, String> nodeLabels, List<Toleration> tolerations) {
+    ResourceFlavor flavor = new ResourceFlavor();
+    flavor.setMetadata(new ObjectMetaBuilder().withName(name).build());
+    flavor.setSpec(
+        ResourceFlavorSpec.builder().nodeLabels(nodeLabels).tolerations(tolerations).build());
+    kubernetesClient.resource(flavor).create();
+  }
+
+  private void admitWorkload(Map<String, Map<String, String>> podSetFlavors) {
+    Workload workload = getWorkload();
+    workload.setStatus(
+        WorkloadStatus.builder()
+            .conditions(
+                List.of(new ConditionBuilder().withType("Admitted").withStatus("True").build()))
+            .admission(
+                Admission.builder()
+                    .clusterQueue("cluster-queue")
+                    .podSetAssignments(
+                        podSetFlavors.entrySet().stream()
+                            .map(
+                                e ->
+                                    PodSetAssignment.builder()
+                                        .name(e.getKey())
+                                        .flavors(e.getValue())
+                                        .build())
+                            .toList())
+                    .build())
+            .build());
+    kubernetesClient.resource(workload).update();
   }
 
   private List<EventRecord> captureEvents(int count) {

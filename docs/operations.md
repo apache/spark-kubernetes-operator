@@ -47,10 +47,11 @@ under the License.
   `spark.kubernetes.operator.kueue.workloadInformer.enabled`, so that the operator watches
   `Workload` resources and an admission starts the queued resource right away. Without the watch,
   an admission is noticed on the next periodic reconcile. The watch requires Kueue to be installed
-  before the operator starts; otherwise the operator reports itself unhealthy. The priority of a
-  `Workload` comes from the cluster-scoped `workloadpriorityclasses` and `priorityclasses`, which
-  are granted only by `clusterRole.create`. Without the permission, the operator logs a warning and
-  creates the `Workload` without priority. See
+  before the operator starts; otherwise the operator reports itself unhealthy. The cluster-scoped
+  `resourceflavors`, `workloadpriorityclasses` and `priorityclasses` are granted only by
+  `clusterRole.create`. Without the permission, the priority of a `Workload` is skipped with a
+  warning, while the `ResourceFlavor`s which Kueue assigned cannot be read at all, so an admitted
+  resource is held until the permission is granted. See
   [Kueue](spark_custom_resources.md#kueue) for how resources opt into queueing.
 
 ## Spark Application Namespaces

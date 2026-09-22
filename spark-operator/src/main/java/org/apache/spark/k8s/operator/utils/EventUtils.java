@@ -61,6 +61,10 @@ public final class EventUtils {
   /** Reason for an event describing a failure to request the Kueue admission of a resource. */
   public static final String REASON_KUEUE_ADMISSION_REQUEST_FAILED = "KueueAdmissionRequestFailed";
 
+  /** Reason for an event describing a failure to read the Kueue ResourceFlavors of a resource. */
+  public static final String REASON_KUEUE_RESOURCE_FLAVOR_READ_FAILED =
+      "KueueResourceFlavorReadFailed";
+
   /** Maximum number of characters an event message may have, including the ellipsis. */
   static final int MAX_MESSAGE_LENGTH = 1024;
 

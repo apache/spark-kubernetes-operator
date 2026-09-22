@@ -20,9 +20,12 @@
 package org.apache.spark.k8s.operator.kueue;
 
 import static org.mockito.AdditionalAnswers.delegatesTo;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 
@@ -30,6 +33,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.fabric8.kubernetes.api.model.ConditionBuilder;
@@ -40,17 +44,23 @@ import io.fabric8.kubernetes.api.model.PodTemplateSpecBuilder;
 import io.fabric8.kubernetes.api.model.Toleration;
 import io.fabric8.kubernetes.api.model.scheduling.v1.PriorityClass;
 import io.fabric8.kubernetes.api.model.scheduling.v1.PriorityClassBuilder;
+import io.fabric8.kubernetes.api.model.scheduling.v1.PriorityClassList;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.dsl.MixedOperation;
 import io.fabric8.kubernetes.client.dsl.NonNamespaceOperation;
 import io.fabric8.kubernetes.client.dsl.Resource;
 import io.fabric8.kubernetes.client.server.mock.EnableKubernetesMockClient;
+import io.javaoperatorsdk.operator.api.event.EventRecord;
+import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.SparkApplication;
+import org.apache.spark.k8s.operator.context.SparkAppContext;
+import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils.AdmissionResponse;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils.AdmissionResult;
 import org.apache.spark.k8s.operator.kueue.v1beta2.Admission;
 import org.apache.spark.k8s.operator.kueue.v1beta2.PodSet;
@@ -62,7 +72,9 @@ import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
 import org.apache.spark.k8s.operator.kueue.v1beta2.WorkloadPriorityClass;
 import org.apache.spark.k8s.operator.kueue.v1beta2.WorkloadSpec;
 import org.apache.spark.k8s.operator.kueue.v1beta2.WorkloadStatus;
+import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
+import org.apache.spark.k8s.operator.utils.EventUtils;
 
 @EnableKubernetesMockClient(crud = true)
 @SuppressFBWarnings(
@@ -78,7 +90,8 @@ class KueueWorkloadUtilsTest {
     Workload desired = workload("owner-uid-1", 1);
 
     Assertions.assertEquals(
-        AdmissionResult.PENDING, KueueWorkloadUtils.requestAdmission(kubernetesClient, desired));
+        AdmissionResult.PENDING, KueueWorkloadUtils.requestAdmission(kubernetesClient, desired)
+            .result());
     Workload created = getWorkload();
     Assertions.assertNotNull(created);
     Assertions.assertEquals("test-queue", created.getSpec().getQueueName());
@@ -89,7 +102,7 @@ class KueueWorkloadUtilsTest {
     // A second reconciliation reuses the same Workload and still waits for the admission
     Assertions.assertEquals(
         AdmissionResult.PENDING,
-        KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1)));
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1)).result());
     Assertions.assertEquals(
         created.getMetadata().getUid(), getWorkload().getMetadata().getUid());
   }
@@ -99,9 +112,13 @@ class KueueWorkloadUtilsTest {
     KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1));
     admitWorkload();
 
+    AdmissionResponse response =
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1));
+    Assertions.assertEquals(AdmissionResult.ADMITTED, response.result());
+    // The admitted Workload is returned so that its flavors can be applied to the pods
+    Assertions.assertTrue(KueueWorkloadUtils.isAdmitted(response.workload()));
     Assertions.assertEquals(
-        AdmissionResult.ADMITTED,
-        KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1)));
+        getWorkload().getMetadata().getUid(), response.workload().getMetadata().getUid());
   }
 
   @Test
@@ -111,7 +128,7 @@ class KueueWorkloadUtilsTest {
 
     Assertions.assertEquals(
         AdmissionResult.ADMITTED,
-        KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 5)));
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 5)).result());
     Assertions.assertNotNull(getWorkload());
   }
 
@@ -122,12 +139,12 @@ class KueueWorkloadUtilsTest {
     // The spec changed while waiting for the admission
     Assertions.assertEquals(
         AdmissionResult.STALE,
-        KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 5)));
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 5)).result());
     Assertions.assertNull(getWorkload());
 
     Assertions.assertEquals(
         AdmissionResult.PENDING,
-        KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 5)));
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 5)).result());
     Assertions.assertEquals(5, getWorkload().getSpec().getPodSets().get(0).getCount());
   }
 
@@ -138,7 +155,7 @@ class KueueWorkloadUtilsTest {
 
     Assertions.assertEquals(
         AdmissionResult.STALE,
-        KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1)));
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1)).result());
     Assertions.assertNull(getWorkload());
   }
 
@@ -153,7 +170,7 @@ class KueueWorkloadUtilsTest {
 
     Assertions.assertEquals(
         AdmissionResult.STALE,
-        KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1)));
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1)).result());
   }
 
   @Test
@@ -251,8 +268,7 @@ class KueueWorkloadUtilsTest {
     Map<String, KueuePodSetFlavor> flavors =
         KueueWorkloadUtils.resolvePodSetFlavors(
             kubernetesClient,
-            admittedWorkload(Map.of("driver", driverFlavors, "executor", executorFlavors)),
-            workload("owner-uid-1", 1));
+            admittedWorkload(Map.of("driver", driverFlavors, "executor", executorFlavors)));
 
     Assertions.assertEquals(
         Map.of(
@@ -270,40 +286,53 @@ class KueueWorkloadUtilsTest {
     admitted.setStatus(status("Admitted", "True"));
 
     Assertions.assertEquals(
-        Map.of(),
-        KueueWorkloadUtils.resolvePodSetFlavors(
-            kubernetesClient, admitted, workload("owner-uid-1", 1)));
+        Map.of(), KueueWorkloadUtils.resolvePodSetFlavors(kubernetesClient, admitted));
     Assertions.assertEquals(
         Map.of(),
-        KueueWorkloadUtils.resolvePodSetFlavors(
-            kubernetesClient, admittedWorkload(Map.of()), workload("owner-uid-1", 1)));
+        KueueWorkloadUtils.resolvePodSetFlavors(kubernetesClient, admittedWorkload(Map.of())));
   }
 
   @Test
-  void resolvePodSetFlavorsAllowsTheSameNodeSelector() {
-    createFlavor("cpu-flavor", Map.of("pool", "cpu"), List.of());
+  void resolvePodSetFlavorsSkipsFlavorsWithoutNodeLabelsAndTolerations() {
+    // Kueue's stock `default-flavor` has neither, so its pod sets are built as they are without
+    // Kueue, instead of being rebuilt around an empty pod template.
+    createFlavor("default-flavor", Map.of(), List.of());
+    createFlavor("spot-flavor", Map.of("pool", "spot"), List.of());
 
     Map<String, KueuePodSetFlavor> flavors =
         KueueWorkloadUtils.resolvePodSetFlavors(
             kubernetesClient,
-            admittedWorkload(Map.of("executor", Map.of("cpu", "cpu-flavor"))),
-            workloadWithNodeSelector(Map.of("pool", "cpu", "zone", "a")));
+            admittedWorkload(
+                Map.of(
+                    "driver", Map.of("cpu", "default-flavor"),
+                    "executor", Map.of("cpu", "spot-flavor"))));
 
-    Assertions.assertEquals(Map.of("pool", "cpu"), flavors.get("executor").nodeSelector());
+    Assertions.assertEquals(
+        Map.of("executor", new KueuePodSetFlavor(Map.of("pool", "spot"), List.of())), flavors);
   }
 
   @Test
-  void resolvePodSetFlavorsFailsOnNodeSelectorConflict() {
-    createFlavor("cpu-flavor", Map.of("pool", "cpu"), List.of());
+  void checkNoNodeSelectorConflictAllowsTheSameNodeSelector() {
+    Map<String, KueuePodSetFlavor> flavors =
+        Map.of("executor", new KueuePodSetFlavor(Map.of("pool", "cpu"), List.of()));
+
+    Assertions.assertDoesNotThrow(
+        () ->
+            KueueWorkloadUtils.checkNoNodeSelectorConflict(
+                flavors, workloadWithNodeSelector(Map.of("pool", "cpu", "zone", "a"))));
+  }
+
+  @Test
+  void checkNoNodeSelectorConflictFailsOnDifferentValue() {
+    Map<String, KueuePodSetFlavor> flavors =
+        Map.of("executor", new KueuePodSetFlavor(Map.of("pool", "cpu"), List.of()));
 
     IllegalArgumentException e =
         Assertions.assertThrows(
             IllegalArgumentException.class,
             () ->
-                KueueWorkloadUtils.resolvePodSetFlavors(
-                    kubernetesClient,
-                    admittedWorkload(Map.of("executor", Map.of("cpu", "cpu-flavor"))),
-                    workloadWithNodeSelector(Map.of("pool", "gpu"))));
+                KueueWorkloadUtils.checkNoNodeSelectorConflict(
+                    flavors, workloadWithNodeSelector(Map.of("pool", "gpu"))));
     Assertions.assertTrue(e.getMessage().contains("executor"), e.getMessage());
     Assertions.assertTrue(e.getMessage().contains("pool"), e.getMessage());
   }
@@ -316,18 +345,167 @@ class KueueWorkloadUtilsTest {
             () ->
                 KueueWorkloadUtils.resolvePodSetFlavors(
                     kubernetesClient,
-                    admittedWorkload(Map.of("executor", Map.of("cpu", "missing-flavor"))),
-                    workload("owner-uid-1", 1)));
+                    admittedWorkload(Map.of("executor", Map.of("cpu", "missing-flavor")))));
     Assertions.assertEquals(404, e.getCode());
   }
 
+  @Test
+  @SuppressWarnings("unchecked")
+  void rejectedAdmissionWithFailedReleaseIsRetried() {
+    // The Workload of a resource which will not start must not keep holding the quota, so the
+    // release is retried instead of failing the resource while its Workload is still admitted.
+    Workload desired = workloadWithNodeSelector(Map.of("pool", "on-demand"));
+    KubernetesClient client = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    // Mockito cannot deep-stub the generic list, so it is stubbed without any priority class
+    when(client.scheduling().v1().priorityClasses().list()).thenReturn(new PriorityClassList());
+    when(client.resource(any(Workload.class)).get())
+        .thenReturn(admittedWorkload(Map.of("executor", Map.of("cpu", "spot-flavor"))));
+    MixedOperation<ResourceFlavor, KubernetesResourceList<ResourceFlavor>, Resource<ResourceFlavor>>
+        flavors = mock(MixedOperation.class);
+    Resource<ResourceFlavor> flavorResource = mock(Resource.class);
+    when(client.resources(ResourceFlavor.class)).thenReturn(flavors);
+    when(flavors.withName("spot-flavor")).thenReturn(flavorResource);
+    when(flavorResource.get())
+        .thenReturn(flavorOf("spot-flavor", Map.of("pool", "spot"), List.of()));
+    MixedOperation<Workload, KubernetesResourceList<Workload>, Resource<Workload>> workloads =
+        mock(MixedOperation.class);
+    NonNamespaceOperation<Workload, KubernetesResourceList<Workload>, Resource<Workload>>
+        namespaced = mock(NonNamespaceOperation.class);
+    Resource<Workload> workloadResource = mock(Resource.class);
+    when(client.resources(Workload.class)).thenReturn(workloads);
+    when(workloads.inNamespace("default")).thenReturn(namespaced);
+    when(namespaced.withName(NAME)).thenReturn(workloadResource);
+    when(workloadResource.delete())
+        .thenThrow(new KubernetesClientException("forbidden", 403, null));
+    SparkAppContext context = mock(SparkAppContext.class);
+    when(context.getClient()).thenReturn(client);
+    when(context.getResource()).thenReturn(owner());
+    when(context.getEventRecorder()).thenReturn(mock(ResourceEventRecorder.class));
+
+    Assertions.assertEquals(
+        Optional.of(ReconcileProgress.completeAndDefaultRequeue()),
+        KueueWorkloadUtils.holdForAdmission(context, desired, "driver"));
+    verify(context, never()).setKueuePodSetFlavors(any());
+  }
+
+  @Test
+  void admittedFlavorsAreAppliedWithoutRequestingTheAdmission() {
+    // A resource whose driver or master exists applies its resources again, so the flavors of the
+    // Workload which was admitted before are resolved again rather than dropped.
+    createFlavor("spot-flavor", Map.of("pool", "spot"), List.of(toleration("spot")));
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1));
+    admit(admittedWorkload(Map.of("executor", Map.of("cpu", "spot-flavor"))).getStatus());
+    SparkAppContext context = context(kubernetesClient);
+
+    Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.applyAdmittedFlavors(context));
+
+    verify(context)
+        .setKueuePodSetFlavors(
+            Map.of(
+                "executor",
+                new KueuePodSetFlavor(Map.of("pool", "spot"), List.of(toleration("spot")))));
+  }
+
+  @Test
+  void admittedFlavorsConflictingWithTheNodeSelectorFail() {
+    // A ResourceFlavor edited after the admission must fail the resource here too, rather than
+    // overriding the node selector which its pods were created with.
+    createFlavor("spot-flavor", Map.of("pool", "spot"), List.of());
+    KueueWorkloadUtils.requestAdmission(
+        kubernetesClient, workloadWithNodeSelector(Map.of("pool", "on-demand")));
+    admit(admittedWorkload(Map.of("executor", Map.of("cpu", "spot-flavor"))).getStatus());
+    SparkAppContext context = context(kubernetesClient);
+
+    IllegalArgumentException e =
+        Assertions.assertThrows(
+            IllegalArgumentException.class, () -> KueueWorkloadUtils.applyAdmittedFlavors(context));
+
+    Assertions.assertTrue(e.getMessage().contains("executor"), e.getMessage());
+    Assertions.assertTrue(e.getMessage().contains("pool"), e.getMessage());
+    verify(context, never()).setKueuePodSetFlavors(any());
+    // Unlike the admission, the quota is kept, since the pods it was reserved for are running
+    Assertions.assertNotNull(getWorkload());
+  }
+
+  @Test
+  void admittedFlavorsOfAPendingOrMissingWorkloadAreNotApplied() {
+    SparkAppContext context = context(kubernetesClient);
+
+    // The Workload is gone, e.g. evicted and deleted, which must not hold the running resources
+    Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.applyAdmittedFlavors(context));
+
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1));
+    Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.applyAdmittedFlavors(context));
+    verify(context, never()).setKueuePodSetFlavors(any());
+  }
+
+  @Test
+  void admittedFlavorsWithUnreadableFlavorAreRetried() {
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1));
+    admit(admittedWorkload(Map.of("executor", Map.of("cpu", "missing-flavor"))).getStatus());
+    SparkAppContext context = context(kubernetesClient);
+
+    // Applying no flavors would drop them from the resources which are applied again
+    Assertions.assertEquals(
+        Optional.of(ReconcileProgress.completeAndDefaultRequeue()),
+        KueueWorkloadUtils.applyAdmittedFlavors(context));
+    verify(context, never()).setKueuePodSetFlavors(any());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void admittedFlavorsRejectedByRbacReportTheClusterRole() {
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1));
+    admit(admittedWorkload(Map.of("executor", Map.of("cpu", "spot-flavor"))).getStatus());
+    KubernetesClient client = mock(KubernetesClient.class, delegatesTo(kubernetesClient));
+    MixedOperation<ResourceFlavor, KubernetesResourceList<ResourceFlavor>, Resource<ResourceFlavor>>
+        flavors = mock(MixedOperation.class);
+    Resource<ResourceFlavor> flavorResource = mock(Resource.class);
+    when(client.resources(ResourceFlavor.class)).thenReturn(flavors);
+    when(flavors.withName("spot-flavor")).thenReturn(flavorResource);
+    when(flavorResource.get()).thenThrow(new KubernetesClientException("forbidden", 403, null));
+    ResourceEventRecorder eventRecorder = mock(ResourceEventRecorder.class);
+    SparkAppContext context = context(client);
+    when(context.getEventRecorder()).thenReturn(eventRecorder);
+
+    Assertions.assertEquals(
+        Optional.of(ReconcileProgress.completeAndDefaultRequeue()),
+        KueueWorkloadUtils.applyAdmittedFlavors(context));
+
+    ArgumentCaptor<EventRecord> captor = ArgumentCaptor.forClass(EventRecord.class);
+    verify(eventRecorder).record(captor.capture());
+    Assertions.assertEquals(
+        EventUtils.REASON_KUEUE_RESOURCE_FLAVOR_READ_FAILED, captor.getValue().reason());
+    Assertions.assertTrue(
+        captor.getValue().message().contains("ClusterRole"), captor.getValue().message());
+  }
+
+  private SparkAppContext context(final KubernetesClient client) {
+    SparkAppContext context = mock(SparkAppContext.class);
+    when(context.getClient()).thenReturn(client);
+    when(context.getResource()).thenReturn(owner());
+    when(context.getEventRecorder()).thenReturn(mock(ResourceEventRecorder.class));
+    return context;
+  }
+
+  private void admit(final WorkloadStatus status) {
+    Workload workload = getWorkload();
+    workload.setStatus(status);
+    kubernetesClient.resource(workload).update();
+  }
+
   private void createFlavor(
+      final String name, final Map<String, String> nodeLabels, final List<Toleration> tolerations) {
+    kubernetesClient.resource(flavorOf(name, nodeLabels, tolerations)).create();
+  }
+
+  private static ResourceFlavor flavorOf(
       final String name, final Map<String, String> nodeLabels, final List<Toleration> tolerations) {
     ResourceFlavor flavor = new ResourceFlavor();
     flavor.setMetadata(new ObjectMetaBuilder().withName(name).build());
     flavor.setSpec(
         ResourceFlavorSpec.builder().nodeLabels(nodeLabels).tolerations(tolerations).build());
-    kubernetesClient.resource(flavor).create();
+    return flavor;
   }
 
   private static Workload admittedWorkload(final Map<String, Map<String, String>> podSetFlavors) {
@@ -362,7 +540,8 @@ class KueueWorkloadUtilsTest {
     desired.getMetadata().setLabels(Map.of(Constants.LABEL_WORKLOAD_PRIORITY_CLASS, "high"));
 
     Assertions.assertEquals(
-        AdmissionResult.PENDING, KueueWorkloadUtils.requestAdmission(kubernetesClient, desired));
+        AdmissionResult.PENDING, KueueWorkloadUtils.requestAdmission(kubernetesClient, desired)
+            .result());
     Assertions.assertEquals(
         new PriorityClassRef("kueue.x-k8s.io", "WorkloadPriorityClass", "high"),
         getWorkload().getSpec().getPriorityClassRef());
@@ -476,7 +655,8 @@ class KueueWorkloadUtilsTest {
 
     Assertions.assertEquals(
         AdmissionResult.PENDING,
-        KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithPriorityClass("high")));
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithPriorityClass("high"))
+            .result());
     // The Workload is updated in place so that it keeps its position in the queue
     Workload updated = getWorkload();
     Assertions.assertEquals(uid, updated.getMetadata().getUid());
@@ -500,7 +680,8 @@ class KueueWorkloadUtilsTest {
 
     Assertions.assertEquals(
         AdmissionResult.PENDING,
-        KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithPriorityClass("low")));
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithPriorityClass("low"))
+            .result());
     Assertions.assertEquals(10, getWorkload().getSpec().getPriority());
   }
 
@@ -513,7 +694,7 @@ class KueueWorkloadUtilsTest {
     // Kueue freezes the presence of the priority class once the quota is reserved
     Assertions.assertEquals(
         AdmissionResult.PENDING,
-        KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1)));
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1)).result());
     Assertions.assertEquals("low", getWorkload().getSpec().getPriorityClassRef().getName());
     Assertions.assertEquals(10, getWorkload().getSpec().getPriority());
   }
@@ -529,7 +710,8 @@ class KueueWorkloadUtilsTest {
     // priority of a Workload waiting for its admission checks can still be raised
     Assertions.assertEquals(
         AdmissionResult.PENDING,
-        KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithPriorityClass("high")));
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithPriorityClass("high"))
+            .result());
     Assertions.assertEquals("high", getWorkload().getSpec().getPriorityClassRef().getName());
     Assertions.assertEquals(1000, getWorkload().getSpec().getPriority());
   }
@@ -543,7 +725,8 @@ class KueueWorkloadUtilsTest {
     // The operator loses the permission while the Workload waits for quota
     Assertions.assertEquals(
         AdmissionResult.PENDING,
-        KueueWorkloadUtils.requestAdmission(forbiddenClient(), workloadWithPriorityClass("high")));
+        KueueWorkloadUtils.requestAdmission(forbiddenClient(), workloadWithPriorityClass("high"))
+            .result());
     Assertions.assertEquals("high", getWorkload().getSpec().getPriorityClassRef().getName());
     Assertions.assertEquals(1000, getWorkload().getSpec().getPriority());
   }
@@ -557,7 +740,8 @@ class KueueWorkloadUtilsTest {
     // Like Kueue, a Workload backed by a Kubernetes PriorityClass does not follow the label
     Assertions.assertEquals(
         AdmissionResult.PENDING,
-        KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithPriorityClass("high")));
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithPriorityClass("high"))
+            .result());
     Assertions.assertEquals("default-a", getWorkload().getSpec().getPriorityClassRef().getName());
     Assertions.assertEquals(50, getWorkload().getSpec().getPriority());
   }
@@ -573,7 +757,7 @@ class KueueWorkloadUtilsTest {
 
     Assertions.assertEquals(
         AdmissionResult.PENDING,
-        KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1)));
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1)).result());
     Assertions.assertEquals("default-a", getWorkload().getSpec().getPriorityClassRef().getName());
     Assertions.assertEquals(50, getWorkload().getSpec().getPriority());
   }
@@ -588,7 +772,7 @@ class KueueWorkloadUtilsTest {
     // Removing the label would switch the group and the kind, which Kueue freezes
     Assertions.assertEquals(
         AdmissionResult.PENDING,
-        KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1)));
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1)).result());
     Assertions.assertEquals(
         "kueue.x-k8s.io", getWorkload().getSpec().getPriorityClassRef().getGroup());
     Assertions.assertEquals(10, getWorkload().getSpec().getPriority());
@@ -604,7 +788,8 @@ class KueueWorkloadUtilsTest {
     // The label is added while the Workload waits for quota
     Assertions.assertEquals(
         AdmissionResult.PENDING,
-        KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithPriorityClass("high")));
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithPriorityClass("high"))
+            .result());
     Assertions.assertEquals("high", getWorkload().getSpec().getPriorityClassRef().getName());
     Assertions.assertEquals(1000, getWorkload().getSpec().getPriority());
   }
@@ -620,7 +805,8 @@ class KueueWorkloadUtilsTest {
     // The permission is back, but Kueue no longer accepts adding a priority class
     Assertions.assertEquals(
         AdmissionResult.PENDING,
-        KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithPriorityClass("high")));
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithPriorityClass("high"))
+            .result());
     Assertions.assertNull(getWorkload().getSpec().getPriorityClassRef());
   }
 

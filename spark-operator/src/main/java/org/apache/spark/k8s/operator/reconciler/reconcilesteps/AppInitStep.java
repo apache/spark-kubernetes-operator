@@ -172,7 +172,8 @@ public final class AppInitStep extends AppReconcileStep {
 
   /**
    * Requests the Kueue admission of an application labeled with a queue name. Like the suspend
-   * hold, a driver requested before must not be left unobserved, so the check is skipped then.
+   * hold, a driver requested before must not be left unobserved, so only the flavors which Kueue
+   * assigned to it are applied again then.
    * An unsupported spec fails to build the Workload, which the caller turns into SchedulingFailure.
    * Unlike the driver resources, an API failure of the admission request is retried, see {@link
    * KueueWorkloadUtils#holdForAdmission}.
@@ -188,7 +189,9 @@ public final class AppInitStep extends AppReconcileStep {
     }
     try {
       if (isDriverRequested(context)) {
-        return Optional.empty();
+        // The driver resources are applied again in this reconcile, so the flavors of the Workload
+        // which was admitted before are resolved again instead of dropping them from the resources.
+        return KueueWorkloadUtils.applyAdmittedFlavors(context);
       }
     } catch (KubernetesClientException e) {
       // Requesting the admission of a driver which is already running would be wrong, so the

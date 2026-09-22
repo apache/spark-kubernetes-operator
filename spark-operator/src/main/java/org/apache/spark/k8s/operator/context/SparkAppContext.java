@@ -179,9 +179,22 @@ public class SparkAppContext extends BaseContext<SparkApplication> {
       if (secondaryResourceSpec == null) {
         secondaryResourceSpec =
             SparkAppResourceSpecFactory.buildResourceSpec(
-                sparkApplication, josdkContext.getClient(), submissionWorker);
+                sparkApplication, josdkContext.getClient(), submissionWorker, kueuePodSetFlavors);
       }
       return secondaryResourceSpec;
+    }
+  }
+
+  /**
+   * Drops the resource spec built before the flavors, since they reach the driver and the
+   * executors through the pod templates which the submission builds the resources from.
+   */
+  @Override
+  protected void applyKueuePodSetFlavors() {
+    // The caller holds this lock already, which is re-entrant, so that the field is guarded by
+    // the same monitor as every other access to it.
+    synchronized (this) {
+      secondaryResourceSpec = null;
     }
   }
 
