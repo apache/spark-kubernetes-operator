@@ -270,7 +270,9 @@ public final class SparkOperatorConf {
    * #RECONCILER_INTERVAL_SECONDS}, since a suspended resource has nothing to observe while each
    * republish costs a read and a write on the API server. Keep it below the {@code --event-ttl} of
    * the API server (one hour by default), or the event expires between repeats and the hold stops
-   * being visible.
+   * being visible, and keep {@link #KUBERNETES_EVENTS_MIN_INTERVAL_SECONDS} within the rest of
+   * that TTL, that is at most the TTL minus this interval, or a repeat is dropped and the next
+   * one lands after the event expired.
    */
   public static final ConfigOption<Long> SUSPEND_HOLD_REQUEUE_INTERVAL_SECONDS =
       ConfigOption.<Long>builder()
@@ -286,7 +288,10 @@ public final class SparkOperatorConf {
                   + "resource has nothing to observe while each republish costs a read and a "
                   + "write on the API server. Keep it below the '--event-ttl' of the API server "
                   + "(one hour by default), or the event expires between repeats and the hold "
-                  + "stops being visible.")
+                  + "stops being visible, and keep "
+                  + "'spark.kubernetes.operator.events.minIntervalSeconds' within the rest of "
+                  + "that TTL, that is at most the TTL minus this interval, or a repeat is "
+                  + "dropped and the next one lands after the event expired.")
           .typeParameterClass(Long.class)
           .defaultValue(1800L)
           .build();
@@ -347,6 +352,40 @@ public final class SparkOperatorConf {
                   + "events of all reasons.")
           .typeParameterClass(String.class)
           .defaultValue("")
+          .build();
+
+  /**
+   * Minimum interval (in seconds) between two Kubernetes Events with the same reason and the same
+   * message on the same Spark resource.
+   */
+  public static final ConfigOption<Long> KUBERNETES_EVENTS_MIN_INTERVAL_SECONDS =
+      ConfigOption.<Long>builder()
+          .key("spark.kubernetes.operator.events.minIntervalSeconds")
+          .enableDynamicOverride(true)
+          .description(
+              "Minimum interval (in seconds) between two Kubernetes Events with the same reason "
+                  + "and the same message on the same Spark resource. The first event of a reason "
+                  + "on a resource is always published right away, only a repeat that says "
+                  + "exactly what the last one said is dropped. Such a repeat only bumps the "
+                  + "'count' of the one Event object, so it carries no information while it "
+                  + "still costs a read and a write on the API server. A repeat whose message "
+                  + "differs, for instance because it embeds the cause of a failure, is always "
+                  + "published, since the operator rewrites the message of the existing Event. "
+                  + "An event is only published when a reconciliation emits it, so the effective "
+                  + "period is this interval rounded up to the next repeat. Keep this interval "
+                  + "plus the interval at which the repeats are emitted within the '--event-ttl' "
+                  + "of the API server (one hour by default), or a repeat lands after the "
+                  + "previous event expired and the hold stops being visible. The repeats are "
+                  + "emitted every "
+                  + "'spark.kubernetes.operator.reconciler.suspendHoldRequeueIntervalSeconds' for "
+                  + "SuspendHeld and every 'spark.kubernetes.operator.reconciler.intervalSeconds' "
+                  + "for KueueAdmissionPending, so with the defaults this option may be at most "
+                  + "1800 and 3480 seconds respectively. Unlike "
+                  + "'spark.kubernetes.operator.events.excludedReasons', which blocks a reason "
+                  + "entirely, this only limits how often it is published. If zero or negative, "
+                  + "operator would publish every event.")
+          .typeParameterClass(Long.class)
+          .defaultValue(300L)
           .build();
 
   /** Comma-separated names of SparkAppStatusListener class implementations */

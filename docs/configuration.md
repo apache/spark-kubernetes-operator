@@ -59,7 +59,9 @@ are visible via `kubectl describe` and `kubectl get events`.
 
 Whenever a resource transitions into a new state, the operator publishes an event whose `reason`
 is the name of the new state and whose `message` is the state message. Repeated transitions into
-the same state are aggregated into a single `Event` object by incrementing its `count`.
+the same state are aggregated into a single `Event` object by incrementing its `count` and
+replacing its `message`. A repeat carrying the same `message` may be paced by
+[`minIntervalSeconds`](#event-frequency), while one carrying a new `message` is always published.
 
 | Type | Reason |
 |---|---|
@@ -82,8 +84,8 @@ events, since the resource stays in its initializing state without a state trans
 
 | Reason | When |
 |---|---|
-| `SuspendHeld` | The resource is held by `spec.suspend`, so the driver (or master and worker) is not requested. It is republished every 30 minutes while the hold lasts (`spark.kubernetes.operator.reconciler.suspendHoldRequeueIntervalSeconds`), so a repeat bumps the `count` of the one event rather than creating another. Suspending a queued resource releases its Kueue `Workload`, and the message says so, since the `KueueAdmissionPending` event it was queued with outlives that `Workload`. |
-| `KueueAdmissionPending` | The Kueue `Workload` waits for the admission. It is republished while it waits, so a repeat bumps the `count` of the one event rather than creating another. |
+| `SuspendHeld` | The resource is held by `spec.suspend`, so the driver (or master and worker) is not requested. It is republished every 30 minutes while the hold lasts (`spark.kubernetes.operator.reconciler.suspendHoldRequeueIntervalSeconds`), so a repeat bumps the `count` of the one event rather than creating another. A repeat is also subject to [`minIntervalSeconds`](#event-frequency). Suspending a queued resource releases its Kueue `Workload`, and the message says so, since the `KueueAdmissionPending` event it was queued with outlives that `Workload`; that repeat carries a new `message`, so it is published even within the interval. |
+| `KueueAdmissionPending` | The Kueue `Workload` waits for the admission. It is republished while it waits, subject to [`minIntervalSeconds`](#event-frequency), so a repeat bumps the `count` of the one event rather than creating another. |
 | `KueueAdmitted` | Kueue admitted the `Workload`, so the driver (or master and worker) is requested. |
 
 The `reason` values are stable, while the `message` values may change between releases. Note that
@@ -104,6 +106,48 @@ spark.kubernetes.operator.events.excludedReasons=Running.*
 Since `,` is the separator, an expression cannot contain it, e.g. `{1,3}`. An invalid expression
 is logged and matches only the `reason` identical to it. Note that `*` is not a wildcard but an
 invalid expression, so use `.*` to exclude all reasons.
+
+### Event frequency
+
+Independently of that, the operator publishes an event with the same `reason` **and the same
+`message`** on the same resource at most once every
+`spark.kubernetes.operator.events.minIntervalSeconds` (5 minutes by default, dynamically
+overridable). The two options differ in kind: `excludedReasons` blocks a `reason` permanently,
+while this one only limits how often an unchanged event is repeated. Set it to `0` to publish
+every event.
+
+```properties
+spark.kubernetes.operator.events.minIntervalSeconds=300
+```
+
+The first event of a `reason` on a resource is always published right away, so a rare event such
+as a failure is never delayed. Only a repeat that says exactly what the last one said is dropped:
+such a repeat merely bumps the `count` of the one `Event` object, yet still costs a read and a
+write on the API server. A repeat whose `message` differs is always published, because the
+operator rewrites the `message` of the existing `Event`, so the current cause of a failure and the
+`SuspendHeld` message that retracts a stale `KueueAdmissionPending` keep reaching the user. The
+resource is identified by its `metadata.uid`, so a resource that reuses the name of a deleted one
+starts over.
+
+An event is only published when a reconciliation emits it, so the effective period is this
+interval **rounded up to the next repeat**, not the interval itself. With the defaults,
+`KueueAdmissionPending` is emitted every 120 seconds
+(`spark.kubernetes.operator.reconciler.intervalSeconds`), so a 300 second interval publishes it
+every 360 seconds, and `SuspendHeld` is emitted every 1800 seconds
+(`spark.kubernetes.operator.reconciler.suspendHoldRequeueIntervalSeconds`), so it is unaffected.
+
+Keep this interval **plus the interval at which the repeats are emitted** within the `--event-ttl`
+of the API server (one hour by default), since the effective period is always below their sum. At
+the defaults that allows at most `3600 - 1800 = 1800` seconds for `SuspendHeld` and
+`3600 - 120 = 3480` seconds for `KueueAdmissionPending`, so the default of 300 leaves plenty of
+room. Keeping the interval merely below the `--event-ttl` is not enough: at
+`minIntervalSeconds=2400` the `SuspendHeld` repeat at 1800 seconds is dropped and the next one
+lands at 3600 seconds, exactly the TTL, so the event expires in between and the hold stops being
+visible.
+
+The interval is held from the moment an event is handed to the event sink, not from the moment it
+reaches the API server. The operator logs and swallows event write failures rather than failing
+the reconciliation, so a write that failed still holds the interval; the next repeat recovers it.
 
 ## Metrics
 
