@@ -224,6 +224,37 @@ class SparkClusterReconcilerTest {
         "ClusterUnknownStateStep", steps.get(2).getClass().getSimpleName());
   }
 
+  @SuppressWarnings("PMD.UnusedLocalVariable")
+  @Test
+  void testReconcileFailedClusterDoesNotLoop() throws Exception {
+    try (MockedConstruction<SparkClusterContext> mockClusterContext =
+        mockConstruction(
+            SparkClusterContext.class,
+            (mock, context) -> {
+              when(mock.getResource()).thenReturn(cluster);
+              when(mock.getClient()).thenReturn(mockClient);
+            })) {
+      cluster.setStatus(cluster.getStatus().appendNewState(
+          new ClusterState(ClusterStateSummary.SchedulingFailure, "")));
+
+      // SchedulingFailure moves to Failed once.
+      reconciler.reconcile(cluster, mockContext);
+      assertEquals(
+          ClusterStateSummary.Failed,
+          cluster.getStatus().getCurrentState().getCurrentStateSummary());
+      int historySize = cluster.getStatus().getStateTransitionHistory().size();
+      verify(mockRecorder, times(1)).persistStatus(any(), any());
+
+      // A Failed cluster neither appends a new state nor requeues immediately.
+      for (int i = 0; i < 3; i++) {
+        var control = reconciler.reconcile(cluster, mockContext);
+        assertTrue(control.getScheduleDelay().isEmpty());
+      }
+      assertEquals(historySize, cluster.getStatus().getStateTransitionHistory().size());
+      verify(mockRecorder, times(1)).persistStatus(any(), any());
+    }
+  }
+
   @Test
   void updateErrorStatusWarnsWithReconcileError() {
     when(mockContext.eventRecorder()).thenReturn(mockEventRecorder);
