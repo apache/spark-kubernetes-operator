@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.fabric8.kubernetes.api.model.Condition;
 import io.fabric8.kubernetes.api.model.ConditionBuilder;
 import io.fabric8.kubernetes.api.model.KubernetesResourceList;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
@@ -48,6 +49,7 @@ import io.fabric8.kubernetes.api.model.scheduling.v1.PriorityClassList;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.dsl.MixedOperation;
+import io.fabric8.kubernetes.client.dsl.NamespaceableResource;
 import io.fabric8.kubernetes.client.dsl.NonNamespaceOperation;
 import io.fabric8.kubernetes.client.dsl.Resource;
 import io.fabric8.kubernetes.client.server.mock.EnableKubernetesMockClient;
@@ -232,6 +234,153 @@ class KueueWorkloadUtilsTest {
     Assertions.assertNull(getWorkload());
     // Releasing again is a no-op
     KueueWorkloadUtils.releaseWorkload(kubernetesClient, owner());
+  }
+
+  @Test
+  void finishWorkloadRecordsFinishedCondition() {
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1));
+    admitWorkload();
+
+    Assertions.assertTrue(
+        KueueWorkloadUtils.finishWorkload(kubernetesClient, owner(), true, "app succeeded"));
+
+    // The Workload is kept so that Kueue keeps its record, unlike the released one
+    Workload finished = getWorkload();
+    Assertions.assertNotNull(finished);
+    Assertions.assertTrue(finished.getStatus().isFinished());
+    // The conditions which Kueue recorded are kept
+    Assertions.assertTrue(finished.getStatus().isAdmitted());
+    Condition condition = findCondition(finished, "Finished");
+    Assertions.assertEquals("True", condition.getStatus());
+    Assertions.assertEquals("Succeeded", condition.getReason());
+    Assertions.assertEquals("app succeeded", condition.getMessage());
+    Assertions.assertNotNull(condition.getLastTransitionTime());
+  }
+
+  @Test
+  void finishWorkloadRecordsFailedReason() {
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1));
+    admitWorkload();
+
+    Assertions.assertTrue(
+        KueueWorkloadUtils.finishWorkload(kubernetesClient, owner(), false, "app failed"));
+
+    Assertions.assertEquals("Failed", findCondition(getWorkload(), "Finished").getReason());
+  }
+
+  @Test
+  void finishWorkloadIsRecordedOnce() {
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1));
+    admitWorkload();
+    KueueWorkloadUtils.finishWorkload(kubernetesClient, owner(), true, "app succeeded");
+    String recordedAt = findCondition(getWorkload(), "Finished").getLastTransitionTime();
+
+    // An already finished Workload is left alone
+    Assertions.assertFalse(
+        KueueWorkloadUtils.finishWorkload(kubernetesClient, owner(), false, "app failed"));
+    Condition condition = findCondition(getWorkload(), "Finished");
+    Assertions.assertEquals("Succeeded", condition.getReason());
+    Assertions.assertEquals(recordedAt, condition.getLastTransitionTime());
+  }
+
+  @Test
+  void finishWorkloadReplacesAnUnfinishedFinishedCondition() {
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1));
+    Workload workload = getWorkload();
+    workload.setStatus(
+        WorkloadStatus.builder()
+            .conditions(
+                List.of(
+                    new ConditionBuilder().withType("Admitted").withStatus("True").build(),
+                    new ConditionBuilder().withType("Finished").withStatus("False").build()))
+            .build());
+    kubernetesClient.resource(workload).update();
+
+    // `isFinished` does not guard a `Finished` condition whose status is not `True`
+    Assertions.assertTrue(
+        KueueWorkloadUtils.finishWorkload(kubernetesClient, owner(), true, "app succeeded"));
+
+    // The conditions are a map keyed by the type, so a second `Finished` entry would be rejected
+    List<Condition> conditions = getWorkload().getStatus().getConditions();
+    Assertions.assertEquals(
+        1L, conditions.stream().filter(c -> "Finished".equals(c.getType())).count());
+    Assertions.assertTrue(getWorkload().getStatus().isFinished());
+    Assertions.assertTrue(getWorkload().getStatus().isAdmitted());
+  }
+
+  @Test
+  void finishWorkloadWithoutWorkloadIsNoOp() {
+    Assertions.assertFalse(
+        KueueWorkloadUtils.finishWorkload(kubernetesClient, owner(), true, "app succeeded"));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void finishWorkloadReleasesTheWorkloadWhenTheStatusUpdateFails() {
+    // A cluster which grants `workloads` but not the `workloads/status` subresource rejects the
+    // update only, so the read succeeds and the condition cannot be recorded
+    Workload admitted = workload("owner-uid-1", 1);
+    admitted.setStatus(status("Admitted", "True"));
+    Resource<Workload> resource = mock(Resource.class);
+    NamespaceableResource<Workload> statusResource = mock(NamespaceableResource.class);
+    KubernetesClient client = clientReturning(resource);
+    when(resource.get()).thenReturn(admitted);
+    when(client.resource(admitted)).thenReturn(statusResource);
+    when(statusResource.editStatus(any()))
+        .thenThrow(new KubernetesClientException("forbidden", 403, null));
+
+    Assertions.assertFalse(
+        KueueWorkloadUtils.finishWorkload(client, owner(), true, "app succeeded"));
+
+    // The condition is recorded on a path which is not reconciled again, so the quota is released
+    // by deleting the Workload rather than left to a retention which is disabled by default
+    verify(resource).delete();
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void finishWorkloadReleasesTheWorkloadWhenTheReadFails() {
+    Resource<Workload> resource = mock(Resource.class);
+    KubernetesClient client = clientReturning(resource);
+    when(resource.get()).thenThrow(new KubernetesClientException("unavailable", 503, null));
+
+    Assertions.assertFalse(
+        KueueWorkloadUtils.finishWorkload(client, owner(), true, "app succeeded"));
+
+    verify(resource).delete();
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void finishWorkloadDoesNotReleaseAFinishedOrMissingWorkload() {
+    Workload finished = workload("owner-uid-1", 1);
+    finished.setStatus(status("Finished", "True"));
+    Resource<Workload> resource = mock(Resource.class);
+    KubernetesClient client = clientReturning(resource);
+
+    when(resource.get()).thenReturn(finished);
+    Assertions.assertFalse(
+        KueueWorkloadUtils.finishWorkload(client, owner(), true, "app succeeded"));
+
+    when(resource.get()).thenReturn(null);
+    Assertions.assertFalse(
+        KueueWorkloadUtils.finishWorkload(client, owner(), true, "app succeeded"));
+
+    // The fallback must not drop the record of a Workload which already released its quota
+    verify(resource, never()).delete();
+  }
+
+  @SuppressWarnings("unchecked")
+  private static KubernetesClient clientReturning(final Resource<Workload> resource) {
+    KubernetesClient client = mock(KubernetesClient.class);
+    MixedOperation<Workload, KubernetesResourceList<Workload>, Resource<Workload>> operation =
+        mock(MixedOperation.class);
+    NonNamespaceOperation<Workload, KubernetesResourceList<Workload>, Resource<Workload>>
+        namespaced = mock(NonNamespaceOperation.class);
+    when(client.resources(Workload.class)).thenReturn(operation);
+    when(operation.inNamespace("default")).thenReturn(namespaced);
+    when(namespaced.withName(NAME)).thenReturn(resource);
+    return client;
   }
 
   @Test
@@ -817,6 +966,13 @@ class KueueWorkloadUtilsTest {
     doThrow(forbidden).when(client).resources(WorkloadPriorityClass.class);
     doThrow(forbidden).when(client).scheduling();
     return client;
+  }
+
+  private static Condition findCondition(final Workload workload, final String type) {
+    return workload.getStatus().getConditions().stream()
+        .filter(condition -> type.equals(condition.getType()))
+        .findFirst()
+        .orElseThrow();
   }
 
   private Workload getWorkload() {

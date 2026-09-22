@@ -264,6 +264,99 @@ spec:
           kubectl delete localqueue "$LOCAL_QUEUE" -n default --ignore-not-found=true --wait=false
           kubectl delete clusterqueue "$CLUSTER_QUEUE" --ignore-not-found=true --wait=false
           kubectl delete resourceflavor "$FLAVOR" --ignore-not-found=true --wait=false
+  - name: spark-application-with-retained-resources-finishes-its-workload
+    # Each step uses its own queue objects, so that a step never waits for Kueue to finish
+    # deleting the objects of another step.
+    bindings:
+      - name: FLAVOR
+        value: spark-e2e-retained-flavor
+      - name: CLUSTER_QUEUE
+        value: spark-e2e-retained-cluster-queue
+      - name: LOCAL_QUEUE
+        value: spark-e2e-retained-queue
+    try:
+    - apply:
+        file: kueue-queues.yaml
+    # Unlike the queued step, the quota is granted upfront because this step checks the release
+    - script:
+        timeout: 30s
+        env:
+          - name: CLUSTER_QUEUE
+            value: ($CLUSTER_QUEUE)
+        content: |
+          kubectl patch clusterqueue "$CLUSTER_QUEUE" --type json -p \
+            '[{"op": "replace", "path": "/spec/resourceGroups/0/flavors/0/resources/0/nominalQuota", "value": "4"},
+              {"op": "replace", "path": "/spec/resourceGroups/0/flavors/0/resources/1/nominalQuota", "value": "8Gi"}]'
+    - apply:
+        file: spark-example-retained-queued.yaml
+    - assert:
+        timeout: 10m
+        resource:
+          apiVersion: spark.apache.org/v1
+          kind: SparkApplication
+          metadata:
+            name: spark-job-kueue-retained-test
+            namespace: default
+          status:
+            currentState:
+              currentStateSummary: TerminatedWithoutReleaseResources
+    # The driver is retained as configured, so the Workload is not deleted with the resources
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            namespace: default
+            labels:
+              spark.operator/spark-app-name: spark-job-kueue-retained-test
+    # The Workload is kept, with the `Finished` condition which Kueue releases the quota on
+    - script:
+        timeout: 30s
+        content: |
+          kubectl get workload sparkapplication-spark-job-kueue-retained-test -n default -o json \
+            | jq -r '.status.conditions[]? | select(.type == "Finished") | "\(.status)/\(.reason)"'
+        check:
+          (contains($stdout, 'True/Succeeded')): true
+    # Kueue reclaimed the quota of the finished Workload, even though it still exists
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: kueue.x-k8s.io/v1beta2
+          kind: ClusterQueue
+          metadata:
+            name: ($CLUSTER_QUEUE)
+          status:
+            admittedWorkloads: 0
+            reservingWorkloads: 0
+    catch:
+    - describe:
+        apiVersion: spark.apache.org/v1
+        kind: SparkApplication
+        namespace: default
+    - describe:
+        apiVersion: kueue.x-k8s.io/v1beta2
+        kind: Workload
+        namespace: default
+    - describe:
+        apiVersion: kueue.x-k8s.io/v1beta2
+        kind: ClusterQueue
+    finally:
+    - script:
+        timeout: 120s
+        env:
+          - name: FLAVOR
+            value: ($FLAVOR)
+          - name: CLUSTER_QUEUE
+            value: ($CLUSTER_QUEUE)
+          - name: LOCAL_QUEUE
+            value: ($LOCAL_QUEUE)
+        content: |
+          kubectl delete sparkapplication spark-job-kueue-retained-test -n default --ignore-not-found=true
+          # Kueue finalizers may delay the deletion, which later steps do not depend on.
+          kubectl delete localqueue "$LOCAL_QUEUE" -n default --ignore-not-found=true --wait=false
+          kubectl delete clusterqueue "$CLUSTER_QUEUE" --ignore-not-found=true --wait=false
+          kubectl delete resourceflavor "$FLAVOR" --ignore-not-found=true --wait=false
   - name: spark-application-workload-has-priority
     # Each step uses its own queue objects, so that a step never waits for Kueue to finish
     # deleting the objects of another step.
