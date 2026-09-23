@@ -44,11 +44,21 @@ public class BaseAttemptInfo {
   protected final long id;
   @Setter protected long restartCounter;
 
+  /**
+   * Constructs a new BaseAttemptInfo with id and restart counter set to zero.
+   *
+   * @since 0.8.0
+   */
   public BaseAttemptInfo() {
     this.id = 0L;
     this.restartCounter = 0L;
   }
 
+  /**
+   * Constructs a new BaseAttemptInfo with the given id and restart counter.
+   *
+   * @since 0.8.0
+   */
   @JsonCreator
   public BaseAttemptInfo(
       @JsonProperty("id") long id,

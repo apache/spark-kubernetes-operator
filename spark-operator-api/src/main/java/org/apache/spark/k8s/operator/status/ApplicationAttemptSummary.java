@@ -43,6 +43,11 @@ public class ApplicationAttemptSummary extends BaseAttemptSummary<ApplicationAtt
   // This is used when state history trimming is enabled
   @Getter protected final SortedMap<Long, ApplicationState> stateTransitionHistory;
 
+  /**
+   * Constructs a new ApplicationAttemptSummary with the given attempt info and state history.
+   *
+   * @since 0.8.0
+   */
   @JsonCreator
   public ApplicationAttemptSummary(
       @JsonProperty("attemptInfo") ApplicationAttemptInfo attemptInfo,
@@ -52,14 +57,29 @@ public class ApplicationAttemptSummary extends BaseAttemptSummary<ApplicationAtt
     this.stateTransitionHistory = stateTransitionHistory;
   }
 
+  /**
+   * Constructs a new ApplicationAttemptSummary with a default attempt info and no state history.
+   *
+   * @since 0.1.0
+   */
   public ApplicationAttemptSummary() {
     this(new ApplicationAttemptInfo(), null);
   }
 
+  /**
+   * Constructs a new ApplicationAttemptSummary with the given attempt info and no state history.
+   *
+   * @since 0.8.0
+   */
   public ApplicationAttemptSummary(ApplicationAttemptInfo attemptInfo) {
     this(attemptInfo, null);
   }
 
+  /**
+   * Returns the attempt info of this summary, or a default one if none is set.
+   *
+   * @since 0.8.0
+   */
   @Override
   public ApplicationAttemptInfo getAttemptInfo() {
     return attemptInfo == null ? new ApplicationAttemptInfo() : attemptInfo;

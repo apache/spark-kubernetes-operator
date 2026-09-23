@@ -51,12 +51,22 @@ public class ApplicationAttemptInfo extends BaseAttemptInfo {
   protected long failureRestartCounter;
   protected long schedulingFailureRestartCounter;
 
+  /**
+   * Constructs a new ApplicationAttemptInfo with all counters set to zero.
+   *
+   * @since 0.8.0
+   */
   public ApplicationAttemptInfo() {
     super();
     failureRestartCounter = 0L;
     schedulingFailureRestartCounter = 0L;
   }
 
+  /**
+   * Constructs a new ApplicationAttemptInfo with the given id and restart counters.
+   *
+   * @since 0.8.0
+   */
   @JsonCreator
   public ApplicationAttemptInfo(
       @JsonProperty("id") long id,

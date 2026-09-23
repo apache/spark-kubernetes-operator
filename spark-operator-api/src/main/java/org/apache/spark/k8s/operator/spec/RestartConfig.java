@@ -55,6 +55,8 @@ public class RestartConfig {
   /**
    * Returns the effective restart backoff time in milliseconds based on the current application
    * state.
+   *
+   * @since 0.8.0
    */
   public long getEffectiveRestartBackoffMillis(
       ApplicationStateSummary stateSummary) {

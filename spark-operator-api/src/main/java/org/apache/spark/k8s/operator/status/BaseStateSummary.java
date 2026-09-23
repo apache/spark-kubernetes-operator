@@ -32,6 +32,7 @@ public sealed interface BaseStateSummary
    * BaseStateSummary} use the state name, for example as the reason of a Kubernetes Event.
    *
    * @return The name of this state.
+   * @since 1.1.0
    */
   String name();
 
@@ -39,6 +40,7 @@ public sealed interface BaseStateSummary
    * Checks if the CustomResource has failed.
    *
    * @return True if the CustomResource has failed, false otherwise.
+   * @since 0.1.0
    */
   boolean isFailure();
 
@@ -46,6 +48,7 @@ public sealed interface BaseStateSummary
    * Checks if the CustomResource has failed due to infrastructure reasons.
    *
    * @return True if the CustomResource has failed for infrastructure reasons, false otherwise.
+   * @since 0.1.0
    */
   boolean isInfrastructureFailure();
 }

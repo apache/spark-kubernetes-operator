@@ -55,6 +55,7 @@ public final class ModelUtils {
    *
    * @param podTemplateSpec The PodTemplateSpec to convert.
    * @return A new Pod object.
+   * @since 0.1.0
    */
   public static Pod getPodFromTemplateSpec(PodTemplateSpec podTemplateSpec) {
     if (podTemplateSpec == null) {
@@ -75,6 +76,7 @@ public final class ModelUtils {
    * @param appSpec The ApplicationSpec of the Spark application.
    * @param containerStatusList A list of ContainerStatus objects from the driver pod.
    * @return A List of ContainerStatus objects representing the main containers.
+   * @since 0.1.0
    */
   public static List<ContainerStatus> findDriverMainContainerStatus(
       final ApplicationSpec appSpec, final List<ContainerStatus> containerStatusList) {
@@ -97,6 +99,7 @@ public final class ModelUtils {
    *
    * @param owner The owner resource.
    * @return An OwnerReference object to be used for subresources.
+   * @since 0.1.0
    */
   public static OwnerReference buildOwnerReferenceTo(HasMetadata owner) {
     return new OwnerReferenceBuilder()
@@ -114,6 +117,7 @@ public final class ModelUtils {
    * @param resource The resource to convert.
    * @param <T> The type of the resource, extending HasMetadata.
    * @return A JSON string representation of the resource.
+   * @since 0.1.0
    */
   public static <T extends HasMetadata> String asJsonString(T resource) {
     try {
@@ -128,6 +132,7 @@ public final class ModelUtils {
    *
    * @param applicationSpec The ApplicationSpec to check.
    * @return True if driver template override is enabled, false otherwise.
+   * @since 0.1.0
    */
   public static boolean overrideDriverTemplateEnabled(ApplicationSpec applicationSpec) {
     return applicationSpec != null
@@ -140,6 +145,7 @@ public final class ModelUtils {
    *
    * @param applicationSpec The ApplicationSpec to check.
    * @return True if executor template override is enabled, false otherwise.
+   * @since 0.1.0
    */
   public static boolean overrideExecutorTemplateEnabled(ApplicationSpec applicationSpec) {
     return applicationSpec != null
@@ -152,6 +158,7 @@ public final class ModelUtils {
    *
    * @param app The SparkApplication to get the attempt ID from.
    * @return The current attempt ID, or 0L if not available.
+   * @since 0.1.0
    */
   public static long getAttemptId(final SparkApplication app) {
     long attemptId = 0L;
@@ -166,6 +173,7 @@ public final class ModelUtils {
    *
    * @param app The SparkApplication to check.
    * @return True if the application is in client mode, false otherwise.
+   * @since 0.8.0
    */
   public static boolean isClientMode(SparkApplication app) {
     return ClientMode == app.getSpec().getDeploymentMode();

@@ -39,10 +39,20 @@ import lombok.ToString;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ClusterState extends BaseState<ClusterStateSummary> implements Serializable {
+  /**
+   * Constructs a new ClusterState in the Submitted state.
+   *
+   * @since 0.1.0
+   */
   public ClusterState() {
     super(ClusterStateSummary.Submitted, Instant.now().toString(), CLUSTER_SUBMITTED_STATE_MESSAGE);
   }
 
+  /**
+   * Constructs a new ClusterState with the given state summary and message.
+   *
+   * @since 0.1.0
+   */
   public ClusterState(ClusterStateSummary currentStateSummary, String message) {
     super(currentStateSummary, Instant.now().toString(), message);
   }

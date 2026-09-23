@@ -30,22 +30,47 @@ import java.io.StringWriter;
 public final class StringUtils {
   private StringUtils() {}
 
+  /**
+   * Checks whether the given string is null, empty, or contains only whitespace.
+   *
+   * @since 0.6.0
+   */
   public static boolean isBlank(final String str) {
     return str == null || str.isBlank();
   }
 
+  /**
+   * Checks whether the given string is not null and contains at least one non-whitespace character.
+   *
+   * @since 0.6.0
+   */
   public static boolean isNotBlank(final String str) {
     return !isBlank(str);
   }
 
+  /**
+   * Checks whether the given string is null or empty.
+   *
+   * @since 0.6.0
+   */
   public static boolean isEmpty(final String str) {
     return str == null || str.length() == 0;
   }
 
+  /**
+   * Checks whether the given string is not null and not empty.
+   *
+   * @since 0.6.0
+   */
   public static boolean isNotEmpty(final String str) {
     return !isEmpty(str);
   }
 
+  /**
+   * Finds the index of the n-th occurrence of a substring within the given string, or -1 if absent.
+   *
+   * @since 0.6.0
+   */
   public static int ordinalIndexOf(final String str, final String substr, final int ordinal) {
     if (str == null || substr == null || ordinal <= 0) {
       return -1;
@@ -64,6 +89,11 @@ public final class StringUtils {
     return index;
   }
 
+  /**
+   * Returns the stack trace of the given throwable as a string, or an empty string if it is null.
+   *
+   * @since 0.6.0
+   */
   public static String getStackTrace(Throwable throwable) {
     if (throwable == null) {
       return "";

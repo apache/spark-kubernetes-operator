@@ -127,6 +127,7 @@ public enum ApplicationStateSummary implements BaseStateSummary {
    * Checks if the application is in an initializing state.
    *
    * @return True if the state is Submitted or ScheduledToRestart, false otherwise.
+   * @since 0.1.0
    */
   public boolean isInitializing() {
     return this == Submitted || this == ScheduledToRestart;
@@ -137,6 +138,7 @@ public enum ApplicationStateSummary implements BaseStateSummary {
    *
    * @return True if the state is past ScheduledToRestart but before RunningHealthy, false
    *     otherwise.
+   * @since 0.1.0
    */
   public boolean isStarting() {
     return ScheduledToRestart.ordinal() < this.ordinal()
@@ -149,6 +151,7 @@ public enum ApplicationStateSummary implements BaseStateSummary {
    *
    * @return True if the state indicates the app has terminated (ResourceReleased or
    *     TerminatedWithoutReleaseResources), false otherwise.
+   * @since 0.1.0
    */
   public boolean isTerminated() {
     return this == ResourceReleased || this == TerminatedWithoutReleaseResources;
@@ -160,6 +163,7 @@ public enum ApplicationStateSummary implements BaseStateSummary {
    *
    * @return True if the state is past RunningWithBelowThresholdExecutors but not yet terminated,
    *     false otherwise.
+   * @since 0.1.0
    */
   public boolean isStopping() {
     return RunningWithBelowThresholdExecutors.ordinal() < this.ordinal() && !isTerminated();
@@ -169,6 +173,7 @@ public enum ApplicationStateSummary implements BaseStateSummary {
    * Checks if the application is in a failure state.
    *
    * @return True if the state is one of the defined failure states, false otherwise.
+   * @since 0.1.0
    */
   @Override
   public boolean isFailure() {
@@ -179,6 +184,7 @@ public enum ApplicationStateSummary implements BaseStateSummary {
    * Checks if the application is in an infrastructure failure state.
    *
    * @return True if the state is one of the defined infrastructure failure states, false otherwise.
+   * @since 0.1.0
    */
   @Override
   public boolean isInfrastructureFailure() {
