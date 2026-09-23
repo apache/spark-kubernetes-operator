@@ -201,7 +201,6 @@ public final class AppCleanUpStep extends AppReconcileStep {
       updatedStatus =
           currentStatus.terminateOrRestart(
               tolerations.getRestartConfig(),
-              ResourceRetainPolicy.Never,
               stateUpdateMessage,
               SparkOperatorConf.TRIM_ATTEMPT_STATE_TRANSITION_HISTORY.getValue());
       long requeueAfterMillis =
