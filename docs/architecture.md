@@ -40,7 +40,7 @@ For SparkClusters:
 
 * User submits a SparkCluster custom resource(CR) using kubectl / API
 * Operator launches master and worker(s) based on CR spec and observes their status
-* Operator releases all Spark-cluster owned resources to cluster upon failure
+* Spark-cluster owned resources are garbage collected when the SparkCluster CR is deleted
 
 The Operator is built with the [Java Operator SDK](https://javaoperatorsdk.io/) for
 launching Spark deployments and submitting jobs under the hood. It also uses
@@ -81,13 +81,14 @@ flowchart LR
     op -->|reconcile| crA2
     op -->|reconcile| crB
     op ==>|create driver / master| drvA
+    op ==>|create workers| execA
     op ==>|create driver| drvB
-    drvA -->|spawns| execA
+    drvA -->|driver spawns executors| execA
     drvB -->|spawns| execB
 ```
 
 Multiple Operator instances can coexist on the same cluster (for example one per region or per
-tenant) as long as each uses a distinct ServiceAccount / RoleBinding name and a disjoint set of
+tenant) as long as each uses a distinct ClusterRole / ClusterRoleBinding name and a disjoint set of
 watched namespaces. See [operations.md](operations.md) for a concrete multi-instance example.
 
 ## Application State Transition
@@ -99,8 +100,11 @@ stateDiagram-v2
 
     Submitted --> DriverRequested
     Submitted --> SchedulingFailure
+    Submitted --> Failed
 
     ScheduledToRestart --> DriverRequested
+    ScheduledToRestart --> SchedulingFailure
+    ScheduledToRestart --> Failed
 
     DriverRequested --> DriverStarted
     DriverRequested --> DriverStartTimedOut
@@ -117,6 +121,7 @@ stateDiagram-v2
 
     InitializedBelowThresholdExecutors --> RunningHealthy
     InitializedBelowThresholdExecutors --> RunningWithPartialCapacity
+    InitializedBelowThresholdExecutors --> ExecutorsStartTimedOut
     InitializedBelowThresholdExecutors --> Failed
 
     RunningHealthy --> Succeeded
@@ -145,19 +150,25 @@ stateDiagram-v2
     Failures --> ScheduledToRestart : Retry Configured
     Failures --> ResourceReleased : Terminated
 
+    Succeeded --> ScheduledToRestart : Restart Always
     Succeeded --> ResourceReleased
     ResourceReleased --> [*]
 
     %% Place TerminatedWithoutReleaseResources further to avoid overlap
     Failures --> TerminatedWithoutReleaseResources : Retain Policy
     Succeeded --> TerminatedWithoutReleaseResources
+    TerminatedWithoutReleaseResources --> ResourceReleased : Retain Duration Exceeded
     TerminatedWithoutReleaseResources --> [*]
 ```
 
 * Spark applications are expected to run from submitted to succeeded before releasing resources
+* Once the driver is requested, an application moves to `Succeeded`, `Failed` or `DriverEvicted`
+  from any of the states above whenever the driver pod terminates or is evicted. It also moves to
+  `Failed` if the driver pod is removed unexpectedly.
 * User may configure the app CR to time-out after given threshold of time if it cannot reach healthy
   state after given threshold. The timeout can be configured for different lifecycle stages,
-  when driver starting and when requesting executor pods. To update the default threshold,  
+  when driver starting, when driver becoming ready, and when requesting executor pods.
+  To update the default threshold,  
   configure `.spec.applicationTolerations.applicationTimeoutConfig` for the application.
 * K8s resources created for an application would be deleted as the final stage of the application
   lifecycle by default. This is to ensure resource quota release for completed applications.  
@@ -170,8 +181,10 @@ stateDiagram-v2
       by driver (for example, executor pods). User may configure SparkConf to
       include `spark.kubernetes.executor.deleteOnTermination` for executor retention. Please refer
       [Spark docs](https://spark.apache.org/docs/latest/running-on-kubernetes.html) for details.
-  * The created k8s resources have `ownerReference` to their related `SparkApplication` custom
-      resource, such that they could be garbage collected when the `SparkApplication` is deleted.
+  * The driver pod has `ownerReference` to its related `SparkApplication` custom resource, and the
+      other created k8s resources have `ownerReference` to the driver pod, such that they could be
+      garbage collected when the `SparkApplication` is deleted. The Kueue `Workload`, created when
+      a queue name is set, is owned by the `SparkApplication` directly and is released by Operator.
   * Please be advised that k8s resources would not be retained if the application is configured to
       restart. This is to avoid resource quota usage increase unexpectedly or resource conflicts
       among multiple attempts.
@@ -186,15 +199,15 @@ stateDiagram-v2
     Submitted --> RunningHealthy
     Submitted --> SchedulingFailure
 
-    RunningHealthy --> Failed
-    RunningHealthy --> ResourceReleased
+    SchedulingFailure --> Failed
 
-    SchedulingFailure --> ResourceReleased
-    Failed --> ResourceReleased
-
-    ResourceReleased --> [*]
+    RunningHealthy --> [*]
+    Failed --> [*]
 ```
 
 * Spark clusters are expected to be always running after submitted.
-* Similar to Spark applications, K8s resources created for a cluster would be deleted as the final
-  stage of the cluster lifecycle by default.
+* A cluster leaves `RunningHealthy` or `Failed` only when its custom resource is deleted. At that
+  point, the K8s resources created for the cluster are garbage collected through their
+  `ownerReference` to the `SparkCluster` custom resource.
+* A `Failed` cluster is not reconciled any further.
+* `ResourceReleased` exists in the API enum but is currently not used for clusters.
