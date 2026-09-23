@@ -251,9 +251,7 @@ public final class ReconcilerUtils {
       if (e.getCode() == HTTP_NOT_FOUND) {
         return Optional.empty();
       }
-      if (isTransientError(e)
-          || e.getCode() == HTTP_INTERNAL_ERROR
-          || e.getCode() == Constants.HTTP_TOO_MANY_REQUESTS) {
+      if (isRetryableError(e)) {
         log.warn(
             "Failed to read the resource with responseCode={}, considering it absent.",
             e.getCode(),

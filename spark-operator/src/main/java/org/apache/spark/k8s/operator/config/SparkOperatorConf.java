@@ -303,7 +303,8 @@ public final class SparkOperatorConf {
 
   /**
    * When enabled, operator would trim state transition history when a new attempt starts, keeping
-   * previous attempt summary only, and when a suspended SparkCluster is resumed.
+   * previous attempt summary only. It also drops the history of a suspended SparkCluster when it is
+   * resumed.
    */
   public static final ConfigOption<Boolean> TRIM_ATTEMPT_STATE_TRANSITION_HISTORY =
       ConfigOption.<Boolean>builder()
@@ -311,8 +312,8 @@ public final class SparkOperatorConf {
           .enableDynamicOverride(true)
           .description(
               "When enabled, operator would trim state transition history when a "
-                  + "new attempt starts, keeping previous attempt summary only, and when a "
-                  + "suspended SparkCluster is resumed.")
+                  + "new attempt starts, keeping previous attempt summary only. It also drops "
+                  + "the history of a suspended SparkCluster when it is resumed.")
           .typeParameterClass(Boolean.class)
           .defaultValue(true)
           .build();

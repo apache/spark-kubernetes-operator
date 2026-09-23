@@ -226,8 +226,7 @@ class ClusterSuspendStepTest {
     // their NetworkPolicy, but only the master and workers are listed, and none of them is left
     when(rolePods.list(any(ListOptions.class)))
         .thenReturn(new PodListBuilder().withNewMetadata().endMetadata().build());
-    stubContext(cluster);
-    when(mockContext.getClient()).thenReturn(client);
+    stubContext(cluster, client);
     kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(cluster)).create();
 
     Assertions.assertEquals(
@@ -265,8 +264,7 @@ class ClusterSuspendStepTest {
     when(rolePods.list(options.capture()))
         .thenReturn(
             new PodListBuilder().withNewMetadata().withContinue("next").endMetadata().build());
-    stubContext(cluster);
-    when(mockContext.getClient()).thenReturn(client);
+    stubContext(cluster, client);
     kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(cluster)).create();
 
     Assertions.assertEquals(
@@ -283,8 +281,7 @@ class ClusterSuspendStepTest {
     KubernetesClient mockClient = mock(KubernetesClient.class);
     when(mockClient.resource(workerStatefulSetSpec))
         .thenThrow(new KubernetesClientException("Service Unavailable", 503, null));
-    stubContext(cluster);
-    when(mockContext.getClient()).thenReturn(mockClient);
+    stubContext(cluster, mockClient);
 
     Assertions.assertEquals(
         ReconcileProgress.completeAndDefaultRequeue(),
@@ -302,8 +299,7 @@ class ClusterSuspendStepTest {
     KubernetesClient mockClient = mock(KubernetesClient.class);
     when(mockClient.resource(workerStatefulSetSpec))
         .thenThrow(new KubernetesClientException("Forbidden", 403, null));
-    stubContext(cluster);
-    when(mockContext.getClient()).thenReturn(mockClient);
+    stubContext(cluster, mockClient);
     when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
 
     Assertions.assertEquals(
@@ -333,8 +329,7 @@ class ClusterSuspendStepTest {
     when(namespaced.withName("sparkcluster-cluster1")).thenReturn(workload);
     when(workload.delete())
         .thenThrow(new KubernetesClientException("Service Unavailable", 503, null));
-    stubContext(cluster);
-    when(mockContext.getClient()).thenReturn(client);
+    stubContext(cluster, client);
 
     // The quota is not given back yet, so the cluster is neither held for the hold interval nor
     // resumed on the Workload of the previous spec
@@ -392,10 +387,14 @@ class ClusterSuspendStepTest {
   }
 
   private void stubContext(SparkCluster cluster) {
+    stubContext(cluster, kubernetesClient);
+  }
+
+  private void stubContext(SparkCluster cluster, KubernetesClient client) {
     when(recorder.appendNewStateAndPersist(any(), any())).thenReturn(true);
     when(recorder.persistStatus(any(), any())).thenReturn(true);
     when(mockContext.getResource()).thenReturn(cluster);
-    when(mockContext.getClient()).thenReturn(kubernetesClient);
+    when(mockContext.getClient()).thenReturn(client);
     when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
     when(mockContext.getWorkerStatefulSetSpec()).thenReturn(workerStatefulSetSpec);
   }
@@ -501,18 +500,14 @@ class ClusterSuspendStepTest {
   }
 
   private static Pod pod(String name, String role) {
-    Pod pod =
-        new PodBuilder()
-            .withNewMetadata()
-            .withName(name)
-            .withNamespace("default")
-            .addToLabels(Constants.LABEL_SPARK_CLUSTER_NAME, "cluster1")
-            .endMetadata()
-            .build();
-    if (role != null) {
-      pod.getMetadata().getLabels().put(Constants.LABEL_SPARK_ROLE_NAME, role);
-    }
-    return pod;
+    return new PodBuilder()
+        .withNewMetadata()
+        .withName(name)
+        .withNamespace("default")
+        .addToLabels(Constants.LABEL_SPARK_CLUSTER_NAME, "cluster1")
+        .addToLabels(Constants.LABEL_SPARK_ROLE_NAME, role)
+        .endMetadata()
+        .build();
   }
 
   private static Service service(String name) {

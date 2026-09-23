@@ -237,7 +237,6 @@ class ClusterInitStepTest {
 
   @ParameterizedTest
   @ValueSource(ints = {429, 500, 503})
-  @SuppressWarnings("unchecked")
   void retryableFailureOfRequestingResourcesIsRetried(int code) {
     ClusterInitStep clusterInitStep = new ClusterInitStep();
     SparkClusterContext mockContext = mock(SparkClusterContext.class);
@@ -258,7 +257,6 @@ class ClusterInitStepTest {
   }
 
   @Test
-  @SuppressWarnings("unchecked")
   void rejectedRequestOfResourcesFailsScheduling() {
     ClusterInitStep clusterInitStep = new ClusterInitStep();
     SparkClusterContext mockContext = mock(SparkClusterContext.class);

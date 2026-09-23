@@ -56,10 +56,11 @@ public abstract sealed class ClusterReconcileStep
       SparkClusterStatusRecorder statusRecorder,
       ClusterStatus updatedStatus,
       Duration requeueAfter) {
-    if (!statusRecorder.persistStatus(context, updatedStatus)) {
-      return retryStatusUpdate();
-    }
-    return ReconcileProgress.completeAndRequeueAfter(requeueAfter);
+    // A rejected update, e.g. of a state unknown to an older CRD, would be rejected again right
+    // away, so it is retried with the default interval, not immediately.
+    return statusRecorder.persistStatus(context, updatedStatus)
+        ? ReconcileProgress.completeAndRequeueAfter(requeueAfter)
+        : ReconcileProgress.completeAndDefaultRequeue();
   }
 
   /**
@@ -78,21 +79,11 @@ public abstract sealed class ClusterReconcileStep
       SparkClusterStatusRecorder statusRecorder,
       ClusterState newState,
       Duration requeueAfter) {
-    if (!statusRecorder.appendNewStateAndPersist(context, newState)) {
-      return retryStatusUpdate();
-    }
-    return ReconcileProgress.completeAndRequeueAfter(requeueAfter);
-  }
-
-  /**
-   * Returns the progress after a status update which is not persisted. The next reconcile starts
-   * from the persisted state again, and a rejection such as an unknown state in an older CRD would
-   * be rejected again right away, so it is retried with the default interval, not immediately.
-   *
-   * @return The ReconcileProgress indicating the default re-queue.
-   */
-  private static ReconcileProgress retryStatusUpdate() {
-    return ReconcileProgress.completeAndDefaultRequeue();
+    // A rejected update, e.g. of a state unknown to an older CRD, would be rejected again right
+    // away, so it is retried with the default interval, not immediately.
+    return statusRecorder.appendNewStateAndPersist(context, newState)
+        ? ReconcileProgress.completeAndRequeueAfter(requeueAfter)
+        : ReconcileProgress.completeAndDefaultRequeue();
   }
 
   /**
