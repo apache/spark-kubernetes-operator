@@ -8,6 +8,7 @@ permissions:
 
 env:
   KUEUE_VERSION: v0.19.4
+  CHAINSAW_VERSION: v0.2.15
 
 jobs:
   license-check:
@@ -174,13 +175,13 @@ jobs:
           container-runtime: docker
           cpus: 3
           memory: 10240m
-      - name: Set Up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: 'stable'
       - name: Set Up Chainsaw
         run: |
-          go install github.com/kyverno/chainsaw@latest
+          curl -sSLO https://github.com/kyverno/chainsaw/releases/download/${{ env.CHAINSAW_VERSION }}/chainsaw_linux_amd64.tar.gz
+          curl -sSLO https://github.com/kyverno/chainsaw/releases/download/${{ env.CHAINSAW_VERSION }}/checksums.txt
+          grep ' chainsaw_linux_amd64.tar.gz$' checksums.txt | sha256sum --check
+          sudo tar -xzf chainsaw_linux_amd64.tar.gz -C /usr/local/bin chainsaw
+          chainsaw version
       - name: Print K8S pods and nodes info
         run: |
           kubectl get pods -A
