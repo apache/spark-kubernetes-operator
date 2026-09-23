@@ -33,11 +33,17 @@ public final class ClusterUnknownStateStep extends ClusterReconcileStep {
    *
    * @param context The SparkClusterContext for the cluster.
    * @param statusRecorder The SparkClusterStatusRecorder for recording status updates.
-   * @return The ReconcileProgress indicating an immediate re-queue.
+   * @return The ReconcileProgress indicating an immediate re-queue, or no re-queue if the cluster
+   *     is already failed.
    */
   @Override
   public ReconcileProgress reconcile(
       SparkClusterContext context, SparkClusterStatusRecorder statusRecorder) {
+    // Appending Failed again would write a new status on every reconcile, forever.
+    if (context.getResource().getStatus().getCurrentState().getCurrentStateSummary()
+        == ClusterStateSummary.Failed) {
+      return ReconcileProgress.completeAndNoRequeue();
+    }
     ClusterState state =
         new ClusterState(ClusterStateSummary.Failed, Constants.UNKNOWN_CLUSTER_STATE_MESSAGE);
     statusRecorder.persistStatus(context, context.getResource().getStatus().appendNewState(state));
