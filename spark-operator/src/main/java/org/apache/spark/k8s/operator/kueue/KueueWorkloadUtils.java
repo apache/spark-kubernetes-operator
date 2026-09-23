@@ -519,9 +519,12 @@ public final class KueueWorkloadUtils {
    * Deletes the Workload of the given resource and reports whether one was there to delete, unlike
    * {@link #releaseWorkload} without swallowing the failure.
    *
+   * @param client The KubernetesClient.
+   * @param owner The SparkApplication or SparkCluster owning the Workload.
+   * @return True if a Workload was deleted, false if there was none.
    * @throws KubernetesClientException if the Workload cannot be deleted.
    */
-  private static boolean deleteWorkloadOf(final KubernetesClient client, final HasMetadata owner) {
+  public static boolean deleteWorkloadOf(final KubernetesClient client, final HasMetadata owner) {
     return !client
         .resources(Workload.class)
         .inNamespace(owner.getMetadata().getNamespace())

@@ -14753,6 +14753,7 @@ spec:
                               - RunningHealthy
                               - SchedulingFailure
                               - Submitted
+                              - Suspended
                             type: string
                           lastTransitionTime:
                             type: string
@@ -14770,6 +14771,7 @@ spec:
                         - RunningHealthy
                         - SchedulingFailure
                         - Submitted
+                        - Suspended
                       type: string
                     lastTransitionTime:
                       type: string
@@ -14795,6 +14797,7 @@ spec:
                               - RunningHealthy
                               - SchedulingFailure
                               - Submitted
+                              - Suspended
                             type: string
                           lastTransitionTime:
                             type: string
@@ -14813,6 +14816,7 @@ spec:
                           - RunningHealthy
                           - SchedulingFailure
                           - Submitted
+                          - Suspended
                         type: string
                       lastTransitionTime:
                         type: string

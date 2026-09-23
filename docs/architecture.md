@@ -201,13 +201,19 @@ stateDiagram-v2
 
     SchedulingFailure --> Failed
 
+    RunningHealthy --> Suspended : spec.suspend=true
+    Suspended --> Submitted : spec.suspend=false
+    Submitted --> Suspended : spec.suspend=true after resume
+
     RunningHealthy --> [*]
+    Suspended --> [*]
     Failed --> [*]
 ```
 
-* Spark clusters are expected to be always running after submitted.
-* A cluster leaves `RunningHealthy` or `Failed` only when its custom resource is deleted. At that
-  point, the K8s resources created for the cluster are garbage collected through their
-  `ownerReference` to the `SparkCluster` custom resource.
+* Spark clusters are expected to be always running after submitted, until they are suspended by
+  [`spec.suspend`](spark_custom_resources.md#suspend).
+* Apart from `spec.suspend`, a cluster leaves `RunningHealthy`, `Suspended` or `Failed` only when
+  its custom resource is deleted. At that point, the K8s resources created for the cluster are
+  garbage collected through their `ownerReference` to the `SparkCluster` custom resource.
 * A `Failed` cluster is not reconciled any further.
 * `ResourceReleased` exists in the API enum but is currently not used for clusters.

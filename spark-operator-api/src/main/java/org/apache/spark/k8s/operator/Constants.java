@@ -242,6 +242,15 @@ public final class Constants {
   /** Message indicating that the cluster has reached a ready state. */
   public static final String CLUSTER_READY_MESSAGE = "Cluster has reached ready state.";
 
+  /** Message indicating that the cluster is suspended by spec.suspend while it was running. */
+  public static final String CLUSTER_SUSPENDED_MESSAGE =
+      "Cluster is suspended by spec.suspend, so its master and workers are being released. "
+          + "Setting spec.suspend to false resumes it once they are released.";
+
+  /** Message indicating that the suspended cluster is resumed by clearing spec.suspend. */
+  public static final String CLUSTER_RESUMED_MESSAGE =
+      "Cluster is resumed as spec.suspend is set to false.";
+
   /** Message indicating that the cluster status cannot be processed. */
   public static final String UNKNOWN_CLUSTER_STATE_MESSAGE = "Cannot process cluster status.";
 

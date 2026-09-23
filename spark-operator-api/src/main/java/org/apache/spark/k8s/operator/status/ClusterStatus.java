@@ -84,6 +84,27 @@ public class ClusterStatus
   }
 
   /**
+   * Appends a new state, and drops the states before it when trimStateTransitionHistory is set, so
+   * that a cluster which is suspended and resumed again and again keeps a bounded history. The new
+   * state keeps the next id, so that it is still told apart from the states before it.
+   *
+   * @param state The state to append.
+   * @param trimStateTransitionHistory Whether to drop the states before the new one.
+   * @return The updated status.
+   * @since 1.1.0
+   */
+  public ClusterStatus appendNewState(ClusterState state, boolean trimStateTransitionHistory) {
+    if (!trimStateTransitionHistory) {
+      return appendNewState(state);
+    }
+    return new ClusterStatus(
+        state,
+        Map.of(getCurrentStateId() + 1, state),
+        previousAttemptSummary,
+        currentAttemptSummary);
+  }
+
+  /**
    * Creates an updated state transition history with a new state appended.
    *
    * @param state The new ClusterState to append.

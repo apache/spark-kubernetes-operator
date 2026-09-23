@@ -104,7 +104,7 @@ class SparkClusterReconcilerTest {
               ClusterStatus updatedStatus =
                   cluster.getStatus().appendNewState(invocation.getArgument(1));
               cluster.setStatus(updatedStatus);
-              return null;
+              return true;
             })
         .when(mockRecorder)
         .appendNewStateAndPersist(any(SparkClusterContext.class), any(ClusterState.class));
@@ -183,15 +183,32 @@ class SparkClusterReconcilerTest {
 
   @Test
   void testGetReconcileStepsForRunningHealthyCluster() {
-    // RunningHealthy state should not have additional steps beyond validation and termination check
+    // RunningHealthy state should include ClusterSuspendStep to observe spec.suspend
     cluster.setStatus(cluster.getStatus().appendNewState(
         new ClusterState(ClusterStateSummary.RunningHealthy, "")));
     List<ClusterReconcileStep> steps = reconciler.getReconcileSteps(cluster);
-    assertEquals(2, steps.size());
+    assertEquals(3, steps.size());
     assertEquals(
         "ClusterValidateStep", steps.get(0).getClass().getSimpleName());
     assertEquals(
         "ClusterTerminatedStep", steps.get(1).getClass().getSimpleName());
+    assertEquals(
+        "ClusterSuspendStep", steps.get(2).getClass().getSimpleName());
+  }
+
+  @Test
+  void testGetReconcileStepsForSuspendedCluster() {
+    // Suspended state should include ClusterSuspendStep to release resources or resume
+    cluster.setStatus(cluster.getStatus().appendNewState(
+        new ClusterState(ClusterStateSummary.Suspended, "")));
+    List<ClusterReconcileStep> steps = reconciler.getReconcileSteps(cluster);
+    assertEquals(3, steps.size());
+    assertEquals(
+        "ClusterValidateStep", steps.get(0).getClass().getSimpleName());
+    assertEquals(
+        "ClusterTerminatedStep", steps.get(1).getClass().getSimpleName());
+    assertEquals(
+        "ClusterSuspendStep", steps.get(2).getClass().getSimpleName());
   }
 
   @Test

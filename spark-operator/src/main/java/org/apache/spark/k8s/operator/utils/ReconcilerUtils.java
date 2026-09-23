@@ -251,9 +251,7 @@ public final class ReconcilerUtils {
       if (e.getCode() == HTTP_NOT_FOUND) {
         return Optional.empty();
       }
-      if (isTransientError(e)
-          || e.getCode() == HTTP_INTERNAL_ERROR
-          || e.getCode() == Constants.HTTP_TOO_MANY_REQUESTS) {
+      if (isRetryableError(e)) {
         log.warn(
             "Failed to read the resource with responseCode={}, considering it absent.",
             e.getCode(),
@@ -330,6 +328,20 @@ public final class ReconcilerUtils {
       case HTTP_CLIENT_TIMEOUT, HTTP_BAD_GATEWAY, HTTP_UNAVAILABLE, HTTP_GATEWAY_TIMEOUT -> true;
       default -> false;
     };
+  }
+
+  /**
+   * Whether the same request may yet succeed when it is sent again. Besides a transient failure,
+   * a throttled request and an internal server error, such as an admission webhook which is down,
+   * qualify, while a request the API server rejected, e.g. as forbidden or invalid, does not.
+   *
+   * @param e The failure to classify.
+   * @return True if the request is worth sending again, false otherwise.
+   */
+  public static boolean isRetryableError(KubernetesClientException e) {
+    return isTransientError(e)
+        || e.getCode() == HTTP_INTERNAL_ERROR
+        || e.getCode() == Constants.HTTP_TOO_MANY_REQUESTS;
   }
 
   /**

@@ -29,7 +29,7 @@ import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
 
 /** Basic reconcile step for cluster. */
 public abstract sealed class ClusterReconcileStep
-    permits ClusterInitStep, ClusterTerminatedStep, ClusterUnknownStateStep,
+    permits ClusterInitStep, ClusterSuspendStep, ClusterTerminatedStep, ClusterUnknownStateStep,
         ClusterValidateStep {
   /**
    * Reconciles a specific step for a Spark cluster.
@@ -48,15 +48,19 @@ public abstract sealed class ClusterReconcileStep
    * @param statusRecorder The SparkClusterStatusRecorder for recording status updates.
    * @param updatedStatus The updated ClusterStatus.
    * @param requeueAfter The duration after which to re-queue.
-   * @return The ReconcileProgress indicating the re-queue.
+   * @return The ReconcileProgress indicating the re-queue, or the default re-queue if the status
+   *     is not persisted.
    */
   protected ReconcileProgress updateStatusAndRequeueAfter(
       SparkClusterContext context,
       SparkClusterStatusRecorder statusRecorder,
       ClusterStatus updatedStatus,
       Duration requeueAfter) {
-    statusRecorder.persistStatus(context, updatedStatus);
-    return ReconcileProgress.completeAndRequeueAfter(requeueAfter);
+    // A rejected update, e.g. of a state unknown to an older CRD, would be rejected again right
+    // away, so it is retried with the default interval, not immediately.
+    return statusRecorder.persistStatus(context, updatedStatus)
+        ? ReconcileProgress.completeAndRequeueAfter(requeueAfter)
+        : ReconcileProgress.completeAndDefaultRequeue();
   }
 
   /**
@@ -67,15 +71,19 @@ public abstract sealed class ClusterReconcileStep
    * @param statusRecorder The SparkClusterStatusRecorder for recording status updates.
    * @param newState The new ClusterState to append.
    * @param requeueAfter The duration after which to re-queue.
-   * @return The ReconcileProgress indicating the re-queue.
+   * @return The ReconcileProgress indicating the re-queue, or the default re-queue if the state
+   *     is not persisted.
    */
   protected ReconcileProgress appendStateAndRequeueAfter(
       SparkClusterContext context,
       SparkClusterStatusRecorder statusRecorder,
       ClusterState newState,
       Duration requeueAfter) {
-    statusRecorder.appendNewStateAndPersist(context, newState);
-    return ReconcileProgress.completeAndRequeueAfter(requeueAfter);
+    // A rejected update, e.g. of a state unknown to an older CRD, would be rejected again right
+    // away, so it is retried with the default interval, not immediately.
+    return statusRecorder.appendNewStateAndPersist(context, newState)
+        ? ReconcileProgress.completeAndRequeueAfter(requeueAfter)
+        : ReconcileProgress.completeAndDefaultRequeue();
   }
 
   /**

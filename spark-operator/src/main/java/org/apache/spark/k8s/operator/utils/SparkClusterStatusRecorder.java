@@ -44,9 +44,10 @@ public class SparkClusterStatusRecorder
    *
    * @param context The SparkClusterContext for the cluster.
    * @param newState The new ClusterState to append.
+   * @return true if the status is successfully patched.
    */
-  public void appendNewStateAndPersist(SparkClusterContext context, ClusterState newState) {
+  public boolean appendNewStateAndPersist(SparkClusterContext context, ClusterState newState) {
     ClusterStatus updatedStatus = context.getResource().getStatus().appendNewState(newState);
-    persistStatus(context, updatedStatus);
+    return persistStatus(context, updatedStatus);
   }
 }

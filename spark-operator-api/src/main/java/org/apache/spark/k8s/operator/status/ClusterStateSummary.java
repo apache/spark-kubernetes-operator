@@ -38,7 +38,14 @@ public enum ClusterStateSummary implements BaseStateSummary {
   Failed,
 
   /** all resources (pods, services .etc have been cleaned up) */
-  ResourceReleased;
+  ResourceReleased,
+
+  /**
+   * Cluster is suspended by spec.suspend after it started running, so its master and workers are
+   * released until it is resumed from Submitted. It is declared last, since {@link #isStarting()}
+   * compares the ordinals.
+   */
+  Suspended;
 
   /**
    * Checks if the cluster is in an initializing state.
