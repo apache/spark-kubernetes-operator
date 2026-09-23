@@ -96,15 +96,35 @@ public class ApplicationStatus
    * Creates an updated ApplicationStatus based on the termination or restart logic.
    *
    * @param restartConfig The restart configuration for the application.
-   * @param resourceRetainPolicy The resource retention policy for the application.
+   * @param resourceRetainPolicy Ignored. The resources are expected to be released already.
    * @param stateMessageOverride An optional message to override the default state message.
    * @param trimStateTransitionHistory If true, the state transition history will be trimmed.
    * @return An updated ApplicationStatus object.
    * @since 0.1.0
+   * @deprecated since 1.1.0, use {@link #terminateOrRestart(RestartConfig, String, boolean)}
+   *     instead.
    */
+  @Deprecated(since = "1.1.0")
   public ApplicationStatus terminateOrRestart(
       final RestartConfig restartConfig,
       final ResourceRetainPolicy resourceRetainPolicy,
+      String stateMessageOverride,
+      boolean trimStateTransitionHistory) {
+    return terminateOrRestart(restartConfig, stateMessageOverride, trimStateTransitionHistory);
+  }
+
+  /**
+   * Creates an updated ApplicationStatus based on the termination or restart logic. The resources
+   * of the current attempt are expected to be released already.
+   *
+   * @param restartConfig The restart configuration for the application.
+   * @param stateMessageOverride An optional message to override the default state message.
+   * @param trimStateTransitionHistory If true, the state transition history will be trimmed.
+   * @return An updated ApplicationStatus object.
+   * @since 1.1.0
+   */
+  public ApplicationStatus terminateOrRestart(
+      final RestartConfig restartConfig,
       String stateMessageOverride,
       boolean trimStateTransitionHistory) {
     if (!currentState.currentStateSummary.isStopping()) {
@@ -120,11 +140,6 @@ public class ApplicationStatus
       // no restart configured
       ApplicationState state =
           new ApplicationState(ApplicationStateSummary.ResourceReleased, stateMessageOverride);
-      if (ResourceRetainPolicy.Always == resourceRetainPolicy
-          || ResourceRetainPolicy.OnFailure == resourceRetainPolicy
-              && currentState.currentStateSummary.isFailure()) {
-        state = terminateAppWithoutReleaseResource(stateMessageOverride);
-      }
       return new ApplicationStatus(
           state,
           createUpdatedHistoryWithNewState(state),
@@ -179,11 +194,6 @@ public class ApplicationStatus
       // max number of restart attempt reached
       ApplicationState state =
           new ApplicationState(ApplicationStateSummary.ResourceReleased, stateMessage);
-      if (ResourceRetainPolicy.Always == resourceRetainPolicy
-          || ResourceRetainPolicy.OnFailure == resourceRetainPolicy
-              && currentState.currentStateSummary.isFailure()) {
-        state = terminateAppWithoutReleaseResource(stateMessage);
-      }
       // still use previous & current attempt summary - they are to be updated only upon
       // new restart
       return new ApplicationStatus(
@@ -288,21 +298,6 @@ public class ApplicationStatus
     return Duration.between(
         Instant.parse(attemptStart.getLastTransitionTime()),
         Instant.parse(currentState.getLastTransitionTime()));
-  }
-
-  /**
-   * Creates an ApplicationState indicating that the application is terminated without releasing
-   * resources.
-   *
-   * @param stateMessageOverride An optional message to override the default state message.
-   * @return An ApplicationState object for termination without resource release.
-   */
-  private ApplicationState terminateAppWithoutReleaseResource(String stateMessageOverride) {
-    String stateMessage =
-        "Application is terminated without releasing resources as configured."
-            + stateMessageOverride;
-    return new ApplicationState(
-        ApplicationStateSummary.TerminatedWithoutReleaseResources, stateMessage);
   }
 
   /**

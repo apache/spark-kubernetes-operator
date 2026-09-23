@@ -70,7 +70,7 @@ class ApplicationStatusTest {
         new ApplicationStatus().appendNewState(new ApplicationState(Succeeded, "bar"));
     ApplicationStatus updatedStatusReleaseResource =
         status.terminateOrRestart(
-            noRetryConfig, ResourceRetainPolicy.Never, messageOverride, false);
+            noRetryConfig, messageOverride, false);
     assertEquals(
         ApplicationStateSummary.ResourceReleased,
         updatedStatusReleaseResource.getCurrentState().getCurrentStateSummary());
@@ -78,17 +78,6 @@ class ApplicationStatusTest {
         updatedStatusReleaseResource.getCurrentState().getMessage().contains(messageOverride));
     assertEquals(
         0L, updatedStatusReleaseResource.getCurrentAttemptSummary().getAttemptInfo().getId());
-
-    ApplicationStatus updatedStatusRetainResource =
-        status.terminateOrRestart(
-            noRetryConfig, ResourceRetainPolicy.Always, messageOverride, false);
-    assertEquals(
-        ApplicationStateSummary.TerminatedWithoutReleaseResources,
-        updatedStatusRetainResource.getCurrentState().getCurrentStateSummary());
-    assertTrue(
-        updatedStatusRetainResource.getCurrentState().getMessage().contains(messageOverride));
-    assertEquals(
-        0L, updatedStatusRetainResource.getCurrentAttemptSummary().getAttemptInfo().getId());
   }
 
   @Test
@@ -104,26 +93,17 @@ class ApplicationStatusTest {
     // retry policy set
     ApplicationStatus restartReleaseResource =
         status.terminateOrRestart(
-            alwaysRetryConfig, ResourceRetainPolicy.Never, messageOverride, false);
+            alwaysRetryConfig, messageOverride, false);
     assertEquals(
         ApplicationStateSummary.ScheduledToRestart,
         restartReleaseResource.getCurrentState().getCurrentStateSummary());
     assertTrue(restartReleaseResource.getCurrentState().getMessage().contains(messageOverride));
     assertEquals(1L, restartReleaseResource.getCurrentAttemptSummary().getAttemptInfo().getId());
 
-    ApplicationStatus restartRetainResource =
-        status.terminateOrRestart(
-            alwaysRetryConfig, ResourceRetainPolicy.Always, messageOverride, false);
-    assertEquals(
-        ApplicationStateSummary.ScheduledToRestart,
-        restartRetainResource.getCurrentState().getCurrentStateSummary());
-    assertTrue(restartRetainResource.getCurrentState().getMessage().contains(messageOverride));
-    assertEquals(1L, restartRetainResource.getCurrentAttemptSummary().getAttemptInfo().getId());
-
     // trim state history for new restart
     ApplicationStatus restartTrimHistory =
         status.terminateOrRestart(
-            alwaysRetryConfig, ResourceRetainPolicy.Never, messageOverride, true);
+            alwaysRetryConfig, messageOverride, true);
     assertEquals(
         ApplicationStateSummary.ScheduledToRestart,
         restartTrimHistory.getCurrentState().getCurrentStateSummary());
@@ -135,22 +115,6 @@ class ApplicationStatusTest {
         status.getStateTransitionHistory(),
         restartTrimHistory.getPreviousAttemptSummary().getStateTransitionHistory());
 
-    ApplicationStatus restartRetainResourceTrimHistory =
-        status.terminateOrRestart(
-            alwaysRetryConfig, ResourceRetainPolicy.Always, messageOverride, true);
-    assertEquals(
-        ApplicationStateSummary.ScheduledToRestart,
-        restartRetainResourceTrimHistory.getCurrentState().getCurrentStateSummary());
-    assertTrue(
-        restartRetainResourceTrimHistory.getCurrentState().getMessage().contains(messageOverride));
-    assertEquals(
-        1L, restartRetainResourceTrimHistory.getCurrentAttemptSummary().getAttemptInfo().getId());
-    assertNotNull(
-        restartRetainResourceTrimHistory.getPreviousAttemptSummary().getStateTransitionHistory());
-    assertEquals(
-        status.getStateTransitionHistory(),
-        restartRetainResourceTrimHistory.getPreviousAttemptSummary().getStateTransitionHistory());
-
     // retry policy set but max retry attempt reached
     alwaysRetryConfig.setMaxRestartAttempts(1L);
     ApplicationStatus restartFailed =
@@ -158,7 +122,7 @@ class ApplicationStatusTest {
             new ApplicationState(ApplicationStateSummary.Failed, "bar"));
     ApplicationStatus maxRestartExceededReleaseResource =
         restartFailed.terminateOrRestart(
-            alwaysRetryConfig, ResourceRetainPolicy.Never, messageOverride, false);
+            alwaysRetryConfig, messageOverride, false);
     assertEquals(
         ApplicationStateSummary.ResourceReleased,
         maxRestartExceededReleaseResource.getCurrentState().getCurrentStateSummary());
@@ -167,17 +131,22 @@ class ApplicationStatusTest {
         maxRestartExceededReleaseResource.getCurrentState().getMessage());
     assertEquals(
         1L, maxRestartExceededReleaseResource.getCurrentAttemptSummary().getAttemptInfo().getId());
+  }
 
-    ApplicationStatus maxRestartExceededRetainResource =
-        restartFailed.terminateOrRestart(
-            alwaysRetryConfig, ResourceRetainPolicy.Always, messageOverride, false);
-    assertEquals(
-        ApplicationStateSummary.TerminatedWithoutReleaseResources,
-        maxRestartExceededRetainResource.getCurrentState().getCurrentStateSummary());
-    assertTrue(
-        maxRestartExceededRetainResource.getCurrentState().getMessage().contains(messageOverride));
-    assertEquals(
-        1L, maxRestartExceededRetainResource.getCurrentAttemptSummary().getAttemptInfo().getId());
+  @Test
+  @SuppressWarnings("deprecation")
+  void testDeprecatedTerminateOrRestartIgnoresResourceRetainPolicy() {
+    RestartConfig noRetryConfig = new RestartConfig();
+    noRetryConfig.setRestartPolicy(RestartPolicy.Never);
+    ApplicationStatus status =
+        new ApplicationStatus()
+            .appendNewState(new ApplicationState(ApplicationStateSummary.Failed, "bar"));
+    for (ResourceRetainPolicy policy : ResourceRetainPolicy.values()) {
+      ApplicationState state =
+          status.terminateOrRestart(noRetryConfig, policy, "foo", false).getCurrentState();
+      assertEquals(ApplicationStateSummary.ResourceReleased, state.getCurrentStateSummary());
+      assertEquals("foo", state.getMessage());
+    }
   }
 
   @Test
@@ -204,7 +173,7 @@ class ApplicationStatusTest {
     // Test restart with counter reset (duration > restartCounterResetMillis)
     ApplicationStatus restartWithReset =
         status.terminateOrRestart(
-            restartConfigWithCounter, ResourceRetainPolicy.Never, messageOverride, false);
+            restartConfigWithCounter, messageOverride, false);
 
     assertEquals(
         ApplicationStateSummary.ScheduledToRestart,
@@ -229,7 +198,7 @@ class ApplicationStatusTest {
 
     ApplicationStatus secondAttemptRestart =
         status.terminateOrRestart(
-            restartConfigWithCounter, ResourceRetainPolicy.Never, messageOverride, false);
+            restartConfigWithCounter, messageOverride, false);
     assertEquals(
         ApplicationStateSummary.ScheduledToRestart,
         secondAttemptRestart.getCurrentState().getCurrentStateSummary());
@@ -242,7 +211,7 @@ class ApplicationStatusTest {
     // validate status with history trimmed
     ApplicationStatus secondAttemptRestartTrimmed =
         status.terminateOrRestart(
-            restartConfigWithCounter, ResourceRetainPolicy.Never, messageOverride, true);
+            restartConfigWithCounter, messageOverride, true);
     assertEquals(
         ApplicationStateSummary.ScheduledToRestart,
         secondAttemptRestartTrimmed.getCurrentState().getCurrentStateSummary());
@@ -268,7 +237,7 @@ class ApplicationStatusTest {
             .appendNewState(thirdAttemptEnd);
     ApplicationStatus thirdAttemptTerminate =
         status.terminateOrRestart(
-            restartConfigWithCounter, ResourceRetainPolicy.Never, messageOverride, false);
+            restartConfigWithCounter, messageOverride, false);
     assertEquals(
         ApplicationStateSummary.ResourceReleased,
         thirdAttemptTerminate.getCurrentState().getCurrentStateSummary());
@@ -284,7 +253,7 @@ class ApplicationStatusTest {
             .appendNewState(thirdAttemptEnd);
     ApplicationStatus thirdAttemptTerminateTrimmed =
         status.terminateOrRestart(
-            restartConfigWithCounter, ResourceRetainPolicy.Never, messageOverride, true);
+            restartConfigWithCounter, messageOverride, true);
     assertEquals(
         ApplicationStateSummary.ResourceReleased,
         thirdAttemptTerminateTrimmed.getCurrentState().getCurrentStateSummary());
@@ -414,7 +383,7 @@ class ApplicationStatusTest {
     for (boolean trimStateTransitionHistory : new boolean[] {false, true}) {
       ApplicationStatus restarted =
           status.terminateOrRestart(
-              config, ResourceRetainPolicy.Never, null, trimStateTransitionHistory);
+              config, null, trimStateTransitionHistory);
       assertEquals(
           ApplicationStateSummary.ScheduledToRestart,
           restarted.getCurrentState().getCurrentStateSummary());
@@ -430,7 +399,7 @@ class ApplicationStatusTest {
 
       ApplicationStatus terminated =
           resumed.terminateOrRestart(
-              config, ResourceRetainPolicy.Never, null, trimStateTransitionHistory);
+              config, null, trimStateTransitionHistory);
       assertEquals(
           ApplicationStateSummary.ResourceReleased,
           terminated.getCurrentState().getCurrentStateSummary());
@@ -466,7 +435,7 @@ class ApplicationStatusTest {
             .appendNewState(new ApplicationState(ApplicationStateSummary.Failed, "error"));
 
     ApplicationStatus restarted =
-        status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+        status.terminateOrRestart(config, null, false);
 
     assertEquals(
         ApplicationStateSummary.ResourceReleased,
@@ -490,7 +459,7 @@ class ApplicationStatusTest {
             .appendNewState(new ApplicationState(Succeeded, "completed"));
 
     ApplicationStatus restarted =
-        status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+        status.terminateOrRestart(config, null, false);
 
     assertEquals(
         ApplicationStateSummary.ScheduledToRestart,
@@ -515,7 +484,7 @@ class ApplicationStatusTest {
                 new ApplicationState(ApplicationStateSummary.SchedulingFailure, "quota exceeded"));
 
     ApplicationStatus restarted =
-        status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+        status.terminateOrRestart(config, null, false);
 
     assertEquals(
         ApplicationStateSummary.ResourceReleased,
@@ -540,7 +509,7 @@ class ApplicationStatusTest {
                     ApplicationStateSummary.SchedulingFailure, "resources unavailable"));
 
     ApplicationStatus restarted =
-        status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+        status.terminateOrRestart(config, null, false);
 
     assertEquals(
         ApplicationStateSummary.ResourceReleased,
@@ -565,7 +534,7 @@ class ApplicationStatusTest {
             .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
             .appendNewState(new ApplicationState(ApplicationStateSummary.Failed, "error1"));
 
-    status = status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+    status = status.terminateOrRestart(config, null, false);
     assertEquals(
         ApplicationStateSummary.ScheduledToRestart,
         status.getCurrentState().getCurrentStateSummary());
@@ -579,7 +548,7 @@ class ApplicationStatusTest {
             .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
             .appendNewState(new ApplicationState(Succeeded, "success1"));
 
-    status = status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+    status = status.terminateOrRestart(config, null, false);
     assertEquals(
         ApplicationStateSummary.ScheduledToRestart,
         status.getCurrentState().getCurrentStateSummary());
@@ -594,7 +563,7 @@ class ApplicationStatusTest {
             .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
             .appendNewState(new ApplicationState(ApplicationStateSummary.Failed, "error2"));
 
-    status = status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+    status = status.terminateOrRestart(config, null, false);
     assertEquals(
         ApplicationStateSummary.ScheduledToRestart,
         status.getCurrentState().getCurrentStateSummary());
@@ -609,7 +578,7 @@ class ApplicationStatusTest {
             .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
             .appendNewState(new ApplicationState(ApplicationStateSummary.Failed, "error3"));
 
-    status = status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+    status = status.terminateOrRestart(config, null, false);
     assertEquals(
         ApplicationStateSummary.ScheduledToRestart,
         status.getCurrentState().getCurrentStateSummary());
@@ -623,7 +592,7 @@ class ApplicationStatusTest {
             .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
             .appendNewState(new ApplicationState(ApplicationStateSummary.Failed, "error4"));
 
-    status = status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+    status = status.terminateOrRestart(config, null, false);
     // Should stop because consecutive failure counter 3 > maxRestartOnFailure 2
     assertEquals(
         ApplicationStateSummary.ResourceReleased,
@@ -649,7 +618,7 @@ class ApplicationStatusTest {
             .appendNewState(
                 new ApplicationState(ApplicationStateSummary.SchedulingFailure, "quota1"));
 
-    status = status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+    status = status.terminateOrRestart(config, null, false);
     assertEquals(1L, status.getCurrentAttemptSummary().getAttemptInfo().getFailureRestartCounter());
     assertEquals(
         1L,
@@ -662,7 +631,7 @@ class ApplicationStatusTest {
             .appendNewState(
                 new ApplicationState(ApplicationStateSummary.SchedulingFailure, "quota2"));
 
-    status = status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+    status = status.terminateOrRestart(config, null, false);
     assertEquals(2L, status.getCurrentAttemptSummary().getAttemptInfo().getFailureRestartCounter());
     assertEquals(
         2L,
@@ -675,7 +644,7 @@ class ApplicationStatusTest {
             .appendNewState(
                 new ApplicationState(ApplicationStateSummary.SchedulingFailure, "quota3"));
 
-    status = status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+    status = status.terminateOrRestart(config, null, false);
     // Should stop because consecutive failure counter 3 > maxRestartOnFailure 2
     assertEquals(
         ApplicationStateSummary.ResourceReleased,
@@ -699,7 +668,7 @@ class ApplicationStatusTest {
             .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
             .appendNewState(new ApplicationState(Succeeded, "success1"));
 
-    status = status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+    status = status.terminateOrRestart(config, null, false);
     assertEquals(
         ApplicationStateSummary.ScheduledToRestart,
         status.getCurrentState().getCurrentStateSummary());
@@ -711,7 +680,7 @@ class ApplicationStatusTest {
             .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
             .appendNewState(new ApplicationState(Succeeded, "success2"));
 
-    status = status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+    status = status.terminateOrRestart(config, null, false);
     assertEquals(
         ApplicationStateSummary.ScheduledToRestart,
         status.getCurrentState().getCurrentStateSummary());
@@ -723,7 +692,7 @@ class ApplicationStatusTest {
             .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
             .appendNewState(new ApplicationState(ApplicationStateSummary.Failed, "error"));
 
-    status = status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+    status = status.terminateOrRestart(config, null, false);
     // Should stop because general counter >= general limit
     assertEquals(
         ApplicationStateSummary.ResourceReleased,
@@ -754,7 +723,7 @@ class ApplicationStatusTest {
             .appendNewState(
                 new ApplicationState(ApplicationStateSummary.SchedulingFailure, "quota"));
 
-    status = status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+    status = status.terminateOrRestart(config, null, false);
     assertEquals(1L, status.getCurrentAttemptSummary().getAttemptInfo().getFailureRestartCounter());
     assertEquals(
         1L,
@@ -766,7 +735,7 @@ class ApplicationStatusTest {
             .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
             .appendNewState(new ApplicationState(ApplicationStateSummary.Failed, "error"));
 
-    status = status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+    status = status.terminateOrRestart(config, null, false);
     assertEquals(2L, status.getCurrentAttemptSummary().getAttemptInfo().getFailureRestartCounter());
     // Scheduling failure counter reset
     assertEquals(
@@ -779,7 +748,7 @@ class ApplicationStatusTest {
             .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
             .appendNewState(new ApplicationState(Succeeded, "success"));
 
-    status = status.terminateOrRestart(config, ResourceRetainPolicy.Never, null, false);
+    status = status.terminateOrRestart(config, null, false);
     assertEquals(0L, status.getCurrentAttemptSummary().getAttemptInfo().getFailureRestartCounter());
     assertEquals(
         0L,
