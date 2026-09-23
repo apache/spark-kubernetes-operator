@@ -124,7 +124,8 @@ public final class ClusterSuspendStep extends ClusterReconcileStep {
    * admit another workload into the quota which the terminating pods still occupy. Other pods which
    * carry the cluster label, e.g. to reach the workers through their NetworkPolicy, do not count.
    * Everything here is idempotent, so pods that are not gone yet, or a release that failed, are
-   * simply looked at again. A failure that sending the request again would not fix is reported.
+   * simply looked at again. A failure which is not expected to clear on its own is reported, since
+   * Suspended is a steady state which would not tell it apart from waiting for the pods to go.
    *
    * @param context The SparkClusterContext for the cluster.
    * @return True once everything is released, false while pods remain or a release failed.
@@ -187,7 +188,7 @@ public final class ClusterSuspendStep extends ClusterReconcileStep {
       }
     } catch (KubernetesClientException e) {
       log.warn("Failed to release the resources of the suspended cluster, will retry.", e);
-      if (!ReconcilerUtils.isRetryableError(e)) {
+      if (!ReconcilerUtils.isTransientError(e)) {
         EventUtils.warn(
             context.getEventRecorder(),
             EventUtils.REASON_SUSPEND_RELEASE_FAILED,

@@ -313,12 +313,14 @@ class ClusterSuspendStepTest {
     verify(mockContext, never()).getEventRecorder();
   }
 
-  @Test
-  void rejectedReleaseIsReportedAndRetried() {
+  @ParameterizedTest
+  @ValueSource(ints = {403, 429, 500})
+  void persistentReleaseFailureIsReportedAndRetried(int code) {
     SparkCluster cluster = buildKueueCluster(ClusterStateSummary.Suspended, false);
     KubernetesClient mockClient = mock(KubernetesClient.class);
-    when(mockClient.apps())
-        .thenThrow(new KubernetesClientException("Forbidden", 403, null));
+    // Unlike a timeout or a 503, these do not clear on their own, e.g. an admission webhook
+    // which is down keeps failing with 500, so they are reported
+    when(mockClient.apps()).thenThrow(new KubernetesClientException("failed", code, null));
     stubContext(cluster, mockClient);
     when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
 
