@@ -101,10 +101,12 @@ public class ApplicationStatus
    * @param trimStateTransitionHistory If true, the state transition history will be trimmed.
    * @return An updated ApplicationStatus object.
    * @since 0.1.0
-   * @deprecated since 1.1.0, use {@link #terminateOrRestart(RestartConfig, String, boolean)}
-   *     instead.
+   * @deprecated since 1.1.0, scheduled for removal. {@code resourceRetainPolicy} is ignored, so a
+   *     policy other than {@code Never} no longer terminates the application as {@code
+   *     TerminatedWithoutReleaseResources}. Use
+   *     {@link #terminateOrRestart(RestartConfig, String, boolean)} instead.
    */
-  @Deprecated(since = "1.1.0")
+  @Deprecated(since = "1.1.0", forRemoval = true)
   public ApplicationStatus terminateOrRestart(
       final RestartConfig restartConfig,
       final ResourceRetainPolicy resourceRetainPolicy,

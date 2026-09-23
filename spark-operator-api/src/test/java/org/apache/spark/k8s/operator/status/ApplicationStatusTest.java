@@ -134,7 +134,7 @@ class ApplicationStatusTest {
   }
 
   @Test
-  @SuppressWarnings("deprecation")
+  @SuppressWarnings("removal")
   void testDeprecatedTerminateOrRestartIgnoresResourceRetainPolicy() {
     RestartConfig noRetryConfig = new RestartConfig();
     noRetryConfig.setRestartPolicy(RestartPolicy.Never);
@@ -146,6 +146,17 @@ class ApplicationStatusTest {
           status.terminateOrRestart(noRetryConfig, policy, "foo", false).getCurrentState();
       assertEquals(ApplicationStateSummary.ResourceReleased, state.getCurrentStateSummary());
       assertEquals("foo", state.getMessage());
+    }
+
+    RestartConfig noMoreRestart = new RestartConfig();
+    noMoreRestart.setRestartPolicy(RestartPolicy.Always);
+    noMoreRestart.setMaxRestartAttempts(0L);
+    String exceeded = String.format(Constants.EXCEED_MAX_RETRY_ATTEMPT_MESSAGE, 0L) + " foo";
+    for (ResourceRetainPolicy policy : ResourceRetainPolicy.values()) {
+      ApplicationState state =
+          status.terminateOrRestart(noMoreRestart, policy, "foo", false).getCurrentState();
+      assertEquals(ApplicationStateSummary.ResourceReleased, state.getCurrentStateSummary());
+      assertEquals(exceeded, state.getMessage());
     }
   }
 
