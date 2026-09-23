@@ -156,7 +156,7 @@ stateDiagram-v2
 
     %% Place TerminatedWithoutReleaseResources further to avoid overlap
     Failures --> TerminatedWithoutReleaseResources : Retain Policy, No Restart
-    Succeeded --> TerminatedWithoutReleaseResources
+    Succeeded --> TerminatedWithoutReleaseResources : Retain Always, No Restart
     TerminatedWithoutReleaseResources --> ResourceReleased : Retain Duration Exceeded
     TerminatedWithoutReleaseResources --> [*]
 ```
