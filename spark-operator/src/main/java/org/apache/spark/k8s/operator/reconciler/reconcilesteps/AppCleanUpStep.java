@@ -195,10 +195,13 @@ public final class AppCleanUpStep extends AppReconcileStep {
           context, statusRecorder, state, Duration.ofMillis(requeueAfterMillis));
     } else {
 
+      // The resources have been released above. An application retaining them has returned
+      // already, so it cannot terminate as `TerminatedWithoutReleaseResources` here even if the
+      // retain policy applies and no more attempt is made.
       updatedStatus =
           currentStatus.terminateOrRestart(
               tolerations.getRestartConfig(),
-              tolerations.getResourceRetainPolicy(),
+              ResourceRetainPolicy.Never,
               stateUpdateMessage,
               SparkOperatorConf.TRIM_ATTEMPT_STATE_TRANSITION_HISTORY.getValue());
       long requeueAfterMillis =
