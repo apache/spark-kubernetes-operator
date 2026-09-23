@@ -53,6 +53,8 @@ import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 import org.apache.spark.k8s.operator.spec.ApplicationTolerations;
 import org.apache.spark.k8s.operator.spec.ResourceRetainPolicy;
+import org.apache.spark.k8s.operator.spec.RestartConfig;
+import org.apache.spark.k8s.operator.spec.RestartPolicy;
 import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
@@ -350,6 +352,81 @@ class AppCleanUpStepTest {
       routineCheck.reconcile(mockAppContext, mockRecorder);
       kueue.verifyNoInteractions();
     }
+  }
+
+  @Test
+  void cleanupWithRetainPolicyAndRestartConfigTerminatesAsResourceReleased() {
+    // The resources of an application configured to restart are force released, so it terminates
+    // as `ResourceReleased` even when the retain policy applies and no more attempt is made.
+    String forceReleasedMessage =
+        "Application is configured to restart, resources created in current attempt would be "
+            + "force released.";
+    RestartConfig noMoreRestart =
+        RestartConfig.builder().restartPolicy(RestartPolicy.Always).maxRestartAttempts(0L).build();
+    String exceededMessage =
+        "The maximum number of restart attempts (0) has been exceeded. " + forceReleasedMessage;
+    // The restart policy does not restart a succeeded application
+    assertTerminatesAsResourceReleased(
+        ResourceRetainPolicy.Always,
+        RestartConfig.builder().restartPolicy(RestartPolicy.OnFailure).build(),
+        ApplicationStateSummary.Succeeded,
+        forceReleasedMessage);
+    // The restart limit is exceeded
+    assertTerminatesAsResourceReleased(
+        ResourceRetainPolicy.Always,
+        noMoreRestart,
+        ApplicationStateSummary.Failed,
+        exceededMessage);
+    // `OnFailure` retains on a failure, so the resources are force released the same way
+    assertTerminatesAsResourceReleased(
+        ResourceRetainPolicy.OnFailure,
+        noMoreRestart,
+        ApplicationStateSummary.Failed,
+        exceededMessage);
+  }
+
+  private void assertTerminatesAsResourceReleased(
+      ResourceRetainPolicy retainPolicy,
+      RestartConfig restartConfig,
+      ApplicationStateSummary stateSummary,
+      String expectedMessage) {
+    SparkAppStatusRecorder mockRecorder = mock(SparkAppStatusRecorder.class);
+    AppCleanUpStep routineCheck = new AppCleanUpStep();
+    SparkApplication app = new SparkApplication();
+    app.setMetadata(
+        new ObjectMetaBuilder()
+            .withName("app1")
+            .withNamespace("default")
+            .withLabels(Map.of(Constants.LABEL_QUEUE_NAME, "test-queue"))
+            .build());
+    app.setSpec(
+        ApplicationSpec.builder()
+            .applicationTolerations(
+                ApplicationTolerations.builder()
+                    .resourceRetainPolicy(retainPolicy)
+                    .restartConfig(restartConfig)
+                    .build())
+            .build());
+    app.setStatus(prepareApplicationStatus(stateSummary));
+    SparkAppContext mockAppContext = mock(SparkAppContext.class);
+    when(mockAppContext.getResource()).thenReturn(app);
+    KubernetesClient mockClient = mock(KubernetesClient.class);
+    when(mockAppContext.getClient()).thenReturn(mockClient);
+    when(mockAppContext.getDriverPod()).thenReturn(Optional.empty());
+    when(mockRecorder.persistStatus(eq(mockAppContext), any())).thenReturn(true);
+
+    try (MockedStatic<KueueWorkloadUtils> kueue = Mockito.mockStatic(KueueWorkloadUtils.class)) {
+      routineCheck.reconcile(mockAppContext, mockRecorder);
+      // The Workload is deleted with the other resources instead of being finished
+      kueue.verify(() -> KueueWorkloadUtils.releaseWorkload(mockClient, app));
+      kueue.verifyNoMoreInteractions();
+    }
+    ArgumentCaptor<ApplicationStatus> captor = ArgumentCaptor.forClass(ApplicationStatus.class);
+    verify(mockRecorder).persistStatus(eq(mockAppContext), captor.capture());
+    ApplicationState state = captor.getValue().getCurrentState();
+    Assertions.assertEquals(
+        ApplicationStateSummary.ResourceReleased, state.getCurrentStateSummary());
+    Assertions.assertEquals(expectedMessage, state.getMessage());
   }
 
   @Test

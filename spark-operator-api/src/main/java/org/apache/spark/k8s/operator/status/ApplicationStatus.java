@@ -167,7 +167,7 @@ public class ApplicationStatus
 
     if (exceededLimit) {
       if (stateMessageOverride != null && !stateMessageOverride.isEmpty()) {
-        stateMessage += stateMessageOverride;
+        stateMessage += " " + stateMessageOverride;
       }
       // max number of restart attempt reached
       ApplicationState state =

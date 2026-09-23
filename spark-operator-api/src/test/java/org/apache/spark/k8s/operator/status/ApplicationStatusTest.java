@@ -34,6 +34,7 @@ import java.util.TreeMap;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
+import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.spec.ResourceRetainPolicy;
 import org.apache.spark.k8s.operator.spec.RestartConfig;
 import org.apache.spark.k8s.operator.spec.RestartPolicy;
@@ -161,8 +162,9 @@ class ApplicationStatusTest {
     assertEquals(
         ApplicationStateSummary.ResourceReleased,
         maxRestartExceededReleaseResource.getCurrentState().getCurrentStateSummary());
-    assertTrue(
-        maxRestartExceededReleaseResource.getCurrentState().getMessage().contains(messageOverride));
+    assertEquals(
+        String.format(Constants.EXCEED_MAX_RETRY_ATTEMPT_MESSAGE, 1L) + " " + messageOverride,
+        maxRestartExceededReleaseResource.getCurrentState().getMessage());
     assertEquals(
         1L, maxRestartExceededReleaseResource.getCurrentAttemptSummary().getAttemptInfo().getId());
 
