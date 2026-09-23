@@ -82,7 +82,7 @@ public abstract sealed class BaseAppDriverObserver
       final Pod driverPod, final ApplicationSpec spec) {
     PodStatus status = driverPod.getStatus();
     if (status == null) {
-      log.debug("Cannot determine driver pod status, the pod may in pending state.");
+      log.debug("Cannot determine driver pod status, the status is null.");
       return Optional.empty();
     }
 
@@ -100,7 +100,7 @@ public abstract sealed class BaseAppDriverObserver
     }
 
     if (status.getContainerStatuses() == null || status.getContainerStatuses().isEmpty()) {
-      log.debug("Cannot determine driver pod status, the pod may in pending state.");
+      log.debug("No container has reported yet, the driver pod may be in pending state.");
       return Optional.empty();
     }
 

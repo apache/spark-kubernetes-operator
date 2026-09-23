@@ -19,11 +19,17 @@
 
 package org.apache.spark.k8s.operator.reconciler.observers;
 
+import static org.apache.spark.k8s.operator.Constants.DRIVER_FAILED_INIT_CONTAINERS_MESSAGE;
+import static org.apache.spark.k8s.operator.Constants.DRIVER_FAILED_MESSAGE;
+import static org.apache.spark.k8s.operator.Constants.DRIVER_RESTARTED_MESSAGE;
+import static org.apache.spark.k8s.operator.Constants.DRIVER_SUCCEEDED_MESSAGE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Optional;
 
+import io.fabric8.kubernetes.api.model.ContainerStatus;
+import io.fabric8.kubernetes.api.model.ContainerStatusBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
 import org.junit.jupiter.api.Test;
@@ -52,6 +58,46 @@ class AppDriverReadyObserverTest {
         .build();
   }
 
+  private Pod runningPod(ContainerStatus driverContainer, ContainerStatus... initContainers) {
+    return new PodBuilder()
+        .withNewStatus()
+        .withPhase("Running")
+        .withInitContainerStatuses(initContainers)
+        .withContainerStatuses(driverContainer)
+        .endStatus()
+        .build();
+  }
+
+  private ContainerStatus terminatedContainer(String name, int exitCode) {
+    return new ContainerStatusBuilder()
+        .withName(name)
+        .withNewState()
+        .withNewTerminated()
+        .withExitCode(exitCode)
+        .endTerminated()
+        .endState()
+        .build();
+  }
+
+  private ContainerStatus driverContainer(int restartCount) {
+    return new ContainerStatusBuilder()
+        .withName("spark-kubernetes-driver")
+        .withRestartCount(restartCount)
+        .withNewState()
+        .withNewRunning()
+        .endRunning()
+        .endState()
+        .build();
+  }
+
+  private void assertState(
+      ApplicationStateSummary expectedSummary, String expectedMessage, Pod driver) {
+    Optional<ApplicationState> state = observe(driver);
+    assertTrue(state.isPresent());
+    assertEquals(expectedSummary, state.get().getCurrentStateSummary());
+    assertEquals(expectedMessage, state.get().getMessage());
+  }
+
   @Test
   void failedDriverWithoutContainerStatusesIsFailed() {
     Optional<ApplicationState> state = observe(podWithoutContainerStatuses("Failed", null));
@@ -76,5 +122,40 @@ class AppDriverReadyObserverTest {
   @Test
   void pendingDriverWithoutContainerStatusesIsNotTerminated() {
     assertTrue(observe(podWithoutContainerStatuses("Pending", null)).isEmpty());
+  }
+
+  @Test
+  void terminatedDriverContainerWithNonZeroExitIsFailed() {
+    assertState(
+        ApplicationStateSummary.Failed,
+        DRIVER_FAILED_MESSAGE,
+        runningPod(terminatedContainer("spark-kubernetes-driver", 1)));
+  }
+
+  @Test
+  void terminatedDriverContainerWithZeroExitIsSucceeded() {
+    assertState(
+        ApplicationStateSummary.Succeeded,
+        DRIVER_SUCCEEDED_MESSAGE,
+        runningPod(terminatedContainer("spark-kubernetes-driver", 0)));
+  }
+
+  @Test
+  void restartedDriverContainerIsFailed() {
+    assertState(
+        ApplicationStateSummary.Failed, DRIVER_RESTARTED_MESSAGE, runningPod(driverContainer(1)));
+  }
+
+  @Test
+  void failedInitContainerIsFailed() {
+    assertState(
+        ApplicationStateSummary.Failed,
+        DRIVER_FAILED_INIT_CONTAINERS_MESSAGE,
+        runningPod(driverContainer(0), terminatedContainer("init", 1)));
+  }
+
+  @Test
+  void runningDriverContainerIsNotTerminated() {
+    assertTrue(observe(runningPod(driverContainer(0))).isEmpty());
   }
 }
