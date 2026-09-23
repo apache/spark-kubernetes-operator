@@ -81,9 +81,7 @@ public abstract sealed class BaseAppDriverObserver
   protected Optional<ApplicationState> observeDriverTermination(
       final Pod driverPod, final ApplicationSpec spec) {
     PodStatus status = driverPod.getStatus();
-    if (status == null
-        || status.getContainerStatuses() == null
-        || status.getContainerStatuses().isEmpty()) {
+    if (status == null) {
       log.debug("Cannot determine driver pod status, the pod may in pending state.");
       return Optional.empty();
     }
@@ -99,6 +97,11 @@ public abstract sealed class BaseAppDriverObserver
 
     if (PodPhase.SUCCEEDED == PodPhase.getPhase(driverPod)) {
       return Optional.of(new ApplicationState(Succeeded, DRIVER_COMPLETED_MESSAGE));
+    }
+
+    if (status.getContainerStatuses() == null || status.getContainerStatuses().isEmpty()) {
+      log.debug("Cannot determine driver pod status, the pod may in pending state.");
+      return Optional.empty();
     }
 
     List<ContainerStatus> initContainerStatusList = status.getInitContainerStatuses();
