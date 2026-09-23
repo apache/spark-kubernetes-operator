@@ -219,7 +219,7 @@ public class SparkClusterResourceSpec {
     var partialStatefulSet =
         new StatefulSetBuilder()
             .withNewMetadataLike(objectMeta)
-            .withName(name + "-master")
+            .withName(getMasterStatefulSetName(name))
             .addToLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_MASTER_VALUE)
             .addToLabels(LABEL_SPARK_VERSION_NAME, version)
             .withNamespace(namespace)
@@ -300,7 +300,7 @@ public class SparkClusterResourceSpec {
     var partialStatefulSet =
         new StatefulSetBuilder()
             .withNewMetadataLike(metadata)
-            .withName(name + "-worker")
+            .withName(getWorkerStatefulSetName(name))
             .addToLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_WORKER_VALUE)
             .addToLabels(LABEL_SPARK_VERSION_NAME, version)
             .withNamespace(namespace)
@@ -354,6 +354,26 @@ public class SparkClusterResourceSpec {
         .endTemplate()
         .endSpec()
         .build();
+  }
+
+  /**
+   * Returns the name of the StatefulSet of the Spark master, which does not depend on the spec.
+   *
+   * @param clusterName The name of the cluster.
+   * @return The name of the master StatefulSet.
+   */
+  public static String getMasterStatefulSetName(String clusterName) {
+    return clusterName + "-master";
+  }
+
+  /**
+   * Returns the name of the StatefulSet of the Spark workers, which does not depend on the spec.
+   *
+   * @param clusterName The name of the cluster.
+   * @return The name of the worker StatefulSet.
+   */
+  public static String getWorkerStatefulSetName(String clusterName) {
+    return clusterName + "-worker";
   }
 
   /**
@@ -439,7 +459,7 @@ public class SparkClusterResourceSpec {
             .withNewScaleTargetRef()
             .withApiVersion("apps/v1")
             .withKind("StatefulSet")
-            .withName(clusterName + "-worker")
+            .withName(getWorkerStatefulSetName(clusterName))
             .endScaleTargetRef()
             .withMinReplicas(instanceConfig.getMinWorkers())
             .withMaxReplicas(instanceConfig.getMaxWorkers())

@@ -49,6 +49,12 @@ public final class EventUtils {
   /** Reason for an event describing an unhandled error thrown out of a cleanup. */
   public static final String REASON_CLEANUP_ERROR = "CleanupError";
 
+  /**
+   * Reason for an event describing a failure to request the resources of a SparkCluster, which is
+   * retried.
+   */
+  public static final String REASON_CLUSTER_REQUEST_FAILED = "ClusterRequestFailed";
+
   /** Reason for an event describing that a resource is held by {@code spec.suspend}. */
   public static final String REASON_SUSPEND_HELD = "SuspendHeld";
 

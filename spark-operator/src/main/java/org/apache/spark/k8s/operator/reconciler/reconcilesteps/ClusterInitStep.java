@@ -45,6 +45,7 @@ import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.status.ClusterState;
 import org.apache.spark.k8s.operator.status.ClusterStatus;
+import org.apache.spark.k8s.operator.utils.EventUtils;
 import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
 
@@ -166,6 +167,15 @@ public final class ClusterInitStep extends ClusterReconcileStep {
         // SchedulingFailure is terminal for a cluster, so a request which may yet succeed is sent
         // again, e.g. for a cluster resumed from Suspended, while a rejected one fails the cluster.
         log.warn("Failed to request master resource, will retry.", e);
+        if (!ReconcilerUtils.isTransientError(e)) {
+          // Unlike SchedulingFailure, the retry leaves nothing in the status, so a failure which
+          // keeps coming back, e.g. from an admission webhook which is down, is reported.
+          EventUtils.warn(
+              context.getEventRecorder(),
+              EventUtils.REASON_CLUSTER_REQUEST_FAILED,
+              "Failed to request the master and workers of the cluster, will retry. "
+                  + EventUtils.describe(e));
+        }
         return completeAndDefaultRequeue();
       }
       return failScheduling(context, statusRecorder, e);

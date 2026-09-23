@@ -25,8 +25,10 @@ import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_CLUSTER_NAME;
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_ROLE_MASTER_VALUE;
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_ROLE_NAME;
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_ROLE_WORKER_VALUE;
+import static org.apache.spark.k8s.operator.SparkClusterResourceSpec.getMasterStatefulSetName;
 import static org.apache.spark.k8s.operator.SparkClusterResourceSpec.getWorkerHorizontalPodAutoscalerName;
 import static org.apache.spark.k8s.operator.SparkClusterResourceSpec.getWorkerPodDisruptionBudgetName;
+import static org.apache.spark.k8s.operator.SparkClusterResourceSpec.getWorkerStatefulSetName;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.KUEUE_WORKLOAD_INFORMER_ENABLED;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.SUSPEND_HOLD_REQUEUE_INTERVAL_SECONDS;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.TRIM_ATTEMPT_STATE_TRANSITION_HISTORY;
@@ -113,9 +115,10 @@ public final class ClusterSuspendStep extends ClusterReconcileStep {
   /**
    * Releases the master and workers of a suspended cluster, and then its Kueue Workload. The
    * Services and the NetworkPolicy are kept, since they hold no quota and are applied again on
-   * resume. The HorizontalPodAutoscaler and the PodDisruptionBudget of the workers are deleted by
-   * name rather than from the current spec, which may no longer ask for them, so that the resumed
-   * cluster gets only those which its spec asks for.
+   * resume. Everything is deleted by name rather than from the current spec. The spec may no longer
+   * ask for the HorizontalPodAutoscaler or the PodDisruptionBudget of the workers, and it may not
+   * even build after being edited while suspended, which would otherwise hold the pods and the
+   * quota until the spec is fixed.
    *
    * <p>The Workload is released only after the master and worker pods are gone, since Kueue would
    * admit another workload into the quota which the terminating pods still occupy. Other pods which
@@ -132,8 +135,18 @@ public final class ClusterSuspendStep extends ClusterReconcileStep {
     String name = cluster.getMetadata().getName();
     KubernetesClient client = context.getClient();
     try {
-      client.resource(context.getWorkerStatefulSetSpec()).delete();
-      client.resource(context.getMasterStatefulSetSpec()).delete();
+      client
+          .apps()
+          .statefulSets()
+          .inNamespace(namespace)
+          .withName(getWorkerStatefulSetName(name))
+          .delete();
+      client
+          .apps()
+          .statefulSets()
+          .inNamespace(namespace)
+          .withName(getMasterStatefulSetName(name))
+          .delete();
       client
           .autoscaling()
           .v2()

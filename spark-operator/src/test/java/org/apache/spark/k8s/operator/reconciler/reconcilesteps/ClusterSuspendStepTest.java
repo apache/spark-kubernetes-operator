@@ -276,10 +276,30 @@ class ClusterSuspendStepTest {
   }
 
   @Test
+  void suspendedClusterWhoseSpecCannotBeBuiltIsReleased() {
+    SparkCluster cluster = buildKueueCluster(ClusterStateSummary.Suspended, true);
+    stubContext(cluster);
+    // The spec may be edited into one which cannot be built while the cluster is suspended
+    IllegalArgumentException failure = new IllegalArgumentException("invalid spec");
+    when(mockContext.getMasterStatefulSetSpec()).thenThrow(failure);
+    when(mockContext.getWorkerStatefulSetSpec()).thenThrow(failure);
+    kubernetesClient.resource(masterStatefulSetSpec).create();
+    kubernetesClient.resource(workerStatefulSetSpec).create();
+    kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(cluster)).create();
+
+    Assertions.assertEquals(
+        SUSPEND_HOLD_PROGRESS, new ClusterSuspendStep().reconcile(mockContext, recorder));
+
+    Assertions.assertNull(get(masterStatefulSetSpec));
+    Assertions.assertNull(get(workerStatefulSetSpec));
+    Assertions.assertNull(getWorkload());
+  }
+
+  @Test
   void failedReleaseIsRetriedWithoutReleasingKueueWorkload() {
     SparkCluster cluster = buildKueueCluster(ClusterStateSummary.Suspended, true);
     KubernetesClient mockClient = mock(KubernetesClient.class);
-    when(mockClient.resource(workerStatefulSetSpec))
+    when(mockClient.apps())
         .thenThrow(new KubernetesClientException("Service Unavailable", 503, null));
     stubContext(cluster, mockClient);
 
@@ -297,7 +317,7 @@ class ClusterSuspendStepTest {
   void rejectedReleaseIsReportedAndRetried() {
     SparkCluster cluster = buildKueueCluster(ClusterStateSummary.Suspended, false);
     KubernetesClient mockClient = mock(KubernetesClient.class);
-    when(mockClient.resource(workerStatefulSetSpec))
+    when(mockClient.apps())
         .thenThrow(new KubernetesClientException("Forbidden", 403, null));
     stubContext(cluster, mockClient);
     when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
@@ -395,8 +415,6 @@ class ClusterSuspendStepTest {
     when(recorder.persistStatus(any(), any())).thenReturn(true);
     when(mockContext.getResource()).thenReturn(cluster);
     when(mockContext.getClient()).thenReturn(client);
-    when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
-    when(mockContext.getWorkerStatefulSetSpec()).thenReturn(workerStatefulSetSpec);
   }
 
   /**

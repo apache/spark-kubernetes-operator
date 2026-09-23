@@ -66,7 +66,7 @@ import io.javaoperatorsdk.operator.api.reconciler.Context;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
@@ -236,8 +236,8 @@ class ClusterInitStepTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {429, 500, 503})
-  void retryableFailureOfRequestingResourcesIsRetried(int code) {
+  @CsvSource({"429, 1", "500, 1", "503, 0"})
+  void retryableFailureOfRequestingResourcesIsRetried(int code, int events) {
     ClusterInitStep clusterInitStep = new ClusterInitStep();
     SparkClusterContext mockContext = mock(SparkClusterContext.class);
     SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
@@ -254,6 +254,11 @@ class ClusterInitStepTest {
     Assertions.assertEquals(
         ClusterStateSummary.Submitted,
         cluster.getStatus().getCurrentState().getCurrentStateSummary());
+    // The retry leaves nothing in the status, so it is reported unless it may clear on its own
+    for (EventRecord event : captureEvents(events)) {
+      Assertions.assertEquals(EventType.WARNING, event.type());
+      Assertions.assertEquals(EventUtils.REASON_CLUSTER_REQUEST_FAILED, event.reason());
+    }
   }
 
   @Test
@@ -275,6 +280,8 @@ class ClusterInitStepTest {
     Assertions.assertEquals(
         ClusterStateSummary.SchedulingFailure,
         statusCaptor.getValue().getCurrentState().getCurrentStateSummary());
+    // The status already says why, so no event is needed
+    verifyNoInteractions(eventRecorder);
   }
 
   @Test
@@ -314,7 +321,7 @@ class ClusterInitStepTest {
   }
 
   @SuppressWarnings("unchecked")
-  private static void stubFailingServiceApply(
+  private void stubFailingServiceApply(
       SparkClusterContext mockContext, SparkCluster cluster, KubernetesClientException failure) {
     KubernetesClient mockClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
     ServerSideApplicable<Service> serviceApplicable = mock(ServerSideApplicable.class);
@@ -325,6 +332,7 @@ class ClusterInitStepTest {
     when(mockContext.getResource()).thenReturn(cluster);
     when(mockContext.getClient()).thenReturn(mockClient);
     when(mockContext.getMasterServiceSpec()).thenReturn(service("cluster1-master-svc"));
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
   }
 
   @Test
