@@ -481,8 +481,9 @@ and `spark.kubernetes.executor.deleteOnTermination` to control the behavior of d
 resources. `ttlAfterStopMillis` controls the garbage collection behavior at the SparkApplication
 level after it stops. When set to a non-negative value, Spark operator would garbage collect the
 application (and therefore all its associated resources) after given timeout. If the application
-is configured to restart, `resourceRetainPolicy`, `resourceRetainDurationMillis` and
-`ttlAfterStopMillis` would be applied only to the last attempt.
+is configured to restart, `resourceRetainPolicy` and `resourceRetainDurationMillis` would not be
+applied, and secondary resources would be released at the end of each attempt including the last
+one. `ttlAfterStopMillis` would be applied after the last attempt.
 
 For example, if an app with below configuration:
 
@@ -509,12 +510,12 @@ status:
       "11":
         currentStateSummary: Succeeded
       "12":
-        currentStateSummary: TerminatedWithoutReleaseResources
+        currentStateSummary: ResourceReleased
 ```
 
-The retain policy only takes effect after the final state `12`. Secondary resources are always
-released between attempts between `5` and `6`. TTL would be calculated based on the last state as
-well.
+The retain policy does not take effect because the app is configured to restart. Secondary
+resources are released between attempts between `5` and `6`, and after the last attempt at `12`.
+TTL would be calculated based on the last state.
 
 | Field                                                     | Type                              | Default Value | Description                                                                                                                                                                                               |
 |-----------------------------------------------------------|-----------------------------------|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
