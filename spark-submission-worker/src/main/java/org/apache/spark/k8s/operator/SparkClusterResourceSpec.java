@@ -357,6 +357,28 @@ public class SparkClusterResourceSpec {
   }
 
   /**
+   * Returns the name of the HorizontalPodAutoscaler of the Spark workers, which does not depend on
+   * whether the current spec asks for one.
+   *
+   * @param clusterName The name of the cluster.
+   * @return The name of the HorizontalPodAutoscaler.
+   */
+  public static String getWorkerHorizontalPodAutoscalerName(String clusterName) {
+    return clusterName + "-worker-hpa";
+  }
+
+  /**
+   * Returns the name of the PodDisruptionBudget of the Spark workers, which does not depend on
+   * whether the current spec asks for one.
+   *
+   * @param clusterName The name of the cluster.
+   * @return The name of the PodDisruptionBudget.
+   */
+  public static String getWorkerPodDisruptionBudgetName(String clusterName) {
+    return clusterName + "-worker-pdb";
+  }
+
+  /**
    * Builds a Kubernetes HorizontalPodAutoscaler for the Spark workers.
    *
    * @param clusterName The name of the cluster.
@@ -410,7 +432,7 @@ public class SparkClusterResourceSpec {
         new HorizontalPodAutoscalerBuilder()
             .withNewMetadata()
             .withNamespace(namespace)
-            .withName(clusterName + "-worker-hpa")
+            .withName(getWorkerHorizontalPodAutoscalerName(clusterName))
             .addToLabels(LABEL_SPARK_VERSION_NAME, spec.getRuntimeVersions().getSparkVersion())
             .endMetadata()
             .withNewSpecLike(horizontalPodAutoscalerSpec)
@@ -441,7 +463,7 @@ public class SparkClusterResourceSpec {
     return Optional.of(
         new PodDisruptionBudgetBuilder()
             .withNewMetadata()
-            .withName(clusterName + "-worker-pdb")
+            .withName(getWorkerPodDisruptionBudgetName(clusterName))
             .withNamespace(namespace)
             .addToLabels(LABEL_SPARK_VERSION_NAME, spec.getRuntimeVersions().getSparkVersion())
             .endMetadata()

@@ -21,9 +21,11 @@ package org.apache.spark.k8s.operator.reconciler.reconcilesteps;
 
 import static org.apache.spark.k8s.operator.Constants.CLUSTER_READY_MESSAGE;
 import static org.apache.spark.k8s.operator.Constants.CLUSTER_SCHEDULE_FAILURE_MESSAGE;
+import static org.apache.spark.k8s.operator.Constants.CLUSTER_SUSPENDED_MESSAGE;
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.*;
 import static org.apache.spark.k8s.operator.status.ClusterStateSummary.RunningHealthy;
 import static org.apache.spark.k8s.operator.status.ClusterStateSummary.SchedulingFailure;
+import static org.apache.spark.k8s.operator.status.ClusterStateSummary.Suspended;
 import static org.apache.spark.k8s.operator.utils.SparkExceptionUtils.buildGeneralErrorMessage;
 
 import java.time.Duration;
@@ -43,6 +45,7 @@ import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.status.ClusterState;
 import org.apache.spark.k8s.operator.status.ClusterStatus;
+import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
 
 /** Request cluster master and its resources when starting an attempt. */
@@ -77,6 +80,13 @@ public final class ClusterInitStep extends ClusterReconcileStep {
         return completeAndDefaultRequeue();
       }
       if (!masterRequested) {
+        // Unlike a first attempt, a cluster resumed from Suspended has persisted this Submitted
+        // state, which would keep saying that it is resumed. It goes back to Suspended instead,
+        // where ClusterSuspendStep releases whatever it holds only after its pods are gone.
+        if (cluster.getStatus().getStateTransitionHistory().lastKey() > 0) {
+          return appendStateAndImmediateRequeue(
+              context, statusRecorder, new ClusterState(Suspended, CLUSTER_SUSPENDED_MESSAGE));
+        }
         return SuspendUtils.holdForSuspend(context, "master and workers");
       }
     }
@@ -151,19 +161,40 @@ public final class ClusterInitStep extends ClusterReconcileStep {
               .appendNewState(new ClusterState(RunningHealthy, CLUSTER_READY_MESSAGE));
       statusRecorder.persistStatus(context, updatedStatus);
       return completeAndDefaultRequeue();
-    } catch (Exception e) {
-      if (log.isErrorEnabled()) {
-        log.error("Failed to request master resource.", e);
+    } catch (KubernetesClientException e) {
+      if (ReconcilerUtils.isRetryableError(e)) {
+        // SchedulingFailure is terminal for a cluster, so a request which may yet succeed is sent
+        // again, e.g. for a cluster resumed from Suspended, while a rejected one fails the cluster.
+        log.warn("Failed to request master resource, will retry.", e);
+        return completeAndDefaultRequeue();
       }
-      String msg = CLUSTER_SCHEDULE_FAILURE_MESSAGE + " StackTrace: " + buildGeneralErrorMessage(e);
-      statusRecorder.persistStatus(
-          context,
-          context
-              .getResource()
-              .getStatus()
-              .appendNewState(new ClusterState(SchedulingFailure, msg)));
-      return completeAndImmediateRequeue();
+      return failScheduling(context, statusRecorder, e);
+    } catch (Exception e) {
+      return failScheduling(context, statusRecorder, e);
     }
+  }
+
+  /**
+   * Fails the cluster with SchedulingFailure for the given failure of requesting its resources.
+   *
+   * @param context The SparkClusterContext for the cluster.
+   * @param statusRecorder The SparkClusterStatusRecorder for recording status updates.
+   * @param e The failure.
+   * @return The ReconcileProgress indicating an immediate re-queue.
+   */
+  private ReconcileProgress failScheduling(
+      SparkClusterContext context, SparkClusterStatusRecorder statusRecorder, Exception e) {
+    if (log.isErrorEnabled()) {
+      log.error("Failed to request master resource.", e);
+    }
+    String msg = CLUSTER_SCHEDULE_FAILURE_MESSAGE + " StackTrace: " + buildGeneralErrorMessage(e);
+    statusRecorder.persistStatus(
+        context,
+        context
+            .getResource()
+            .getStatus()
+            .appendNewState(new ClusterState(SchedulingFailure, msg)));
+    return completeAndImmediateRequeue();
   }
 
   /**

@@ -333,6 +333,20 @@ public final class ReconcilerUtils {
   }
 
   /**
+   * Whether the same request may yet succeed when it is sent again. Besides a transient failure,
+   * a throttled request and an internal server error, such as an admission webhook which is down,
+   * qualify, while a request the API server rejected, e.g. as forbidden or invalid, does not.
+   *
+   * @param e The failure to classify.
+   * @return True if the request is worth sending again, false otherwise.
+   */
+  public static boolean isRetryableError(KubernetesClientException e) {
+    return isTransientError(e)
+        || e.getCode() == HTTP_INTERNAL_ERROR
+        || e.getCode() == Constants.HTTP_TOO_MANY_REQUESTS;
+  }
+
+  /**
    * Whether the given failure left the request unanswered, so that asking again may yet work. It
    * is defined as the complement of the status-less failures that repeating cannot change: a
    * rejection the client raised before sending anything, which carries no cause at all; an answer

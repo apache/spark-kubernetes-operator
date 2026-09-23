@@ -67,7 +67,7 @@ replacing its `message`. A repeat carrying the same `message` may be paced by
 |---|---|
 | `Warning` | `SparkApplication`: `SchedulingFailure`, `Failed`, `DriverEvicted`, `DriverStartTimedOut`, `DriverReadyTimedOut`, `ExecutorsStartTimedOut`, `RunningWithBelowThresholdExecutors`, `TerminatedWithoutReleaseResources` |
 | `Warning` | `SparkCluster`: `SchedulingFailure`, `Failed` |
-| `Normal` | All other states, e.g. `Submitted`, `ScheduledToRestart`, `DriverRequested`, `DriverStarted`, `DriverReady`, `InitializedBelowThresholdExecutors`, `RunningHealthy`, `RunningWithPartialCapacity`, `Succeeded` and `ResourceReleased` |
+| `Normal` | All other states, e.g. `Submitted`, `ScheduledToRestart`, `DriverRequested`, `DriverStarted`, `DriverReady`, `InitializedBelowThresholdExecutors`, `RunningHealthy`, `RunningWithPartialCapacity`, `Succeeded`, `ResourceReleased` and `Suspended` |
 
 In addition, the operator publishes the following `Warning` events.
 
@@ -77,6 +77,7 @@ In addition, the operator publishes the following `Warning` events.
 | `CleanupError` | A cleanup throws, so the resource cannot finish deleting. |
 | `StatusUpdateFailed` | A status patch is rejected. Transport-level errors are skipped. |
 | `KueueAdmissionRequestFailed` | Creating, reading or deleting a stale Kueue `Workload` fails, or the driver or master cannot be read before the admission is requested. Transport-level errors are skipped and retried every 5 seconds, while a persistent failure is retried with the default interval. |
+| `SuspendReleaseFailed` | Deleting the master and worker StatefulSets, the HorizontalPodAutoscaler or PodDisruptionBudget of the workers, or the Kueue `Workload` of a `SparkCluster` suspended while running fails, or its pods cannot be listed. A failure which may clear on its own, such as a timeout, is skipped. Every failure is retried with the default interval. |
 | `KueueResourceFlavorReadFailed` | Reading the `ResourceFlavor`s which Kueue assigned to an admitted `Workload` fails, so the node selector and the tolerations of the flavors cannot be applied. Transport-level errors are skipped and retried every 5 seconds, while a persistent failure is retried with the default interval. |
 
 For a resource held by [`spec.suspend`](spark_custom_resources.md#suspend) or queued by

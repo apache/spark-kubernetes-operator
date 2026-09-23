@@ -530,10 +530,11 @@ to this app after `ttlAfterStopMillis`.
 
 ## Suspend
 
-Both `SparkApplication` and `SparkCluster` support `.spec.suspend`. When it is set to `true`, the
-operator keeps the resource in its initializing state (`Submitted`, or `ScheduledToRestart` for an
-application that is scheduled to restart) and does not request the driver pod or the master / worker
-StatefulSets. Setting it back to `false` resumes the regular lifecycle.
+Both `SparkApplication` and `SparkCluster` support `.spec.suspend`. When it is set to `true` before
+the driver pod or the master / worker StatefulSets are requested, the operator keeps the resource in
+its initializing state (`Submitted`, or `ScheduledToRestart` for an application that is scheduled to
+restart) and does not request them. Setting it back to `false` resumes the regular lifecycle. A
+running `SparkCluster` is stopped instead, as described below.
 
 `Submitted` here is the operator's in-memory view. For a valid resource created with
 `suspend: true`, the initial `Submitted` status is not persisted to the API server, so
@@ -558,10 +559,30 @@ spec:
     sparkVersion: "4.2.0"
 ```
 
-* `suspend` only takes effect before the driver (or master / worker) resources are requested.
+* For a `SparkApplication`, `suspend` only takes effect before the driver resources are requested.
   Setting it to `true` on a running application does not stop the current attempt. If the
   application is configured to restart, the next attempt is held until `suspend` is set back to
-  `false`. Setting it to `true` on a running cluster has no effect in the current version.
+  `false`.
+* Setting it to `true` on a running `SparkCluster` (`RunningHealthy`) stops it, since a cluster
+  runs until it is deleted and has no other way to give its resources back. The cluster enters
+  `Suspended` first, and then the operator deletes its master and worker StatefulSets, and the
+  HorizontalPodAutoscaler and PodDisruptionBudget of its workers if any. Its Services and
+  NetworkPolicy are kept. Any application running on the cluster is terminated with it, since there
+  is no graceful decommission. A failure to delete them, other than one which may clear on its own,
+  publishes the `SuspendReleaseFailed` [event](configuration.md#kubernetes-events) when enabled.
+* Setting it back to `false` moves the cluster to `Submitted` once its master and worker pods are
+  gone and its Kueue `Workload`, if any, is released, and the master and workers are requested
+  again from scratch, like a newly created cluster. Only pods labeled with the `master` or `worker`
+  `spark-role` count, so other pods which carry the `spark.operator/spark-cluster-name` label do
+  not hold the cluster back. A request which may yet succeed, such as a timeout or an unavailable
+  API server or admission webhook, is retried, while a rejected one fails the cluster with
+  `SchedulingFailure`, as for a newly created cluster. With
+  `spark.kubernetes.operator.reconciler.trimStateTransitionHistoryEnabled`, the resumed cluster drops
+  the state transition history of its previous run, so that suspending it again and again keeps the
+  status bounded. Setting it to `true` again before the master is requested moves the cluster back
+  to `Suspended`.
+* An operator version without the `Suspended` state cannot read a `SparkCluster` which is
+  `Suspended`, so resume or delete such clusters before downgrading the operator.
 * Deleting a suspended resource works as usual.
 * This is the building block for external job queueing systems. See [Kueue](#kueue) for the
   built-in integration.
@@ -621,8 +642,8 @@ spec:
 * A `SparkCluster` requests the resources set on the `master` and `worker` containers of its pod
   templates. A missing request defaults to the limit, or else to 1 CPU and `SPARK_DAEMON_MEMORY`
   plus overhead. A worker uses `SPARK_WORKER_CORES` for the CPU and adds `SPARK_WORKER_MEMORY` to
-  the memory when they are set. A `SparkCluster` keeps the quota until it is deleted. Set a cpu and
-  memory request or limit on the `worker` container, or `SPARK_WORKER_CORES` and
+  the memory when they are set. A `SparkCluster` keeps the quota until it is deleted or suspended.
+  Set a cpu and memory request or limit on the `worker` container, or `SPARK_WORKER_CORES` and
   `SPARK_WORKER_MEMORY`: a worker with none of them advertises the whole node to its executors,
   well above the default the `Workload` requests.
 * Like Kueue built-in integrations, the `nodeLabels` and `tolerations` of the `ResourceFlavor`s
@@ -638,8 +659,9 @@ spec:
   through the ClusterRole, hence `operatorRbac.clusterRole.create` as well. Until they can be
   read, the resource is held and the read is retried.
 * `spec.suspend` takes precedence. A suspended resource does not get a `Workload`, and suspending
-  a queued resource deletes its `Workload` to release the quota. The resource is queued again when
-  it is resumed.
+  a queued resource deletes its `Workload` to release the quota. Suspending a running
+  `SparkCluster` deletes its `Workload` only after its master and worker pods are gone, since
+  terminating pods still occupy the quota. The resource is queued again when it is resumed.
 * Dynamic allocation, a `SparkCluster` with `minWorkers < maxWorkers`, and pod template files set
   through `spark.kubernetes.{driver,executor}.podTemplateFile` are not supported yet. Such a
   resource fails with `SchedulingFailure` instead of being queued.

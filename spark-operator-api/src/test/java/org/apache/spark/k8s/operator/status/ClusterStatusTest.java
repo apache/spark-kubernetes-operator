@@ -41,4 +41,23 @@ class ClusterStatusTest {
     assertEquals(2, newStatus.getStateTransitionHistory().size());
     assertEquals(newState, newStatus.getStateTransitionHistory().get(1L));
   }
+
+  @Test
+  void testAppendNewStateWithTrim() {
+    ClusterStatus status =
+        new ClusterStatus()
+            .appendNewState(new ClusterState(ClusterStateSummary.RunningHealthy, ""))
+            .appendNewState(new ClusterState(ClusterStateSummary.Suspended, ""));
+    ClusterState resumed = new ClusterState(Submitted, "resumed");
+
+    // Only the new state is kept, with the next id, so that it is still a new state
+    ClusterStatus trimmed = status.appendNewState(resumed, true);
+    assertEquals(resumed, trimmed.getCurrentState());
+    assertEquals(1, trimmed.getStateTransitionHistory().size());
+    assertEquals(resumed, trimmed.getStateTransitionHistory().get(3L));
+
+    ClusterStatus kept = status.appendNewState(resumed, false);
+    assertEquals(4, kept.getStateTransitionHistory().size());
+    assertEquals(resumed, kept.getStateTransitionHistory().get(3L));
+  }
 }

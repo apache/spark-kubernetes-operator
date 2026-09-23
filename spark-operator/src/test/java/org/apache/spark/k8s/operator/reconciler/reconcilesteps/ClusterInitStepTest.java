@@ -65,6 +65,8 @@ import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
@@ -231,6 +233,100 @@ class ClusterInitStepTest {
         statusCaptor.getValue().getCurrentState().getCurrentStateSummary());
     // Resuming adds no event of its own, the RunningHealthy state transition reports it
     Assertions.assertEquals(EventUtils.REASON_SUSPEND_HELD, captureEvents(1).get(0).reason());
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {429, 500, 503})
+  @SuppressWarnings("unchecked")
+  void retryableFailureOfRequestingResourcesIsRetried(int code) {
+    ClusterInitStep clusterInitStep = new ClusterInitStep();
+    SparkClusterContext mockContext = mock(SparkClusterContext.class);
+    SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
+    SparkCluster cluster = buildCluster();
+    stubFailingServiceApply(
+        mockContext, cluster, new KubernetesClientException("failed", code, null));
+
+    // A cluster resumed from Suspended goes through this path again, so a request which may yet
+    // succeed, e.g. while an admission webhook is down, must not fail it with SchedulingFailure
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndDefaultRequeue(),
+        clusterInitStep.reconcile(mockContext, recorder));
+    verifyNoInteractions(recorder);
+    Assertions.assertEquals(
+        ClusterStateSummary.Submitted,
+        cluster.getStatus().getCurrentState().getCurrentStateSummary());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void rejectedRequestOfResourcesFailsScheduling() {
+    ClusterInitStep clusterInitStep = new ClusterInitStep();
+    SparkClusterContext mockContext = mock(SparkClusterContext.class);
+    SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
+    SparkCluster cluster = buildCluster();
+    stubFailingServiceApply(
+        mockContext, cluster, new KubernetesClientException("Invalid", 422, null));
+
+    // A rejected request would be rejected again, so it is reported as SchedulingFailure rather
+    // than retried with the status staying empty
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndImmediateRequeue(),
+        clusterInitStep.reconcile(mockContext, recorder));
+    ArgumentCaptor<ClusterStatus> statusCaptor = ArgumentCaptor.forClass(ClusterStatus.class);
+    verify(recorder).persistStatus(any(), statusCaptor.capture());
+    Assertions.assertEquals(
+        ClusterStateSummary.SchedulingFailure,
+        statusCaptor.getValue().getCurrentState().getCurrentStateSummary());
+  }
+
+  @Test
+  void resumedClusterSuspendedAgainGoesBackToSuspended() {
+    ClusterInitStep clusterInitStep = new ClusterInitStep();
+    SparkClusterContext mockContext = mock(SparkClusterContext.class);
+    SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
+    when(recorder.appendNewStateAndPersist(any(), any())).thenReturn(true);
+    SparkCluster cluster = buildCluster();
+    // Resumed from Suspended: the persisted Submitted state follows the states of the earlier run
+    cluster.setStatus(
+        cluster
+            .getStatus()
+            .appendNewState(new ClusterState(ClusterStateSummary.Suspended, ""))
+            .appendNewState(
+                new ClusterState(ClusterStateSummary.Submitted, Constants.CLUSTER_RESUMED_MESSAGE),
+                true));
+    cluster.getSpec().setSuspend(true);
+    KubernetesClient mockClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    when(mockClient.resource(masterStatefulSetSpec).get()).thenReturn(null);
+    when(mockContext.getResource()).thenReturn(cluster);
+    when(mockContext.getClient()).thenReturn(mockClient);
+    when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
+
+    // Its status would otherwise keep saying that it is resumed, while ClusterSuspendStep releases
+    // its Workload only once its pods are gone
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndImmediateRequeue(),
+        clusterInitStep.reconcile(mockContext, recorder));
+    ArgumentCaptor<ClusterState> stateCaptor = ArgumentCaptor.forClass(ClusterState.class);
+    verify(recorder).appendNewStateAndPersist(any(), stateCaptor.capture());
+    Assertions.assertEquals(
+        ClusterStateSummary.Suspended, stateCaptor.getValue().getCurrentStateSummary());
+    Assertions.assertEquals(
+        Constants.CLUSTER_SUSPENDED_MESSAGE, stateCaptor.getValue().getMessage());
+    verify(mockContext, never()).getEventRecorder();
+  }
+
+  @SuppressWarnings("unchecked")
+  private static void stubFailingServiceApply(
+      SparkClusterContext mockContext, SparkCluster cluster, KubernetesClientException failure) {
+    KubernetesClient mockClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    ServerSideApplicable<Service> serviceApplicable = mock(ServerSideApplicable.class);
+    ServiceResource<Service> serviceResource = mock(ServiceResource.class);
+    when(serviceResource.forceConflicts()).thenReturn(serviceApplicable);
+    when(serviceApplicable.serverSideApply()).thenThrow(failure);
+    when(mockClient.services().resource(any(Service.class))).thenReturn(serviceResource);
+    when(mockContext.getResource()).thenReturn(cluster);
+    when(mockContext.getClient()).thenReturn(mockClient);
+    when(mockContext.getMasterServiceSpec()).thenReturn(service("cluster1-master-svc"));
   }
 
   @Test

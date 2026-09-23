@@ -264,7 +264,9 @@ public final class SparkOperatorConf {
 
   /**
    * Requeue interval (in seconds) at which a resource held by {@code spec.suspend} is reconciled,
-   * so that its {@code SuspendHeld} event is republished. The hold ends only when a user clears
+   * so that its {@code SuspendHeld} event is republished. A SparkCluster suspended while running
+   * publishes no such event, since its Suspended status says so, and uses this interval only to
+   * look at its released resources again. The hold ends only when a user clears
    * {@code spec.suspend}, which arrives as a watch event and reconciles right away, so nothing
    * waits for this interval. It is deliberately much coarser than {@link
    * #RECONCILER_INTERVAL_SECONDS}, since a suspended resource has nothing to observe while each
@@ -280,7 +282,10 @@ public final class SparkOperatorConf {
           .enableDynamicOverride(true)
           .description(
               "Requeue interval (in seconds) at which a resource held by spec.suspend is "
-                  + "reconciled, so that its SuspendHeld event is republished. The hold ends only "
+                  + "reconciled, so that its SuspendHeld event is republished. A SparkCluster "
+                  + "suspended while running publishes no such event, since its Suspended status "
+                  + "says so, and uses this interval only to look at its released resources "
+                  + "again. The hold ends only "
                   + "when a user clears spec.suspend, which arrives as a watch event and "
                   + "reconciles right away, so nothing waits for this interval. It is "
                   + "deliberately much coarser than "
@@ -298,7 +303,7 @@ public final class SparkOperatorConf {
 
   /**
    * When enabled, operator would trim state transition history when a new attempt starts, keeping
-   * previous attempt summary only.
+   * previous attempt summary only, and when a suspended SparkCluster is resumed.
    */
   public static final ConfigOption<Boolean> TRIM_ATTEMPT_STATE_TRANSITION_HISTORY =
       ConfigOption.<Boolean>builder()
@@ -306,7 +311,8 @@ public final class SparkOperatorConf {
           .enableDynamicOverride(true)
           .description(
               "When enabled, operator would trim state transition history when a "
-                  + "new attempt starts, keeping previous attempt summary only.")
+                  + "new attempt starts, keeping previous attempt summary only, and when a "
+                  + "suspended SparkCluster is resumed.")
           .typeParameterClass(Boolean.class)
           .defaultValue(true)
           .build();

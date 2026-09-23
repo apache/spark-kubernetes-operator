@@ -52,6 +52,12 @@ public final class EventUtils {
   /** Reason for an event describing that a resource is held by {@code spec.suspend}. */
   public static final String REASON_SUSPEND_HELD = "SuspendHeld";
 
+  /**
+   * Reason for an event describing a failure to release the resources of a SparkCluster which is
+   * suspended while running.
+   */
+  public static final String REASON_SUSPEND_RELEASE_FAILED = "SuspendReleaseFailed";
+
   /** Reason for an event describing that a resource waits for Kueue to admit its Workload. */
   public static final String REASON_KUEUE_ADMISSION_PENDING = "KueueAdmissionPending";
 
