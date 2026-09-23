@@ -81,6 +81,7 @@ public class ApplicationTolerations {
    * @return The effective retain duration for secondary resources, which would be the smaller value
    *     of `resourceRetainDurationMillis` or `ttlAfterStopMillis`, if they are set to non-negative
    *     value. Return -1 if none of them are set.
+   * @since 0.5.0
    */
   public long computeEffectiveRetainDurationMillis() {
     if (resourceRetainDurationMillis < 0 && ttlAfterStopMillis < 0) {
@@ -103,6 +104,7 @@ public class ApplicationTolerations {
    * @param instant The instant to check against.
    * @return True if the app has terminated, has a positive retain duration configured, and has
    *     exceeded that duration; false otherwise.
+   * @since 0.5.0
    */
   public boolean exceedRetainDurationAtInstant(
       ApplicationState lastObservedState, Instant instant) {
@@ -119,6 +121,7 @@ public class ApplicationTolerations {
    *
    * @return True if `resourceRetainDurationMillis` or `ttlAfterStopMillis` is set to a non-negative
    *     value, false otherwise.
+   * @since 0.5.0
    */
   @JsonIgnore
   public boolean isRetainDurationEnabled() {
@@ -129,6 +132,7 @@ public class ApplicationTolerations {
    * Indicates whether the reconciler needs to perform a TTL (Time-To-Live) check.
    *
    * @return True if `ttlAfterStopMillis` is set to a non-negative value, false otherwise.
+   * @since 0.5.0
    */
   @JsonIgnore
   public boolean isTTLEnabled() {

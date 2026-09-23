@@ -42,6 +42,11 @@ import lombok.ToString;
 public class ClusterAttemptSummary extends BaseAttemptSummary<BaseAttemptInfo> {
   protected final SortedMap<Long, ClusterState> stateTransitionHistory;
 
+  /**
+   * Constructs a new ClusterAttemptSummary with the given attempt info and state history.
+   *
+   * @since 0.8.0
+   */
   @JsonCreator
   public ClusterAttemptSummary(
       @JsonProperty("attemptInfo") BaseAttemptInfo attemptInfo,
@@ -51,10 +56,20 @@ public class ClusterAttemptSummary extends BaseAttemptSummary<BaseAttemptInfo> {
     this.stateTransitionHistory = stateTransitionHistory;
   }
 
+  /**
+   * Constructs a new ClusterAttemptSummary with a default attempt info and no state history.
+   *
+   * @since 0.1.0
+   */
   public ClusterAttemptSummary() {
     this(new BaseAttemptInfo(), null);
   }
 
+  /**
+   * Constructs a new ClusterAttemptSummary with the given attempt info and no state history.
+   *
+   * @since 0.8.0
+   */
   public ClusterAttemptSummary(BaseAttemptInfo attemptInfo) {
     this(attemptInfo, null);
   }

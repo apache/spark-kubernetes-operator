@@ -41,7 +41,11 @@ import lombok.ToString;
 public class ClusterStatus
     extends BaseStatus<ClusterStateSummary, ClusterState, ClusterAttemptSummary> {
 
-  /** Constructs a new, empty ClusterStatus. */
+  /**
+   * Constructs a new, empty ClusterStatus.
+   *
+   * @since 0.1.0
+   */
   public ClusterStatus() {
     super(new ClusterState(), new ClusterAttemptSummary());
   }
@@ -53,6 +57,7 @@ public class ClusterStatus
    * @param stateTransitionHistory The history of state transitions.
    * @param previousAttemptSummary Summary of the previous cluster attempt.
    * @param currentAttemptSummary Summary of the current cluster attempt.
+   * @since 0.1.0
    */
   @JsonCreator
   public ClusterStatus(
@@ -68,6 +73,7 @@ public class ClusterStatus
    *
    * @param state The new ClusterState to append.
    * @return A new ClusterStatus object with the updated state.
+   * @since 0.1.0
    */
   public ClusterStatus appendNewState(ClusterState state) {
     return new ClusterStatus(

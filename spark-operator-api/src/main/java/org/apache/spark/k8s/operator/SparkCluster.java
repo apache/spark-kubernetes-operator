@@ -59,6 +59,7 @@ public class SparkCluster
    * Initializes and returns a new ClusterStatus object.
    *
    * @return A new ClusterStatus instance.
+   * @since 0.1.0
    */
   @Override
   public ClusterStatus initStatus() {
@@ -69,6 +70,7 @@ public class SparkCluster
    * Initializes and returns a new ClusterSpec object.
    *
    * @return A new ClusterSpec instance.
+   * @since 0.1.0
    */
   @Override
   public ClusterSpec initSpec() {

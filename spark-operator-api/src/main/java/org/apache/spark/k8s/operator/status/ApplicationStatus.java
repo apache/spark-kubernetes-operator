@@ -50,7 +50,11 @@ import org.apache.spark.k8s.operator.spec.RestartPolicy;
 public class ApplicationStatus
     extends BaseStatus<ApplicationStateSummary, ApplicationState, ApplicationAttemptSummary> {
 
-  /** Constructs a new, empty ApplicationStatus. */
+  /**
+   * Constructs a new, empty ApplicationStatus.
+   *
+   * @since 0.1.0
+   */
   public ApplicationStatus() {
     super(new ApplicationState(), new ApplicationAttemptSummary());
   }
@@ -62,6 +66,7 @@ public class ApplicationStatus
    * @param stateTransitionHistory The history of state transitions.
    * @param previousAttemptSummary Summary of the previous application attempt.
    * @param currentAttemptSummary Summary of the current application attempt.
+   * @since 0.1.0
    */
   @JsonCreator
   public ApplicationStatus(
@@ -77,6 +82,7 @@ public class ApplicationStatus
    *
    * @param state The new ApplicationState to append.
    * @return A new ApplicationStatus object with the updated state.
+   * @since 0.1.0
    */
   public ApplicationStatus appendNewState(ApplicationState state) {
     return new ApplicationStatus(
@@ -94,6 +100,7 @@ public class ApplicationStatus
    * @param stateMessageOverride An optional message to override the default state message.
    * @param trimStateTransitionHistory If true, the state transition history will be trimmed.
    * @return An updated ApplicationStatus object.
+   * @since 0.1.0
    */
   public ApplicationStatus terminateOrRestart(
       final RestartConfig restartConfig,

@@ -39,6 +39,7 @@ public enum RestartPolicy {
    * @param policy The RestartPolicy to evaluate.
    * @param stateSummary The current BaseStateSummary of the application.
    * @return True if a restart should be attempted, false otherwise.
+   * @since 0.1.0
    */
   public static boolean attemptRestartOnState(
       final RestartPolicy policy, final BaseStateSummary stateSummary) {

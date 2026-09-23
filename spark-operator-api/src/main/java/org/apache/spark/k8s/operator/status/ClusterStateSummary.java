@@ -44,6 +44,7 @@ public enum ClusterStateSummary implements BaseStateSummary {
    * Checks if the cluster is in an initializing state.
    *
    * @return True if the state is Submitted, false otherwise.
+   * @since 0.1.0
    */
   public boolean isInitializing() {
     return this == Submitted;
@@ -53,6 +54,7 @@ public enum ClusterStateSummary implements BaseStateSummary {
    * Checks if the cluster is in a starting state.
    *
    * @return True if the state is before RunningHealthy, false otherwise.
+   * @since 0.1.0
    */
   public boolean isStarting() {
     return RunningHealthy.ordinal() > this.ordinal();
@@ -63,6 +65,7 @@ public enum ClusterStateSummary implements BaseStateSummary {
    *
    * @return True if the state indicates the cluster has terminated (ResourceReleased), false
    *     otherwise.
+   * @since 0.1.0
    */
   public boolean isTerminated() {
     return this == ResourceReleased;
@@ -72,6 +75,7 @@ public enum ClusterStateSummary implements BaseStateSummary {
    * Checks if the cluster is in a failure state.
    *
    * @return True if the state is SchedulingFailure or Failed, false otherwise.
+   * @since 0.1.0
    */
   @Override
   public boolean isFailure() {
@@ -82,6 +86,7 @@ public enum ClusterStateSummary implements BaseStateSummary {
    * Checks if the cluster is in an infrastructure failure state.
    *
    * @return True if the state is SchedulingFailure, false otherwise.
+   * @since 0.1.0
    */
   @Override
   public boolean isInfrastructureFailure() {

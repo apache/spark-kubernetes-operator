@@ -40,6 +40,11 @@ import lombok.ToString;
 public class BaseAttemptSummary<I extends BaseAttemptInfo> {
   protected final I attemptInfo;
 
+  /**
+   * Constructs a new BaseAttemptSummary with the given attempt info.
+   *
+   * @since 0.8.0
+   */
   @JsonCreator
   public BaseAttemptSummary(@JsonProperty("attemptInfo") I attemptInfo) {
     this.attemptInfo = attemptInfo;

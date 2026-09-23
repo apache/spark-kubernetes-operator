@@ -33,6 +33,7 @@ public interface ResourceDecorator {
    * @param resource The resource to decorate.
    * @param <T> The type of the resource, extending HasMetadata.
    * @return The decorated resource.
+   * @since 0.1.0
    */
   <T extends HasMetadata> T decorate(T resource);
 }

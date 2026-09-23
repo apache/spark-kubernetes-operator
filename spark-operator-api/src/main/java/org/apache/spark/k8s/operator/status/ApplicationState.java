@@ -45,10 +45,20 @@ public class ApplicationState extends BaseState<ApplicationStateSummary> impleme
 
   @Getter @Setter PodStatus lastObservedDriverStatus;
 
+  /**
+   * Constructs a new ApplicationState in the Submitted state.
+   *
+   * @since 0.1.0
+   */
   public ApplicationState() {
     super(ApplicationStateSummary.Submitted, Instant.now().toString(), SUBMITTED_STATE_MESSAGE);
   }
 
+  /**
+   * Constructs a new ApplicationState with the given state summary and message.
+   *
+   * @since 0.1.0
+   */
   public ApplicationState(ApplicationStateSummary currentStateSummary, String message) {
     super(currentStateSummary, Instant.now().toString(), message);
   }

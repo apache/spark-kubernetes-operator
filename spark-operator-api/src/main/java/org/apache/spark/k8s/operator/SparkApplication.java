@@ -63,6 +63,7 @@ public class SparkApplication
    * Initializes and returns a new ApplicationStatus object.
    *
    * @return A new ApplicationStatus instance.
+   * @since 0.1.0
    */
   @Override
   public ApplicationStatus initStatus() {
@@ -73,6 +74,7 @@ public class SparkApplication
    * Initializes and returns a new ApplicationSpec object.
    *
    * @return A new ApplicationSpec instance.
+   * @since 0.1.0
    */
   @Override
   public ApplicationSpec initSpec() {

@@ -54,6 +54,7 @@ public class BaseStatus<S, STATE extends BaseState<S>, AS extends BaseAttemptSum
    *
    * @param initState The initial state of the resource.
    * @param currentAttemptSummary The summary of the current attempt.
+   * @since 0.1.0
    */
   public BaseStatus(STATE initState, AS currentAttemptSummary) {
     this.currentState = initState;
@@ -71,6 +72,7 @@ public class BaseStatus<S, STATE extends BaseState<S>, AS extends BaseAttemptSum
    * @param stateTransitionHistory The history of state transitions.
    * @param previousAttemptSummary The summary of the previous attempt.
    * @param currentAttemptSummary The summary of the current attempt.
+   * @since 0.1.0
    */
   @JsonCreator
   public BaseStatus(
