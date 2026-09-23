@@ -120,6 +120,8 @@ class ClusterInitStepTest {
     SparkCluster cluster = buildCluster();
     cluster.getSpec().setSuspend(true);
     KubernetesClient mockClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    // The Workload of a suspended cluster is released even without its queue label
+    stubWorkloadRead(mockClient, null);
     when(mockClient.resource(masterStatefulSetSpec).get()).thenReturn(null);
     when(mockContext.getResource()).thenReturn(cluster);
     when(mockContext.getClient()).thenReturn(mockClient);
@@ -156,6 +158,8 @@ class ClusterInitStepTest {
     SparkCluster cluster = buildCluster();
     cluster.getSpec().setSuspend(true);
     KubernetesClient mockClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    // The Workload of a suspended cluster is released even without its queue label
+    stubWorkloadRead(mockClient, null);
     when(mockClient.resource(masterStatefulSetSpec).get()).thenReturn(null);
     when(mockContext.getResource()).thenReturn(cluster);
     when(mockContext.getClient()).thenReturn(mockClient);
@@ -185,6 +189,8 @@ class ClusterInitStepTest {
     SparkCluster cluster = buildCluster();
     cluster.getSpec().setSuspend(true);
     KubernetesClient mockClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    // The Workload of a suspended cluster is released even without its queue label
+    stubWorkloadRead(mockClient, null);
     when(mockClient.resource(masterStatefulSetSpec).get()).thenReturn(null);
     ServerSideApplicable<Service> serviceApplicable = mock(ServerSideApplicable.class);
     ServiceResource<Service> serviceResource = mock(ServiceResource.class);
@@ -628,6 +634,35 @@ class ClusterInitStepTest {
                     + EventUtils.REASON_KUEUE_ADMISSION_PENDING
                     + " event no longer applies."),
         events.get(1).message());
+  }
+
+  @Test
+  void suspendingQueuedClusterReleasesKueueWorkloadAfterQueueLabelIsRemoved() {
+    ClusterInitStep clusterInitStep = new ClusterInitStep();
+    SparkClusterContext mockContext = mock(SparkClusterContext.class);
+    SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
+    SparkCluster cluster = buildKueueCluster();
+    when(mockContext.getResource()).thenReturn(cluster);
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
+    when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndDefaultRequeue(),
+        clusterInitStep.reconcile(mockContext, recorder));
+    Assertions.assertNotNull(getWorkload());
+
+    // Suspended with the queue label removed in the same update: the queued Workload would be
+    // admitted into quota which nothing uses, so it is deleted as well
+    cluster.getSpec().setSuspend(true);
+    cluster.getMetadata().setLabels(Map.of());
+    Assertions.assertEquals(
+        SUSPEND_HOLD_PROGRESS,
+        clusterInitStep.reconcile(mockContext, recorder));
+    Assertions.assertNull(getWorkload());
+    List<EventRecord> events = captureEvents(2);
+    Assertions.assertEquals(EventUtils.REASON_SUSPEND_HELD, events.get(1).reason());
+    Assertions.assertTrue(
+        events.get(1).message().endsWith(" event no longer applies."), events.get(1).message());
   }
 
   @Test

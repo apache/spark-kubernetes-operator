@@ -661,7 +661,9 @@ spec:
 * `spec.suspend` takes precedence. A suspended resource does not get a `Workload`, and suspending
   a queued resource deletes its `Workload` to release the quota. Suspending a running
   `SparkCluster` deletes its `Workload` only after its master and worker pods are gone, since
-  terminating pods still occupy the quota. The resource is queued again when it is resumed.
+  terminating pods still occupy the quota. The `Workload` is deleted even if the
+  `kueue.x-k8s.io/queue-name` label was removed after the admission. The resource is queued again
+  when it is resumed.
 * Dynamic allocation, a `SparkCluster` with `minWorkers < maxWorkers`, and pod template files set
   through `spark.kubernetes.{driver,executor}.podTemplateFile` are not supported yet. Such a
   resource fails with `SchedulingFailure` instead of being queued.

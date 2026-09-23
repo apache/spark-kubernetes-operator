@@ -29,7 +29,6 @@ import static org.apache.spark.k8s.operator.SparkClusterResourceSpec.getMasterSt
 import static org.apache.spark.k8s.operator.SparkClusterResourceSpec.getWorkerHorizontalPodAutoscalerName;
 import static org.apache.spark.k8s.operator.SparkClusterResourceSpec.getWorkerPodDisruptionBudgetName;
 import static org.apache.spark.k8s.operator.SparkClusterResourceSpec.getWorkerStatefulSetName;
-import static org.apache.spark.k8s.operator.config.SparkOperatorConf.KUEUE_WORKLOAD_INFORMER_ENABLED;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.SUSPEND_HOLD_REQUEUE_INTERVAL_SECONDS;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.TRIM_ATTEMPT_STATE_TRANSITION_HISTORY;
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.completeAndDefaultRequeue;
@@ -46,7 +45,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import org.apache.spark.k8s.operator.SparkCluster;
 import org.apache.spark.k8s.operator.context.SparkClusterContext;
-import org.apache.spark.k8s.operator.kueue.KueueWorkloadFactory;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.status.ClusterState;
@@ -180,12 +178,8 @@ public final class ClusterSuspendStep extends ClusterReconcileStep {
         log.debug("Waiting for the pods of the suspended cluster to be deleted.");
         return false;
       }
-      // A Workload admitted before its queue label was removed is released as well, whenever the
-      // operator may access Workloads, which the Workload informer requires too.
-      if (KueueWorkloadFactory.hasQueueName(cluster)
-          || KUEUE_WORKLOAD_INFORMER_ENABLED.getValue()) {
-        KueueWorkloadUtils.deleteWorkloadOf(client, cluster);
-      }
+      // A Workload admitted before the queue label was removed is released as well.
+      KueueWorkloadUtils.deleteWorkloadOf(client, cluster);
     } catch (KubernetesClientException e) {
       log.warn("Failed to release the resources of the suspended cluster, will retry.", e);
       if (!ReconcilerUtils.isTransientError(e)) {

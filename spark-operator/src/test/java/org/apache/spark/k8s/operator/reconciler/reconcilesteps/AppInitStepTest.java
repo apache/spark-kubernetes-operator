@@ -401,13 +401,16 @@ class AppInitStepTest {
     application.getSpec().setSuspend(true);
     when(mockContext.getResource()).thenReturn(application);
     when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
 
     ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
 
     Assertions.assertEquals(SUSPEND_HOLD_PROGRESS, progress);
     verify(mockContext, never()).getDriverPreResourcesSpec();
     verify(mockContext, never()).getDriverPodSpec();
-    verify(mockContext, never()).getClient();
+    // Only the Kueue Workload is looked up to be released, while no driver is created
+    Assertions.assertTrue(
+        kubernetesClient.pods().inNamespace("default").list().getItems().isEmpty());
     verifyNoInteractions(recorder);
     Assertions.assertEquals(
         ApplicationStateSummary.Submitted,
@@ -449,12 +452,15 @@ class AppInitStepTest {
         new ApplicationAttemptSummary(), new ApplicationAttemptSummary()));
     when(mockContext.getResource()).thenReturn(application);
     when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
 
     ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
 
     Assertions.assertEquals(SUSPEND_HOLD_PROGRESS, progress);
     verify(mockContext, never()).getDriverPodSpec();
-    verify(mockContext, never()).getClient();
+    // Only the Kueue Workload is looked up to be released, while no driver is created
+    Assertions.assertTrue(
+        kubernetesClient.pods().inNamespace("default").list().getItems().isEmpty());
     verifyNoInteractions(recorder);
     Assertions.assertEquals(
         ApplicationStateSummary.ScheduledToRestart,
@@ -548,6 +554,7 @@ class AppInitStepTest {
     application.getSpec().setSuspend(true);
     when(mockContext.getResource()).thenReturn(application);
     when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
 
     // The event sink aggregates the repeats into one Event, and each repeat refreshes it, which
     // keeps the hold visible past the event retention: the suspended first attempt has no status
@@ -649,11 +656,14 @@ class AppInitStepTest {
     when(mockContext.getCurrentAttemptDriverPod()).thenReturn(Optional.empty());
     when(mockContext.getDriverPodSpec()).thenReturn(driverPodSpec);
     when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
 
     ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
 
     Assertions.assertEquals(SUSPEND_HOLD_PROGRESS, progress);
-    verify(mockContext, never()).getClient();
+    // Only the Kueue Workload is looked up to be released, while no driver is created
+    Assertions.assertTrue(
+        kubernetesClient.pods().inNamespace("default").list().getItems().isEmpty());
     verifyNoInteractions(recorder);
     Assertions.assertEquals(
         ApplicationStateSummary.Submitted,

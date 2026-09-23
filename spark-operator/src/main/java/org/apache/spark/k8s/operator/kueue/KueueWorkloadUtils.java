@@ -21,6 +21,7 @@ package org.apache.spark.k8s.operator.kueue;
 
 import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
+import static org.apache.spark.k8s.operator.config.SparkOperatorConf.KUEUE_WORKLOAD_INFORMER_ENABLED;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -517,7 +518,11 @@ public final class KueueWorkloadUtils {
 
   /**
    * Deletes the Workload of the given resource and reports whether one was there to delete, unlike
-   * {@link #releaseWorkload} without swallowing the failure.
+   * {@link #releaseWorkload} without swallowing the failure. A Workload admitted before the queue
+   * label of the owner was removed is deleted as well. Without the label, an operator which does
+   * not watch Workloads may not be granted access to them, and then it has none to delete, so the
+   * rejection is taken as no Workload. One without Kueue installed is answered with a 404, which
+   * the deletion ignores.
    *
    * @param client The KubernetesClient.
    * @param owner The SparkApplication or SparkCluster owning the Workload.
@@ -525,12 +530,23 @@ public final class KueueWorkloadUtils {
    * @throws KubernetesClientException if the Workload cannot be deleted.
    */
   public static boolean deleteWorkloadOf(final KubernetesClient client, final HasMetadata owner) {
-    return !client
-        .resources(Workload.class)
-        .inNamespace(owner.getMetadata().getNamespace())
-        .withName(KueueWorkloadFactory.getWorkloadName(owner))
-        .delete()
-        .isEmpty();
+    String name = KueueWorkloadFactory.getWorkloadName(owner);
+    try {
+      return !client
+          .resources(Workload.class)
+          .inNamespace(owner.getMetadata().getNamespace())
+          .withName(name)
+          .delete()
+          .isEmpty();
+    } catch (KubernetesClientException e) {
+      if (KueueWorkloadFactory.hasQueueName(owner)
+          || KUEUE_WORKLOAD_INFORMER_ENABLED.getValue()
+          || e.getCode() != HTTP_FORBIDDEN) {
+        throw e;
+      }
+      log.debug("Not permitted to delete the Kueue Workload {}.", name, e);
+      return false;
+    }
   }
 
   /**
