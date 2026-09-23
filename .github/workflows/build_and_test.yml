@@ -274,17 +274,6 @@ jobs:
     needs: build-image
     runs-on: ubuntu-26.04
     timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      max-parallel: 20
-      matrix:
-        kubernetes-version:
-          - "1.37.0"
-        test-group:
-          - configmap-metadata
-          - kueue
-          - network-policy
-          - operator-command
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -294,7 +283,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           cache: true
-          kubernetes-version: ${{ matrix.kubernetes-version }}
+          kubernetes-version: "1.37.0"
           # Minikube 1.39.0 defaults to containerd, but `minikube docker-env` needs Docker
           container-runtime: docker
           cpus: 3
@@ -312,7 +301,6 @@ jobs:
           kubectl get pods -A
           kubectl describe node
       - name: Install Kueue
-        if: matrix.test-group == 'kueue'
         run: |
           kubectl apply --server-side -f https://github.com/kubernetes-sigs/kueue/releases/download/${{ env.KUEUE_VERSION }}/manifests.yaml
           # Kueue installs webhooks for pods, deployments and statefulsets with failurePolicy=Fail,
@@ -320,20 +308,28 @@ jobs:
           kubectl wait deploy/kueue-controller-manager -n kueue-system --for=condition=Available --timeout=5m
       - name: Run Spark K8s Operator Helm Tests
         run: |
-          helm install spark --create-namespace -f \
-          build-tools/helm/spark-kubernetes-operator/values.yaml -f \
-          tests/e2e/helm/helm-test-values/${{ matrix.test-group }}/values.yaml \
-          build-tools/helm/spark-kubernetes-operator/
-          helm test spark
-      - name: Verify Kueue RBAC is denied by default
-        if: matrix.test-group == 'kueue'
-        run: |
-          # The same impersonated check must answer "yes" first, otherwise a wrong subject
-          # would make the denial below vacuous.
-          kubectl auth can-i create workloads.kueue.x-k8s.io --as=system:serviceaccount:default:spark-operator
-          helm upgrade spark -f build-tools/helm/spark-kubernetes-operator/values.yaml \
-          build-tools/helm/spark-kubernetes-operator/
-          if kubectl auth can-i create workloads.kueue.x-k8s.io --as=system:serviceaccount:default:spark-operator; then exit 1; fi
+          for group in configmap-metadata kueue network-policy operator-command; do
+            echo "::group::Helm Tests: $group"
+            helm install spark --create-namespace -f \
+            build-tools/helm/spark-kubernetes-operator/values.yaml -f \
+            tests/e2e/helm/helm-test-values/$group/values.yaml \
+            build-tools/helm/spark-kubernetes-operator/
+            helm test spark
+            if [ "$group" = "kueue" ]; then
+              # Verify Kueue RBAC is denied by default. The same impersonated check must answer
+              # "yes" first, otherwise a wrong subject would make the denial below vacuous.
+              kubectl auth can-i create workloads.kueue.x-k8s.io --as=system:serviceaccount:default:spark-operator
+              helm upgrade spark -f build-tools/helm/spark-kubernetes-operator/values.yaml \
+              build-tools/helm/spark-kubernetes-operator/
+              if kubectl auth can-i create workloads.kueue.x-k8s.io --as=system:serviceaccount:default:spark-operator; then exit 1; fi
+            fi
+            helm uninstall spark --wait
+            # Uninstall deletes the operator pod in the background, so wait until it is gone
+            # before the next group's tests select the operator pod by its labels.
+            kubectl wait --for=delete pod --timeout=3m \
+            -l app.kubernetes.io/name=spark-kubernetes-operator,app.kubernetes.io/component=operator-deployment
+            echo "::endgroup::"
+          done
   lint:
     name: "Linter and documentation"
     runs-on: ubuntu-26.04
