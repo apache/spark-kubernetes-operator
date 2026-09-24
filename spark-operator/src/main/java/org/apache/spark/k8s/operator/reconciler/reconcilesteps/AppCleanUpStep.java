@@ -149,10 +149,9 @@ public final class AppCleanUpStep extends AppReconcileStep {
       return ReconcileProgress.proceed();
     }
 
-    if (KueueWorkloadFactory.hasQueueName(application)) {
-      // Release the quota. A restarted attempt is queued again with a new Workload.
-      KueueWorkloadUtils.releaseWorkload(context.getClient(), application);
-    }
+    // Release the quota, even of a Workload admitted before the queue label was removed. A
+    // restarted attempt is queued again with a new Workload only if the label is present.
+    KueueWorkloadUtils.releaseWorkload(context.getClient(), application);
     List<HasMetadata> resourcesToRemove = new ArrayList<>();
     if (isReleasingResourcesForSchedulingFailureAttempt(currentStatus)) {
       // if app failed at scheduling, re-compute all spec and delete as they may not be fully
@@ -223,7 +222,7 @@ public final class AppCleanUpStep extends AppReconcileStep {
    * without releasing its resources. The Workload is retained with them, so Kueue releases its
    * quota on that condition instead of the deletion which the other paths rely on. The
    * application does not restart on this path, so no later attempt would find the finished
-   * Workload.
+   * Workload. The Workload of an application whose queue label was removed is deleted instead.
    *
    * <p>Only an application in one of the {@link #FINISHED_KUEUE_STATES} is finished. The other
    * stopping states, the start timeouts and `SchedulingFailure`, leave a retained driver running,
@@ -248,6 +247,11 @@ public final class AppCleanUpStep extends AppReconcileStep {
           application,
           ApplicationStateSummary.Succeeded == stateSummary,
           terminationState.getMessage());
+    } else {
+      // A Workload admitted before the queue label was removed is deleted instead, since the
+      // application left Kueue. Unlike finishing it, the deletion takes a rejected access as no
+      // Workload for such an application.
+      KueueWorkloadUtils.releaseWorkload(context.getClient(), application);
     }
   }
 

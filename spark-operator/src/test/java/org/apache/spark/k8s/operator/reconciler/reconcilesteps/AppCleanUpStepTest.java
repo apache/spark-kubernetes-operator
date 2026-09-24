@@ -41,6 +41,8 @@ import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -146,7 +148,7 @@ class AppCleanUpStepTest {
   }
 
   @Test
-  void cleanupWithoutQueueNameDoesNotReleaseKueueWorkload() {
+  void cleanupWithoutQueueNameReleasesKueueWorkload() {
     SparkAppStatusRecorder mockRecorder = mock(SparkAppStatusRecorder.class);
     AppCleanUpStep cleanUpWithReason = new AppCleanUpStep(SparkAppStatusUtils::appCancelled);
     SparkApplication app = new SparkApplication();
@@ -154,13 +156,16 @@ class AppCleanUpStepTest {
     app.setStatus(prepareApplicationStatus(ApplicationStateSummary.RunningHealthy));
     SparkAppContext mockAppContext = mock(SparkAppContext.class);
     when(mockAppContext.getResource()).thenReturn(app);
-    when(mockAppContext.getClient()).thenReturn(mock(KubernetesClient.class));
+    KubernetesClient mockClient = mock(KubernetesClient.class);
+    when(mockAppContext.getClient()).thenReturn(mockClient);
     when(mockAppContext.getDriverPod()).thenReturn(Optional.empty());
     when(mockRecorder.appendNewStateAndPersist(eq(mockAppContext), any())).thenReturn(true);
 
     try (MockedStatic<KueueWorkloadUtils> kueue = Mockito.mockStatic(KueueWorkloadUtils.class)) {
       cleanUpWithReason.reconcile(mockAppContext, mockRecorder);
-      kueue.verifyNoInteractions();
+      // A Workload admitted before the queue label was removed is released as well
+      kueue.verify(() -> KueueWorkloadUtils.releaseWorkload(mockClient, app));
+      kueue.verifyNoMoreInteractions();
     }
   }
 
@@ -263,19 +268,21 @@ class AppCleanUpStepTest {
     }
   }
 
-  @Test
-  void cleanupWithRetainPolicyKeepsTheQuotaOfARetainedRunningDriver() {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void cleanupWithRetainPolicyKeepsTheQuotaOfARetainedRunningDriver(boolean labeled) {
     SparkAppStatusRecorder mockRecorder = mock(SparkAppStatusRecorder.class);
     SparkApplication app = new SparkApplication();
     app.setMetadata(
         new ObjectMetaBuilder()
             .withName("app1")
             .withNamespace("default")
-            .withLabels(Map.of(Constants.LABEL_QUEUE_NAME, "test-queue"))
+            .withLabels(labeled ? Map.of(Constants.LABEL_QUEUE_NAME, "test-queue") : Map.of())
             .build());
     app.setSpec(alwaysRetain);
     // These stopping states can retain a running driver, so its quota must not be released while
-    // it still occupies the capacity. An evicted driver is terminal and is covered separately.
+    // it still occupies the capacity, even if the queue label was removed. An evicted driver is
+    // terminal and is covered separately.
     for (ApplicationStateSummary stateSummary :
         List.of(
             ApplicationStateSummary.DriverStartTimedOut,
@@ -336,7 +343,7 @@ class AppCleanUpStepTest {
   }
 
   @Test
-  void cleanupWithRetainPolicyWithoutQueueNameDoesNotFinishKueueWorkload() {
+  void cleanupWithRetainPolicyWithoutQueueNameReleasesKueueWorkload() {
     SparkAppStatusRecorder mockRecorder = mock(SparkAppStatusRecorder.class);
     AppCleanUpStep routineCheck = new AppCleanUpStep();
     SparkApplication app = new SparkApplication();
@@ -345,13 +352,21 @@ class AppCleanUpStepTest {
     app.setStatus(prepareApplicationStatus(ApplicationStateSummary.Succeeded));
     SparkAppContext mockAppContext = mock(SparkAppContext.class);
     when(mockAppContext.getResource()).thenReturn(app);
-    when(mockAppContext.getClient()).thenReturn(mock(KubernetesClient.class));
+    KubernetesClient mockClient = mock(KubernetesClient.class);
+    when(mockAppContext.getClient()).thenReturn(mockClient);
     when(mockRecorder.appendNewStateAndPersist(eq(mockAppContext), any())).thenReturn(true);
 
     try (MockedStatic<KueueWorkloadUtils> kueue = Mockito.mockStatic(KueueWorkloadUtils.class)) {
       routineCheck.reconcile(mockAppContext, mockRecorder);
-      kueue.verifyNoInteractions();
+      // A Workload admitted before the queue label was removed is deleted instead of finished
+      kueue.verify(() -> KueueWorkloadUtils.releaseWorkload(mockClient, app));
+      kueue.verifyNoMoreInteractions();
     }
+    ArgumentCaptor<ApplicationState> captor = ArgumentCaptor.forClass(ApplicationState.class);
+    verify(mockRecorder).appendNewStateAndPersist(eq(mockAppContext), captor.capture());
+    Assertions.assertEquals(
+        ApplicationStateSummary.TerminatedWithoutReleaseResources,
+        captor.getValue().getCurrentStateSummary());
   }
 
   @Test
@@ -488,9 +503,11 @@ class AppCleanUpStepTest {
         when(mockRecorder.persistStatus(eq(mockAppContext), any())).thenReturn(true);
         when(mockRecorder.appendNewStateAndPersist(eq(mockAppContext), any())).thenReturn(true);
 
-        try (MockedStatic<ReconcilerUtils> utils = Mockito.mockStatic(ReconcilerUtils.class)) {
+        try (MockedStatic<ReconcilerUtils> utils = Mockito.mockStatic(ReconcilerUtils.class);
+            MockedStatic<KueueWorkloadUtils> kueue = Mockito.mockStatic(KueueWorkloadUtils.class)) {
           ReconcileProgress progress = cleanUpWithReason.reconcile(mockAppContext, mockRecorder);
           utils.verify(() -> ReconcilerUtils.deleteResourceIfExists(mockClient, driverPod, false));
+          kueue.verify(() -> KueueWorkloadUtils.releaseWorkload(mockClient, mockApp));
           Assertions.assertEquals(
               ReconcileProgress.completeAndRequeueAfter(Duration.ofMillis(2000)), progress);
         }
@@ -498,7 +515,7 @@ class AppCleanUpStepTest {
         verify(mockAppContext, times(1)).getResource();
         verify(mockApp, times(2)).getSpec();
         verify(mockApp, times(2)).getStatus();
-        verify(mockAppContext).getClient();
+        verify(mockAppContext, times(2)).getClient();
         verify(mockAppContext).getDriverPod();
         ArgumentCaptor<ApplicationState> captor = ArgumentCaptor.forClass(ApplicationState.class);
         verify(mockRecorder).appendNewStateAndPersist(eq(mockAppContext), captor.capture());
@@ -506,8 +523,6 @@ class AppCleanUpStepTest {
         Assertions.assertEquals(
             ApplicationStateSummary.ResourceReleased, appState.getCurrentStateSummary());
         Assertions.assertEquals(Constants.APP_CANCELLED_MESSAGE, appState.getMessage());
-        // The Kueue queue label is looked up before releasing the resources
-        verify(mockApp).getMetadata();
         verifyNoMoreInteractions(mockAppContext, mockRecorder, mockApp, mockClient, driverPod);
       }
     }
@@ -580,9 +595,11 @@ class AppCleanUpStepTest {
     when(mockRecorder.persistStatus(eq(mockAppContext), any())).thenReturn(true);
     when(mockRecorder.appendNewStateAndPersist(eq(mockAppContext), any())).thenReturn(true);
 
-    try (MockedStatic<ReconcilerUtils> utils = Mockito.mockStatic(ReconcilerUtils.class)) {
+    try (MockedStatic<ReconcilerUtils> utils = Mockito.mockStatic(ReconcilerUtils.class);
+        MockedStatic<KueueWorkloadUtils> kueue = Mockito.mockStatic(KueueWorkloadUtils.class)) {
       ReconcileProgress progress = cleanUpWithReason.reconcile(mockAppContext, mockRecorder);
       utils.verify(() -> ReconcilerUtils.deleteResourceIfExists(mockClient, driverPod, false));
+      kueue.verify(() -> KueueWorkloadUtils.releaseWorkload(mockClient, mockApp));
       Assertions.assertEquals(
           ReconcileProgress.completeAndRequeueAfter(Duration.ofMillis(2000)), progress);
     }
@@ -590,7 +607,7 @@ class AppCleanUpStepTest {
     verify(mockAppContext, times(1)).getResource();
     verify(mockApp, times(3)).getSpec();
     verify(mockApp, times(3)).getStatus();
-    verify(mockAppContext, times(2)).getClient();
+    verify(mockAppContext, times(3)).getClient();
     verify(mockAppContext).getDriverPod();
     ArgumentCaptor<ApplicationState> captor = ArgumentCaptor.forClass(ApplicationState.class);
     verify(mockRecorder).appendNewStateAndPersist(eq(mockAppContext), captor.capture());
@@ -598,8 +615,6 @@ class AppCleanUpStepTest {
     Assertions.assertEquals(
         ApplicationStateSummary.ResourceReleased, appState.getCurrentStateSummary());
     Assertions.assertEquals(Constants.APP_CANCELLED_MESSAGE, appState.getMessage());
-    // The Kueue queue label is looked up before releasing the resources
-    verify(mockApp).getMetadata();
     verifyNoMoreInteractions(mockAppContext, mockRecorder, mockApp, mockClient, driverPod);
   }
 
@@ -625,6 +640,8 @@ class AppCleanUpStepTest {
     when(mockApp2.getSpec()).thenReturn(spec);
     KubernetesClient mockClient = mock(KubernetesClient.class);
     when(mockAppContext1.getClient()).thenReturn(mockClient);
+    KubernetesClient mockClient2 = mock(KubernetesClient.class);
+    when(mockAppContext2.getClient()).thenReturn(mockClient2);
     Pod driverPod = mock(Pod.class);
     Pod driverPodSpec = mock(Pod.class);
     ConfigMap resource1 = mock(ConfigMap.class);
@@ -640,12 +657,15 @@ class AppCleanUpStepTest {
     when(mockRecorder.persistStatus(any(), any())).thenReturn(true);
     when(mockRecorder.appendNewStateAndPersist(any(), any())).thenReturn(true);
 
-    try (MockedStatic<ReconcilerUtils> utils = Mockito.mockStatic(ReconcilerUtils.class)) {
+    try (MockedStatic<ReconcilerUtils> utils = Mockito.mockStatic(ReconcilerUtils.class);
+        MockedStatic<KueueWorkloadUtils> kueue = Mockito.mockStatic(KueueWorkloadUtils.class)) {
       ReconcileProgress progress1 = cleanUpWithReason.reconcile(mockAppContext1, mockRecorder);
       ReconcileProgress progress2 = cleanUpWithReason.reconcile(mockAppContext2, mockRecorder);
       utils.verify(() -> ReconcilerUtils.deleteResourceIfExists(mockClient, resource1, false));
       utils.verify(() -> ReconcilerUtils.deleteResourceIfExists(mockClient, driverPodSpec, false));
       utils.verify(() -> ReconcilerUtils.deleteResourceIfExists(mockClient, resource2, false));
+      kueue.verify(() -> KueueWorkloadUtils.releaseWorkload(mockClient, mockApp1));
+      kueue.verify(() -> KueueWorkloadUtils.releaseWorkload(mockClient2, mockApp2));
       Assertions.assertEquals(
           ReconcileProgress.completeAndRequeueAfter(Duration.ofMillis(2000)), progress1);
       Assertions.assertEquals(
@@ -655,14 +675,14 @@ class AppCleanUpStepTest {
     verify(mockAppContext1, times(1)).getResource();
     verify(mockApp1, times(2)).getSpec();
     verify(mockApp1, times(2)).getStatus();
-    verify(mockAppContext1, times(3)).getClient();
+    verify(mockAppContext1, times(4)).getClient();
     verify(mockAppContext1).getDriverPreResourcesSpec();
     verify(mockAppContext1).getDriverPodSpec();
     verify(mockAppContext1).getDriverResourcesSpec();
     verify(mockAppContext2, times(1)).getResource();
     verify(mockApp2, times(2)).getSpec();
     verify(mockApp2, times(2)).getStatus();
-    verify(mockAppContext2, times(3)).getClient();
+    verify(mockAppContext2, times(4)).getClient();
     verify(mockAppContext2).getDriverPreResourcesSpec();
     verify(mockAppContext2).getDriverPodSpec();
     verify(mockAppContext2).getDriverResourcesSpec();
@@ -678,9 +698,6 @@ class AppCleanUpStepTest {
     Assertions.assertEquals(
         ApplicationStateSummary.ResourceReleased, appState2.getCurrentStateSummary());
     Assertions.assertEquals(Constants.APP_CANCELLED_MESSAGE, appState2.getMessage());
-    // The Kueue queue label is looked up before releasing the resources
-    verify(mockApp1).getMetadata();
-    verify(mockApp2).getMetadata();
     verifyNoMoreInteractions(
         mockAppContext1, mockAppContext2, mockRecorder, mockApp1, mockApp2, mockClient, driverPod);
   }
