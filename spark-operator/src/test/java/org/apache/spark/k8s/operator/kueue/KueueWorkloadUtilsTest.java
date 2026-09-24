@@ -923,6 +923,8 @@ class KueueWorkloadUtilsTest {
     Workload updated = getWorkload();
     Assertions.assertEquals(uid, updated.getMetadata().getUid());
     Assertions.assertEquals("another-queue", updated.getSpec().getQueueName());
+    Assertions.assertEquals(
+        "another-queue", updated.getMetadata().getLabels().get(Constants.LABEL_QUEUE_NAME));
     Assertions.assertEquals("high", updated.getSpec().getPriorityClassRef().getName());
     Assertions.assertEquals(1000, updated.getSpec().getPriority());
   }
@@ -960,6 +962,25 @@ class KueueWorkloadUtilsTest {
         KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1)).result());
     Assertions.assertEquals("low", getWorkload().getSpec().getPriorityClassRef().getName());
     Assertions.assertEquals(10, getWorkload().getSpec().getPriority());
+  }
+
+  @Test
+  void quotaReservedWorkloadKeepsItsQueue() {
+    createWorkloadPriorityClass("low", 10);
+    createWorkloadPriorityClass("high", 1000);
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithPriorityClass("low"));
+    reserveQuota();
+
+    // Kueue freezes the queue name once the quota is reserved, while the name of a
+    // WorkloadPriorityClass stays mutable, so only the priority follows in the same update
+    Workload moved = workloadWithPriorityClass("high");
+    moved.getSpec().setQueueName("another-queue");
+    Assertions.assertEquals(
+        AdmissionResult.PENDING,
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, moved).result());
+    Assertions.assertEquals("test-queue", getWorkload().getSpec().getQueueName());
+    Assertions.assertEquals("high", getWorkload().getSpec().getPriorityClassRef().getName());
+    Assertions.assertEquals(1000, getWorkload().getSpec().getPriority());
   }
 
   @Test

@@ -167,14 +167,18 @@ public final class KueueWorkloadUtils {
     WorkloadSpec spec = workload.getSpec();
     boolean changed = false;
     String desiredQueueName = desired.getSpec().getQueueName();
-    if (!Objects.equals(spec.getQueueName(), desiredQueueName)) {
-      // Like Kueue, a queue label changed while waiting moves the Workload to the new queue in
-      // place, since it holds no quota yet.
+    boolean quotaReserved = workload.getStatus() != null && workload.getStatus().isQuotaReserved();
+    if (!quotaReserved && !Objects.equals(spec.getQueueName(), desiredQueueName)) {
+      // Like Kueue, a queue label changed before the quota is reserved moves the Workload to the
+      // new queue in place. After that, the Workload CEL rules freeze its queue name.
       log.info(
           "Moving the pending Kueue Workload {} to queue {}.",
           workload.getMetadata().getName(),
           desiredQueueName);
       spec.setQueueName(desiredQueueName);
+      Map<String, String> labels = new HashMap<>(workload.getMetadata().getLabels());
+      labels.put(Constants.LABEL_QUEUE_NAME, desiredQueueName);
+      workload.getMetadata().setLabels(labels);
       changed = true;
     }
     PriorityClassRef desiredPriorityClassRef = desired.getSpec().getPriorityClassRef();
