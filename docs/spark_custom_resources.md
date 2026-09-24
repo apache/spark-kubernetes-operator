@@ -662,7 +662,9 @@ spec:
   well above the default the `Workload` requests.
 * Like Kueue built-in integrations, the `nodeLabels` and `tolerations` of the `ResourceFlavor`s
   assigned to a pod set are added to the node selector and tolerations of its pods. The executor
-  pods get them through the executor pod template, which the operator creates if not set. A node
+  pods get them through the executor pod template, which the operator creates if not set. They
+  stay on the pods even if the `kueue.x-k8s.io/queue-name` label is removed after the admission,
+  since the `Workload` keeps the quota until it is released with the resources. A node
   label that conflicts with the node selector of the pods fails the resource with
   `SchedulingFailure`, and deletes the `Workload` unless its driver or master is running already,
   whose pods still hold the quota it reserved. Only fixing the node selector or the flavor

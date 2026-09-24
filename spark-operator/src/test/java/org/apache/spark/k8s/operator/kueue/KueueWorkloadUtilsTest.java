@@ -192,14 +192,21 @@ class KueueWorkloadUtilsTest {
 
   @Test
   void admittedWorkloadOfDequeuedResourceIsKept() {
+    createFlavor("spot-flavor", Map.of("pool", "spot"), List.of(toleration("spot")));
     KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1));
-    admitWorkload();
+    admit(admittedWorkload(Map.of("executor", Map.of("cpu", "spot-flavor"))).getStatus());
     SparkAppContext context = context(kubernetesClient);
     when(context.getCachedKueueWorkload()).thenReturn(Optional.of(getWorkload()));
 
     // The resources it was admitted for may be running already
     Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.releaseDequeuedWorkload(context));
     Assertions.assertNotNull(getWorkload());
+    // They are applied again, so the flavors which Kueue assigned to them are not dropped
+    verify(context)
+        .setKueuePodSetFlavors(
+            Map.of(
+                "executor",
+                new KueuePodSetFlavor(Map.of("pool", "spot"), List.of(toleration("spot")))));
   }
 
   @Test
