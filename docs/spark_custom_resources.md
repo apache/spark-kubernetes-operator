@@ -680,6 +680,24 @@ spec:
   terminating pods still occupy the quota. The `Workload` is deleted even if the
   `kueue.x-k8s.io/queue-name` label was removed after the admission. The resource is queued again
   when it is resumed with the `kueue.x-k8s.io/queue-name` label.
+* Like the webhooks of Kueue built-in integrations, which let only a suspended job change its queue,
+  the Helm chart installs a `ValidatingAdmissionPolicy` with `operatorRbac.kueue.enabled`. It
+  rejects an update that adds, changes or removes the `kueue.x-k8s.io/queue-name` label of a
+  `SparkApplication` or a `SparkCluster` once its status says that it started, since the `Workload`
+  admitted for it keeps its quota in that queue. The label may change again when a
+  `SparkApplication` is `ScheduledToRestart`, whose next attempt is queued with a new `Workload`, or
+  when a `SparkCluster` is `Suspended`. So the label of a terminated resource, e.g. `Failed`, stays
+  as it was. To move a running `SparkCluster` to another queue, set `spec.suspend` to `true`, change
+  the label once the cluster is `Suspended`, and then resume it, while a running `SparkApplication`
+  moves with its next attempt. Before a resource starts, the operator follows the label as described
+  above. The policy reads only the status, so a resource whose first status is not persisted yet,
+  e.g. after the update following the request of its driver or master failed, looks like it has not
+  started. Its label may still change then, while the operator keeps the admitted `Workload` of such
+  a resource. The policy is cluster-scoped, so it is named `<release name>-spark-kueue-queue-name`
+  and matches only the namespaces which the chart sets as the watched namespaces, or all namespaces
+  if `workloadResources.namespaces.overrideWatchedNamespaces` is disabled. Whoever installs the
+  chart needs access to the `validatingadmissionpolicies` and `validatingadmissionpolicybindings` of
+  `admissionregistration.k8s.io`, while the operator does not.
 * Once the integration is disabled or the access of the operator to `Workload`s is revoked, e.g.
   by disabling `operatorRbac.kueue.enabled`, the operator no longer deletes them, and a `Workload`
   left behind keeps its quota until its owner is deleted. While the integration stays enabled
