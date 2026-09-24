@@ -663,7 +663,12 @@ spec:
   `SparkCluster` deletes its `Workload` only after its master and worker pods are gone, since
   terminating pods still occupy the quota. The `Workload` is deleted even if the
   `kueue.x-k8s.io/queue-name` label was removed after the admission. The resource is queued again
-  when it is resumed.
+  when it is resumed with the `kueue.x-k8s.io/queue-name` label.
+* Once the access of the operator to `Workload`s is revoked, e.g. by disabling
+  `operatorRbac.kueue.enabled`, it can no longer delete them, and a `Workload` left behind keeps
+  its quota until its owner is deleted. Delete them before revoking the access, e.g. with
+  `kubectl delete workloads -A -l spark.operator/spark-app-name` and
+  `kubectl delete workloads -A -l spark.operator/spark-cluster-name`.
 * Dynamic allocation, a `SparkCluster` with `minWorkers < maxWorkers`, and pod template files set
   through `spark.kubernetes.{driver,executor}.podTemplateFile` are not supported yet. Such a
   resource fails with `SchedulingFailure` instead of being queued.

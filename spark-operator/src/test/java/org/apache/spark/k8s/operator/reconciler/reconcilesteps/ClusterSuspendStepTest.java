@@ -259,10 +259,12 @@ class ClusterSuspendStepTest {
   @SuppressWarnings("unchecked")
   void forbiddenKueueWorkloadReleaseIsIgnoredOnlyWithoutKueueAccess(
       boolean labeled, boolean informerEnabled) {
-    SparkCluster cluster =
-        labeled
-            ? buildKueueCluster(ClusterStateSummary.Suspended, true)
-            : buildCluster(ClusterStateSummary.Suspended, true);
+    // The Workload was admitted while the cluster was labeled, and its deletion is now denied
+    SparkCluster cluster = buildKueueCluster(ClusterStateSummary.Suspended, true);
+    kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(cluster)).create();
+    if (!labeled) {
+      cluster.getMetadata().setLabels(Map.of());
+    }
     KubernetesClient client = spy(kubernetesClient);
     MixedOperation<Workload, KubernetesResourceList<Workload>, Resource<Workload>> workloads =
         mock(MixedOperation.class);
@@ -285,6 +287,7 @@ class ClusterSuspendStepTest {
     }
 
     verify(workload).delete();
+    Assertions.assertNotNull(getWorkload());
     if (labeled || informerEnabled) {
       // A queued cluster, or an operator which watches Workloads, is expected to have the access,
       // so the release is reported and retried
@@ -293,7 +296,9 @@ class ClusterSuspendStepTest {
       verify(eventRecorder).record(event.capture());
       Assertions.assertEquals(EventUtils.REASON_SUSPEND_RELEASE_FAILED, event.getValue().reason());
     } else {
-      // An operator without access to Workloads could not have created one to release
+      // A rejection cannot tell an operator which was never granted the access apart from one
+      // whose access was revoked, and failing would keep the former from ever resuming the
+      // cluster, so the Workload is left behind as documented
       Assertions.assertEquals(SUSPEND_HOLD_PROGRESS, progress);
       verifyNoInteractions(eventRecorder);
     }

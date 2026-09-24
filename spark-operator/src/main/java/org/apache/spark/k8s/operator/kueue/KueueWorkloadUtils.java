@@ -519,14 +519,19 @@ public final class KueueWorkloadUtils {
   /**
    * Deletes the Workload of the given resource and reports whether one was there to delete, unlike
    * {@link #releaseWorkload} without swallowing the failure. A Workload admitted before the queue
-   * label of the owner was removed is deleted as well. Without the label, an operator which does
-   * not watch Workloads may not be granted access to them, and then it has none to delete, so the
-   * rejection is taken as no Workload. One without Kueue installed is answered with a 404, which
-   * the deletion ignores.
+   * label of the owner was removed is deleted as well. One without Kueue installed is answered with
+   * a 404, which the deletion ignores.
+   *
+   * <p>Without the label, an operator which does not watch Workloads may not be granted access to
+   * them, e.g. with Kueue installed for other workloads, so its rejected deletion is taken as no
+   * Workload. The rejection cannot tell such an operator apart from one whose access was revoked
+   * after it created a Workload, and a read would be rejected as well. Such a Workload is left
+   * behind, since retrying cannot delete it either, while failing would keep every suspended
+   * resource of an operator without the access from resuming.
    *
    * @param client The KubernetesClient.
    * @param owner The SparkApplication or SparkCluster owning the Workload.
-   * @return True if a Workload was deleted, false if there was none.
+   * @return True if a Workload was deleted, false if there was none or it may not be deleted.
    * @throws KubernetesClientException if the Workload cannot be deleted.
    */
   public static boolean deleteWorkloadOf(final KubernetesClient client, final HasMetadata owner) {
