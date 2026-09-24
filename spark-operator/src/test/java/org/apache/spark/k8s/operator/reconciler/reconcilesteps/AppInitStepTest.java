@@ -1440,6 +1440,38 @@ class AppInitStepTest {
     Assertions.assertNotNull(getWorkload());
   }
 
+  @Test
+  void queueLabelRemovedAfterAdmissionStartsDriverWithoutKueueFlavors() {
+    // Removed from the queue after the admission but before the driver was requested, so the
+    // driver starts without Kueue, and a flavor which cannot be read must not hold it back
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(kueueApplicationMetadata);
+    kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(application)).create();
+    admitWorkload(Map.of("driver", Map.of("cpu", "missing-flavor")));
+    application.getMetadata().setLabels(Map.of());
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+    when(mockContext.getCachedKueueWorkload()).thenReturn(Optional.of(getWorkload()));
+    when(mockContext.getCurrentAttemptDriverPod()).thenReturn(Optional.empty());
+    when(mockContext.getDriverPreResourcesSpec()).thenReturn(List.of());
+    when(mockContext.getDriverPodSpec()).thenReturn(driverPodSpec);
+    when(mockContext.getDriverResourcesSpec()).thenReturn(List.of());
+    when(recorder.persistStatus(any(), any())).thenReturn(true);
+
+    ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
+
+    Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
+    verify(mockContext, never()).setKueuePodSetFlavors(any());
+    Assertions.assertNotNull(
+        kubernetesClient.pods().inNamespace("default").withName("driver-pod").get());
+    // The admitted Workload is released with the driver, like the one of a queued application
+    Assertions.assertNotNull(getWorkload());
+  }
+
   private void createFlavor(
       String name, Map<String, String> nodeLabels, List<Toleration> tolerations) {
     ResourceFlavor flavor = new ResourceFlavor();

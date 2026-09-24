@@ -35,6 +35,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.BooleanSupplier;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.fabric8.kubernetes.api.model.Condition;
@@ -60,6 +61,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 
 import org.apache.spark.k8s.operator.Constants;
@@ -186,12 +189,14 @@ class KueueWorkloadUtilsTest {
 
     // The queue label was removed while the Workload waited, so the resource starts without Kueue
     // and the Workload would be admitted later into quota which nothing uses
-    Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.releaseDequeuedWorkload(context));
+    Assertions.assertEquals(
+        Optional.empty(), KueueWorkloadUtils.handleDequeuedWorkload(context, () -> true));
     Assertions.assertNull(getWorkload());
   }
 
-  @Test
-  void admittedWorkloadOfDequeuedResourceIsKept() {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void admittedWorkloadOfDequeuedResourceIsKept(boolean requested) {
     createFlavor("spot-flavor", Map.of("pool", "spot"), List.of(toleration("spot")));
     KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1));
     admit(admittedWorkload(Map.of("executor", Map.of("cpu", "spot-flavor"))).getStatus());
@@ -199,24 +204,32 @@ class KueueWorkloadUtilsTest {
     when(context.getCachedKueueWorkload()).thenReturn(Optional.of(getWorkload()));
 
     // The resources it was admitted for may be running already
-    Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.releaseDequeuedWorkload(context));
+    Assertions.assertEquals(
+        Optional.empty(), KueueWorkloadUtils.handleDequeuedWorkload(context, () -> requested));
     Assertions.assertNotNull(getWorkload());
-    // They are applied again, so the flavors which Kueue assigned to them are not dropped
-    verify(context)
-        .setKueuePodSetFlavors(
-            Map.of(
-                "executor",
-                new KueuePodSetFlavor(Map.of("pool", "spot"), List.of(toleration("spot")))));
+    if (requested) {
+      // They are applied again, so the flavors which Kueue assigned to them are not dropped
+      verify(context)
+          .setKueuePodSetFlavors(
+              Map.of(
+                  "executor",
+                  new KueuePodSetFlavor(Map.of("pool", "spot"), List.of(toleration("spot")))));
+    } else {
+      // They start without Kueue, so the flavors are not read, which could hold them back
+      verify(context, never()).setKueuePodSetFlavors(any());
+    }
   }
 
   @Test
   void resourceWithoutCachedWorkloadIsNotReleased() {
     KubernetesClient client = mock(KubernetesClient.class);
     SparkAppContext context = context(client);
+    BooleanSupplier requested = mock(BooleanSupplier.class);
 
-    // A resource which was never queued costs no request
-    Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.releaseDequeuedWorkload(context));
-    verifyNoInteractions(client);
+    // A resource which was never queued costs no request, not even the lookup of its driver
+    Assertions.assertEquals(
+        Optional.empty(), KueueWorkloadUtils.handleDequeuedWorkload(context, requested));
+    verifyNoInteractions(client, requested);
   }
 
   @Test
@@ -231,7 +244,7 @@ class KueueWorkloadUtilsTest {
     // The resources are not requested while the Workload may still be admitted for nothing
     Assertions.assertEquals(
         Optional.of(ReconcileProgress.completeAndDefaultRequeue()),
-        KueueWorkloadUtils.releaseDequeuedWorkload(context));
+        KueueWorkloadUtils.handleDequeuedWorkload(context, () -> true));
   }
 
   @Test
