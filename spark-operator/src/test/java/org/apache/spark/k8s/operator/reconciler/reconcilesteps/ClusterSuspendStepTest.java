@@ -255,11 +255,11 @@ class ClusterSuspendStepTest {
   }
 
   @ParameterizedTest
-  @CsvSource({"true, false", "false, true", "false, false"})
+  @CsvSource({"true, false, 403", "false, true, 403", "false, false, 403", "false, false, 500"})
   @SuppressWarnings("unchecked")
   void forbiddenKueueWorkloadReleaseIsIgnoredOnlyWithoutKueueAccess(
-      boolean labeled, boolean informerEnabled) {
-    // The Workload was admitted while the cluster was labeled, and its deletion is now denied
+      boolean labeled, boolean informerEnabled, int code) {
+    // The Workload was admitted while the cluster was labeled, and its deletion now fails
     SparkCluster cluster = buildKueueCluster(ClusterStateSummary.Suspended, true);
     kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(cluster)).create();
     if (!labeled) {
@@ -274,7 +274,7 @@ class ClusterSuspendStepTest {
     doReturn(workloads).when(client).resources(Workload.class);
     when(workloads.inNamespace("default")).thenReturn(namespaced);
     when(namespaced.withName("sparkcluster-cluster1")).thenReturn(workload);
-    when(workload.delete()).thenThrow(new KubernetesClientException("Forbidden", 403, null));
+    when(workload.delete()).thenThrow(new KubernetesClientException("failed", code, null));
     stubContext(cluster, client);
     when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
 
@@ -288,9 +288,9 @@ class ClusterSuspendStepTest {
 
     verify(workload).delete();
     Assertions.assertNotNull(getWorkload());
-    if (labeled || informerEnabled) {
+    if (labeled || informerEnabled || code != 403) {
       // A queued cluster, or an operator which watches Workloads, is expected to have the access,
-      // so the release is reported and retried
+      // and only a rejection may mean that it lacks it, so the release is reported and retried
       Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
       ArgumentCaptor<EventRecord> event = ArgumentCaptor.forClass(EventRecord.class);
       verify(eventRecorder).record(event.capture());

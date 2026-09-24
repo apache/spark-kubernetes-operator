@@ -666,7 +666,9 @@ spec:
   when it is resumed with the `kueue.x-k8s.io/queue-name` label.
 * Once the access of the operator to `Workload`s is revoked, e.g. by disabling
   `operatorRbac.kueue.enabled`, it can no longer delete them, and a `Workload` left behind keeps
-  its quota until its owner is deleted. Before revoking the access, let the queued
+  its quota until its owner is deleted. A suspended `SparkCluster` which still carries the
+  `kueue.x-k8s.io/queue-name` label does not resume either, until its `Workload` is gone or the
+  access is restored. Before revoking the access, let the queued
   `SparkApplication`s finish or suspend those which have not started yet, and suspend the queued
   `SparkCluster`s, so that the operator releases their `Workload`s itself. Then list the remaining
   ones with `kubectl get workloads -A -l spark.operator/spark-app-name` and
