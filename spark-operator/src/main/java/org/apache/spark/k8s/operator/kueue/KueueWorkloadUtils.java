@@ -39,6 +39,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.function.BooleanSupplier;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -381,21 +382,33 @@ public final class KueueWorkloadUtils {
   }
 
   /**
-   * Releases the pending Workload of a resource whose queue label was removed while it waited for
-   * the admission. The resource now starts without Kueue, so Kueue would otherwise admit the
-   * Workload later into quota which nothing uses. An admitted Workload is kept, since the
-   * resources it was admitted for may be running already, and it is released with them like the
-   * Workload of a queued resource. Like the admission request, a failed release is retried before
-   * the resources are requested.
+   * Handles the Workload of a resource whose queue label was removed. A pending Workload is
+   * released, since the resource now starts without Kueue, so Kueue would otherwise admit it later
+   * into quota which nothing uses. An admitted Workload is kept, since the resources it was
+   * admitted for may be running already, and it is released with them like the Workload of a
+   * queued resource. If they were requested already, its flavors are applied again like {@link
+   * #applyAdmittedFlavors}, since the secondary resources are applied again in this reconcile.
+   * Otherwise they start without Kueue, so the flavors are not read, which must not hold them
+   * back. Like the admission request, a failed release is retried before the resources are
+   * requested.
    *
    * @param context The context of the resource without a queue name label.
-   * @return The progress to return while the release fails, or empty to proceed.
+   * @param requested Whether the driver or master was requested already. It is checked only for
+   *     an admitted Workload, so that a resource without one costs no lookup.
+   * @return The progress to return while the release or the read of the flavors fails, or empty to
+   *     proceed.
+   * @throws IllegalArgumentException if a node label of the flavors of an admitted Workload
+   *     conflicts with the node selector of a pod set of the requested resources, like {@link
+   *     #applyAdmittedFlavors}.
    */
-  public static Optional<ReconcileProgress> releaseDequeuedWorkload(
-      final BaseContext<?> context) {
+  public static Optional<ReconcileProgress> handleDequeuedWorkload(
+      final BaseContext<?> context, final BooleanSupplier requested) {
     Optional<Workload> workload = context.getCachedKueueWorkload();
-    if (workload.isEmpty() || isAdmitted(workload.get())) {
+    if (workload.isEmpty()) {
       return Optional.empty();
+    }
+    if (isAdmitted(workload.get())) {
+      return requested.getAsBoolean() ? applyAdmittedFlavors(context) : Optional.empty();
     }
     log.info(
         "Deleting the pending Kueue Workload {} whose owner was removed from the queue.",

@@ -69,6 +69,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
@@ -989,20 +990,26 @@ class ClusterInitStepTest {
     }
   }
 
-  @Test
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
   @SuppressWarnings("unchecked")
-  void kueueFlavorsAreAppliedAgainWhenTheMasterExists() {
+  void kueueFlavorsAreAppliedAgainWhenTheMasterExists(boolean queueLabelRemoved) {
     // The StatefulSets are applied again while the status update to RunningHealthy is retried, so
-    // they must not be rebuilt without the flavors their pods were created with.
+    // they must not be rebuilt without the flavors their pods were created with, even if the queue
+    // label was removed meanwhile.
     ClusterInitStep clusterInitStep = new ClusterInitStep();
     SparkClusterContext mockContext = mock(SparkClusterContext.class);
     SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
     SparkCluster cluster = buildKueueCluster();
+    Workload admitted = admittedWorkload(cluster, Map.of("master", Map.of("cpu", "spot-flavor")));
+    if (queueLabelRemoved) {
+      cluster.getMetadata().setLabels(Map.of());
+      when(mockContext.getCachedKueueWorkload()).thenReturn(Optional.of(admitted));
+    }
     Toleration spot = new Toleration("NoSchedule", "spot", "Exists", null, null);
     KubernetesClient mockClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
     when(mockClient.resource(masterStatefulSetSpec).get()).thenReturn(masterStatefulSetSpec);
-    stubWorkloadRead(
-        mockClient, admittedWorkload(cluster, Map.of("master", Map.of("cpu", "spot-flavor"))));
+    Resource<Workload> workload = stubWorkloadRead(mockClient, admitted);
     stubFlavorRead(mockClient, flavor("spot-flavor", Map.of("pool", "spot"), List.of(spot)));
     ServerSideApplicable<Service> serviceApplicable = mock(ServerSideApplicable.class);
     ServiceResource<Service> serviceResource = mock(ServiceResource.class);
@@ -1039,8 +1046,9 @@ class ClusterInitStepTest {
         .setKueuePodSetFlavors(
             Map.of("master", new KueuePodSetFlavor(Map.of("pool", "spot"), List.of(spot))));
     inOrder.verify(mockContext).getMasterStatefulSetSpec();
-    // The admission is not requested again for a master which exists
+    // The admission is not requested again for a master which exists, nor is the Workload released
     verify(mockClient, never()).resource(any(Workload.class));
+    verify(workload, never()).delete();
   }
 
   @Test

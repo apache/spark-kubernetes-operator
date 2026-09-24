@@ -178,8 +178,9 @@ public final class AppInitStep extends AppReconcileStep {
    * An unsupported spec fails to build the Workload, which the caller turns into SchedulingFailure.
    * Unlike the driver resources, an API failure of the admission request is retried, see {@link
    * KueueWorkloadUtils#holdForAdmission}. An application without the label releases the Workload
-   * left pending from before the label was removed instead, see {@link
-   * KueueWorkloadUtils#releaseDequeuedWorkload}.
+   * left pending from before the label was removed instead, or applies the flavors of the one
+   * admitted before to a driver requested before, see {@link
+   * KueueWorkloadUtils#handleDequeuedWorkload}.
    *
    * @param context The SparkAppContext for the application.
    * @param app The SparkApplication.
@@ -187,14 +188,14 @@ public final class AppInitStep extends AppReconcileStep {
    */
   private Optional<ReconcileProgress> holdForKueueAdmission(
       SparkAppContext context, SparkApplication app) {
-    if (!KueueWorkloadFactory.hasQueueName(app)) {
-      return KueueWorkloadUtils.releaseDequeuedWorkload(context);
-    }
-    if (!KUEUE_ENABLED.getValue()) {
-      KueueWorkloadUtils.warnQueueNameIgnored(context);
-      return Optional.empty();
-    }
     try {
+      if (!KueueWorkloadFactory.hasQueueName(app)) {
+        return KueueWorkloadUtils.handleDequeuedWorkload(context, () -> isDriverRequested(context));
+      }
+      if (!KUEUE_ENABLED.getValue()) {
+        KueueWorkloadUtils.warnQueueNameIgnored(context);
+        return Optional.empty();
+      }
       if (isDriverRequested(context)) {
         // The driver resources are applied again in this reconcile, so the flavors of the Workload
         // which was admitted before are resolved again instead of dropping them from the resources.

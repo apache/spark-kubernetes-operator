@@ -215,8 +215,9 @@ public final class ClusterInitStep extends ClusterReconcileStep {
    * unsupported spec fails to build the Workload, which the caller turns into SchedulingFailure.
    * SchedulingFailure is terminal for a cluster, so an API failure of the admission request is
    * retried instead, see {@link KueueWorkloadUtils#holdForAdmission}. A cluster without the label
-   * releases the Workload left pending from before the label was removed instead, see {@link
-   * KueueWorkloadUtils#releaseDequeuedWorkload}.
+   * releases the Workload left pending from before the label was removed instead, or applies the
+   * flavors of the one admitted before to a master requested before, see {@link
+   * KueueWorkloadUtils#handleDequeuedWorkload}.
    *
    * @param context The SparkClusterContext for the cluster.
    * @param cluster The SparkCluster.
@@ -224,14 +225,14 @@ public final class ClusterInitStep extends ClusterReconcileStep {
    */
   private Optional<ReconcileProgress> holdForKueueAdmission(
       SparkClusterContext context, SparkCluster cluster) {
-    if (!KueueWorkloadFactory.hasQueueName(cluster)) {
-      return KueueWorkloadUtils.releaseDequeuedWorkload(context);
-    }
-    if (!KUEUE_ENABLED.getValue()) {
-      KueueWorkloadUtils.warnQueueNameIgnored(context);
-      return Optional.empty();
-    }
     try {
+      if (!KueueWorkloadFactory.hasQueueName(cluster)) {
+        return KueueWorkloadUtils.handleDequeuedWorkload(context, () -> isMasterRequested(context));
+      }
+      if (!KUEUE_ENABLED.getValue()) {
+        KueueWorkloadUtils.warnQueueNameIgnored(context);
+        return Optional.empty();
+      }
       if (isMasterRequested(context)) {
         // The master and worker StatefulSets are applied again in this reconcile, so the flavors
         // of the Workload which was admitted before are resolved again instead of dropping them
