@@ -79,6 +79,7 @@ import org.apache.spark.k8s.operator.SparkAppSubmissionWorker;
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.config.SparkOperatorConf;
 import org.apache.spark.k8s.operator.context.SparkAppContext;
+import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils;
 import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
 import org.apache.spark.k8s.operator.kueue.v1beta2.WorkloadStatus;
 import org.apache.spark.k8s.operator.metrics.healthcheck.SentinelManager;
@@ -141,7 +142,8 @@ class SparkAppReconcilerTest {
                   when(mock.getDriverPreResourcesSpec()).thenReturn(List.of());
                   when(mock.getDriverResourcesSpec()).thenReturn(List.of());
                 });
-        MockedStatic<ReconcilerUtils> utils = Mockito.mockStatic(ReconcilerUtils.class)) {
+        MockedStatic<ReconcilerUtils> utils = Mockito.mockStatic(ReconcilerUtils.class);
+        MockedStatic<KueueWorkloadUtils> kueue = Mockito.mockStatic(KueueWorkloadUtils.class)) {
       // delete running app
       app.setStatus(
           app.getStatus()
@@ -149,6 +151,7 @@ class SparkAppReconcilerTest {
       DeleteControl deleteControl = reconciler.cleanup(app, mockContext);
       assertFalse(deleteControl.isRemoveFinalizer());
       utils.verify(() -> ReconcilerUtils.deleteResourceIfExists(mockClient, mockDriver, false));
+      kueue.verify(() -> KueueWorkloadUtils.releaseWorkload(mockClient, app));
       assertEquals(
           ApplicationStateSummary.ResourceReleased,
           app.getStatus().getCurrentState().getCurrentStateSummary());
@@ -173,7 +176,8 @@ class SparkAppReconcilerTest {
                   when(mock.getDriverPreResourcesSpec()).thenReturn(List.of());
                   when(mock.getDriverResourcesSpec()).thenReturn(List.of());
                 });
-        MockedStatic<ReconcilerUtils> utils = Mockito.mockStatic(ReconcilerUtils.class)) {
+        MockedStatic<ReconcilerUtils> utils = Mockito.mockStatic(ReconcilerUtils.class);
+        MockedStatic<KueueWorkloadUtils> kueue = Mockito.mockStatic(KueueWorkloadUtils.class)) {
       // delete app
       app.setStatus(
           app.getStatus()
@@ -183,6 +187,7 @@ class SparkAppReconcilerTest {
       DeleteControl deleteControl = reconciler.cleanup(app, mockContext);
       assertFalse(deleteControl.isRemoveFinalizer());
       utils.verify(() -> ReconcilerUtils.deleteResourceIfExists(mockClient, mockDriver, false));
+      kueue.verify(() -> KueueWorkloadUtils.releaseWorkload(mockClient, app));
       assertEquals(
           ApplicationStateSummary.ResourceReleased,
           app.getStatus().getCurrentState().getCurrentStateSummary());

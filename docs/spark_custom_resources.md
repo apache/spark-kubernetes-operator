@@ -637,8 +637,13 @@ spec:
   seconds may be observed only after its driver completed. It then reports its terminal state up
   to one refresh period late, without the driver states in between such as `DriverStarted`.
 * When a `SparkApplication` attempt stops and its resources are released, the operator deletes the
-  `Workload` so that Kueue releases the quota. A restarted attempt is queued again. Resources
-  retained by `resourceRetainPolicy` keep the quota until they are released.
+  `Workload` so that Kueue releases the quota, even if the `kueue.x-k8s.io/queue-name` label was
+  removed after the admission. A restarted attempt is queued again with the label. When the
+  resources are retained by `resourceRetainPolicy`, the `Workload` of a `Succeeded`, `Failed`, or
+  `DriverEvicted` application gets the Kueue `Finished` condition instead, which releases the
+  quota while keeping the `Workload`, or is deleted if the label was removed. Other retained
+  resources, e.g. a driver still running after a start timeout, keep the quota until they are
+  released.
 * A `SparkCluster` requests the resources set on the `master` and `worker` containers of its pod
   templates. A missing request defaults to the limit, or else to 1 CPU and `SPARK_DAEMON_MEMORY`
   plus overhead. A worker uses `SPARK_WORKER_CORES` for the CPU and adds `SPARK_WORKER_MEMORY` to
