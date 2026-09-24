@@ -41,6 +41,8 @@ import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -266,19 +268,21 @@ class AppCleanUpStepTest {
     }
   }
 
-  @Test
-  void cleanupWithRetainPolicyKeepsTheQuotaOfARetainedRunningDriver() {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void cleanupWithRetainPolicyKeepsTheQuotaOfARetainedRunningDriver(boolean labeled) {
     SparkAppStatusRecorder mockRecorder = mock(SparkAppStatusRecorder.class);
     SparkApplication app = new SparkApplication();
     app.setMetadata(
         new ObjectMetaBuilder()
             .withName("app1")
             .withNamespace("default")
-            .withLabels(Map.of(Constants.LABEL_QUEUE_NAME, "test-queue"))
+            .withLabels(labeled ? Map.of(Constants.LABEL_QUEUE_NAME, "test-queue") : Map.of())
             .build());
     app.setSpec(alwaysRetain);
     // These stopping states can retain a running driver, so its quota must not be released while
-    // it still occupies the capacity. An evicted driver is terminal and is covered separately.
+    // it still occupies the capacity, even if the queue label was removed. An evicted driver is
+    // terminal and is covered separately.
     for (ApplicationStateSummary stateSummary :
         List.of(
             ApplicationStateSummary.DriverStartTimedOut,
