@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 
 import io.fabric8.kubernetes.api.model.ConditionBuilder;
@@ -86,6 +87,9 @@ import org.apache.spark.k8s.operator.metrics.healthcheck.SentinelManager;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppReconcileStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppResourceObserveStep;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
+import org.apache.spark.k8s.operator.spec.ApplicationTolerations;
+import org.apache.spark.k8s.operator.spec.RestartConfig;
+import org.apache.spark.k8s.operator.spec.RestartPolicy;
 import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
@@ -218,6 +222,106 @@ class SparkAppReconcilerTest {
       DeleteControl deleteControl = reconciler.cleanup(app, mockContext);
       assertTrue(deleteControl.isRemoveFinalizer());
       utils.verifyNoInteractions();
+    }
+  }
+
+  @SuppressWarnings("PMD.UnusedLocalVariable")
+  @Test
+  void testCleanupKeepsFinalizerAndKueueWorkloadWhileDriverOrExecutorPodsRemain() {
+    AtomicBoolean podsRemain = new AtomicBoolean(true);
+    try (MockedConstruction<SparkAppContext> mockAppContext =
+            mockConstruction(
+                SparkAppContext.class,
+                (mock, context) -> {
+                  when(mock.getResource()).thenReturn(app);
+                  when(mock.getClient()).thenReturn(mockClient);
+                  when(mock.getDriverPod()).thenReturn(Optional.of(mockDriver));
+                  when(mock.getCachedKueueWorkload()).thenReturn(Optional.of(new Workload()));
+                  when(mock.hasDriverOrExecutorPods()).thenAnswer(i -> podsRemain.get());
+                });
+        MockedStatic<ReconcilerUtils> utils = Mockito.mockStatic(ReconcilerUtils.class);
+        MockedStatic<KueueWorkloadUtils> kueue = Mockito.mockStatic(KueueWorkloadUtils.class)) {
+      // delete running app whose driver is still terminating
+      app.setStatus(
+          app.getStatus()
+              .appendNewState(new ApplicationState(ApplicationStateSummary.RunningHealthy, "")));
+      DeleteControl deleteControl = reconciler.cleanup(app, mockContext);
+      assertFalse(deleteControl.isRemoveFinalizer());
+      assertEquals(Optional.of(2000L), deleteControl.getScheduleDelay());
+      utils.verify(() -> ReconcilerUtils.deleteResourceIfExists(mockClient, mockDriver, false));
+      kueue.verifyNoInteractions();
+      assertEquals(
+          ApplicationStateSummary.RunningHealthy,
+          app.getStatus().getCurrentState().getCurrentStateSummary());
+
+      // the pods are gone
+      podsRemain.set(false);
+      deleteControl = reconciler.cleanup(app, mockContext);
+      assertFalse(deleteControl.isRemoveFinalizer());
+      kueue.verify(() -> KueueWorkloadUtils.releaseWorkload(mockClient, app));
+      assertEquals(
+          ApplicationStateSummary.ResourceReleased,
+          app.getStatus().getCurrentState().getCurrentStateSummary());
+
+      // proceed delete for terminated app
+      deleteControl = reconciler.cleanup(app, mockContext);
+      assertTrue(deleteControl.isRemoveFinalizer());
+    }
+  }
+
+  @SuppressWarnings("PMD.UnusedLocalVariable")
+  @Test
+  void testRestartReleasesKueueWorkloadAfterPodsAreGone() throws Exception {
+    app.setMetadata(new ObjectMetaBuilder().withName("app").withNamespace("default").build());
+    app.setSpec(
+        ApplicationSpec.builder()
+            .applicationTolerations(
+                ApplicationTolerations.builder()
+                    .restartConfig(
+                        RestartConfig.builder()
+                            .restartPolicy(RestartPolicy.Always)
+                            .maxRestartAttempts(1L)
+                            .build())
+                    .build())
+            .build());
+    app.setStatus(
+        app.getStatus().appendNewState(new ApplicationState(ApplicationStateSummary.Failed, "")));
+    AtomicBoolean podsRemain = new AtomicBoolean(true);
+    List<ApplicationStateSummary> statesAtRelease = new ArrayList<>();
+    try (MockedConstruction<SparkAppContext> mockAppContext =
+            mockConstruction(
+                SparkAppContext.class,
+                (mock, context) -> {
+                  when(mock.getResource()).thenReturn(app);
+                  when(mock.getClient()).thenReturn(mockClient);
+                  when(mock.getDriverPod()).thenReturn(Optional.of(mockDriver));
+                  when(mock.getCachedKueueWorkload()).thenReturn(Optional.of(new Workload()));
+                  when(mock.hasDriverOrExecutorPods()).thenAnswer(i -> podsRemain.get());
+                });
+        MockedStatic<ReconcilerUtils> utils = Mockito.mockStatic(ReconcilerUtils.class);
+        MockedStatic<KueueWorkloadUtils> kueue = Mockito.mockStatic(KueueWorkloadUtils.class)) {
+      kueue
+          .when(() -> KueueWorkloadUtils.releaseWorkload(mockClient, app))
+          .thenAnswer(
+              i ->
+                  statesAtRelease.add(
+                      app.getStatus().getCurrentState().getCurrentStateSummary()));
+
+      // the failed attempt waits for its driver and executors to be gone
+      reconciler.reconcile(app, mockContext);
+      assertTrue(statesAtRelease.isEmpty());
+      assertEquals(
+          ApplicationStateSummary.Failed,
+          app.getStatus().getCurrentState().getCurrentStateSummary());
+
+      // the Workload is released before the next attempt is scheduled, since it would otherwise
+      // find the admitted Workload of the same name
+      podsRemain.set(false);
+      reconciler.reconcile(app, mockContext);
+      assertEquals(List.of(ApplicationStateSummary.Failed), statesAtRelease);
+      assertEquals(
+          ApplicationStateSummary.ScheduledToRestart,
+          app.getStatus().getCurrentState().getCurrentStateSummary());
     }
   }
 

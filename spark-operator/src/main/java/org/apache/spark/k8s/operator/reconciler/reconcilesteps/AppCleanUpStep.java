@@ -19,6 +19,8 @@
 
 package org.apache.spark.k8s.operator.reconciler.reconcilesteps;
 
+import static org.apache.spark.k8s.operator.config.SparkOperatorConf.KUEUE_ENABLED;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -32,6 +34,7 @@ import java.util.function.Supplier;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.KubernetesClientException;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -149,9 +152,6 @@ public final class AppCleanUpStep extends AppReconcileStep {
       return ReconcileProgress.proceed();
     }
 
-    // Release the quota, even of a Workload admitted before the queue label was removed. A
-    // restarted attempt is queued again with a new Workload only if the label is present.
-    KueueWorkloadUtils.releaseWorkload(context.getClient(), application);
     List<HasMetadata> resourcesToRemove = new ArrayList<>();
     if (isReleasingResourcesForSchedulingFailureAttempt(currentStatus)) {
       // if app failed at scheduling, re-compute all spec and delete as they may not be fully
@@ -163,6 +163,13 @@ public final class AppCleanUpStep extends AppReconcileStep {
       } catch (Exception e) {
         if (log.isErrorEnabled()) {
           log.error("Failed to build resources for application.", e);
+        }
+        // Nothing can be deleted without the spec, but the pods deleted by an earlier pass may
+        // still be terminating.
+        if (!releaseResources(context, application, List.of())) {
+          return ReconcileProgress.completeAndRequeueAfter(
+              Duration.ofMillis(
+                  tolerations.getApplicationTimeoutConfig().getTerminationRequeuePeriodMillis()));
         }
         ApplicationState updatedState =
             new ApplicationState(
@@ -178,11 +185,12 @@ public final class AppCleanUpStep extends AppReconcileStep {
       Optional<Pod> driver = context.getDriverPod();
       driver.ifPresent(resourcesToRemove::add);
     }
-    boolean forceDelete = enableForceDelete(application);
-    for (HasMetadata resource : resourcesToRemove) {
-      ReconcilerUtils.deleteResourceIfExists(context.getClient(), resource, forceDelete);
+    if (!releaseResources(context, application, resourcesToRemove)) {
+      // The application stays in its state until the pods are gone
+      return ReconcileProgress.completeAndRequeueAfter(
+          Duration.ofMillis(
+              tolerations.getApplicationTimeoutConfig().getTerminationRequeuePeriodMillis()));
     }
-    ApplicationStatus updatedStatus;
     if (onDemandCleanUpReason != null) {
       ApplicationState state = onDemandCleanUpReason.get();
       if (StringUtils.isNotEmpty(stateUpdateMessage)) {
@@ -197,7 +205,7 @@ public final class AppCleanUpStep extends AppReconcileStep {
       // The resources have been released above. An application retaining them has returned
       // already, so it cannot terminate as `TerminatedWithoutReleaseResources` here even if the
       // retain policy applies and no more attempt is made.
-      updatedStatus =
+      ApplicationStatus updatedStatus =
           currentStatus.terminateOrRestart(
               tolerations.getRestartConfig(),
               stateUpdateMessage,
@@ -215,6 +223,117 @@ public final class AppCleanUpStep extends AppReconcileStep {
       return updateStatusAndRequeueAfter(
           context, statusRecorder, updatedStatus, Duration.ofMillis(requeueAfterMillis));
     }
+  }
+
+  /**
+   * Deletes the given resources and then releases the Kueue Workload of the application, once its
+   * driver and executor pods are gone. Kueue would admit another workload into the quota which the
+   * terminating pods still occupy. The deletion of each pod is observed by the pod informer, which
+   * reconciles again.
+   *
+   * <p>The Workload is released even if it was admitted before the queue label was removed. It is
+   * released before a restart is scheduled, since the Workload name is fixed per application and
+   * the next attempt would otherwise run on this admission. A restarted attempt is queued again
+   * with a new Workload only if the label is present.
+   *
+   * <p>A failed deletion is reported only after the Workload is released, unless pods remain, in
+   * which case it is retried with them. So a resource which cannot be deleted, e.g. a ConfigMap
+   * the operator may no longer delete, does not hold the quota once no pod uses it.
+   *
+   * @param context The SparkAppContext for the application.
+   * @param application The SparkApplication.
+   * @param resources The resources to delete.
+   * @return True if the Workload was released, false while the pods remain.
+   * @throws KubernetesClientException if a resource cannot be deleted and no pod remains.
+   */
+  private boolean releaseResources(
+      final SparkAppContext context,
+      final SparkApplication application,
+      final List<HasMetadata> resources) {
+    boolean forceDelete = enableForceDelete(application);
+    KubernetesClientException deleteFailure = null;
+    try {
+      for (HasMetadata resource : resources) {
+        ReconcilerUtils.deleteResourceIfExists(context.getClient(), resource, forceDelete);
+      }
+    } catch (KubernetesClientException e) {
+      deleteFailure = e;
+    }
+    if (isWaitingForPods(context, application)) {
+      if (deleteFailure != null) {
+        log.warn("Failed to delete the resources of the application, will retry.", deleteFailure);
+      }
+      return false;
+    }
+    KueueWorkloadUtils.releaseWorkload(context.getClient(), application);
+    if (deleteFailure != null) {
+      throw deleteFailure;
+    }
+    return true;
+  }
+
+  /**
+   * Checks whether the application holds Kueue quota which its driver and executor pods still
+   * occupy. An application without a Workload, e.g. one which was never queued or whose operator
+   * runs without the Kueue integration, holds no quota, so its pods are not listed. The informer
+   * cache keeps finding the Workload by the application label after the queue label was removed,
+   * while the queue label covers a Workload which was created too recently to be cached.
+   *
+   * <p>The wait ends `forceTerminationGracePeriodMillis` after the clean up started, so that a pod
+   * stuck in terminating, e.g. on a lost node, does not hold the application forever. A failure to
+   * list the pods which may clear on its own is taken as pods remaining, and looked at again.
+   *
+   * @param context The SparkAppContext for the application.
+   * @param application The SparkApplication.
+   * @return True while the Workload has to wait for the pods.
+   */
+  private boolean isWaitingForPods(
+      final SparkAppContext context, final SparkApplication application) {
+    boolean holdsKueueQuota =
+        context.getCachedKueueWorkload().isPresent()
+            || KUEUE_ENABLED.getValue() && KueueWorkloadFactory.hasQueueName(application);
+    if (!holdsKueueQuota || !Instant.now().isBefore(getWaitForPodsDeadline(application))) {
+      return false;
+    }
+    try {
+      if (!context.hasDriverOrExecutorPods()) {
+        return false;
+      }
+    } catch (KubernetesClientException e) {
+      if (!ReconcilerUtils.isRetryableError(e)) {
+        throw e;
+      }
+      log.warn("Failed to list the driver and executor pods, will retry.", e);
+    }
+    log.debug("Waiting for the driver and executor pods to be deleted.");
+    return true;
+  }
+
+  /**
+   * Returns when the wait for the pods of the application ends. The clean up starts when the
+   * application is deleted, when its retention expires, or else when the attempt stopped. Unlike
+   * {@link #enableForceDelete}, which the application is deleted with right away once it has been
+   * running for longer than `forceTerminationGracePeriodMillis`, the wait always gets that period.
+   *
+   * @param application The SparkApplication.
+   * @return The Instant at which the Workload is released even if pods remain.
+   */
+  Instant getWaitForPodsDeadline(final SparkApplication application) {
+    ApplicationTolerations tolerations = application.getSpec().getApplicationTolerations();
+    ApplicationState currentState = application.getStatus().getCurrentState();
+    Instant start;
+    if (application.getMetadata().getDeletionTimestamp() != null) {
+      start = Instant.parse(application.getMetadata().getDeletionTimestamp());
+    } else if (ApplicationStateSummary.TerminatedWithoutReleaseResources
+        == currentState.getCurrentStateSummary()) {
+      start =
+          Instant.parse(currentState.getLastTransitionTime())
+              .plusMillis(tolerations.computeEffectiveRetainDurationMillis());
+    } else {
+      start = Instant.parse(currentState.getLastTransitionTime());
+    }
+    return start.plusMillis(
+        tolerations.getApplicationTimeoutConfig().getForceTerminationGracePeriodMillis());
   }
 
   /**

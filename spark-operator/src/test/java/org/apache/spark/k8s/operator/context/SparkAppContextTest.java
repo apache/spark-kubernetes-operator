@@ -20,6 +20,7 @@
 package org.apache.spark.k8s.operator.context;
 
 import static org.apache.spark.k8s.operator.utils.Utils.driverLabels;
+import static org.apache.spark.k8s.operator.utils.Utils.executorLabels;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
@@ -35,14 +36,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import io.fabric8.kubernetes.api.model.ListOptions;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.api.model.PodList;
+import io.fabric8.kubernetes.api.model.PodListBuilder;
 import io.fabric8.kubernetes.api.model.PodSpec;
 import io.fabric8.kubernetes.api.model.Toleration;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
+import io.fabric8.kubernetes.client.dsl.FilterWatchListDeletable;
 import io.fabric8.kubernetes.client.dsl.MixedOperation;
 import io.fabric8.kubernetes.client.dsl.NonNamespaceOperation;
 import io.fabric8.kubernetes.client.dsl.PodResource;
@@ -51,6 +55,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.SparkAppResourceSpec;
 import org.apache.spark.k8s.operator.SparkAppSubmissionWorker;
 import org.apache.spark.k8s.operator.SparkApplication;
@@ -134,6 +139,63 @@ class SparkAppContextTest {
   }
 
   @Test
+  void driverOrExecutorPodRemains() {
+    SparkAppContext context = buildContext(List.of(), null);
+    FilterWatchListDeletable<Pod, PodList, PodResource> rolePods = stubRolePodList(context);
+    ArgumentCaptor<ListOptions> options = ArgumentCaptor.forClass(ListOptions.class);
+    // A terminating pod is listed as well
+    when(rolePods.list(options.capture()))
+        .thenReturn(
+            new PodListBuilder()
+                .withNewMetadata()
+                .endMetadata()
+                .withItems(terminating(driverPodSpec))
+                .build());
+
+    Assertions.assertTrue(context.hasDriverOrExecutorPods());
+    // Only whether any pod remains matters
+    Assertions.assertEquals(1L, options.getValue().getLimit());
+  }
+
+  @Test
+  void cachedDriverOrExecutorPodRemainsWithoutListing() {
+    Pod executor =
+        new PodBuilder()
+            .withNewMetadata()
+            .withName("sparkapp1-exec-1")
+            .withNamespace("default")
+            .withLabels(executorLabels(application))
+            .endMetadata()
+            .build();
+    for (Pod cached : List.of(terminating(driverPodSpec), executor)) {
+      SparkAppContext context = buildContext(List.of(cached), null);
+
+      Assertions.assertTrue(context.hasDriverOrExecutorPods());
+      verify(context.getClient(), never()).pods();
+    }
+  }
+
+  @Test
+  void noDriverOrExecutorPodRemains() {
+    SparkAppContext context = buildContext(List.of(), null);
+    when(stubRolePodList(context).list(any(ListOptions.class)))
+        .thenReturn(new PodListBuilder().withNewMetadata().endMetadata().build());
+
+    Assertions.assertFalse(context.hasDriverOrExecutorPods());
+  }
+
+  @Test
+  void continueTokenMeansThatDriverOrExecutorPodsRemain() {
+    SparkAppContext context = buildContext(List.of(), null);
+    // An empty page with a continue token, as a limited LIST with a label selector may return
+    when(stubRolePodList(context).list(any(ListOptions.class)))
+        .thenReturn(
+            new PodListBuilder().withNewMetadata().withContinue("next").endMetadata().build());
+
+    Assertions.assertTrue(context.hasDriverOrExecutorPods());
+  }
+
+  @Test
   void kueuePodSetFlavorsRebuildTheCachedResourceSpec() {
     // The driver pod spec can be built before the Kueue admission, e.g. to find the driver pod of
     // the current attempt, so setting the flavors drops the cached one.
@@ -187,6 +249,28 @@ class SparkAppContextTest {
         spy(new SparkAppContext(application, josdkContext, mock(SparkAppSubmissionWorker.class)));
     doReturn(driverPodSpec).when(context).getDriverPodSpec();
     return context;
+  }
+
+  /** Stubs the listing of the driver and executor pods of the application by its labels. */
+  @SuppressWarnings("unchecked")
+  private static FilterWatchListDeletable<Pod, PodList, PodResource> stubRolePodList(
+      SparkAppContext context) {
+    FilterWatchListDeletable<Pod, PodList, PodResource> labeledPods =
+        mock(FilterWatchListDeletable.class);
+    FilterWatchListDeletable<Pod, PodList, PodResource> rolePods =
+        mock(FilterWatchListDeletable.class);
+    when(context
+            .getClient()
+            .pods()
+            .inNamespace("default")
+            .withLabel(Constants.LABEL_SPARK_APPLICATION_NAME, "sparkapp1"))
+        .thenReturn(labeledPods);
+    when(labeledPods.withLabelIn(
+            Constants.LABEL_SPARK_ROLE_NAME,
+            Constants.LABEL_SPARK_ROLE_DRIVER_VALUE,
+            Constants.LABEL_SPARK_ROLE_EXECUTOR_VALUE))
+        .thenReturn(rolePods);
+    return rolePods;
   }
 
   private SparkApplication buildApplication() {

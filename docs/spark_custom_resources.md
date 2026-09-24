@@ -647,8 +647,12 @@ spec:
   to one refresh period late, without the driver states in between such as `DriverStarted`.
 * When a `SparkApplication` attempt stops and its resources are released, the operator deletes the
   `Workload` so that Kueue releases the quota, even if the `kueue.x-k8s.io/queue-name` label was
-  removed after the admission. A restarted attempt is queued again with the label. When the
-  resources are retained by `resourceRetainPolicy`, the `Workload` of a `Succeeded`, `Failed`, or
+  removed after the admission. The `Workload` is deleted only after the driver and executor pods
+  are gone, since terminating pods still occupy the quota, and the application keeps its state
+  until then. The operator stops waiting `forceTerminationGracePeriodMillis` after the attempt
+  stopped, the `SparkApplication` was deleted, or its retention expired, so that a pod stuck in
+  terminating does not hold the application. A restarted attempt is queued again with the label. When the resources are
+  retained by `resourceRetainPolicy`, the `Workload` of a `Succeeded`, `Failed`, or
   `DriverEvicted` application gets the Kueue `Finished` condition instead, which releases the
   quota while keeping the `Workload`, or is deleted if the label was removed. Other retained
   resources, e.g. a driver still running after a start timeout, keep the quota until they are

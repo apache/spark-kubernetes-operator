@@ -19,6 +19,9 @@
 
 package org.apache.spark.k8s.operator.context;
 
+import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_APPLICATION_NAME;
+import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_ROLE_DRIVER_VALUE;
+import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_ROLE_EXECUTOR_VALUE;
 import static org.apache.spark.k8s.operator.utils.Utils.driverLabels;
 import static org.apache.spark.k8s.operator.utils.Utils.executorLabels;
 
@@ -36,6 +39,7 @@ import org.apache.spark.k8s.operator.SparkAppResourceSpec;
 import org.apache.spark.k8s.operator.SparkAppSubmissionWorker;
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.reconciler.SparkAppResourceSpecFactory;
+import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 
 /**
  * Context for {@link org.apache.spark.k8s.operator.SparkApplication} resource, including secondary
@@ -172,6 +176,28 @@ public class SparkAppContext extends BaseContext<SparkApplication> {
                     .entrySet()
                     .containsAll(executorLabels(sparkApplication).entrySet()))
         .collect(Collectors.toSet());
+  }
+
+  /**
+   * Checks whether any driver or executor pod of the application remains, including one which is
+   * being deleted. A pod in the informer cache answers it without a request. An empty cache is
+   * verified against the API server, which does not miss an executor that was created just before
+   * the driver was deleted. Other pods which carry the application label do not count.
+   *
+   * @return True if a driver or executor pod of the application remains.
+   * @throws KubernetesClientException if the pods cannot be listed.
+   */
+  public boolean hasDriverOrExecutorPods() {
+    if (getDriverPod().isPresent() || !getExecutorsForApplication().isEmpty()) {
+      return true;
+    }
+    return ReconcilerUtils.hasPods(
+        josdkContext.getClient(),
+        sparkApplication.getMetadata().getNamespace(),
+        LABEL_SPARK_APPLICATION_NAME,
+        sparkApplication.getMetadata().getName(),
+        LABEL_SPARK_ROLE_DRIVER_VALUE,
+        LABEL_SPARK_ROLE_EXECUTOR_VALUE);
   }
 
   private SparkAppResourceSpec getSecondaryResourceSpec() {

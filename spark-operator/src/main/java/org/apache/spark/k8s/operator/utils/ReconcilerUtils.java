@@ -44,8 +44,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.fabric8.kubernetes.api.model.DeletionPropagation;
 import io.fabric8.kubernetes.api.model.HasMetadata;
+import io.fabric8.kubernetes.api.model.ListOptionsBuilder;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
+import io.fabric8.kubernetes.api.model.PodList;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
@@ -260,6 +262,36 @@ public final class ReconcilerUtils {
       }
       throw e;
     }
+  }
+
+  /**
+   * Checks against the API server whether any pod of the given owner and roles remains, including
+   * one which is being deleted. Other pods which carry the owner label do not count.
+   *
+   * @param client The KubernetesClient.
+   * @param namespace The namespace of the pods.
+   * @param ownerLabel The label which names the owner of the pods.
+   * @param ownerName The name of the owner.
+   * @param roles The values of the Spark role label of the pods which count.
+   * @return True if any such pod remains.
+   * @throws KubernetesClientException if the pods cannot be listed.
+   */
+  public static boolean hasPods(
+      final KubernetesClient client,
+      final String namespace,
+      final String ownerLabel,
+      final String ownerName,
+      final String... roles) {
+    // Only whether any pod remains matters, so one is enough. A page may come back empty with a
+    // continue token, which still means that more pods remain.
+    PodList pods =
+        client
+            .pods()
+            .inNamespace(namespace)
+            .withLabel(ownerLabel, ownerName)
+            .withLabelIn(Constants.LABEL_SPARK_ROLE_NAME, roles)
+            .list(new ListOptionsBuilder().withLimit(1L).build());
+    return !pods.getItems().isEmpty() || StringUtils.isNotEmpty(pods.getMetadata().getContinue());
   }
 
   /**
