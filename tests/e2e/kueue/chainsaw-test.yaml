@@ -176,6 +176,7 @@ spec:
           - name: LOCAL_QUEUE
             value: ($LOCAL_QUEUE)
         content: |
+          set -e
           kubectl label sparkapplication spark-job-kueue-queued-test -n default --overwrite kueue.x-k8s.io/queue-name=another-queue
           kubectl label sparkapplication spark-job-kueue-queued-test -n default --overwrite "kueue.x-k8s.io/queue-name=$LOCAL_QUEUE"
     - script:
@@ -589,6 +590,7 @@ spec:
           - name: LOCAL_QUEUE
             value: ($LOCAL_QUEUE)
         content: |
+          set -e
           kubectl label sparkcluster spark-cluster-kueue-queued-test -n default --overwrite kueue.x-k8s.io/queue-name=another-queue
           kubectl label sparkcluster spark-cluster-kueue-queued-test -n default --overwrite "kueue.x-k8s.io/queue-name=$LOCAL_QUEUE"
     - error:

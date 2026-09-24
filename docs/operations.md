@@ -52,8 +52,11 @@ under the License.
   `resourceflavors`, `workloadpriorityclasses` and `priorityclasses` are granted only by
   `clusterRole.create`. Without the permission, the priority of a `Workload` is skipped with a
   warning, while the `ResourceFlavor`s which Kueue assigned cannot be read at all, so an admitted
-  resource is held until the permission is granted. See
-  [Kueue](spark_custom_resources.md#kueue) for how resources opt into queueing.
+  resource is held until the permission is granted. `operatorRbac.kueue.enabled` also installs a
+  cluster-scoped `ValidatingAdmissionPolicy` and its binding, so whoever installs or upgrades the
+  chart needs access to the `validatingadmissionpolicies` and `validatingadmissionpolicybindings`
+  of `admissionregistration.k8s.io`. See [Kueue](spark_custom_resources.md#kueue) for how
+  resources opt into queueing and for the policy.
 
 ## Spark Application Namespaces
 
@@ -134,7 +137,7 @@ following table:
 | operatorRbac.configManagement.create                             | Enable this to create a Role for operator configuration management (hot property loading from ConfigMap). Requires `dynamicConfig` with the `configMap` source.                | true                                                                                                    |
 | operatorRbac.configManagement.roleName                           | Role name for operator configuration management.                                                                                                                               | `"spark-operator-config-monitor"`                                                                       |
 | operatorRbac.configManagement.roleBindingName                    | RoleBinding name for operator configuration management.                                                                                                                        | `"spark-operator-config-monitor-role-binding"`                                                          |
-| operatorRbac.kueue.enabled                                       | Grant the operator access to Kueue `workloads`, `resourceflavors`, `workloadpriorityclasses` and to `priorityclasses`, and enable the Kueue integration (`spark.kubernetes.operator.kueue.enabled`). The cluster-scoped ones need `clusterRole.create`. See [Optional Prerequisites](#optional-prerequisites). | false                                                                                                   |
+| operatorRbac.kueue.enabled                                       | Grant the operator access to Kueue `workloads`, `resourceflavors`, `workloadpriorityclasses` and to `priorityclasses`, and enable the Kueue integration (`spark.kubernetes.operator.kueue.enabled`). The cluster-scoped ones need `clusterRole.create`. It also installs a `ValidatingAdmissionPolicy` which keeps the `kueue.x-k8s.io/queue-name` label of a started resource. See [Optional Prerequisites](#optional-prerequisites). | false                                                                                                   |
 | operatorRbac.labels                                              | Labels to be applied on all created `operatorRbac` resources.                                                                                                                  | `"app.kubernetes.io/component": "operator-rbac"`                                                        |
 | operatorRbac.annotations                                         | Annotations to be applied on all created `operatorRbac` resources.                                                                                                             |                                                                                                         |
 | workloadResources.namespaces.create                              | Whether to create dedicated namespaces for Spark workload.                                                                                                                     | true                                                                                                    |
