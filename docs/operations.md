@@ -44,10 +44,11 @@ under the License.
   `integrations.externalFrameworks` does not need to list `SparkApplication` or `SparkCluster`:
   the operator manages the `Workload` objects for them, so Kueue does not have to
   recognize the Spark custom resources as job kinds. `operatorRbac.kueue.enabled` also sets
-  `spark.kubernetes.operator.kueue.workloadInformer.enabled`, so that the operator watches
-  `Workload` resources and an admission starts the queued resource right away. Without the watch,
-  an admission is noticed on the next periodic reconcile. The watch requires Kueue to be installed
-  before the operator starts; otherwise the operator reports itself unhealthy. The cluster-scoped
+  `spark.kubernetes.operator.kueue.enabled`, which enables the Kueue integration of the operator.
+  The operator then watches `Workload` resources, so that an admission starts the queued resource
+  right away. The watch requires Kueue to be installed before the operator starts; otherwise the
+  operator reports itself unhealthy. Without the integration, the operator ignores the
+  `kueue.x-k8s.io/queue-name` label and does not access any Kueue resource. The cluster-scoped
   `resourceflavors`, `workloadpriorityclasses` and `priorityclasses` are granted only by
   `clusterRole.create`. Without the permission, the priority of a `Workload` is skipped with a
   warning, while the `ResourceFlavor`s which Kueue assigned cannot be read at all, so an admitted
@@ -133,7 +134,7 @@ following table:
 | operatorRbac.configManagement.create                             | Enable this to create a Role for operator configuration management (hot property loading from ConfigMap). Requires `dynamicConfig` with the `configMap` source.                | true                                                                                                    |
 | operatorRbac.configManagement.roleName                           | Role name for operator configuration management.                                                                                                                               | `"spark-operator-config-monitor"`                                                                       |
 | operatorRbac.configManagement.roleBindingName                    | RoleBinding name for operator configuration management.                                                                                                                        | `"spark-operator-config-monitor-role-binding"`                                                          |
-| operatorRbac.kueue.enabled                                       | Grant the operator access to Kueue `workloads`, `resourceflavors`, `workloadpriorityclasses` and to `priorityclasses`. The cluster-scoped ones need `clusterRole.create`. See [Optional Prerequisites](#optional-prerequisites). | false                                                                                                   |
+| operatorRbac.kueue.enabled                                       | Grant the operator access to Kueue `workloads`, `resourceflavors`, `workloadpriorityclasses` and to `priorityclasses`, and enable the Kueue integration (`spark.kubernetes.operator.kueue.enabled`). The cluster-scoped ones need `clusterRole.create`. See [Optional Prerequisites](#optional-prerequisites). | false                                                                                                   |
 | operatorRbac.labels                                              | Labels to be applied on all created `operatorRbac` resources.                                                                                                                  | `"app.kubernetes.io/component": "operator-rbac"`                                                        |
 | operatorRbac.annotations                                         | Annotations to be applied on all created `operatorRbac` resources.                                                                                                             |                                                                                                         |
 | workloadResources.namespaces.create                              | Whether to create dedicated namespaces for Spark workload.                                                                                                                     | true                                                                                                    |

@@ -20,7 +20,7 @@
 package org.apache.spark.k8s.operator.reconciler;
 
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_APPLICATION_NAME;
-import static org.apache.spark.k8s.operator.config.SparkOperatorConf.KUEUE_WORKLOAD_INFORMER_ENABLED;
+import static org.apache.spark.k8s.operator.config.SparkOperatorConf.KUEUE_ENABLED;
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.completeAndDefaultRequeue;
 import static org.apache.spark.k8s.operator.utils.ReconcilerUtils.isFirstAttempt;
 import static org.apache.spark.k8s.operator.utils.Utils.basicLabelSecondaryToPrimaryMapper;
@@ -174,7 +174,7 @@ public class SparkAppReconciler implements Reconciler<SparkApplication>, Cleaner
             context);
     List<EventSource<?, SparkApplication>> eventSources = new ArrayList<>();
     eventSources.add(podEventSource);
-    if (KUEUE_WORKLOAD_INFORMER_ENABLED.getValue()) {
+    if (KUEUE_ENABLED.getValue()) {
       eventSources.add(
           new InformerEventSource<>(
               InformerEventSourceConfiguration.from(Workload.class, SparkApplication.class)

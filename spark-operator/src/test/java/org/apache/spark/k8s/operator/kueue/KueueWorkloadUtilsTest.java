@@ -26,6 +26,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 
@@ -55,12 +56,15 @@ import io.fabric8.kubernetes.client.dsl.Resource;
 import io.fabric8.kubernetes.client.server.mock.EnableKubernetesMockClient;
 import io.javaoperatorsdk.operator.api.event.EventRecord;
 import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.SparkApplication;
+import org.apache.spark.k8s.operator.config.SparkOperatorConf;
 import org.apache.spark.k8s.operator.context.SparkAppContext;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils.AdmissionResponse;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils.AdmissionResult;
@@ -77,6 +81,7 @@ import org.apache.spark.k8s.operator.kueue.v1beta2.WorkloadStatus;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 import org.apache.spark.k8s.operator.utils.EventUtils;
+import org.apache.spark.k8s.operator.utils.TestUtils;
 
 @EnableKubernetesMockClient(crud = true)
 @SuppressFBWarnings(
@@ -86,6 +91,16 @@ class KueueWorkloadUtilsTest {
   private static final String NAME = "sparkapplication-app-1";
 
   private KubernetesClient kubernetesClient;
+
+  @BeforeEach
+  void enableKueue() {
+    TestUtils.setConfigKey(SparkOperatorConf.KUEUE_ENABLED, true);
+  }
+
+  @AfterEach
+  void disableKueue() {
+    TestUtils.setConfigKey(SparkOperatorConf.KUEUE_ENABLED, false);
+  }
 
   @Test
   void newWorkloadIsCreatedAndPendingUntilAdmitted() {
@@ -312,6 +327,18 @@ class KueueWorkloadUtilsTest {
   void finishWorkloadWithoutWorkloadIsNoOp() {
     Assertions.assertFalse(
         KueueWorkloadUtils.finishWorkload(kubernetesClient, owner(), true, "app succeeded"));
+  }
+
+  @Test
+  void workloadIsNotAccessedWhenKueueIsDisabled() {
+    TestUtils.setConfigKey(SparkOperatorConf.KUEUE_ENABLED, false);
+    KubernetesClient client = mock(KubernetesClient.class);
+
+    Assertions.assertFalse(KueueWorkloadUtils.deleteWorkloadOf(client, owner()));
+    Assertions.assertFalse(KueueWorkloadUtils.releaseWorkload(client, owner()));
+    Assertions.assertFalse(
+        KueueWorkloadUtils.finishWorkload(client, owner(), true, "app succeeded"));
+    verifyNoInteractions(client);
   }
 
   @Test

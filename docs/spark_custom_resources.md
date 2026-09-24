@@ -589,10 +589,10 @@ spec:
 
 ## Kueue
 
-A `SparkApplication` or a `SparkCluster` labeled with `kueue.x-k8s.io/queue-name` is queued by
-[Kueue](https://kueue.sigs.k8s.io/). The operator creates a Kueue `Workload` that describes the
-driver and executor (or master and worker) pod sets, and holds the creation of those resources
-until Kueue admits the `Workload`.
+When `spark.kubernetes.operator.kueue.enabled` is set, a `SparkApplication` or a `SparkCluster`
+labeled with `kueue.x-k8s.io/queue-name` is queued by [Kueue](https://kueue.sigs.k8s.io/). The
+operator creates a Kueue `Workload` that describes the driver and executor (or master and worker)
+pod sets, and holds the creation of those resources until Kueue admits the `Workload`.
 
 ```yaml
 apiVersion: spark.apache.org/v1
@@ -608,9 +608,13 @@ spec:
     sparkVersion: "4.2.0"
 ```
 
-* The label alone enables the integration. Kueue and its `LocalQueue` must exist, and the operator
-  needs the Kueue RBAC rules which the Helm chart grants when `operatorRbac.kueue.enabled` is set.
-  See [Optional Prerequisites](operations.md#optional-prerequisites).
+* The Helm chart sets `spark.kubernetes.operator.kueue.enabled` together with the Kueue RBAC rules
+  when `operatorRbac.kueue.enabled` is set. Kueue and its `LocalQueue` must exist as well. See
+  [Optional Prerequisites](operations.md#optional-prerequisites). Without the integration, the
+  label is ignored, so the resource is not queued and starts right away, and the operator does
+  not access any Kueue resource, like Kueue ignores a job whose integration is not enabled. Since
+  the author of the resource may not see the operator configuration, the `KueueDisabled` warning
+  [event](configuration.md#kubernetes-events) is published when enabled.
 * The `Workload` is named `<lower-cased kind>-<resource name>` and is owned by the Spark resource,
   so it is garbage collected along with it.
 * Like Kueue built-in integrations, the `Workload` gets the priority of the `WorkloadPriorityClass`
@@ -669,11 +673,11 @@ spec:
   terminating pods still occupy the quota. The `Workload` is deleted even if the
   `kueue.x-k8s.io/queue-name` label was removed after the admission. The resource is queued again
   when it is resumed with the `kueue.x-k8s.io/queue-name` label.
-* Once the access of the operator to `Workload`s is revoked, e.g. by disabling
-  `operatorRbac.kueue.enabled`, it can no longer delete them, and a `Workload` left behind keeps
-  its quota until its owner is deleted. A suspended `SparkCluster` which still carries the
-  `kueue.x-k8s.io/queue-name` label does not resume either, until its `Workload` is gone or the
-  access is restored. Before revoking the access, let the queued
+* Once the integration is disabled or the access of the operator to `Workload`s is revoked, e.g.
+  by disabling `operatorRbac.kueue.enabled`, the operator no longer deletes them, and a `Workload`
+  left behind keeps its quota until its owner is deleted. While the integration stays enabled
+  without the access, a suspended `SparkCluster` does not resume either, until its `Workload` is
+  gone or the access is restored. Before disabling either, let the queued
   `SparkApplication`s finish or suspend those which have not started yet, and suspend the queued
   `SparkCluster`s, so that the operator releases their `Workload`s itself. Then list the remaining
   ones with `kubectl get workloads -A -l spark.operator/spark-app-name` and

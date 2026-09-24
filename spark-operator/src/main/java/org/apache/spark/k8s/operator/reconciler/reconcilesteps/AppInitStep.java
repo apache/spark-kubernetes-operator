@@ -19,6 +19,7 @@
 
 package org.apache.spark.k8s.operator.reconciler.reconcilesteps;
 
+import static org.apache.spark.k8s.operator.config.SparkOperatorConf.KUEUE_ENABLED;
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.completeAndDefaultRequeue;
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.completeAndImmediateRequeue;
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.proceed;
@@ -185,6 +186,10 @@ public final class AppInitStep extends AppReconcileStep {
   private Optional<ReconcileProgress> holdForKueueAdmission(
       SparkAppContext context, SparkApplication app) {
     if (!KueueWorkloadFactory.hasQueueName(app)) {
+      return Optional.empty();
+    }
+    if (!KUEUE_ENABLED.getValue()) {
+      KueueWorkloadUtils.warnQueueNameIgnored(context);
       return Optional.empty();
     }
     try {

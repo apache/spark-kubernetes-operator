@@ -63,7 +63,9 @@ import io.javaoperatorsdk.operator.api.event.EventRecord;
 import io.javaoperatorsdk.operator.api.event.EventType;
 import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -73,6 +75,7 @@ import org.mockito.InOrder;
 import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.SparkCluster;
 import org.apache.spark.k8s.operator.SparkClusterSubmissionWorker;
+import org.apache.spark.k8s.operator.config.SparkOperatorConf;
 import org.apache.spark.k8s.operator.context.SparkClusterContext;
 import org.apache.spark.k8s.operator.kueue.KueuePodSetFlavor;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadFactory;
@@ -94,6 +97,7 @@ import org.apache.spark.k8s.operator.status.ClusterStateSummary;
 import org.apache.spark.k8s.operator.status.ClusterStatus;
 import org.apache.spark.k8s.operator.utils.EventUtils;
 import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
+import org.apache.spark.k8s.operator.utils.TestUtils;
 
 @EnableKubernetesMockClient(crud = true)
 @SuppressFBWarnings(
@@ -111,6 +115,16 @@ class ClusterInitStepTest {
 
   private final StatefulSet masterStatefulSetSpec = statefulSet("cluster1-master");
   private final StatefulSet workerStatefulSetSpec = statefulSet("cluster1-worker");
+
+  @BeforeEach
+  void enableKueue() {
+    TestUtils.setConfigKey(SparkOperatorConf.KUEUE_ENABLED, true);
+  }
+
+  @AfterEach
+  void disableKueue() {
+    TestUtils.setConfigKey(SparkOperatorConf.KUEUE_ENABLED, false);
+  }
 
   @Test
   void suspendedClusterDoesNotRequestResources() {
@@ -594,6 +608,70 @@ class ClusterInitStepTest {
     Assertions.assertEquals(
         ClusterStateSummary.RunningHealthy,
         captor.getValue().getCurrentState().getCurrentStateSummary());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void queueLabelIsIgnoredWhenKueueIsDisabled() {
+    TestUtils.setConfigKey(SparkOperatorConf.KUEUE_ENABLED, false);
+    ClusterInitStep clusterInitStep = new ClusterInitStep();
+    SparkClusterContext mockContext = mock(SparkClusterContext.class);
+    SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
+    SparkCluster cluster = buildKueueCluster();
+    cluster.getSpec().setSuspend(true);
+    KubernetesClient mockClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    when(mockClient.resource(masterStatefulSetSpec).get()).thenReturn(null);
+    ServerSideApplicable<Service> serviceApplicable = mock(ServerSideApplicable.class);
+    ServiceResource<Service> serviceResource = mock(ServiceResource.class);
+    when(serviceResource.forceConflicts()).thenReturn(serviceApplicable);
+    when(mockClient.services().resource(any(Service.class))).thenReturn(serviceResource);
+    ServerSideApplicable<StatefulSet> statefulSetApplicable = mock(ServerSideApplicable.class);
+    RollableScalableResource<StatefulSet> statefulSetResource =
+        mock(RollableScalableResource.class);
+    when(statefulSetResource.forceConflicts()).thenReturn(statefulSetApplicable);
+    when(mockClient.apps().statefulSets().resource(any(StatefulSet.class)))
+        .thenReturn(statefulSetResource);
+    ServerSideApplicable<NetworkPolicy> networkPolicyApplicable = mock(ServerSideApplicable.class);
+    Resource<NetworkPolicy> networkPolicyResource = mock(Resource.class);
+    when(networkPolicyResource.forceConflicts()).thenReturn(networkPolicyApplicable);
+    when(mockClient.network().networkPolicies().resource(any(NetworkPolicy.class)))
+        .thenReturn(networkPolicyResource);
+    when(mockContext.getResource()).thenReturn(cluster);
+    when(mockContext.getClient()).thenReturn(mockClient);
+    when(mockContext.getMasterServiceSpec()).thenReturn(service("cluster1-master-svc"));
+    when(mockContext.getWorkerServiceSpec()).thenReturn(service("cluster1-worker-svc"));
+    when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
+    when(mockContext.getWorkerStatefulSetSpec()).thenReturn(workerStatefulSetSpec);
+    when(mockContext.getWorkerNetworkPolicySpec()).thenReturn(networkPolicy("cluster1-worker"));
+    when(mockContext.getHorizontalPodAutoscalerSpec()).thenReturn(Optional.empty());
+    when(mockContext.getPodDisruptionBudgetSpec()).thenReturn(Optional.empty());
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+
+    // Suspended: no Workload is released, and the event does not mention Kueue
+    Assertions.assertEquals(
+        SUSPEND_HOLD_PROGRESS, clusterInitStep.reconcile(mockContext, recorder));
+    Assertions.assertEquals(
+        "The SparkCluster is suspended by spec.suspend, master and workers would not be "
+            + "requested. Set spec.suspend to false to resume it.",
+        captureEvents(1).get(0).message());
+
+    // Resumed: the master and workers are requested right away without the Kueue admission, and
+    // the author of the label is told that it is ignored
+    cluster.getSpec().setSuspend(false);
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndDefaultRequeue(),
+        clusterInitStep.reconcile(mockContext, recorder));
+    verify(statefulSetApplicable, times(2)).serverSideApply();
+    verify(mockClient, never()).resources(Workload.class);
+    verify(mockClient, never()).resource(any(Workload.class));
+    EventRecord ignored = captureEvents(2).get(1);
+    Assertions.assertEquals(EventType.WARNING, ignored.type());
+    Assertions.assertEquals(EventUtils.REASON_KUEUE_DISABLED, ignored.reason());
+    Assertions.assertEquals(
+        "The kueue.x-k8s.io/queue-name label is ignored because the Kueue integration is "
+            + "disabled, so the SparkCluster is not queued. Set "
+            + "spark.kubernetes.operator.kueue.enabled to true to enable it.",
+        ignored.message());
   }
 
   @Test

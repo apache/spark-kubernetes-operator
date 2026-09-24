@@ -249,8 +249,7 @@ public final class AppCleanUpStep extends AppReconcileStep {
           terminationState.getMessage());
     } else {
       // A Workload admitted before the queue label was removed is deleted instead, since the
-      // application left Kueue. Unlike finishing it, the deletion takes a rejected access as no
-      // Workload for such an application.
+      // application left Kueue.
       KueueWorkloadUtils.releaseWorkload(context.getClient(), application);
     }
   }

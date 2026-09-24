@@ -22,6 +22,7 @@ package org.apache.spark.k8s.operator.reconciler.reconcilesteps;
 import static org.apache.spark.k8s.operator.Constants.CLUSTER_READY_MESSAGE;
 import static org.apache.spark.k8s.operator.Constants.CLUSTER_SCHEDULE_FAILURE_MESSAGE;
 import static org.apache.spark.k8s.operator.Constants.CLUSTER_SUSPENDED_MESSAGE;
+import static org.apache.spark.k8s.operator.config.SparkOperatorConf.KUEUE_ENABLED;
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.*;
 import static org.apache.spark.k8s.operator.status.ClusterStateSummary.RunningHealthy;
 import static org.apache.spark.k8s.operator.status.ClusterStateSummary.SchedulingFailure;
@@ -222,6 +223,10 @@ public final class ClusterInitStep extends ClusterReconcileStep {
   private Optional<ReconcileProgress> holdForKueueAdmission(
       SparkClusterContext context, SparkCluster cluster) {
     if (!KueueWorkloadFactory.hasQueueName(cluster)) {
+      return Optional.empty();
+    }
+    if (!KUEUE_ENABLED.getValue()) {
+      KueueWorkloadUtils.warnQueueNameIgnored(context);
       return Optional.empty();
     }
     try {

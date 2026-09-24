@@ -77,6 +77,12 @@ public final class EventUtils {
   public static final String REASON_KUEUE_RESOURCE_FLAVOR_READ_FAILED =
       "KueueResourceFlavorReadFailed";
 
+  /**
+   * Reason for an event describing that the Kueue queue name label of a resource is ignored,
+   * since the Kueue integration is disabled.
+   */
+  public static final String REASON_KUEUE_DISABLED = "KueueDisabled";
+
   /** Maximum number of characters an event message may have, including the ellipsis. */
   static final int MAX_MESSAGE_LENGTH = 1024;
 

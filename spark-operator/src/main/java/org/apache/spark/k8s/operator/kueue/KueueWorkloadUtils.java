@@ -21,7 +21,7 @@ package org.apache.spark.k8s.operator.kueue;
 
 import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
-import static org.apache.spark.k8s.operator.config.SparkOperatorConf.KUEUE_WORKLOAD_INFORMER_ENABLED;
+import static org.apache.spark.k8s.operator.config.SparkOperatorConf.KUEUE_ENABLED;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -51,6 +51,7 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import lombok.extern.slf4j.Slf4j;
 
+import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.context.BaseContext;
 import org.apache.spark.k8s.operator.kueue.v1beta2.PodSet;
 import org.apache.spark.k8s.operator.kueue.v1beta2.PodSetAssignment;
@@ -365,6 +366,28 @@ public final class KueueWorkloadUtils {
   }
 
   /**
+   * Reports that the Kueue queue name label of the resource of the given context is ignored, since
+   * the Kueue integration is disabled. The label is set by the author of the resource, who may not
+   * see the operator configuration, so the event is the only signal that it is not queued.
+   *
+   * @param context The context of the resource labeled with a queue name.
+   */
+  public static void warnQueueNameIgnored(final BaseContext<?> context) {
+    HasMetadata resource = context.getResource();
+    log.debug("Kueue integration is disabled, {} is not queued.", resource.getKind());
+    EventUtils.warn(
+        context.getEventRecorder(),
+        EventUtils.REASON_KUEUE_DISABLED,
+        "The "
+            + Constants.LABEL_QUEUE_NAME
+            + " label is ignored because the Kueue integration is disabled, so the "
+            + resource.getKind()
+            + " is not queued. Set "
+            + KUEUE_ENABLED.getKey()
+            + " to true to enable it.");
+  }
+
+  /**
    * Resolves the node selector and tolerations of the ResourceFlavors which Kueue assigned to each
    * pod set of the admitted Workload, like Kueue's `podset.FromAssignment`. The Topology Aware
    * Scheduling gate and annotation are not handled. The flavors of a pod set are applied in the
@@ -500,11 +523,13 @@ public final class KueueWorkloadUtils {
   /**
    * Deletes the Workload of the given resource so that Kueue releases its quota, and reports
    * whether one was there to delete. Failures are logged only, because the Workload is garbage
-   * collected with its owner anyway.
+   * collected with its owner anyway. Like {@link #deleteWorkloadOf}, this is a no-op without the
+   * Kueue integration.
    *
    * @param client The KubernetesClient.
    * @param owner The SparkApplication or SparkCluster owning the Workload.
-   * @return True if a Workload was deleted, false if there was none or the deletion failed.
+   * @return True if a Workload was deleted, false if there was none, the deletion failed, or the
+   *     Kueue integration is disabled.
    */
   public static boolean releaseWorkload(final KubernetesClient client, final HasMetadata owner) {
     String name = KueueWorkloadFactory.getWorkloadName(owner);
@@ -520,38 +545,22 @@ public final class KueueWorkloadUtils {
    * Deletes the Workload of the given resource and reports whether one was there to delete, unlike
    * {@link #releaseWorkload} without swallowing the failure. A Workload admitted before the queue
    * label of the owner was removed is deleted as well. One without Kueue installed is answered with
-   * a 404, which the deletion ignores.
-   *
-   * <p>Without the label, an operator which does not watch Workloads may not be granted access to
-   * them, e.g. with Kueue installed for other workloads, so its rejected deletion is taken as no
-   * Workload. The rejection cannot tell such an operator apart from one whose access was revoked
-   * after it created a Workload, and a read would be rejected as well. Such a Workload is left
-   * behind, since retrying cannot delete it either, while failing would keep every suspended
-   * resource of an operator without the access from resuming.
+   * a 404, which the deletion ignores. Without the Kueue integration, Kueue is not accessed at all.
    *
    * @param client The KubernetesClient.
    * @param owner The SparkApplication or SparkCluster owning the Workload.
-   * @return True if a Workload was deleted, false if there was none or it may not be deleted.
+   * @return True if a Workload was deleted, false if there was none or the Kueue integration is
+   *     disabled.
    * @throws KubernetesClientException if the Workload cannot be deleted.
    */
   public static boolean deleteWorkloadOf(final KubernetesClient client, final HasMetadata owner) {
-    String name = KueueWorkloadFactory.getWorkloadName(owner);
-    try {
-      return !client
-          .resources(Workload.class)
-          .inNamespace(owner.getMetadata().getNamespace())
-          .withName(name)
-          .delete()
-          .isEmpty();
-    } catch (KubernetesClientException e) {
-      if (KueueWorkloadFactory.hasQueueName(owner)
-          || KUEUE_WORKLOAD_INFORMER_ENABLED.getValue()
-          || e.getCode() != HTTP_FORBIDDEN) {
-        throw e;
-      }
-      log.debug("Not permitted to delete the Kueue Workload {}.", name, e);
-      return false;
-    }
+    return KUEUE_ENABLED.getValue()
+        && !client
+            .resources(Workload.class)
+            .inNamespace(owner.getMetadata().getNamespace())
+            .withName(KueueWorkloadFactory.getWorkloadName(owner))
+            .delete()
+            .isEmpty();
   }
 
   /**
@@ -575,13 +584,17 @@ public final class KueueWorkloadUtils {
    *     condition like the `Succeeded` and `Failed` reasons of Kueue.
    * @param message The message of the condition, describing why the owner terminated.
    * @return True if the condition was recorded, false if there is no Workload, it is already
-   *     finished, or the update failed and the Workload was released instead.
+   *     finished, the update failed and the Workload was released instead, or the Kueue
+   *     integration is disabled.
    */
   public static boolean finishWorkload(
       final KubernetesClient client,
       final HasMetadata owner,
       final boolean success,
       final String message) {
+    if (!KUEUE_ENABLED.getValue()) {
+      return false;
+    }
     String name = KueueWorkloadFactory.getWorkloadName(owner);
     try {
       Workload workload =
