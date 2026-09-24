@@ -666,9 +666,12 @@ spec:
   when it is resumed with the `kueue.x-k8s.io/queue-name` label.
 * Once the access of the operator to `Workload`s is revoked, e.g. by disabling
   `operatorRbac.kueue.enabled`, it can no longer delete them, and a `Workload` left behind keeps
-  its quota until its owner is deleted. Delete them before revoking the access, e.g. with
-  `kubectl delete workloads -A -l spark.operator/spark-app-name` and
-  `kubectl delete workloads -A -l spark.operator/spark-cluster-name`.
+  its quota until its owner is deleted. Before revoking the access, let the queued
+  `SparkApplication`s finish or suspend those which have not started yet, and suspend the queued
+  `SparkCluster`s, so that the operator releases their `Workload`s itself. Then list the remaining
+  ones with `kubectl get workloads -A -l spark.operator/spark-app-name` and
+  `kubectl get workloads -A -l spark.operator/spark-cluster-name`, and delete only those whose
+  owner has no running pods, e.g. of a `Failed` `SparkCluster`.
 * Dynamic allocation, a `SparkCluster` with `minWorkers < maxWorkers`, and pod template files set
   through `spark.kubernetes.{driver,executor}.podTemplateFile` are not supported yet. Such a
   resource fails with `SchedulingFailure` instead of being queued.
