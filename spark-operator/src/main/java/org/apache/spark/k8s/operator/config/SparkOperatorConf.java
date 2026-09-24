@@ -334,8 +334,9 @@ public final class SparkOperatorConf {
                   + "published when a resource transitions into a new state, as Warning for "
                   + "failure states and Normal for most other states, when the operator "
                   + "cannot reconcile or update the status of a resource, when a resource is "
-                  + "held by spec.suspend, and when a resource queued by Kueue waits for, gets "
-                  + "or fails to request the admission. These are Event resources in the core "
+                  + "held by spec.suspend, when a resource queued by Kueue waits for, gets or "
+                  + "fails to request the admission, and when the Kueue queue name label of a "
+                  + "resource is ignored. These are Event resources in the core "
                   + "API group, unrelated to the internal events that trigger reconciliation.")
           .typeParameterClass(Boolean.class)
           .defaultValue(false)

@@ -655,7 +655,8 @@ class ClusterInitStepTest {
             + "requested. Set spec.suspend to false to resume it.",
         captureEvents(1).get(0).message());
 
-    // Resumed: the master and workers are requested right away without the Kueue admission
+    // Resumed: the master and workers are requested right away without the Kueue admission, and
+    // the author of the label is told that it is ignored
     cluster.getSpec().setSuspend(false);
     Assertions.assertEquals(
         ReconcileProgress.completeAndDefaultRequeue(),
@@ -663,7 +664,14 @@ class ClusterInitStepTest {
     verify(statefulSetApplicable, times(2)).serverSideApply();
     verify(mockClient, never()).resources(Workload.class);
     verify(mockClient, never()).resource(any(Workload.class));
-    verify(eventRecorder, times(1)).record(any());
+    EventRecord ignored = captureEvents(2).get(1);
+    Assertions.assertEquals(EventType.WARNING, ignored.type());
+    Assertions.assertEquals(EventUtils.REASON_KUEUE_DISABLED, ignored.reason());
+    Assertions.assertEquals(
+        "The kueue.x-k8s.io/queue-name label is ignored because the Kueue integration is "
+            + "disabled, so the SparkCluster is not queued. Set "
+            + "spark.kubernetes.operator.kueue.enabled to true to enable it.",
+        ignored.message());
   }
 
   @Test

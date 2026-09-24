@@ -51,6 +51,7 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import lombok.extern.slf4j.Slf4j;
 
+import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.context.BaseContext;
 import org.apache.spark.k8s.operator.kueue.v1beta2.PodSet;
 import org.apache.spark.k8s.operator.kueue.v1beta2.PodSetAssignment;
@@ -362,6 +363,28 @@ public final class KueueWorkloadUtils {
         EventUtils.REASON_KUEUE_ADMISSION_REQUEST_FAILED,
         what + ", will retry. " + EventUtils.describe(e));
     return ReconcileProgress.completeAndDefaultRequeue();
+  }
+
+  /**
+   * Reports that the Kueue queue name label of the resource of the given context is ignored, since
+   * the Kueue integration is disabled. The label is set by the author of the resource, who may not
+   * see the operator configuration, so the event is the only signal that it is not queued.
+   *
+   * @param context The context of the resource labeled with a queue name.
+   */
+  public static void warnQueueNameIgnored(final BaseContext<?> context) {
+    HasMetadata resource = context.getResource();
+    log.debug("Kueue integration is disabled, {} is not queued.", resource.getKind());
+    EventUtils.warn(
+        context.getEventRecorder(),
+        EventUtils.REASON_KUEUE_DISABLED,
+        "The "
+            + Constants.LABEL_QUEUE_NAME
+            + " label is ignored because the Kueue integration is disabled, so the "
+            + resource.getKind()
+            + " is not queued. Set "
+            + KUEUE_ENABLED.getKey()
+            + " to true to enable it.");
   }
 
   /**

@@ -612,7 +612,9 @@ spec:
   when `operatorRbac.kueue.enabled` is set. Kueue and its `LocalQueue` must exist as well. See
   [Optional Prerequisites](operations.md#optional-prerequisites). Without the integration, the
   label is ignored, so the resource is not queued and starts right away, and the operator does
-  not access any Kueue resource, like Kueue ignores a job whose integration is not enabled.
+  not access any Kueue resource, like Kueue ignores a job whose integration is not enabled. Since
+  the author of the resource may not see the operator configuration, the `KueueDisabled` warning
+  [event](configuration.md#kubernetes-events) is published when enabled.
 * The `Workload` is named `<lower-cased kind>-<resource name>` and is owned by the Spark resource,
   so it is garbage collected along with it.
 * Like Kueue built-in integrations, the `Workload` gets the priority of the `WorkloadPriorityClass`
