@@ -168,6 +168,16 @@ spec:
           type: Normal
           reason: KueueAdmissionPending
           (contains(message || '', 'sparkapplication-spark-job-kueue-queued-test')): true
+    # The ValidatingAdmissionPolicy of the chart lets the queued application move to another
+    # queue, here and back again
+    - script:
+        timeout: 30s
+        env:
+          - name: LOCAL_QUEUE
+            value: ($LOCAL_QUEUE)
+        content: |
+          kubectl label sparkapplication spark-job-kueue-queued-test -n default --overwrite kueue.x-k8s.io/queue-name=another-queue
+          kubectl label sparkapplication spark-job-kueue-queued-test -n default --overwrite "kueue.x-k8s.io/queue-name=$LOCAL_QUEUE"
     - script:
         timeout: 30s
         env:
@@ -237,6 +247,14 @@ spec:
           metadata:
             name: sparkapplication-spark-job-kueue-queued-test
             namespace: default
+    # Like a finished Kueue job, the terminated application keeps its queue
+    - script:
+        timeout: 30s
+        content: |
+          kubectl label sparkapplication spark-job-kueue-queued-test -n default kueue.x-k8s.io/queue-name-
+        check:
+          ($error != null): true
+          (contains($stderr, 'ValidatingAdmissionPolicy')): true
     catch:
     - describe:
         apiVersion: spark.apache.org/v1
@@ -539,6 +557,15 @@ spec:
           type: Normal
           reason: KueueAdmitted
           (contains(message || '', 'sparkcluster-spark-cluster-kueue-queued-test')): true
+    # The ValidatingAdmissionPolicy of the chart keeps the running cluster in its queue, since its
+    # Workload holds the quota until the cluster is Suspended
+    - script:
+        timeout: 30s
+        content: |
+          kubectl label sparkcluster spark-cluster-kueue-queued-test -n default kueue.x-k8s.io/queue-name-
+        check:
+          ($error != null): true
+          (contains($stderr, 'ValidatingAdmissionPolicy')): true
     # Suspending the running cluster releases its master and workers, and then its quota
     - script:
         timeout: 30s
@@ -555,6 +582,15 @@ spec:
           status:
             currentState:
               currentStateSummary: Suspended
+    # The Suspended cluster may move to another queue, here and back again
+    - script:
+        timeout: 30s
+        env:
+          - name: LOCAL_QUEUE
+            value: ($LOCAL_QUEUE)
+        content: |
+          kubectl label sparkcluster spark-cluster-kueue-queued-test -n default --overwrite kueue.x-k8s.io/queue-name=another-queue
+          kubectl label sparkcluster spark-cluster-kueue-queued-test -n default --overwrite "kueue.x-k8s.io/queue-name=$LOCAL_QUEUE"
     - error:
         timeout: 120s
         resource:
