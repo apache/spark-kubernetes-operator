@@ -265,10 +265,17 @@ jobs:
           build-tools/helm/spark-kubernetes-operator/values.yaml -f \
           tests/e2e/helm/kueue-config-values.yaml \
           build-tools/helm/spark-kubernetes-operator/
+          helm test spark
       - name: Run E2E Test with Kueue Enabled
         if: matrix.mode == 'kueue'
         run: |
           chainsaw test --test-dir ./tests/e2e/${{ matrix.test-group }} --parallel 1
+          # Verify Kueue RBAC is denied by default. The same impersonated check must answer
+          # "yes" first, otherwise a wrong subject would make the denial below vacuous.
+          kubectl auth can-i create workloads.kueue.x-k8s.io --as=system:serviceaccount:default:spark-operator
+          helm upgrade spark -f build-tools/helm/spark-kubernetes-operator/values.yaml \
+          build-tools/helm/spark-kubernetes-operator/
+          if kubectl auth can-i create workloads.kueue.x-k8s.io --as=system:serviceaccount:default:spark-operator; then exit 1; fi
   helm-tests:
     name: "Helm Tests"
     needs: build-image
@@ -300,29 +307,15 @@ jobs:
         run: |
           kubectl get pods -A
           kubectl describe node
-      - name: Install Kueue
-        run: |
-          kubectl apply --server-side -f https://github.com/kubernetes-sigs/kueue/releases/download/${{ env.KUEUE_VERSION }}/manifests.yaml
-          # Kueue installs webhooks for pods, deployments and statefulsets with failurePolicy=Fail,
-          # so wait for the controller (whose readyz covers the webhook server) before helm install.
-          kubectl wait deploy/kueue-controller-manager -n kueue-system --for=condition=Available --timeout=5m
       - name: Run Spark K8s Operator Helm Tests
         run: |
-          for group in configmap-metadata kueue network-policy operator-command; do
+          for group in configmap-metadata network-policy operator-command; do
             echo "::group::Helm Tests: $group"
             helm install spark --create-namespace -f \
             build-tools/helm/spark-kubernetes-operator/values.yaml -f \
             tests/e2e/helm/helm-test-values/$group/values.yaml \
             build-tools/helm/spark-kubernetes-operator/
             helm test spark
-            if [ "$group" = "kueue" ]; then
-              # Verify Kueue RBAC is denied by default. The same impersonated check must answer
-              # "yes" first, otherwise a wrong subject would make the denial below vacuous.
-              kubectl auth can-i create workloads.kueue.x-k8s.io --as=system:serviceaccount:default:spark-operator
-              helm upgrade spark -f build-tools/helm/spark-kubernetes-operator/values.yaml \
-              build-tools/helm/spark-kubernetes-operator/
-              if kubectl auth can-i create workloads.kueue.x-k8s.io --as=system:serviceaccount:default:spark-operator; then exit 1; fi
-            fi
             helm uninstall spark --wait
             # Uninstall deletes the operator pod in the background, so wait until it is gone
             # before the next group's tests select the operator pod by its labels.
