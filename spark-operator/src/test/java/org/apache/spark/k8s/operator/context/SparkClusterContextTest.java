@@ -20,9 +20,12 @@
 package org.apache.spark.k8s.operator.context;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
@@ -36,13 +39,16 @@ import org.junit.jupiter.api.Test;
 import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.SparkCluster;
 import org.apache.spark.k8s.operator.SparkClusterSubmissionWorker;
+import org.apache.spark.k8s.operator.config.SparkOperatorConf;
 import org.apache.spark.k8s.operator.kueue.KueuePodSetFlavor;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadFactory;
+import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
 import org.apache.spark.k8s.operator.spec.ClusterSpec;
 import org.apache.spark.k8s.operator.spec.ClusterTolerations;
 import org.apache.spark.k8s.operator.spec.RuntimeVersions;
 import org.apache.spark.k8s.operator.spec.WorkerInstanceConfig;
 import org.apache.spark.k8s.operator.utils.ModelUtils;
+import org.apache.spark.k8s.operator.utils.TestUtils;
 
 class SparkClusterContextTest {
 
@@ -75,6 +81,28 @@ class SparkClusterContextTest {
     // The flavors are applied to the built StatefulSets only, so the SparkCluster keeps the pod
     // templates which the pod sets of its Kueue Workload are hashed from
     Assertions.assertEquals(clusterSpec, asJson(cluster.getSpec()));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void cachedKueueWorkloadIsReadOnlyWithKueueIntegration() {
+    SparkCluster cluster = buildCluster();
+    Context<SparkCluster> josdkContext = mock(Context.class);
+    Workload workload = KueueWorkloadFactory.buildWorkload(cluster);
+    when(josdkContext.getSecondaryResource(Workload.class)).thenReturn(Optional.of(workload));
+    SparkClusterContext context =
+        new SparkClusterContext(cluster, josdkContext, new SparkClusterSubmissionWorker());
+
+    // Without the integration, no Workload informer is registered to read from
+    Assertions.assertEquals(Optional.empty(), context.getCachedKueueWorkload());
+    verifyNoInteractions(josdkContext);
+
+    TestUtils.setConfigKey(SparkOperatorConf.KUEUE_ENABLED, true);
+    try {
+      Assertions.assertEquals(Optional.of(workload), context.getCachedKueueWorkload());
+    } finally {
+      TestUtils.setConfigKey(SparkOperatorConf.KUEUE_ENABLED, false);
+    }
   }
 
   private static String asJson(Object value) {

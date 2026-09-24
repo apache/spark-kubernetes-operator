@@ -166,6 +166,68 @@ class KueueWorkloadUtilsTest {
   }
 
   @Test
+  void admittedWorkloadIsKeptEvenIfQueueChanged() {
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1));
+    admitWorkload();
+
+    Workload moved = workload("owner-uid-1", 1);
+    moved.getSpec().setQueueName("another-queue");
+    Assertions.assertEquals(
+        AdmissionResult.ADMITTED,
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, moved).result());
+    Assertions.assertEquals("test-queue", getWorkload().getSpec().getQueueName());
+  }
+
+  @Test
+  void pendingWorkloadOfDequeuedResourceIsReleased() {
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1));
+    SparkAppContext context = context(kubernetesClient);
+    when(context.getCachedKueueWorkload()).thenReturn(Optional.of(getWorkload()));
+
+    // The queue label was removed while the Workload waited, so the resource starts without Kueue
+    // and the Workload would be admitted later into quota which nothing uses
+    Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.releaseDequeuedWorkload(context));
+    Assertions.assertNull(getWorkload());
+  }
+
+  @Test
+  void admittedWorkloadOfDequeuedResourceIsKept() {
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1));
+    admitWorkload();
+    SparkAppContext context = context(kubernetesClient);
+    when(context.getCachedKueueWorkload()).thenReturn(Optional.of(getWorkload()));
+
+    // The resources it was admitted for may be running already
+    Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.releaseDequeuedWorkload(context));
+    Assertions.assertNotNull(getWorkload());
+  }
+
+  @Test
+  void resourceWithoutCachedWorkloadIsNotReleased() {
+    KubernetesClient client = mock(KubernetesClient.class);
+    SparkAppContext context = context(client);
+
+    // A resource which was never queued costs no request
+    Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.releaseDequeuedWorkload(context));
+    verifyNoInteractions(client);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void failedReleaseOfDequeuedWorkloadIsRetried() {
+    Resource<Workload> workloadResource = mock(Resource.class);
+    when(workloadResource.delete())
+        .thenThrow(new KubernetesClientException("forbidden", 403, null));
+    SparkAppContext context = context(clientReturning(workloadResource));
+    when(context.getCachedKueueWorkload()).thenReturn(Optional.of(workload("owner-uid-1", 1)));
+
+    // The resources are not requested while the Workload may still be admitted for nothing
+    Assertions.assertEquals(
+        Optional.of(ReconcileProgress.completeAndDefaultRequeue()),
+        KueueWorkloadUtils.releaseDequeuedWorkload(context));
+  }
+
+  @Test
   void workloadOwnedByAnotherResourceIsDeleted() {
     KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("stale-owner-uid", 1));
     admitWorkload();
@@ -839,6 +901,28 @@ class KueueWorkloadUtilsTest {
     // The Workload is updated in place so that it keeps its position in the queue
     Workload updated = getWorkload();
     Assertions.assertEquals(uid, updated.getMetadata().getUid());
+    Assertions.assertEquals("high", updated.getSpec().getPriorityClassRef().getName());
+    Assertions.assertEquals(1000, updated.getSpec().getPriority());
+  }
+
+  @Test
+  void pendingWorkloadIsMovedToAnotherQueueInPlace() {
+    createWorkloadPriorityClass("low", 10);
+    createWorkloadPriorityClass("high", 1000);
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithPriorityClass("low"));
+    String uid = getWorkload().getMetadata().getUid();
+
+    // The queue label changed while waiting for the admission, e.g. along with a suspension which
+    // was cleared before the operator released the Workload. Like Kueue, the Workload is updated
+    // rather than recreated, since it holds no quota yet, along with its priority class.
+    Workload moved = workloadWithPriorityClass("high");
+    moved.getSpec().setQueueName("another-queue");
+    Assertions.assertEquals(
+        AdmissionResult.PENDING,
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, moved).result());
+    Workload updated = getWorkload();
+    Assertions.assertEquals(uid, updated.getMetadata().getUid());
+    Assertions.assertEquals("another-queue", updated.getSpec().getQueueName());
     Assertions.assertEquals("high", updated.getSpec().getPriorityClassRef().getName());
     Assertions.assertEquals(1000, updated.getSpec().getPriority());
   }

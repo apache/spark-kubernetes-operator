@@ -611,6 +611,35 @@ class ClusterInitStepTest {
   }
 
   @Test
+  void failedReleaseOfPendingKueueWorkloadHoldsDequeuedCluster() {
+    ClusterInitStep clusterInitStep = new ClusterInitStep();
+    SparkClusterContext mockContext = mock(SparkClusterContext.class);
+    SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
+    // Queued before, and removed from the queue while its Workload waited for the admission
+    SparkCluster cluster = buildCluster();
+    KubernetesClient mockClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    Resource<Workload> workload = stubWorkloadRead(mockClient, null);
+    when(workload.delete()).thenThrow(new KubernetesClientException("forbidden", 403, null));
+    when(mockClient.resource(masterStatefulSetSpec).get()).thenReturn(null);
+    when(mockContext.getResource()).thenReturn(cluster);
+    when(mockContext.getClient()).thenReturn(mockClient);
+    when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+    when(mockContext.getCachedKueueWorkload())
+        .thenReturn(Optional.of(KueueWorkloadFactory.buildWorkload(buildKueueCluster())));
+
+    // The master is not requested while the pending Workload may still be admitted for nothing
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndDefaultRequeue(),
+        clusterInitStep.reconcile(mockContext, recorder));
+    verify(workload).delete();
+    verify(mockContext, never()).getMasterServiceSpec();
+    verifyNoInteractions(recorder);
+    EventRecord event = captureEvents(1).get(0);
+    Assertions.assertEquals(EventUtils.REASON_KUEUE_ADMISSION_REQUEST_FAILED, event.reason());
+  }
+
+  @Test
   @SuppressWarnings("unchecked")
   void queueLabelIsIgnoredWhenKueueIsDisabled() {
     TestUtils.setConfigKey(SparkOperatorConf.KUEUE_ENABLED, false);
@@ -1105,7 +1134,7 @@ class ClusterInitStepTest {
   }
 
   @SuppressWarnings("unchecked")
-  private static void stubWorkloadRead(KubernetesClient client, Workload workload) {
+  private static Resource<Workload> stubWorkloadRead(KubernetesClient client, Workload workload) {
     MixedOperation<Workload, KubernetesResourceList<Workload>, Resource<Workload>> workloads =
         mock(MixedOperation.class);
     NonNamespaceOperation<Workload, KubernetesResourceList<Workload>, Resource<Workload>>
@@ -1115,6 +1144,7 @@ class ClusterInitStepTest {
     when(workloads.inNamespace("default")).thenReturn(namespaced);
     when(namespaced.withName("sparkcluster-cluster1")).thenReturn(resource);
     when(resource.get()).thenReturn(workload);
+    return resource;
   }
 
   private static WorkloadStatus admittedStatus(Map<String, Map<String, String>> podSetFlavors) {
