@@ -221,7 +221,7 @@ public final class ClusterInitStep extends ClusterReconcileStep {
    */
   private Optional<ReconcileProgress> holdForKueueAdmission(
       SparkClusterContext context, SparkCluster cluster) {
-    if (!KueueWorkloadFactory.hasQueueName(cluster)) {
+    if (!KueueWorkloadFactory.isQueued(cluster)) {
       return Optional.empty();
     }
     try {

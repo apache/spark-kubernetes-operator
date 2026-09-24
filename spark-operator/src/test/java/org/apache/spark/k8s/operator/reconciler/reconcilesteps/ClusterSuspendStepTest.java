@@ -59,10 +59,11 @@ import io.fabric8.kubernetes.client.server.mock.EnableKubernetesMockClient;
 import io.javaoperatorsdk.operator.api.event.EventRecord;
 import io.javaoperatorsdk.operator.api.event.EventType;
 import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 
@@ -100,6 +101,16 @@ class ClusterSuspendStepTest {
   private final SparkClusterContext mockContext = mock(SparkClusterContext.class);
   private final SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
   private final ResourceEventRecorder eventRecorder = mock(ResourceEventRecorder.class);
+
+  @BeforeEach
+  void enableKueue() {
+    TestUtils.setConfigKey(SparkOperatorConf.KUEUE_ENABLED, true);
+  }
+
+  @AfterEach
+  void disableKueue() {
+    TestUtils.setConfigKey(SparkOperatorConf.KUEUE_ENABLED, false);
+  }
 
   @Test
   void runningClusterWithoutSuspendProceeds() {
@@ -244,7 +255,6 @@ class ClusterSuspendStepTest {
     kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(cluster)).create();
     cluster.getMetadata().setLabels(Map.of());
 
-    // The Workload informer is disabled by default, which does not matter for the release
     Assertions.assertEquals(
         suspend ? SUSPEND_HOLD_PROGRESS : ReconcileProgress.completeAndImmediateRequeue(),
         new ClusterSuspendStep().reconcile(mockContext, recorder));
@@ -254,17 +264,13 @@ class ClusterSuspendStepTest {
     Assertions.assertNull(getWorkload());
   }
 
-  @ParameterizedTest
-  @CsvSource({"true, false, 403", "false, true, 403", "false, false, 403", "false, false, 500"})
+  @Test
   @SuppressWarnings("unchecked")
-  void forbiddenKueueWorkloadReleaseIsIgnoredOnlyWithoutKueueAccess(
-      boolean labeled, boolean informerEnabled, int code) {
-    // The Workload was admitted while the cluster was labeled, and its deletion now fails
+  void forbiddenKueueWorkloadReleaseIsReportedAndRetried() {
+    // The Workload was admitted before the queue label was removed, and its deletion now fails
     SparkCluster cluster = buildKueueCluster(ClusterStateSummary.Suspended, true);
     kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(cluster)).create();
-    if (!labeled) {
-      cluster.getMetadata().setLabels(Map.of());
-    }
+    cluster.getMetadata().setLabels(Map.of());
     KubernetesClient client = spy(kubernetesClient);
     MixedOperation<Workload, KubernetesResourceList<Workload>, Resource<Workload>> workloads =
         mock(MixedOperation.class);
@@ -274,34 +280,39 @@ class ClusterSuspendStepTest {
     doReturn(workloads).when(client).resources(Workload.class);
     when(workloads.inNamespace("default")).thenReturn(namespaced);
     when(namespaced.withName("sparkcluster-cluster1")).thenReturn(workload);
-    when(workload.delete()).thenThrow(new KubernetesClientException("failed", code, null));
+    when(workload.delete()).thenThrow(new KubernetesClientException("forbidden", 403, null));
     stubContext(cluster, client);
     when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
 
-    TestUtils.setConfigKey(SparkOperatorConf.KUEUE_WORKLOAD_INFORMER_ENABLED, informerEnabled);
-    ReconcileProgress progress;
-    try {
-      progress = new ClusterSuspendStep().reconcile(mockContext, recorder);
-    } finally {
-      TestUtils.setConfigKey(SparkOperatorConf.KUEUE_WORKLOAD_INFORMER_ENABLED, false);
-    }
+    // An operator with the Kueue integration enabled is expected to have the access to Workloads,
+    // so a rejection is reported and retried even without the queue label
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndDefaultRequeue(),
+        new ClusterSuspendStep().reconcile(mockContext, recorder));
 
     verify(workload).delete();
     Assertions.assertNotNull(getWorkload());
-    if (labeled || informerEnabled || code != 403) {
-      // A queued cluster, or an operator which watches Workloads, is expected to have the access,
-      // and only a rejection may mean that it lacks it, so the release is reported and retried
-      Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
-      ArgumentCaptor<EventRecord> event = ArgumentCaptor.forClass(EventRecord.class);
-      verify(eventRecorder).record(event.capture());
-      Assertions.assertEquals(EventUtils.REASON_SUSPEND_RELEASE_FAILED, event.getValue().reason());
-    } else {
-      // A rejection cannot tell an operator which was never granted the access apart from one
-      // whose access was revoked, and failing would keep the former from ever resuming the
-      // cluster, so the Workload is left behind as documented
-      Assertions.assertEquals(SUSPEND_HOLD_PROGRESS, progress);
-      verifyNoInteractions(eventRecorder);
-    }
+    ArgumentCaptor<EventRecord> event = ArgumentCaptor.forClass(EventRecord.class);
+    verify(eventRecorder).record(event.capture());
+    Assertions.assertEquals(EventUtils.REASON_SUSPEND_RELEASE_FAILED, event.getValue().reason());
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void kueueWorkloadIsNotAccessedWhenKueueIsDisabled(boolean suspend) {
+    SparkCluster cluster = buildKueueCluster(ClusterStateSummary.Suspended, suspend);
+    kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(cluster)).create();
+    KubernetesClient client = spy(kubernetesClient);
+    stubContext(cluster, client);
+    TestUtils.setConfigKey(SparkOperatorConf.KUEUE_ENABLED, false);
+
+    Assertions.assertEquals(
+        suspend ? SUSPEND_HOLD_PROGRESS : ReconcileProgress.completeAndImmediateRequeue(),
+        new ClusterSuspendStep().reconcile(mockContext, recorder));
+
+    // The queue label is ignored, and neither the suspended nor the resumed cluster calls Kueue
+    verify(client, never()).resources(Workload.class);
+    Assertions.assertNotNull(getWorkload());
   }
 
   @Test

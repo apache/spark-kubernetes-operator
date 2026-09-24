@@ -44,10 +44,11 @@ under the License.
   `integrations.externalFrameworks` does not need to list `SparkApplication` or `SparkCluster`:
   the operator manages the `Workload` objects for them, so Kueue does not have to
   recognize the Spark custom resources as job kinds. `operatorRbac.kueue.enabled` also sets
-  `spark.kubernetes.operator.kueue.workloadInformer.enabled`, so that the operator watches
-  `Workload` resources and an admission starts the queued resource right away. Without the watch,
-  an admission is noticed on the next periodic reconcile. The watch requires Kueue to be installed
-  before the operator starts; otherwise the operator reports itself unhealthy. The cluster-scoped
+  `spark.kubernetes.operator.kueue.enabled`, which enables the Kueue integration of the operator.
+  The operator then watches `Workload` resources, so that an admission starts the queued resource
+  right away. The watch requires Kueue to be installed before the operator starts; otherwise the
+  operator reports itself unhealthy. Without the integration, the operator ignores the
+  `kueue.x-k8s.io/queue-name` label and does not access any Kueue resource. The cluster-scoped
   `resourceflavors`, `workloadpriorityclasses` and `priorityclasses` are granted only by
   `clusterRole.create`. Without the permission, the priority of a `Workload` is skipped with a
   warning, while the `ResourceFlavor`s which Kueue assigned cannot be read at all, so an admitted

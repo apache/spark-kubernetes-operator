@@ -577,7 +577,7 @@
           "properties": {
             "enabled": {
               "type": "boolean",
-              "description": "Whether to grant the operator access to Kueue resources"
+              "description": "Whether to grant the operator access to Kueue resources and enable the Kueue integration"
             }
           }
         },

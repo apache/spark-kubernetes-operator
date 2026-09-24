@@ -19,6 +19,8 @@
 
 package org.apache.spark.k8s.operator.kueue;
 
+import static org.apache.spark.k8s.operator.config.SparkOperatorConf.KUEUE_ENABLED;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -274,6 +276,17 @@ public final class KueueWorkloadFactory {
    */
   public static boolean hasQueueName(final HasMetadata resource) {
     return StringUtils.isNotEmpty(getQueueName(resource));
+  }
+
+  /**
+   * Checks whether the resource is queued by Kueue. The queue name label is ignored unless the
+   * Kueue integration is enabled.
+   *
+   * @param resource The Kubernetes resource (SparkApplication or SparkCluster).
+   * @return true if the Kueue integration is enabled and a Kueue queue name is specified.
+   */
+  public static boolean isQueued(final HasMetadata resource) {
+    return KUEUE_ENABLED.getValue() && hasQueueName(resource);
   }
 
   static PodSet buildDriverPodSet(

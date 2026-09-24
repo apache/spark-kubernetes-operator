@@ -184,7 +184,7 @@ public final class AppInitStep extends AppReconcileStep {
    */
   private Optional<ReconcileProgress> holdForKueueAdmission(
       SparkAppContext context, SparkApplication app) {
-    if (!KueueWorkloadFactory.hasQueueName(app)) {
+    if (!KueueWorkloadFactory.isQueued(app)) {
       return Optional.empty();
     }
     try {

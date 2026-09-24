@@ -773,19 +773,23 @@ public final class SparkOperatorConf {
           .build();
 
   /**
-   * When enabled, the operator watches Kueue Workloads so that an admission starts the queued
-   * resource right away. The operator needs RBAC access to Kueue Workloads and Kueue must be
-   * installed, otherwise the informer stays unhealthy and so does the operator.
+   * When enabled, the operator queues a resource labeled with a Kueue queue name through a Kueue
+   * Workload, and watches the Workloads so that an admission starts the queued resource right
+   * away. The operator needs RBAC access to Kueue Workloads and Kueue must be installed, otherwise
+   * the informer stays unhealthy and so does the operator. When disabled, the operator ignores the
+   * queue name label and does not access Kueue at all.
    */
-  public static final ConfigOption<Boolean> KUEUE_WORKLOAD_INFORMER_ENABLED =
+  public static final ConfigOption<Boolean> KUEUE_ENABLED =
       ConfigOption.<Boolean>builder()
-          .key("spark.kubernetes.operator.kueue.workloadInformer.enabled")
+          .key("spark.kubernetes.operator.kueue.enabled")
           .enableDynamicOverride(false)
           .description(
-              "When enabled, operator watches Kueue Workloads so that an admission starts the "
-                  + "queued SparkApplication or SparkCluster right away. Otherwise, an admission "
-                  + "is noticed on the next periodic reconcile. Requires Kueue to be installed "
-                  + "and the operator to have RBAC access to Kueue Workloads.")
+              "When enabled, operator queues SparkApplication and SparkCluster labeled with "
+                  + "kueue.x-k8s.io/queue-name through Kueue Workloads, and watches the "
+                  + "Workloads so that an admission starts the queued resource right away. "
+                  + "Requires Kueue to be installed and the operator to have RBAC access to "
+                  + "Kueue Workloads. When disabled, operator ignores the label and does not "
+                  + "access Kueue at all.")
           .typeParameterClass(Boolean.class)
           .defaultValue(false)
           .build();

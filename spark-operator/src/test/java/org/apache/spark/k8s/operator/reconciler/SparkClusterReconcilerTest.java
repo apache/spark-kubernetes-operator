@@ -368,7 +368,7 @@ class SparkClusterReconcilerTest {
       assertEquals(List.of(Pod.class), configs.stream().map(c -> c.getResourceClass()).toList());
 
       configs.clear();
-      setConfigKey(SparkOperatorConf.KUEUE_WORKLOAD_INFORMER_ENABLED, true);
+      setConfigKey(SparkOperatorConf.KUEUE_ENABLED, true);
       assertEquals(2, reconciler.prepareEventSources(eventSourceContext).size());
       assertEquals(
           List.of(Pod.class, Workload.class),
@@ -402,7 +402,7 @@ class SparkClusterReconcilerTest {
       assertFalse(informerConfig.getOnUpdateFilter().accept(workload, workload));
       assertNull(informerConfig.getOnDeleteFilter());
     } finally {
-      setConfigKey(SparkOperatorConf.KUEUE_WORKLOAD_INFORMER_ENABLED, false);
+      setConfigKey(SparkOperatorConf.KUEUE_ENABLED, false);
     }
   }
 }

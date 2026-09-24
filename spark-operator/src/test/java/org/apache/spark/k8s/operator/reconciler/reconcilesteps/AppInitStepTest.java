@@ -65,7 +65,9 @@ import io.javaoperatorsdk.operator.api.event.EventRecord;
 import io.javaoperatorsdk.operator.api.event.EventType;
 import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
@@ -73,6 +75,7 @@ import org.mockito.InOrder;
 import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.SparkAppSubmissionWorker;
 import org.apache.spark.k8s.operator.SparkApplication;
+import org.apache.spark.k8s.operator.config.SparkOperatorConf;
 import org.apache.spark.k8s.operator.context.SparkAppContext;
 import org.apache.spark.k8s.operator.kueue.KueuePodSetFlavor;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadFactory;
@@ -93,6 +96,7 @@ import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
 import org.apache.spark.k8s.operator.utils.EventUtils;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
+import org.apache.spark.k8s.operator.utils.TestUtils;
 
 @EnableKubernetesMockClient(crud = true)
 @SuppressFBWarnings(
@@ -150,6 +154,16 @@ class AppInitStepTest {
           .withUid("app-uid")
           .withLabels(Map.of(Constants.LABEL_QUEUE_NAME, "test-queue"))
           .build();
+
+  @BeforeEach
+  void enableKueue() {
+    TestUtils.setConfigKey(SparkOperatorConf.KUEUE_ENABLED, true);
+  }
+
+  @AfterEach
+  void disableKueue() {
+    TestUtils.setConfigKey(SparkOperatorConf.KUEUE_ENABLED, false);
+  }
 
   @Test
   void driverResourcesHaveOwnerReferencesToDriver() {
@@ -892,6 +906,54 @@ class AppInitStepTest {
                     + EventUtils.REASON_KUEUE_ADMISSION_PENDING
                     + " event no longer applies."),
         events.get(1).message());
+  }
+
+  @Test
+  void queueLabelIsIgnoredWhenKueueIsDisabled() {
+    TestUtils.setConfigKey(SparkOperatorConf.KUEUE_ENABLED, false);
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(kueueApplicationMetadata);
+    application.getSpec().setSuspend(true);
+    // A Workload left behind by the operator before the Kueue integration was disabled
+    kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(application)).create();
+    KubernetesClient client = spy(kubernetesClient);
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getDriverPreResourcesSpec()).thenReturn(List.of());
+    when(mockContext.getDriverPodSpec()).thenReturn(driverPodSpec);
+    when(mockContext.getDriverResourcesSpec()).thenReturn(List.of());
+    when(mockContext.getClient()).thenReturn(client);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+    when(recorder.persistStatus(any(), any()))
+        .thenAnswer(
+            invocation -> {
+              application.setStatus(invocation.getArgument(1));
+              return true;
+            });
+
+    // Suspended: the Workload is not released, and the event does not mention Kueue
+    Assertions.assertEquals(SUSPEND_HOLD_PROGRESS, appInitStep.reconcile(mockContext, recorder));
+    Assertions.assertEquals(
+        "The SparkApplication is suspended by spec.suspend, driver would not be requested. "
+            + "Set spec.suspend to false to resume it.",
+        captureEvents(1).get(0).message());
+
+    // Resumed: the driver is requested right away without the Kueue admission
+    application.getSpec().setSuspend(false);
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndDefaultRequeue(),
+        appInitStep.reconcile(mockContext, recorder));
+    Assertions.assertNotNull(
+        kubernetesClient.pods().inNamespace("default").withName("driver-pod").get());
+    Assertions.assertEquals(
+        ApplicationStateSummary.DriverRequested,
+        application.getStatus().getCurrentState().getCurrentStateSummary());
+    verify(client, never()).resources(Workload.class);
+    verify(client, never()).resource(any(Workload.class));
+    Assertions.assertNotNull(getWorkload());
+    verify(eventRecorder, times(1)).record(any());
   }
 
   @Test
