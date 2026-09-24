@@ -62,6 +62,7 @@ import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 
@@ -235,22 +236,72 @@ class ClusterSuspendStepTest {
     Assertions.assertNull(getWorkload());
   }
 
-  @Test
-  void workloadIsReleasedAfterQueueLabelIsRemoved() {
-    SparkCluster cluster = buildKueueCluster(ClusterStateSummary.Suspended, true);
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void workloadIsReleasedAfterQueueLabelIsRemoved(boolean suspend) {
+    SparkCluster cluster = buildKueueCluster(ClusterStateSummary.Suspended, suspend);
     stubContext(cluster);
     kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(cluster)).create();
     cluster.getMetadata().setLabels(Map.of());
-    TestUtils.setConfigKey(SparkOperatorConf.KUEUE_WORKLOAD_INFORMER_ENABLED, true);
+
+    // The Workload informer is disabled by default, which does not matter for the release
+    Assertions.assertEquals(
+        suspend ? SUSPEND_HOLD_PROGRESS : ReconcileProgress.completeAndImmediateRequeue(),
+        new ClusterSuspendStep().reconcile(mockContext, recorder));
+
+    // The Workload admitted before the label was removed neither keeps the quota while suspended,
+    // nor lends its admission to a resumed cluster whose label is added back
+    Assertions.assertNull(getWorkload());
+  }
+
+  @ParameterizedTest
+  @CsvSource({"true, false, 403", "false, true, 403", "false, false, 403", "false, false, 500"})
+  @SuppressWarnings("unchecked")
+  void forbiddenKueueWorkloadReleaseIsIgnoredOnlyWithoutKueueAccess(
+      boolean labeled, boolean informerEnabled, int code) {
+    // The Workload was admitted while the cluster was labeled, and its deletion now fails
+    SparkCluster cluster = buildKueueCluster(ClusterStateSummary.Suspended, true);
+    kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(cluster)).create();
+    if (!labeled) {
+      cluster.getMetadata().setLabels(Map.of());
+    }
+    KubernetesClient client = spy(kubernetesClient);
+    MixedOperation<Workload, KubernetesResourceList<Workload>, Resource<Workload>> workloads =
+        mock(MixedOperation.class);
+    NonNamespaceOperation<Workload, KubernetesResourceList<Workload>, Resource<Workload>>
+        namespaced = mock(NonNamespaceOperation.class);
+    Resource<Workload> workload = mock(Resource.class);
+    doReturn(workloads).when(client).resources(Workload.class);
+    when(workloads.inNamespace("default")).thenReturn(namespaced);
+    when(namespaced.withName("sparkcluster-cluster1")).thenReturn(workload);
+    when(workload.delete()).thenThrow(new KubernetesClientException("failed", code, null));
+    stubContext(cluster, client);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+
+    TestUtils.setConfigKey(SparkOperatorConf.KUEUE_WORKLOAD_INFORMER_ENABLED, informerEnabled);
+    ReconcileProgress progress;
     try {
-      Assertions.assertEquals(
-          SUSPEND_HOLD_PROGRESS, new ClusterSuspendStep().reconcile(mockContext, recorder));
+      progress = new ClusterSuspendStep().reconcile(mockContext, recorder);
     } finally {
       TestUtils.setConfigKey(SparkOperatorConf.KUEUE_WORKLOAD_INFORMER_ENABLED, false);
     }
 
-    // The Workload admitted before the label was removed does not keep the quota
-    Assertions.assertNull(getWorkload());
+    verify(workload).delete();
+    Assertions.assertNotNull(getWorkload());
+    if (labeled || informerEnabled || code != 403) {
+      // A queued cluster, or an operator which watches Workloads, is expected to have the access,
+      // and only a rejection may mean that it lacks it, so the release is reported and retried
+      Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
+      ArgumentCaptor<EventRecord> event = ArgumentCaptor.forClass(EventRecord.class);
+      verify(eventRecorder).record(event.capture());
+      Assertions.assertEquals(EventUtils.REASON_SUSPEND_RELEASE_FAILED, event.getValue().reason());
+    } else {
+      // A rejection cannot tell an operator which was never granted the access apart from one
+      // whose access was revoked, and failing would keep the former from ever resuming the
+      // cluster, so the Workload is left behind as documented
+      Assertions.assertEquals(SUSPEND_HOLD_PROGRESS, progress);
+      verifyNoInteractions(eventRecorder);
+    }
   }
 
   @Test

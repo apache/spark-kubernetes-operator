@@ -661,7 +661,19 @@ spec:
 * `spec.suspend` takes precedence. A suspended resource does not get a `Workload`, and suspending
   a queued resource deletes its `Workload` to release the quota. Suspending a running
   `SparkCluster` deletes its `Workload` only after its master and worker pods are gone, since
-  terminating pods still occupy the quota. The resource is queued again when it is resumed.
+  terminating pods still occupy the quota. The `Workload` is deleted even if the
+  `kueue.x-k8s.io/queue-name` label was removed after the admission. The resource is queued again
+  when it is resumed with the `kueue.x-k8s.io/queue-name` label.
+* Once the access of the operator to `Workload`s is revoked, e.g. by disabling
+  `operatorRbac.kueue.enabled`, it can no longer delete them, and a `Workload` left behind keeps
+  its quota until its owner is deleted. A suspended `SparkCluster` which still carries the
+  `kueue.x-k8s.io/queue-name` label does not resume either, until its `Workload` is gone or the
+  access is restored. Before revoking the access, let the queued
+  `SparkApplication`s finish or suspend those which have not started yet, and suspend the queued
+  `SparkCluster`s, so that the operator releases their `Workload`s itself. Then list the remaining
+  ones with `kubectl get workloads -A -l spark.operator/spark-app-name` and
+  `kubectl get workloads -A -l spark.operator/spark-cluster-name`, and delete only those whose
+  owner has no running pods, e.g. of a `Failed` `SparkCluster`.
 * Dynamic allocation, a `SparkCluster` with `minWorkers < maxWorkers`, and pod template files set
   through `spark.kubernetes.{driver,executor}.podTemplateFile` are not supported yet. Such a
   resource fails with `SchedulingFailure` instead of being queued.

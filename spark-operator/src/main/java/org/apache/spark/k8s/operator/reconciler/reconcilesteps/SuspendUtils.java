@@ -28,7 +28,6 @@ import io.fabric8.kubernetes.api.model.HasMetadata;
 import lombok.extern.slf4j.Slf4j;
 
 import org.apache.spark.k8s.operator.context.BaseContext;
-import org.apache.spark.k8s.operator.kueue.KueueWorkloadFactory;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.utils.EventUtils;
@@ -77,9 +76,9 @@ final class SuspendUtils {
     // Only a Workload that was actually there leaves a pending event behind, so a resource
     // suspended before it was ever queued is not told about one. That event stays until the API
     // server drops it, and the operator may not delete events, so say that it no longer applies
-    // rather than leaving a contradicting pair behind.
-    if (KueueWorkloadFactory.hasQueueName(resource)
-        && KueueWorkloadUtils.releaseWorkload(context.getClient(), resource)) {
+    // rather than leaving a contradicting pair behind. A Workload queued before the queue label was
+    // removed is released as well, since Kueue would admit it into quota that nothing uses.
+    if (KueueWorkloadUtils.releaseWorkload(context.getClient(), resource)) {
       message +=
           " It holds no Kueue Workload while suspended, so an earlier "
               + EventUtils.REASON_KUEUE_ADMISSION_PENDING

@@ -527,8 +527,11 @@ class KueueWorkloadUtilsTest {
     when(workloadResource.delete())
         .thenThrow(new KubernetesClientException("forbidden", 403, null));
     SparkAppContext context = mock(SparkAppContext.class);
+    // Only a queued resource requests the admission, so the rejected release is not ignored
+    SparkApplication owner = owner();
+    owner.getMetadata().setLabels(Map.of(Constants.LABEL_QUEUE_NAME, "test-queue"));
     when(context.getClient()).thenReturn(client);
-    when(context.getResource()).thenReturn(owner());
+    when(context.getResource()).thenReturn(owner);
     when(context.getEventRecorder()).thenReturn(mock(ResourceEventRecorder.class));
 
     Assertions.assertEquals(
