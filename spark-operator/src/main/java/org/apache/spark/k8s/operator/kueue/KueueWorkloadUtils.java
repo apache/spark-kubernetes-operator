@@ -165,6 +165,22 @@ public final class KueueWorkloadUtils {
       return new AdmissionResponse(AdmissionResult.STALE, workload);
     }
     WorkloadSpec spec = workload.getSpec();
+    boolean changed = false;
+    String desiredQueueName = desired.getSpec().getQueueName();
+    boolean quotaReserved = workload.getStatus() != null && workload.getStatus().isQuotaReserved();
+    if (!quotaReserved && !Objects.equals(spec.getQueueName(), desiredQueueName)) {
+      // Like Kueue, a queue label changed before the quota is reserved moves the Workload to the
+      // new queue in place. After that, the Workload CEL rules freeze its queue name.
+      log.info(
+          "Moving the pending Kueue Workload {} to queue {}.",
+          workload.getMetadata().getName(),
+          desiredQueueName);
+      spec.setQueueName(desiredQueueName);
+      Map<String, String> labels = new HashMap<>(workload.getMetadata().getLabels());
+      labels.put(Constants.LABEL_QUEUE_NAME, desiredQueueName);
+      workload.getMetadata().setLabels(labels);
+      changed = true;
+    }
     PriorityClassRef desiredPriorityClassRef = desired.getSpec().getPriorityClassRef();
     if (desired.getSpec().getPriority() != null
         && !Objects.equals(spec.getPriorityClassRef(), desiredPriorityClassRef)
@@ -177,6 +193,9 @@ public final class KueueWorkloadUtils {
           workload.getMetadata().getName());
       spec.setPriorityClassRef(desiredPriorityClassRef);
       spec.setPriority(desired.getSpec().getPriority());
+      changed = true;
+    }
+    if (changed) {
       client.resource(workload).update();
     }
     return new AdmissionResponse(AdmissionResult.PENDING, workload);
@@ -251,14 +270,10 @@ public final class KueueWorkloadUtils {
       // Like Kueue, a node selector conflict is permanent, so the quota is released before the
       // caller fails the resource, which this step does not reach again. The release itself is
       // retried, since a Workload left behind holds the quota of a resource that never starts.
-      try {
-        deleteWorkloadOf(context.getClient(), context.getResource());
-      } catch (KubernetesClientException releaseFailure) {
-        return Optional.of(
-            retryAfterRequestFailure(
-                context,
-                releaseFailure,
-                "Failed to release the Kueue Workload of a rejected admission"));
+      Optional<ReconcileProgress> retry =
+          releaseOrRetry(context, "Failed to release the Kueue Workload of a rejected admission");
+      if (retry.isPresent()) {
+        return retry;
       }
       throw e;
     }
@@ -363,6 +378,49 @@ public final class KueueWorkloadUtils {
         EventUtils.REASON_KUEUE_ADMISSION_REQUEST_FAILED,
         what + ", will retry. " + EventUtils.describe(e));
     return ReconcileProgress.completeAndDefaultRequeue();
+  }
+
+  /**
+   * Releases the pending Workload of a resource whose queue label was removed while it waited for
+   * the admission. The resource now starts without Kueue, so Kueue would otherwise admit the
+   * Workload later into quota which nothing uses. An admitted Workload is kept, since the
+   * resources it was admitted for may be running already, and it is released with them like the
+   * Workload of a queued resource. Like the admission request, a failed release is retried before
+   * the resources are requested.
+   *
+   * @param context The context of the resource without a queue name label.
+   * @return The progress to return while the release fails, or empty to proceed.
+   */
+  public static Optional<ReconcileProgress> releaseDequeuedWorkload(
+      final BaseContext<?> context) {
+    Optional<Workload> workload = context.getCachedKueueWorkload();
+    if (workload.isEmpty() || isAdmitted(workload.get())) {
+      return Optional.empty();
+    }
+    log.info(
+        "Deleting the pending Kueue Workload {} whose owner was removed from the queue.",
+        workload.get().getMetadata().getName());
+    return releaseOrRetry(
+        context, "Failed to release the Kueue Workload of a resource removed from its queue");
+  }
+
+  /**
+   * Deletes the Workload of the resource of the given context before its resources are requested
+   * or it fails, and reports the progress to retry a failed deletion with, like a failed admission
+   * request.
+   *
+   * @param context The context of the resource owning the Workload.
+   * @param what What failed, as named in the event and the log.
+   * @return The progress to return while the deletion fails, or empty once it succeeded.
+   */
+  private static Optional<ReconcileProgress> releaseOrRetry(
+      final BaseContext<?> context, final String what) {
+    try {
+      deleteWorkloadOf(context.getClient(), context.getResource());
+    } catch (KubernetesClientException e) {
+      return Optional.of(retryAfterRequestFailure(context, e, what));
+    }
+    return Optional.empty();
   }
 
   /**

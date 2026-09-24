@@ -19,7 +19,10 @@
 
 package org.apache.spark.k8s.operator.context;
 
+import static org.apache.spark.k8s.operator.config.SparkOperatorConf.KUEUE_ENABLED;
+
 import java.util.Map;
+import java.util.Optional;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
@@ -27,6 +30,7 @@ import io.javaoperatorsdk.operator.api.reconciler.Context;
 
 import org.apache.spark.k8s.operator.BaseResource;
 import org.apache.spark.k8s.operator.kueue.KueuePodSetFlavor;
+import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
 
 /**
  * Base class for context objects.
@@ -84,6 +88,20 @@ public abstract class BaseContext<CR extends BaseResource<?, ?, ?, ?, ?>> {
    */
   public KubernetesClient getClient() {
     return josdkContext.getClient();
+  }
+
+  /**
+   * Returns the Kueue Workload of the resource associated with this context from the informer
+   * cache, which is registered only with the Kueue integration, so that a resource which was never
+   * queued costs no request to find out.
+   *
+   * @return The cached Workload, or empty if there is none or the Kueue integration is disabled.
+   */
+  public Optional<Workload> getCachedKueueWorkload() {
+    if (!KUEUE_ENABLED.getValue()) {
+      return Optional.empty();
+    }
+    return josdkContext.getSecondaryResource(Workload.class);
   }
 
   /**

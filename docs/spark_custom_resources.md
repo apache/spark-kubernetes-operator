@@ -635,7 +635,12 @@ spec:
   the status is not there to fall back on, the pending event is republished while the `Workload`
   waits, so that it outlives the event retention of the API server. Use `kubectl get workload` to
   see the admission status. If the spec changes while waiting, the
-  `Workload` is recreated with the new resource requests.
+  `Workload` is recreated with the new resource requests. Like Kueue, if the
+  `kueue.x-k8s.io/queue-name` label changes before the `Workload` reserves quota, the `Workload` is
+  moved to the new queue in place. After that Kueue freezes the queue name, so the change is
+  ignored and the resource stays in the old queue. If the label is removed while waiting, the
+  `Workload` is deleted, so that Kueue does not admit it later into quota which nothing uses, and
+  the resource starts without Kueue.
 * A queued resource spends one more reconciliation on the admission itself. With the default rate
   limiter (5 reconciliations per 15 seconds), an application that finishes within the first 15
   seconds may be observed only after its driver completed. It then reports its terminal state up

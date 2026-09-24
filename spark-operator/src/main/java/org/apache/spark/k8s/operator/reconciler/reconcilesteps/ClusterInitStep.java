@@ -214,7 +214,9 @@ public final class ClusterInitStep extends ClusterReconcileStep {
    * assigned to it are applied again then. An
    * unsupported spec fails to build the Workload, which the caller turns into SchedulingFailure.
    * SchedulingFailure is terminal for a cluster, so an API failure of the admission request is
-   * retried instead, see {@link KueueWorkloadUtils#holdForAdmission}.
+   * retried instead, see {@link KueueWorkloadUtils#holdForAdmission}. A cluster without the label
+   * releases the Workload left pending from before the label was removed instead, see {@link
+   * KueueWorkloadUtils#releaseDequeuedWorkload}.
    *
    * @param context The SparkClusterContext for the cluster.
    * @param cluster The SparkCluster.
@@ -223,7 +225,7 @@ public final class ClusterInitStep extends ClusterReconcileStep {
   private Optional<ReconcileProgress> holdForKueueAdmission(
       SparkClusterContext context, SparkCluster cluster) {
     if (!KueueWorkloadFactory.hasQueueName(cluster)) {
-      return Optional.empty();
+      return KueueWorkloadUtils.releaseDequeuedWorkload(context);
     }
     if (!KUEUE_ENABLED.getValue()) {
       KueueWorkloadUtils.warnQueueNameIgnored(context);

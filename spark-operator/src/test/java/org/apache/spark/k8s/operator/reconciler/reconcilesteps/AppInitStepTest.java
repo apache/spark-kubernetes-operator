@@ -909,6 +909,82 @@ class AppInitStepTest {
   }
 
   @Test
+  void suspendingQueuedAppReleasesKueueWorkloadEvenIfQueueLabelIsRemoved() {
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(kueueApplicationMetadata);
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+
+    // Queued: the Workload waits for the admission
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndDefaultRequeue(),
+        appInitStep.reconcile(mockContext, recorder));
+    Assertions.assertNotNull(getWorkload());
+
+    // Suspended and removed from the queue in one update: the Workload is deleted all the same,
+    // since Kueue would admit it later and hold the quota for an app which never uses it
+    application.getSpec().setSuspend(true);
+    application.getMetadata().setLabels(Map.of());
+    Assertions.assertEquals(
+        SUSPEND_HOLD_PROGRESS,
+        appInitStep.reconcile(mockContext, recorder));
+    Assertions.assertNull(getWorkload());
+    List<EventRecord> events = captureEvents(2);
+    Assertions.assertEquals(EventUtils.REASON_SUSPEND_HELD, events.get(1).reason());
+    Assertions.assertTrue(
+        events
+            .get(1)
+            .message()
+            .endsWith(
+                "It holds no Kueue Workload while suspended, so an earlier "
+                    + EventUtils.REASON_KUEUE_ADMISSION_PENDING
+                    + " event no longer applies."),
+        events.get(1).message());
+  }
+
+  @Test
+  void queueLabelRemovedWhileQueuedReleasesPendingKueueWorkload() {
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(kueueApplicationMetadata);
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getDriverPreResourcesSpec()).thenReturn(List.of());
+    when(mockContext.getDriverPodSpec()).thenReturn(driverPodSpec);
+    when(mockContext.getDriverResourcesSpec()).thenReturn(List.of());
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+    when(recorder.persistStatus(any(), any()))
+        .thenAnswer(
+            invocation -> {
+              application.setStatus(invocation.getArgument(1));
+              return true;
+            });
+
+    // Queued: the Workload waits for the admission
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndDefaultRequeue(),
+        appInitStep.reconcile(mockContext, recorder));
+    Assertions.assertNotNull(getWorkload());
+
+    // Removed from the queue while waiting: the driver is requested without Kueue, and the pending
+    // Workload is released, which Kueue would otherwise admit later into quota which nothing uses
+    application.getMetadata().setLabels(Map.of());
+    when(mockContext.getCachedKueueWorkload()).thenReturn(Optional.of(getWorkload()));
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndDefaultRequeue(),
+        appInitStep.reconcile(mockContext, recorder));
+    Assertions.assertNull(getWorkload());
+    Assertions.assertNotNull(
+        kubernetesClient.pods().inNamespace("default").withName("driver-pod").get());
+  }
+
+  @Test
   void queueLabelIsIgnoredWhenKueueIsDisabled() {
     TestUtils.setConfigKey(SparkOperatorConf.KUEUE_ENABLED, false);
     AppInitStep appInitStep = new AppInitStep();
