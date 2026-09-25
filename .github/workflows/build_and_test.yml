@@ -33,7 +33,7 @@ jobs:
       max-parallel: 20
       matrix:
         os: [ 'ubuntu-26.04', 'ubuntu-26.04-arm' ]
-        java-version: [ 21, 25, 26 ]
+        java-version: [ 21, 25, 26, 27 ]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
