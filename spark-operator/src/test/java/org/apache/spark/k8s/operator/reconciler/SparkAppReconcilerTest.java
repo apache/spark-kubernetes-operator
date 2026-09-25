@@ -155,7 +155,7 @@ class SparkAppReconcilerTest {
       DeleteControl deleteControl = reconciler.cleanup(app, mockContext);
       assertFalse(deleteControl.isRemoveFinalizer());
       utils.verify(() -> ReconcilerUtils.deleteResourceIfExists(mockClient, mockDriver, false));
-      kueue.verify(() -> KueueWorkloadUtils.releaseWorkload(mockClient, app));
+      kueue.verify(() -> KueueWorkloadUtils.deleteWorkloadOf(mockClient, app));
       assertEquals(
           ApplicationStateSummary.ResourceReleased,
           app.getStatus().getCurrentState().getCurrentStateSummary());
@@ -191,7 +191,7 @@ class SparkAppReconcilerTest {
       DeleteControl deleteControl = reconciler.cleanup(app, mockContext);
       assertFalse(deleteControl.isRemoveFinalizer());
       utils.verify(() -> ReconcilerUtils.deleteResourceIfExists(mockClient, mockDriver, false));
-      kueue.verify(() -> KueueWorkloadUtils.releaseWorkload(mockClient, app));
+      kueue.verify(() -> KueueWorkloadUtils.deleteWorkloadOf(mockClient, app));
       assertEquals(
           ApplicationStateSummary.ResourceReleased,
           app.getStatus().getCurrentState().getCurrentStateSummary());
@@ -258,7 +258,7 @@ class SparkAppReconcilerTest {
       podsRemain.set(false);
       deleteControl = reconciler.cleanup(app, mockContext);
       assertFalse(deleteControl.isRemoveFinalizer());
-      kueue.verify(() -> KueueWorkloadUtils.releaseWorkload(mockClient, app));
+      kueue.verify(() -> KueueWorkloadUtils.deleteWorkloadOf(mockClient, app));
       assertEquals(
           ApplicationStateSummary.ResourceReleased,
           app.getStatus().getCurrentState().getCurrentStateSummary());
@@ -301,7 +301,7 @@ class SparkAppReconcilerTest {
         MockedStatic<ReconcilerUtils> utils = Mockito.mockStatic(ReconcilerUtils.class);
         MockedStatic<KueueWorkloadUtils> kueue = Mockito.mockStatic(KueueWorkloadUtils.class)) {
       kueue
-          .when(() -> KueueWorkloadUtils.releaseWorkload(mockClient, app))
+          .when(() -> KueueWorkloadUtils.deleteWorkloadOf(mockClient, app))
           .thenAnswer(
               i ->
                   statesAtRelease.add(

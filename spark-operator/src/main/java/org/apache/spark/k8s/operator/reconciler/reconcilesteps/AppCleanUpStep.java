@@ -186,7 +186,7 @@ public final class AppCleanUpStep extends AppReconcileStep {
       driver.ifPresent(resourcesToRemove::add);
     }
     if (!releaseResources(context, application, resourcesToRemove)) {
-      // The application stays in its state until the pods are gone
+      // The application stays in its state until the pods are gone and the Workload is released
       return ReconcileProgress.completeAndRequeueAfter(
           Duration.ofMillis(
               tolerations.getApplicationTimeoutConfig().getTerminationRequeuePeriodMillis()));
@@ -236,14 +236,19 @@ public final class AppCleanUpStep extends AppReconcileStep {
    * the next attempt would otherwise run on this admission. A restarted attempt is queued again
    * with a new Workload only if the label is present.
    *
-   * <p>A failed deletion is reported only after the Workload is released, unless pods remain, in
-   * which case it is retried with them. So a resource which cannot be deleted, e.g. a ConfigMap
-   * the operator may no longer delete, does not hold the quota once no pod uses it.
+   * <p>Every resource is asked to be deleted even if another one fails, so that a resource which
+   * cannot be deleted, e.g. a ConfigMap the operator may no longer delete, does not keep the
+   * driver running. A failed deletion is reported only after the Workload is released, unless pods
+   * remain, in which case it is retried with them, so that such a resource does not hold the quota
+   * once no pod uses it. A failed release of the Workload is retried as well, keeping the state of
+   * the application, since the next attempt or the terminated application would otherwise keep
+   * the admission. Like a suspended SparkCluster, a persistent failure, e.g. a revoked access to
+   * the Workloads, holds the application until it is resolved.
    *
    * @param context The SparkAppContext for the application.
    * @param application The SparkApplication.
    * @param resources The resources to delete.
-   * @return True if the Workload was released, false while the pods remain.
+   * @return True if the Workload was released, false while the pods remain or the release failed.
    * @throws KubernetesClientException if a resource cannot be deleted and no pod remains.
    */
   private boolean releaseResources(
@@ -252,12 +257,16 @@ public final class AppCleanUpStep extends AppReconcileStep {
       final List<HasMetadata> resources) {
     boolean forceDelete = enableForceDelete(application);
     KubernetesClientException deleteFailure = null;
-    try {
-      for (HasMetadata resource : resources) {
+    for (HasMetadata resource : resources) {
+      try {
         ReconcilerUtils.deleteResourceIfExists(context.getClient(), resource, forceDelete);
+      } catch (KubernetesClientException e) {
+        if (deleteFailure == null) {
+          deleteFailure = e;
+        } else {
+          deleteFailure.addSuppressed(e);
+        }
       }
-    } catch (KubernetesClientException e) {
-      deleteFailure = e;
     }
     if (isWaitingForPods(context, application)) {
       if (deleteFailure != null) {
@@ -265,7 +274,12 @@ public final class AppCleanUpStep extends AppReconcileStep {
       }
       return false;
     }
-    KueueWorkloadUtils.releaseWorkload(context.getClient(), application);
+    try {
+      KueueWorkloadUtils.deleteWorkloadOf(context.getClient(), application);
+    } catch (KubernetesClientException e) {
+      log.warn("Failed to release the Kueue Workload of the application, will retry.", e);
+      return false;
+    }
     if (deleteFailure != null) {
       throw deleteFailure;
     }
@@ -314,6 +328,8 @@ public final class AppCleanUpStep extends AppReconcileStep {
    * application is deleted, when its retention expires, or else when the attempt stopped. Unlike
    * {@link #enableForceDelete}, which the application is deleted with right away once it has been
    * running for longer than `forceTerminationGracePeriodMillis`, the wait always gets that period.
+   * A force deleted pod is removed from the API server at once, so the wait cannot observe it while
+   * the kubelet stops its containers, which takes seconds.
    *
    * @param application The SparkApplication.
    * @return The Instant at which the Workload is released even if pods remain.

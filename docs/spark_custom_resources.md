@@ -705,7 +705,8 @@ spec:
 * Once the integration is disabled or the access of the operator to `Workload`s is revoked, e.g.
   by disabling `operatorRbac.kueue.enabled`, the operator no longer deletes them, and a `Workload`
   left behind keeps its quota until its owner is deleted. While the integration stays enabled
-  without the access, a suspended `SparkCluster` does not resume either, until its `Workload` is
+  without the access, a suspended `SparkCluster` does not resume, and a stopping
+  `SparkApplication` with a `Workload` neither terminates nor restarts, until its `Workload` is
   gone or the access is restored. Before disabling either, let the queued
   `SparkApplication`s finish or suspend those which have not started yet, and suspend the queued
   `SparkCluster`s, so that the operator releases their `Workload`s itself. Then list the remaining

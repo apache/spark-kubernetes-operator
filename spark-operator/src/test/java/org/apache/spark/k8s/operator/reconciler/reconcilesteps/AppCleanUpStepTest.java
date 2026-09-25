@@ -150,7 +150,7 @@ class AppCleanUpStepTest {
 
     try (MockedStatic<KueueWorkloadUtils> kueue = Mockito.mockStatic(KueueWorkloadUtils.class)) {
       cleanUpWithReason.reconcile(mockAppContext, mockRecorder);
-      kueue.verify(() -> KueueWorkloadUtils.releaseWorkload(mockClient, app));
+      kueue.verify(() -> KueueWorkloadUtils.deleteWorkloadOf(mockClient, app));
     }
   }
 
@@ -171,7 +171,7 @@ class AppCleanUpStepTest {
     try (MockedStatic<KueueWorkloadUtils> kueue = Mockito.mockStatic(KueueWorkloadUtils.class)) {
       cleanUpWithReason.reconcile(mockAppContext, mockRecorder);
       // A Workload admitted before the queue label was removed is released as well
-      kueue.verify(() -> KueueWorkloadUtils.releaseWorkload(mockClient, app));
+      kueue.verify(() -> KueueWorkloadUtils.deleteWorkloadOf(mockClient, app));
       kueue.verifyNoMoreInteractions();
     }
   }
@@ -197,7 +197,7 @@ class AppCleanUpStepTest {
 
     try (MockedStatic<KueueWorkloadUtils> kueue = Mockito.mockStatic(KueueWorkloadUtils.class)) {
       routineCheck.reconcile(mockAppContext, mockRecorder);
-      kueue.verify(() -> KueueWorkloadUtils.releaseWorkload(mockClient, app));
+      kueue.verify(() -> KueueWorkloadUtils.deleteWorkloadOf(mockClient, app));
     }
     ArgumentCaptor<ApplicationState> captor = ArgumentCaptor.forClass(ApplicationState.class);
     verify(mockRecorder).appendNewStateAndPersist(eq(mockAppContext), captor.capture());
@@ -440,7 +440,7 @@ class AppCleanUpStepTest {
     try (MockedStatic<KueueWorkloadUtils> kueue = Mockito.mockStatic(KueueWorkloadUtils.class)) {
       routineCheck.reconcile(mockAppContext, mockRecorder);
       // The Workload is deleted with the other resources instead of being finished
-      kueue.verify(() -> KueueWorkloadUtils.releaseWorkload(mockClient, app));
+      kueue.verify(() -> KueueWorkloadUtils.deleteWorkloadOf(mockClient, app));
       kueue.verifyNoMoreInteractions();
     }
     ArgumentCaptor<ApplicationStatus> captor = ArgumentCaptor.forClass(ApplicationStatus.class);
@@ -523,15 +523,15 @@ class AppCleanUpStepTest {
           .when(() -> ReconcilerUtils.deleteResourceIfExists(mockClient, driverPod, false))
           .thenAnswer(invocation -> calls.add("deleteResourceIfExists"));
       kueue
-          .when(() -> KueueWorkloadUtils.releaseWorkload(mockClient, app))
-          .thenAnswer(invocation -> calls.add("releaseWorkload"));
+          .when(() -> KueueWorkloadUtils.deleteWorkloadOf(mockClient, app))
+          .thenAnswer(invocation -> calls.add("deleteWorkloadOf"));
       new AppCleanUpStep().reconcile(mockAppContext, mockRecorder);
     }
     Assertions.assertEquals(
         List.of(
             "deleteResourceIfExists",
             "hasDriverOrExecutorPods",
-            "releaseWorkload",
+            "deleteWorkloadOf",
             "persistStatus"),
         calls);
     ArgumentCaptor<ApplicationStatus> captor = ArgumentCaptor.forClass(ApplicationStatus.class);
@@ -569,7 +569,7 @@ class AppCleanUpStepTest {
       utils.verify(
           () -> ReconcilerUtils.deleteResourceIfExists(mockClient, driverPod, forceDelete));
       // A Workload missing from the cache is still deleted
-      kueue.verify(() -> KueueWorkloadUtils.releaseWorkload(mockClient, app));
+      kueue.verify(() -> KueueWorkloadUtils.deleteWorkloadOf(mockClient, app));
     }
     verify(mockAppContext, never()).hasDriverOrExecutorPods();
     ArgumentCaptor<ApplicationStatus> captor = ArgumentCaptor.forClass(ApplicationStatus.class);
@@ -664,9 +664,83 @@ class AppCleanUpStepTest {
             Assertions.assertThrows(
                 KubernetesClientException.class,
                 () -> new AppCleanUpStep().reconcile(mockAppContext, mockRecorder)));
-        kueue.verify(() -> KueueWorkloadUtils.releaseWorkload(mockClient, app));
+        kueue.verify(() -> KueueWorkloadUtils.deleteWorkloadOf(mockClient, app));
       }
     }
+    verifyNoInteractions(mockRecorder);
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void everyResourceIsDeletedEvenIfAnotherFails(boolean podsRemain) {
+    // A ConfigMap which cannot be deleted must not keep the driver running
+    SparkAppStatusRecorder mockRecorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication app = buildKueueApp(null);
+    app.setStatus(prepareApplicationStatus(ApplicationStateSummary.SchedulingFailure));
+    KubernetesClient mockClient = mock(KubernetesClient.class);
+    SparkAppContext mockAppContext = mockContext(app, mockClient, mock(Pod.class));
+    ConfigMap preResource = mock(ConfigMap.class);
+    Pod driverPodSpec = mock(Pod.class);
+    ConfigMap driverResource = mock(ConfigMap.class);
+    when(mockAppContext.getDriverPreResourcesSpec()).thenReturn(List.of(preResource));
+    when(mockAppContext.getDriverPodSpec()).thenReturn(driverPodSpec);
+    when(mockAppContext.getDriverResourcesSpec()).thenReturn(List.of(driverResource));
+    when(mockAppContext.hasDriverOrExecutorPods()).thenReturn(podsRemain);
+    KubernetesClientException first = new KubernetesClientException("forbidden", 403, null);
+    KubernetesClientException second = new KubernetesClientException("forbidden", 403, null);
+
+    try (MockedStatic<ReconcilerUtils> utils = Mockito.mockStatic(ReconcilerUtils.class);
+        MockedStatic<KueueWorkloadUtils> kueue = Mockito.mockStatic(KueueWorkloadUtils.class)) {
+      utils
+          .when(() -> ReconcilerUtils.deleteResourceIfExists(mockClient, preResource, false))
+          .thenThrow(first);
+      utils
+          .when(() -> ReconcilerUtils.deleteResourceIfExists(mockClient, driverResource, false))
+          .thenThrow(second);
+      if (podsRemain) {
+        Assertions.assertEquals(
+            ReconcileProgress.completeAndRequeueAfter(Duration.ofMillis(2000)),
+            new AppCleanUpStep().reconcile(mockAppContext, mockRecorder));
+        kueue.verifyNoInteractions();
+      } else {
+        KubernetesClientException thrown =
+            Assertions.assertThrows(
+                KubernetesClientException.class,
+                () -> new AppCleanUpStep().reconcile(mockAppContext, mockRecorder));
+        Assertions.assertSame(first, thrown);
+        Assertions.assertArrayEquals(new Throwable[] {second}, thrown.getSuppressed());
+        kueue.verify(() -> KueueWorkloadUtils.deleteWorkloadOf(mockClient, app));
+      }
+      utils.verify(() -> ReconcilerUtils.deleteResourceIfExists(mockClient, driverPodSpec, false));
+    }
+    verifyNoInteractions(mockRecorder);
+  }
+
+  @Test
+  void failedWorkloadReleaseIsRetriedBeforeRestart() {
+    // The next attempt would otherwise find the admitted Workload of the same name
+    SparkAppStatusRecorder mockRecorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication app =
+        buildKueueApp(
+            RestartConfig.builder()
+                .restartPolicy(RestartPolicy.Always)
+                .maxRestartAttempts(1L)
+                .build());
+    app.setStatus(prepareApplicationStatus(ApplicationStateSummary.Failed));
+    KubernetesClient mockClient = mock(KubernetesClient.class);
+    SparkAppContext mockAppContext = mockContext(app, mockClient, mock(Pod.class));
+
+    try (MockedStatic<ReconcilerUtils> utils = Mockito.mockStatic(ReconcilerUtils.class);
+        MockedStatic<KueueWorkloadUtils> kueue = Mockito.mockStatic(KueueWorkloadUtils.class)) {
+      kueue
+          .when(() -> KueueWorkloadUtils.deleteWorkloadOf(mockClient, app))
+          .thenThrow(new KubernetesClientException("unavailable", 503, null));
+      Assertions.assertEquals(
+          ReconcileProgress.completeAndRequeueAfter(Duration.ofMillis(2000)),
+          new AppCleanUpStep().reconcile(mockAppContext, mockRecorder));
+      utils.verify(() -> ReconcilerUtils.deleteResourceIfExists(eq(mockClient), any(), eq(false)));
+    }
+    // The application stays in its state instead of being scheduled to restart
     verifyNoInteractions(mockRecorder);
   }
 
@@ -834,7 +908,7 @@ class AppCleanUpStepTest {
             MockedStatic<KueueWorkloadUtils> kueue = Mockito.mockStatic(KueueWorkloadUtils.class)) {
           ReconcileProgress progress = cleanUpWithReason.reconcile(mockAppContext, mockRecorder);
           utils.verify(() -> ReconcilerUtils.deleteResourceIfExists(mockClient, driverPod, false));
-          kueue.verify(() -> KueueWorkloadUtils.releaseWorkload(mockClient, mockApp));
+          kueue.verify(() -> KueueWorkloadUtils.deleteWorkloadOf(mockClient, mockApp));
           Assertions.assertEquals(
               ReconcileProgress.completeAndRequeueAfter(Duration.ofMillis(2000)), progress);
         }
@@ -927,7 +1001,7 @@ class AppCleanUpStepTest {
         MockedStatic<KueueWorkloadUtils> kueue = Mockito.mockStatic(KueueWorkloadUtils.class)) {
       ReconcileProgress progress = cleanUpWithReason.reconcile(mockAppContext, mockRecorder);
       utils.verify(() -> ReconcilerUtils.deleteResourceIfExists(mockClient, driverPod, false));
-      kueue.verify(() -> KueueWorkloadUtils.releaseWorkload(mockClient, mockApp));
+      kueue.verify(() -> KueueWorkloadUtils.deleteWorkloadOf(mockClient, mockApp));
       Assertions.assertEquals(
           ReconcileProgress.completeAndRequeueAfter(Duration.ofMillis(2000)), progress);
     }
@@ -993,8 +1067,8 @@ class AppCleanUpStepTest {
       utils.verify(() -> ReconcilerUtils.deleteResourceIfExists(mockClient, resource1, false));
       utils.verify(() -> ReconcilerUtils.deleteResourceIfExists(mockClient, driverPodSpec, false));
       utils.verify(() -> ReconcilerUtils.deleteResourceIfExists(mockClient, resource2, false));
-      kueue.verify(() -> KueueWorkloadUtils.releaseWorkload(mockClient, mockApp1));
-      kueue.verify(() -> KueueWorkloadUtils.releaseWorkload(mockClient2, mockApp2));
+      kueue.verify(() -> KueueWorkloadUtils.deleteWorkloadOf(mockClient, mockApp1));
+      kueue.verify(() -> KueueWorkloadUtils.deleteWorkloadOf(mockClient2, mockApp2));
       Assertions.assertEquals(
           ReconcileProgress.completeAndRequeueAfter(Duration.ofMillis(2000)), progress1);
       Assertions.assertEquals(
