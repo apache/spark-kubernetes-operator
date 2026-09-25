@@ -30,11 +30,11 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Map;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.fabric8.kubernetes.api.model.KubernetesResourceList;
-import io.fabric8.kubernetes.api.model.ListOptions;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
@@ -198,6 +198,61 @@ class ClusterSuspendStepTest {
     verifyNoInteractions(recorder);
   }
 
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void suspendedClusterReleasesKueueWorkloadOfPodsTerminatingForTimeout(boolean suspend) {
+    SparkCluster cluster = buildKueueCluster(ClusterStateSummary.Suspended, suspend);
+    KubernetesClient client = spy(kubernetesClient);
+    // Pods stuck in terminating, e.g. on a lost node, do not hold the quota forever
+    stubPodList(
+        client,
+        terminatingPod(
+            "cluster1-master-0", Constants.LABEL_SPARK_ROLE_MASTER_VALUE, Duration.ofMinutes(6)),
+        terminatingPod(
+            "cluster1-worker-0", Constants.LABEL_SPARK_ROLE_WORKER_VALUE, Duration.ofMinutes(6)));
+    stubContext(cluster, client);
+    kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(cluster)).create();
+
+    // A resumed cluster stays Suspended until they are gone, since they keep the names of the
+    // master and worker pods which it would create again
+    Assertions.assertEquals(
+        suspend ? SUSPEND_HOLD_PROGRESS : ReconcileProgress.completeAndDefaultRequeue(),
+        new ClusterSuspendStep().reconcile(mockContext, recorder));
+
+    Assertions.assertNull(getWorkload());
+    verifyNoInteractions(recorder);
+  }
+
+  @Test
+  void podsAreWaitedForSinceTheirDeletionRatherThanSinceSuspended() {
+    SparkCluster cluster = buildKueueCluster(ClusterStateSummary.Suspended, true);
+    // The release was delayed, e.g. by failures, long after the cluster entered Suspended
+    cluster
+        .getStatus()
+        .getCurrentState()
+        .setLastTransitionTime(Instant.now().minus(Duration.ofHours(1)).toString());
+    KubernetesClient client = spy(kubernetesClient);
+    stubPodList(
+        client,
+        terminatingPod(
+            "cluster1-worker-0", Constants.LABEL_SPARK_ROLE_WORKER_VALUE, Duration.ofSeconds(270)));
+    stubContext(cluster, client);
+    kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(cluster)).create();
+
+    ReconcileProgress progress = new ClusterSuspendStep().reconcile(mockContext, recorder);
+
+    Assertions.assertNotNull(getWorkload());
+    // The wait is requeued to end when the pod has been terminating for the timeout, rather than
+    // after the default interval, since a pod on a lost node may send no more events
+    Assertions.assertTrue(progress.isCompleted());
+    Duration requeueAfter = progress.getRequeueAfterDuration();
+    Assertions.assertTrue(
+        requeueAfter.compareTo(Duration.ZERO) > 0
+            && requeueAfter.compareTo(Duration.ofSeconds(30)) <= 0,
+        requeueAfter::toString);
+    verifyNoInteractions(recorder);
+  }
+
   @Test
   void suspendedClusterReleasesAutoscalerAndDisruptionBudgetByName() {
     SparkCluster cluster = buildCluster(ClusterStateSummary.Suspended, true);
@@ -229,15 +284,12 @@ class ClusterSuspendStepTest {
   }
 
   @Test
-  @SuppressWarnings("unchecked")
   void onlyMasterAndWorkerPodsHoldRelease() {
     SparkCluster cluster = buildKueueCluster(ClusterStateSummary.Suspended, true);
     KubernetesClient client = spy(kubernetesClient);
-    FilterWatchListDeletable<Pod, PodList, PodResource> rolePods = stubPodList(client);
     // Other pods carry the cluster label too, e.g. a client pod which reaches the workers through
     // their NetworkPolicy, but only the master and workers are listed, and none of them is left
-    when(rolePods.list(any(ListOptions.class)))
-        .thenReturn(new PodListBuilder().withNewMetadata().endMetadata().build());
+    stubPodList(client);
     stubContext(cluster, client);
     kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(cluster)).create();
 
@@ -312,28 +364,6 @@ class ClusterSuspendStepTest {
 
     // The queue label is ignored, and neither the suspended nor the resumed cluster calls Kueue
     verify(client, never()).resources(Workload.class);
-    Assertions.assertNotNull(getWorkload());
-  }
-
-  @Test
-  @SuppressWarnings("unchecked")
-  void continueTokenMeansThatPodsRemain() {
-    SparkCluster cluster = buildKueueCluster(ClusterStateSummary.Suspended, true);
-    KubernetesClient client = spy(kubernetesClient);
-    FilterWatchListDeletable<Pod, PodList, PodResource> rolePods = stubPodList(client);
-    ArgumentCaptor<ListOptions> options = ArgumentCaptor.forClass(ListOptions.class);
-    // An empty page with a continue token, as a limited LIST with a label selector may return
-    when(rolePods.list(options.capture()))
-        .thenReturn(
-            new PodListBuilder().withNewMetadata().withContinue("next").endMetadata().build());
-    stubContext(cluster, client);
-    kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(cluster)).create();
-
-    Assertions.assertEquals(
-        ReconcileProgress.completeAndDefaultRequeue(),
-        new ClusterSuspendStep().reconcile(mockContext, recorder));
-
-    Assertions.assertEquals(1L, options.getValue().getLimit());
     Assertions.assertNotNull(getWorkload());
   }
 
@@ -482,12 +512,11 @@ class ClusterSuspendStepTest {
   }
 
   /**
-   * Stubs the LIST of the master and worker pods of cluster1 on the given spy, since the mock
-   * server does not evaluate set-based label selectors, and returns the filter to list them with.
+   * Stubs the LIST of the master and worker pods of cluster1 on the given spy to return the given
+   * pods, since the mock server does not evaluate set-based label selectors.
    */
   @SuppressWarnings("unchecked")
-  private static FilterWatchListDeletable<Pod, PodList, PodResource> stubPodList(
-      KubernetesClient client) {
+  private static void stubPodList(KubernetesClient client, Pod... items) {
     MixedOperation<Pod, PodList, PodResource> pods = mock(MixedOperation.class);
     NonNamespaceOperation<Pod, PodList, PodResource> namespacedPods =
         mock(NonNamespaceOperation.class);
@@ -504,7 +533,7 @@ class ClusterSuspendStepTest {
             Constants.LABEL_SPARK_ROLE_MASTER_VALUE,
             Constants.LABEL_SPARK_ROLE_WORKER_VALUE))
         .thenReturn(rolePods);
-    return rolePods;
+    when(rolePods.list()).thenReturn(new PodListBuilder().addToItems(items).build());
   }
 
   private void createRunningCluster() {
@@ -590,6 +619,12 @@ class ClusterSuspendStepTest {
         .addToLabels(Constants.LABEL_SPARK_ROLE_NAME, role)
         .endMetadata()
         .build();
+  }
+
+  private static Pod terminatingPod(String name, String role, Duration terminatingFor) {
+    Pod pod = pod(name, role);
+    pod.getMetadata().setDeletionTimestamp(Instant.now().minus(terminatingFor).toString());
+    return pod;
   }
 
   private static Service service(String name) {

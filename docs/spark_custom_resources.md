@@ -580,7 +580,9 @@ spec:
   `spark.kubernetes.operator.reconciler.trimStateTransitionHistoryEnabled`, the resumed cluster drops
   the state transition history of its previous run, so that suspending it again and again keeps the
   status bounded. Setting it to `true` again before the master is requested moves the cluster back
-  to `Suspended`.
+  to `Suspended`. A pod which has been terminating for 5 minutes, e.g. on a lost node, no longer
+  holds the Kueue `Workload`, so that it does not hold the quota forever. The cluster still stays
+  `Suspended` until such a pod is gone, since it keeps the name of the master or worker to create.
 * An operator version without the `Suspended` state cannot read a `SparkCluster` which is
   `Suspended`, so resume or delete such clusters before downgrading the operator.
 * Deleting a suspended resource works as usual.
@@ -680,10 +682,10 @@ spec:
   read, the resource is held and the read is retried.
 * `spec.suspend` takes precedence. A suspended resource does not get a `Workload`, and suspending
   a queued resource deletes its `Workload` to release the quota. Suspending a running
-  `SparkCluster` deletes its `Workload` only after its master and worker pods are gone, since
-  terminating pods still occupy the quota. The `Workload` is deleted even if the
-  `kueue.x-k8s.io/queue-name` label was removed after the admission. The resource is queued again
-  when it is resumed with the `kueue.x-k8s.io/queue-name` label.
+  `SparkCluster` deletes its `Workload` only after its master and worker pods are gone, or have been
+  terminating for 5 minutes, since terminating pods still occupy the quota. The `Workload` is
+  deleted even if the `kueue.x-k8s.io/queue-name` label was removed after the admission. The
+  resource is queued again when it is resumed with the `kueue.x-k8s.io/queue-name` label.
 * Like the webhooks of Kueue built-in integrations, which let only a suspended job change its queue,
   the Helm chart installs a `ValidatingAdmissionPolicy` with `operatorRbac.kueue.enabled`. It
   rejects an update that adds, changes or removes the `kueue.x-k8s.io/queue-name` label of a
