@@ -23,7 +23,6 @@ import static org.apache.spark.k8s.operator.Constants.CLUSTER_RESUMED_MESSAGE;
 import static org.apache.spark.k8s.operator.Constants.CLUSTER_SUSPENDED_MESSAGE;
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_CLUSTER_NAME;
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_ROLE_MASTER_VALUE;
-import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_ROLE_NAME;
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_ROLE_WORKER_VALUE;
 import static org.apache.spark.k8s.operator.SparkClusterResourceSpec.getMasterStatefulSetName;
 import static org.apache.spark.k8s.operator.SparkClusterResourceSpec.getWorkerHorizontalPodAutoscalerName;
@@ -37,8 +36,6 @@ import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.proceed
 
 import java.time.Duration;
 
-import io.fabric8.kubernetes.api.model.ListOptionsBuilder;
-import io.fabric8.kubernetes.api.model.PodList;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import lombok.extern.slf4j.Slf4j;
@@ -52,7 +49,6 @@ import org.apache.spark.k8s.operator.status.ClusterStateSummary;
 import org.apache.spark.k8s.operator.utils.EventUtils;
 import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
-import org.apache.spark.k8s.operator.utils.StringUtils;
 
 /**
  * Suspends a running cluster by spec.suspend, and resumes it. A cluster runs until it is deleted,
@@ -160,20 +156,13 @@ public final class ClusterSuspendStep extends ClusterReconcileStep {
           .inNamespace(namespace)
           .withName(getWorkerPodDisruptionBudgetName(name))
           .delete();
-      // Only whether any pod remains matters, so one is enough. A page may come back empty with a
-      // continue token, which still means that more pods remain.
-      PodList pods =
-          client
-              .pods()
-              .inNamespace(namespace)
-              .withLabel(LABEL_SPARK_CLUSTER_NAME, name)
-              .withLabelIn(
-                  LABEL_SPARK_ROLE_NAME,
-                  LABEL_SPARK_ROLE_MASTER_VALUE,
-                  LABEL_SPARK_ROLE_WORKER_VALUE)
-              .list(new ListOptionsBuilder().withLimit(1L).build());
-      boolean morePods = StringUtils.isNotEmpty(pods.getMetadata().getContinue());
-      if (!pods.getItems().isEmpty() || morePods) {
+      if (ReconcilerUtils.hasPods(
+          client,
+          namespace,
+          LABEL_SPARK_CLUSTER_NAME,
+          name,
+          LABEL_SPARK_ROLE_MASTER_VALUE,
+          LABEL_SPARK_ROLE_WORKER_VALUE)) {
         // The deletion of each pod is observed by the pod informer, which reconciles again.
         log.debug("Waiting for the pods of the suspended cluster to be deleted.");
         return false;

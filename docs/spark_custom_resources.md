@@ -647,8 +647,12 @@ spec:
   to one refresh period late, without the driver states in between such as `DriverStarted`.
 * When a `SparkApplication` attempt stops and its resources are released, the operator deletes the
   `Workload` so that Kueue releases the quota, even if the `kueue.x-k8s.io/queue-name` label was
-  removed after the admission. A restarted attempt is queued again with the label. When the
-  resources are retained by `resourceRetainPolicy`, the `Workload` of a `Succeeded`, `Failed`, or
+  removed after the admission. The `Workload` is deleted only after the driver and executor pods
+  are gone, since terminating pods still occupy the quota, and the application keeps its state
+  until then. The operator stops waiting `forceTerminationGracePeriodMillis` after the attempt
+  stopped, the `SparkApplication` was deleted, or its retention expired, so that a pod stuck in
+  terminating does not hold the application. A restarted attempt is queued again with the label. When the resources are
+  retained by `resourceRetainPolicy`, the `Workload` of a `Succeeded`, `Failed`, or
   `DriverEvicted` application gets the Kueue `Finished` condition instead, which releases the
   quota while keeping the `Workload`, or is deleted if the label was removed. Other retained
   resources, e.g. a driver still running after a start timeout, keep the quota until they are
@@ -701,7 +705,8 @@ spec:
 * Once the integration is disabled or the access of the operator to `Workload`s is revoked, e.g.
   by disabling `operatorRbac.kueue.enabled`, the operator no longer deletes them, and a `Workload`
   left behind keeps its quota until its owner is deleted. While the integration stays enabled
-  without the access, a suspended `SparkCluster` does not resume either, until its `Workload` is
+  without the access, a suspended `SparkCluster` does not resume, and a stopping
+  `SparkApplication` with a `Workload` neither terminates nor restarts, until its `Workload` is
   gone or the access is restored. Before disabling either, let the queued
   `SparkApplication`s finish or suspend those which have not started yet, and suspend the queued
   `SparkCluster`s, so that the operator releases their `Workload`s itself. Then list the remaining
