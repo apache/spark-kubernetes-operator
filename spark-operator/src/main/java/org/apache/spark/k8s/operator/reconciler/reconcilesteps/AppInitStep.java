@@ -223,8 +223,9 @@ public final class AppInitStep extends AppReconcileStep {
    * driver. See {@link SparkAppContext#getCurrentAttemptDriverPod()} for how a pod left
    * from a previous attempt is told apart. The informer cache may not have seen a driver created
    * in the previous reconcile yet, so a driver missing from it is looked up on the API server as
-   * well if the Kueue Workload is evicted or deactivated, since that Workload would be released or
-   * held under the driver. Otherwise, the driver spec is not built for the lookup.
+   * well if the Kueue Workload is evicted or deactivated but still admitted, since that Workload
+   * would be released or held under the driver, which is requested only after the admission.
+   * Otherwise, the driver spec is not built for the lookup.
    *
    * @param context The SparkAppContext for the application.
    * @return True if the driver pod of the current attempt exists, false otherwise.
@@ -237,8 +238,9 @@ public final class AppInitStep extends AppReconcileStep {
     }
     Optional<Workload> workload = context.getCachedKueueWorkload();
     if (workload.isEmpty()
-        || KueueWorkloadUtils.findEviction(workload.get()).isEmpty()
-            && !KueueWorkloadUtils.isDeactivated(workload.get())) {
+        || !KueueWorkloadUtils.isAdmitted(workload.get())
+        || (KueueWorkloadUtils.findEviction(workload.get()).isEmpty()
+            && !KueueWorkloadUtils.isDeactivated(workload.get()))) {
       return false;
     }
     Pod driverPod = context.getClient().resource(context.getDriverPodSpec()).get();

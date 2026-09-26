@@ -1391,6 +1391,43 @@ class AppInitStepTest {
         application.getStatus().getCurrentState().getCurrentStateSummary());
   }
 
+  @Test
+  void neverAdmittedKueueWorkloadDoesNotLookUpTheDriver() {
+    // Kueue marks a Workload deactivated while pending as evicted as well. A driver is requested
+    // only after the admission, so the driver spec is not built for a lookup.
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(kueueApplicationMetadata);
+    kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(application)).create();
+    Workload workload = getWorkload();
+    workload.getSpec().setActive(false);
+    workload.setStatus(
+        WorkloadStatus.builder()
+            .conditions(
+                List.of(
+                    new ConditionBuilder()
+                        .withType("Evicted")
+                        .withStatus("True")
+                        .withReason("Deactivated")
+                        .build()))
+            .build());
+    kubernetesClient.resource(workload).update();
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+    when(mockContext.getCachedKueueWorkload()).thenReturn(Optional.of(getWorkload()));
+    when(mockContext.getCurrentAttemptDriverPod()).thenReturn(Optional.empty());
+
+    // It waits for the reactivation, without building the driver spec for a lookup
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndDefaultRequeue(),
+        appInitStep.reconcile(mockContext, recorder));
+    verify(mockContext, never()).getDriverPodSpec();
+    verify(recorder, never()).persistStatus(any(), any());
+  }
+
   private Workload getWorkload() {
     return kubernetesClient
         .resources(Workload.class)

@@ -80,7 +80,7 @@ public final class KueueWorkloadUtils {
    */
   private static final String CONDITION_FINISHED = "Finished";
 
-  /** Type of the Kueue condition of an evicted Workload, as {@link WorkloadStatus#isEvicted}. */
+  /** Type of the Kueue condition which marks an evicted Workload. */
   private static final String CONDITION_EVICTED = "Evicted";
 
   /**
