@@ -41,9 +41,9 @@ public enum ClusterStateSummary implements BaseStateSummary {
   ResourceReleased,
 
   /**
-   * Cluster is suspended by spec.suspend after it started running, so its master and workers are
-   * released until it is resumed from Submitted. It is declared last, since {@link #isStarting()}
-   * compares the ordinals.
+   * Cluster is suspended by spec.suspend, or by the eviction of its Kueue Workload, after it
+   * started running, so its master and workers are released until it is resumed from Submitted.
+   * It is declared last, since {@link #isStarting()} compares the ordinals.
    */
   Suspended;
 
