@@ -30,6 +30,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -75,6 +77,7 @@ import org.apache.spark.k8s.operator.kueue.v1beta2.Admission;
 import org.apache.spark.k8s.operator.kueue.v1beta2.PodSet;
 import org.apache.spark.k8s.operator.kueue.v1beta2.PodSetAssignment;
 import org.apache.spark.k8s.operator.kueue.v1beta2.PriorityClassRef;
+import org.apache.spark.k8s.operator.kueue.v1beta2.RequeueState;
 import org.apache.spark.k8s.operator.kueue.v1beta2.ResourceFlavor;
 import org.apache.spark.k8s.operator.kueue.v1beta2.ResourceFlavorSpec;
 import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
@@ -221,6 +224,36 @@ class KueueWorkloadUtilsTest {
   }
 
   @Test
+  void evictedWorkloadOfDequeuedResourceIsReleasedBeforeTheResourcesStart() {
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1));
+    admit(evictedStatus("Preempted"));
+    SparkAppContext context = context(kubernetesClient);
+    when(context.getCachedKueueWorkload()).thenReturn(Optional.of(getWorkload()));
+
+    // Nothing was requested for it, and its quota is about to be taken
+    Assertions.assertEquals(
+        Optional.empty(), KueueWorkloadUtils.handleDequeuedWorkload(context, () -> false));
+    Assertions.assertNull(getWorkload());
+  }
+
+  @Test
+  void deactivatedWorkloadOfDequeuedResourceIsReleasedBeforeTheResourcesStart() {
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1));
+    admitWorkload();
+    // Deactivated before Kueue adds the Evicted condition
+    Workload deactivated = getWorkload();
+    deactivated.getSpec().setActive(false);
+    kubernetesClient.resource(deactivated).update();
+    SparkAppContext context = context(kubernetesClient);
+    when(context.getCachedKueueWorkload()).thenReturn(Optional.of(getWorkload()));
+
+    // Kueue no longer counts it, so it is not kept for resources which start without Kueue
+    Assertions.assertEquals(
+        Optional.empty(), KueueWorkloadUtils.handleDequeuedWorkload(context, () -> false));
+    Assertions.assertNull(getWorkload());
+  }
+
+  @Test
   void resourceWithoutCachedWorkloadIsNotReleased() {
     KubernetesClient client = mock(KubernetesClient.class);
     SparkAppContext context = context(client);
@@ -293,6 +326,194 @@ class KueueWorkloadUtilsTest {
     Assertions.assertFalse(KueueWorkloadUtils.isAdmissionChanged(quotaReserved, pending));
     Assertions.assertFalse(KueueWorkloadUtils.isAdmissionChanged(pending, withoutStatus));
     Assertions.assertFalse(KueueWorkloadUtils.isAdmissionChanged(admitted, admitted));
+
+    // Kueue keeps the Admitted condition of an evicted Workload until its integration releases it,
+    // so the eviction itself has to be passed as well
+    Workload evicted = workload("owner-uid-1", 1);
+    evicted.setStatus(evictedStatus("Preempted"));
+    Assertions.assertTrue(KueueWorkloadUtils.isAdmitted(evicted));
+    Assertions.assertTrue(KueueWorkloadUtils.isAdmissionChanged(evicted, admitted));
+    Assertions.assertTrue(KueueWorkloadUtils.isAdmissionChanged(admitted, evicted));
+    Assertions.assertFalse(KueueWorkloadUtils.isAdmissionChanged(evicted, evicted));
+
+    // A reactivation changes only the spec, which releases the resources held for it
+    Workload deactivated = workload("owner-uid-1", 1);
+    deactivated.getSpec().setActive(false);
+    deactivated.setStatus(evictedStatus("Deactivated"));
+    Workload reactivated = workload("owner-uid-1", 1);
+    reactivated.setStatus(evictedStatus("Deactivated"));
+    Assertions.assertTrue(KueueWorkloadUtils.isAdmissionChanged(reactivated, deactivated));
+    Assertions.assertTrue(KueueWorkloadUtils.isAdmissionChanged(deactivated, reactivated));
+  }
+
+  @Test
+  void evictionAndDeactivationAreDetected() {
+    Workload admitted = workload("owner-uid-1", 1);
+    admitted.setStatus(status("Admitted", "True"));
+    Workload withoutStatus = workload("owner-uid-1", 1);
+    withoutStatus.setStatus(null);
+    Assertions.assertTrue(KueueWorkloadUtils.findEviction(admitted).isEmpty());
+    Assertions.assertTrue(KueueWorkloadUtils.findEviction(withoutStatus).isEmpty());
+    Assertions.assertTrue(
+        KueueWorkloadUtils.findEviction(workload("owner-uid-1", 1)).isEmpty());
+    Workload notEvicted = workload("owner-uid-1", 1);
+    notEvicted.setStatus(status("Evicted", "False"));
+    Assertions.assertTrue(KueueWorkloadUtils.findEviction(notEvicted).isEmpty());
+
+    Workload evicted = workload("owner-uid-1", 1);
+    evicted.setStatus(evictedStatus("Preempted"));
+    Assertions.assertEquals(
+        "Preempted", KueueWorkloadUtils.findEviction(evicted).orElseThrow().getReason());
+
+    // Only an explicit `spec.active: false` deactivates a Workload, since it defaults to true
+    Workload workload = workload("owner-uid-1", 1);
+    workload.getSpec().setActive(null);
+    Assertions.assertFalse(KueueWorkloadUtils.isDeactivated(workload));
+    workload.getSpec().setActive(true);
+    Assertions.assertFalse(KueueWorkloadUtils.isDeactivated(workload));
+    workload.getSpec().setActive(false);
+    Assertions.assertTrue(KueueWorkloadUtils.isDeactivated(workload));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"Preempted", "PodsReadyTimeout"})
+  void evictedWorkloadIsRecreated(String reason) {
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1));
+    admit(evictedStatus(reason));
+
+    // Its Admitted condition remains, but nothing was requested for it, and the quota it reserved
+    // is about to be taken
+    Assertions.assertEquals(
+        AdmissionResult.STALE,
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1)).result());
+    Assertions.assertNull(getWorkload());
+
+    Assertions.assertEquals(
+        AdmissionResult.PENDING,
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1)).result());
+  }
+
+  @Test
+  void evictedWorkloadIsKeptUntilTheRequeueBackoffElapses() {
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1));
+    WorkloadStatus status = evictedStatus("AdmissionCheck");
+    status.setRequeueState(
+        RequeueState.builder()
+            .count(1)
+            .requeueAt(Instant.now().plusSeconds(60).toString())
+            .build());
+    admit(status);
+
+    AdmissionResponse response =
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1));
+    Assertions.assertEquals(AdmissionResult.BACKOFF, response.result());
+    Assertions.assertNotNull(getWorkload());
+    Duration backoff = KueueWorkloadUtils.remainingRequeueBackoff(response.workload());
+    Assertions.assertTrue(backoff.compareTo(Duration.ofSeconds(50)) > 0, backoff.toString());
+
+    status.getRequeueState().setRequeueAt(Instant.now().minusSeconds(1).toString());
+    admit(status);
+    Assertions.assertEquals(
+        AdmissionResult.STALE,
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1)).result());
+    Assertions.assertNull(getWorkload());
+  }
+
+  @Test
+  void evictedWorkloadInBackoffHoldsTheResourcesUntilItElapses() {
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1));
+    WorkloadStatus status = evictedStatus("AdmissionCheck");
+    status.setRequeueState(
+        RequeueState.builder().requeueAt(Instant.now().plusSeconds(60).toString()).build());
+    admit(status);
+    ResourceEventRecorder eventRecorder = mock(ResourceEventRecorder.class);
+    SparkAppContext context = context(kubernetesClient);
+    when(context.getEventRecorder()).thenReturn(eventRecorder);
+
+    Optional<ReconcileProgress> progress =
+        KueueWorkloadUtils.holdForAdmission(context, workload("owner-uid-1", 1), "driver");
+
+    // Reconciled again once the backoff elapses, rather than after the default interval
+    Assertions.assertTrue(progress.isPresent());
+    Assertions.assertTrue(progress.get().isRequeue());
+    Duration requeueAfter = progress.get().getRequeueAfterDuration();
+    Assertions.assertTrue(
+        requeueAfter.compareTo(Duration.ofSeconds(50)) > 0
+            && requeueAfter.compareTo(Duration.ofSeconds(60)) <= 0,
+        requeueAfter.toString());
+    Assertions.assertNotNull(getWorkload());
+    verify(context, never()).setKueuePodSetFlavors(any());
+    // The wait is reported with the reason of the eviction
+    ArgumentCaptor<EventRecord> captor = ArgumentCaptor.forClass(EventRecord.class);
+    verify(eventRecorder).record(captor.capture());
+    Assertions.assertEquals(EventUtils.REASON_KUEUE_ADMISSION_PENDING, captor.getValue().reason());
+    Assertions.assertTrue(
+        captor.getValue().message().contains("Evicted by the test"), captor.getValue().message());
+    Assertions.assertTrue(
+        captor.getValue().message().contains(status.getRequeueState().getRequeueAt()),
+        captor.getValue().message());
+
+    // A backoff longer than the default interval is waited out in default intervals, so that the
+    // event is republished before the API server drops it
+    status.getRequeueState().setRequeueAt(Instant.now().plusSeconds(3600).toString());
+    admit(status);
+    Assertions.assertEquals(
+        Optional.of(ReconcileProgress.completeAndDefaultRequeue()),
+        KueueWorkloadUtils.holdForAdmission(context, workload("owner-uid-1", 1), "driver"));
+  }
+
+  @Test
+  void requeueBackoffIsZeroWithoutValidRequeueAt() {
+    Workload workload = workload("owner-uid-1", 1);
+    Assertions.assertEquals(Duration.ZERO, KueueWorkloadUtils.remainingRequeueBackoff(workload));
+    workload.setStatus(evictedStatus("Preempted"));
+    Assertions.assertEquals(Duration.ZERO, KueueWorkloadUtils.remainingRequeueBackoff(workload));
+    workload.getStatus().setRequeueState(RequeueState.builder().count(1).build());
+    Assertions.assertEquals(Duration.ZERO, KueueWorkloadUtils.remainingRequeueBackoff(workload));
+    // A value which is not a timestamp must not fail the resource
+    workload.getStatus().getRequeueState().setRequeueAt("not-a-timestamp");
+    Assertions.assertEquals(Duration.ZERO, KueueWorkloadUtils.remainingRequeueBackoff(workload));
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void deactivatedWorkloadHoldsTheResources(boolean admitted) {
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1));
+    Workload deactivated = getWorkload();
+    deactivated.getSpec().setActive(false);
+    // Kueue marks a deactivated Workload as evicted even if it did not reserve quota
+    deactivated.setStatus(
+        admitted ? evictedStatus("Deactivated") : status("Evicted", "True"));
+    kubernetesClient.resource(deactivated).update();
+
+    // Kueue neither counts nor admits it, and a new Workload would come back active, so it is kept
+    // even if the pod sets changed meanwhile
+    Assertions.assertEquals(
+        AdmissionResult.PENDING,
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 5)).result());
+    Assertions.assertFalse(getWorkload().getSpec().getActive());
+    Assertions.assertEquals(1, getWorkload().getSpec().getPodSets().get(0).getCount());
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void reactivatedWorkloadIsKeptUnlessItHoldsQuota(boolean admitted) {
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1));
+    String uid = getWorkload().getMetadata().getUid();
+    // Kueue keeps the Evicted condition of a reactivated Workload until it reserves quota again
+    admit(admitted ? evictedStatus("Deactivated") : status("Evicted", "True"));
+
+    AdmissionResponse response =
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1));
+    if (admitted) {
+      // Kueue counts its admission again, although nothing was requested for it
+      Assertions.assertEquals(AdmissionResult.STALE, response.result());
+      Assertions.assertNull(getWorkload());
+    } else {
+      // Kueue queues it again itself, so it keeps its place in the queue
+      Assertions.assertEquals(AdmissionResult.PENDING, response.result());
+      Assertions.assertEquals(uid, getWorkload().getMetadata().getUid());
+    }
   }
 
   @Test
@@ -1154,6 +1375,20 @@ class KueueWorkloadUtilsTest {
     return WorkloadStatus.builder()
         .conditions(
             List.of(new ConditionBuilder().withType(type).withStatus(conditionStatus).build()))
+        .build();
+  }
+
+  private static WorkloadStatus evictedStatus(final String reason) {
+    return WorkloadStatus.builder()
+        .conditions(
+            List.of(
+                new ConditionBuilder().withType("Admitted").withStatus("True").build(),
+                new ConditionBuilder()
+                    .withType("Evicted")
+                    .withStatus("True")
+                    .withReason(reason)
+                    .withMessage("Evicted by the test")
+                    .build()))
         .build();
   }
 

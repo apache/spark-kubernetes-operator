@@ -43,6 +43,7 @@ public class WorkloadStatus {
   @Builder.Default
   private List<Condition> conditions = new ArrayList<>();
   private Admission admission;
+  private RequeueState requeueState;
 
   /**
    * Checks if the workload has been admitted by Kueue.

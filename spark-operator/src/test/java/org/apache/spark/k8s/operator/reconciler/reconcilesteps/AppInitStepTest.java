@@ -820,6 +820,51 @@ class AppInitStepTest {
   }
 
   @Test
+  void deactivatedKueueWorkloadHoldsDriver() {
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(kueueApplicationMetadata);
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
+    when(mockContext.getDriverPreResourcesSpec()).thenReturn(List.of());
+    when(mockContext.getDriverPodSpec()).thenReturn(driverPodSpec);
+    when(mockContext.getDriverResourcesSpec()).thenReturn(List.of());
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+    appInitStep.reconcile(mockContext, recorder);
+    // Deactivated after the admission, e.g. by `kueuectl stop workload`, so Kueue keeps the
+    // Admitted condition but no longer counts the Workload against the quota
+    admitWorkload();
+    Workload workload = getWorkload();
+    workload.getSpec().setActive(false);
+    workload
+        .getStatus()
+        .getConditions()
+        .add(
+            new ConditionBuilder()
+                .withType("Evicted")
+                .withStatus("True")
+                .withReason("Deactivated")
+                .build());
+    kubernetesClient.resource(workload).update();
+
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndDefaultRequeue(),
+        appInitStep.reconcile(mockContext, recorder));
+
+    // The driver waits until the Workload is reactivated, rather than start outside the quota
+    Assertions.assertNull(
+        kubernetesClient.pods().inNamespace("default").withName("driver-pod").get());
+    Assertions.assertFalse(getWorkload().getSpec().getActive());
+    verify(recorder, never()).persistStatus(any(), any());
+    // Kueue does not admit it on its own, so the event says what the wait is for
+    EventRecord event = captureEvents(2).get(1);
+    Assertions.assertEquals(EventUtils.REASON_KUEUE_ADMISSION_PENDING, event.reason());
+    Assertions.assertTrue(event.message().contains("is deactivated"), event.message());
+  }
+
+  @Test
   void pendingKueueWorkloadPublishesEventOnEveryReconcile() {
     AppInitStep appInitStep = new AppInitStep();
     SparkAppContext mockContext = mock(SparkAppContext.class);
@@ -1296,6 +1341,91 @@ class AppInitStepTest {
     Assertions.assertEquals(
         ApplicationStateSummary.DriverRequested,
         application.getStatus().getCurrentState().getCurrentStateSummary());
+  }
+
+  @Test
+  void driverMissingFromCacheKeepsItsEvictedKueueWorkload() {
+    // The driver was created, but the status update to DriverRequested did not land, and the
+    // informer has not seen the pod yet when Kueue evicts the admitted Workload
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(kueueApplicationMetadata);
+    kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(application)).create();
+    admitWorkload();
+    Workload workload = getWorkload();
+    workload
+        .getStatus()
+        .getConditions()
+        .add(
+            new ConditionBuilder()
+                .withType("Evicted")
+                .withStatus("True")
+                .withReason("Preempted")
+                .build());
+    kubernetesClient.resource(workload).update();
+    kubernetesClient.resource(driverPodSpec).create();
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+    when(mockContext.getCachedKueueWorkload()).thenReturn(Optional.of(getWorkload()));
+    when(mockContext.getCurrentAttemptDriverPod()).thenReturn(Optional.empty());
+    when(mockContext.getDriverPreResourcesSpec()).thenReturn(List.of());
+    when(mockContext.getDriverPodSpec()).thenReturn(driverPodSpec);
+    when(mockContext.getDriverResourcesSpec()).thenReturn(List.of());
+    when(recorder.persistStatus(any(), any()))
+        .thenAnswer(
+            invocation -> {
+              application.setStatus(invocation.getArgument(1));
+              return true;
+            });
+
+    ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
+
+    // The live driver is found, so the Workload which holds its quota is not released
+    Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
+    Assertions.assertNotNull(getWorkload());
+    Assertions.assertEquals(
+        ApplicationStateSummary.DriverRequested,
+        application.getStatus().getCurrentState().getCurrentStateSummary());
+  }
+
+  @Test
+  void neverAdmittedKueueWorkloadDoesNotLookUpTheDriver() {
+    // Kueue marks a Workload deactivated while pending as evicted as well. A driver is requested
+    // only after the admission, so the driver spec is not built for a lookup.
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(kueueApplicationMetadata);
+    kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(application)).create();
+    Workload workload = getWorkload();
+    workload.getSpec().setActive(false);
+    workload.setStatus(
+        WorkloadStatus.builder()
+            .conditions(
+                List.of(
+                    new ConditionBuilder()
+                        .withType("Evicted")
+                        .withStatus("True")
+                        .withReason("Deactivated")
+                        .build()))
+            .build());
+    kubernetesClient.resource(workload).update();
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+    when(mockContext.getCachedKueueWorkload()).thenReturn(Optional.of(getWorkload()));
+    when(mockContext.getCurrentAttemptDriverPod()).thenReturn(Optional.empty());
+
+    // It waits for the reactivation, without building the driver spec for a lookup
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndDefaultRequeue(),
+        appInitStep.reconcile(mockContext, recorder));
+    verify(mockContext, never()).getDriverPodSpec();
+    verify(recorder, never()).persistStatus(any(), any());
   }
 
   private Workload getWorkload() {

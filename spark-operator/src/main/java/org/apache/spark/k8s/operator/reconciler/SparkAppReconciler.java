@@ -181,9 +181,10 @@ public class SparkAppReconciler implements Reconciler<SparkApplication>, Cleaner
                   .withSecondaryToPrimaryMapper(
                       basicLabelSecondaryToPrimaryMapper(LABEL_SPARK_APPLICATION_NAME))
                   .withLabelSelector(LABEL_SPARK_APPLICATION_NAME)
-                  // Only an admission change or a deletion needs a reconciliation. The operator
-                  // creates the Workload itself, and the other updates would use up the rate
-                  // limit before the driver or the master is observed.
+                  // Only an admission change, including an eviction or a (de)activation, or a
+                  // deletion needs a reconciliation. The operator creates the Workload itself,
+                  // and the other updates would use up the rate limit before the driver or the
+                  // master is observed.
                   .withOnAddFilter(workload -> false)
                   .withOnUpdateFilter(KueueWorkloadUtils::isAdmissionChanged)
                   .build(),
