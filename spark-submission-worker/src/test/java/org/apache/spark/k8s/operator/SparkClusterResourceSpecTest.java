@@ -318,6 +318,42 @@ class SparkClusterResourceSpecTest {
   }
 
   @Test
+  void testDefaultTerminationGracePeriodSeconds() {
+    SparkClusterResourceSpec spec = new SparkClusterResourceSpec(cluster, new SparkConf());
+    assertEquals(
+        0L,
+        spec.getMasterStatefulSet().getSpec().getTemplate().getSpec()
+            .getTerminationGracePeriodSeconds());
+    assertEquals(
+        0L,
+        spec.getWorkerStatefulSet().getSpec().getTemplate().getSpec()
+            .getTerminationGracePeriodSeconds());
+  }
+
+  @Test
+  void testUserSpecifiedTerminationGracePeriodSeconds() {
+    StatefulSetSpec statefulSetSpec1 =
+        new StatefulSetSpecBuilder()
+            .withNewTemplate()
+            .withNewSpec()
+            .withTerminationGracePeriodSeconds(60L)
+            .endSpec()
+            .endTemplate()
+            .build();
+    when(masterSpec.getStatefulSetSpec()).thenReturn(statefulSetSpec1);
+    when(workerSpec.getStatefulSetSpec()).thenReturn(statefulSetSpec1);
+    SparkClusterResourceSpec spec = new SparkClusterResourceSpec(cluster, new SparkConf());
+    assertEquals(
+        60L,
+        spec.getMasterStatefulSet().getSpec().getTemplate().getSpec()
+            .getTerminationGracePeriodSeconds());
+    assertEquals(
+        60L,
+        spec.getWorkerStatefulSet().getSpec().getTemplate().getSpec()
+            .getTerminationGracePeriodSeconds());
+  }
+
+  @Test
   void testWorkerNetworkPolicy() {
     SparkClusterResourceSpec spec = new SparkClusterResourceSpec(cluster, new SparkConf());
     NetworkPolicy policy = spec.getWorkerNetworkPolicy();
