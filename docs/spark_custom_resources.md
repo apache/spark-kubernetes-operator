@@ -737,3 +737,7 @@ and exposed via k8s [service(s)](https://kubernetes.io/docs/concepts/services-ne
 Like Pod Template Support for Applications, it's also possible to submit template(s) for the Spark
 instances for `SparkCluster` to configure spec that's not supported via SparkConf. It's worth notice
 that Spark may overwrite certain fields.
+
+The master and worker pods use `terminationGracePeriodSeconds: 0` by default to delete a
+`SparkCluster` faster, unless their pod templates set it. A longer grace period delays stopping
+a [suspended](#suspend) cluster and releasing its [Kueue](#kueue) quota accordingly.

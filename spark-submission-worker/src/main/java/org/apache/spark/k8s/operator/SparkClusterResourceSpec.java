@@ -237,8 +237,10 @@ public class SparkClusterResourceSpec {
             .addToLabels(LABEL_SPARK_VERSION_NAME, version)
             .endMetadata()
             .editOrNewSpec()
-            .withSchedulerName(scheduler)
-            .withTerminationGracePeriodSeconds(0L);
+            .withSchedulerName(scheduler);
+    if (!partialStatefulSet.hasTerminationGracePeriodSeconds()) {
+      partialStatefulSet = partialStatefulSet.withTerminationGracePeriodSeconds(0L);
+    }
     if (!partialStatefulSet.hasMatchingContainer(p -> "master".equals(p.getName()))) {
       partialStatefulSet = partialStatefulSet.addNewContainer().withName("master").endContainer();
     }
@@ -320,10 +322,12 @@ public class SparkClusterResourceSpec {
             .endMetadata()
             .editOrNewSpec()
             .withSchedulerName(scheduler)
-            .withTerminationGracePeriodSeconds(0L)
             .withNewDnsConfig()
             .withSearches(String.format("%s-worker-svc.%s.svc.cluster.local", name, namespace))
             .endDnsConfig();
+    if (!partialStatefulSet.hasTerminationGracePeriodSeconds()) {
+      partialStatefulSet = partialStatefulSet.withTerminationGracePeriodSeconds(0L);
+    }
     if (!partialStatefulSet.hasMatchingContainer(p -> "worker".equals(p.getName()))) {
       partialStatefulSet = partialStatefulSet.addNewContainer().withName("worker").endContainer();
     }
