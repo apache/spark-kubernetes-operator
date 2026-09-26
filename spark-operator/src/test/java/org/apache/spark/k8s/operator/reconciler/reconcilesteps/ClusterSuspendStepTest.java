@@ -198,29 +198,52 @@ class ClusterSuspendStepTest {
     verifyNoInteractions(recorder);
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void suspendedClusterReleasesKueueWorkloadOfPodsTerminatingForTimeout(boolean suspend) {
-    SparkCluster cluster = buildKueueCluster(ClusterStateSummary.Suspended, suspend);
+  @Test
+  void suspendedClusterReleasesKueueWorkloadOfPodsTerminatingForTimeout() {
+    SparkCluster cluster = buildKueueCluster(ClusterStateSummary.Suspended, true);
     KubernetesClient client = spy(kubernetesClient);
     // Pods stuck in terminating, e.g. on a lost node, do not hold the quota forever
-    stubPodList(
-        client,
-        terminatingPod(
-            "cluster1-master-0", Constants.LABEL_SPARK_ROLE_MASTER_VALUE, Duration.ofMinutes(6)),
-        terminatingPod(
-            "cluster1-worker-0", Constants.LABEL_SPARK_ROLE_WORKER_VALUE, Duration.ofMinutes(6)));
+    stubStuckPods(client);
     stubContext(cluster, client);
     kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(cluster)).create();
 
-    // A resumed cluster stays Suspended until they are gone, since they keep the names of the
-    // master and worker pods which it would create again
     Assertions.assertEquals(
-        suspend ? SUSPEND_HOLD_PROGRESS : ReconcileProgress.completeAndDefaultRequeue(),
-        new ClusterSuspendStep().reconcile(mockContext, recorder));
+        SUSPEND_HOLD_PROGRESS, new ClusterSuspendStep().reconcile(mockContext, recorder));
 
     Assertions.assertNull(getWorkload());
     verifyNoInteractions(recorder);
+  }
+
+  @Test
+  void resumedClusterReportsStuckPodsOnceAndStaysSuspended() {
+    SparkCluster cluster = buildKueueCluster(ClusterStateSummary.Suspended, false);
+    KubernetesClient client = spy(kubernetesClient);
+    stubStuckPods(client);
+    stubContext(cluster, client);
+    kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(cluster)).create();
+
+    // It stays Suspended until they are gone, since they keep the names of the master and worker
+    // pods which it would create again, and its state says why
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndDefaultRequeue(),
+        new ClusterSuspendStep().reconcile(mockContext, recorder));
+
+    Assertions.assertNull(getWorkload());
+    ClusterState state = captureAppendedState();
+    Assertions.assertEquals(ClusterStateSummary.Suspended, state.getCurrentStateSummary());
+    Assertions.assertEquals(
+        String.format(
+            Constants.CLUSTER_SUSPENDED_BY_STUCK_PODS_MESSAGE,
+            "cluster1-master-0, cluster1-worker-0"),
+        state.getMessage());
+
+    // The same state is not appended again on every requeue
+    cluster.setStatus(cluster.getStatus().appendNewState(state));
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndDefaultRequeue(),
+        new ClusterSuspendStep().reconcile(mockContext, recorder));
+
+    verify(recorder).appendNewStateAndPersist(any(), any());
   }
 
   @Test
@@ -619,6 +642,16 @@ class ClusterSuspendStepTest {
         .addToLabels(Constants.LABEL_SPARK_ROLE_NAME, role)
         .endMetadata()
         .build();
+  }
+
+  /** Stubs a master and a worker pod which are still terminating 6 minutes past their deletion. */
+  private static void stubStuckPods(KubernetesClient client) {
+    stubPodList(
+        client,
+        terminatingPod(
+            "cluster1-worker-0", Constants.LABEL_SPARK_ROLE_WORKER_VALUE, Duration.ofMinutes(6)),
+        terminatingPod(
+            "cluster1-master-0", Constants.LABEL_SPARK_ROLE_MASTER_VALUE, Duration.ofMinutes(6)));
   }
 
   private static Pod terminatingPod(String name, String role, Duration terminatingFor) {
