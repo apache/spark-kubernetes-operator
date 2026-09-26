@@ -248,13 +248,13 @@ public final class Constants {
           + "Setting spec.suspend to false resumes it once they are released.";
 
   /**
-   * Message format indicating that the cluster stays suspended until the given master and worker
-   * pods, which are stuck in terminating, are gone.
+   * Message format indicating that the given master and worker pods of the suspended cluster are
+   * stuck in terminating, so that it can be resumed only after they are gone.
    */
-  public static final String CLUSTER_SUSPENDED_BY_STUCK_PODS_MESSAGE =
-      "Cluster stays suspended until its pods %s, which are still terminating past their grace "
-          + "period, e.g. on a lost node, are gone, since they keep the names of the pods to "
-          + "create again.";
+  public static final String CLUSTER_SUSPENDED_WITH_STUCK_PODS_MESSAGE =
+      "Cluster is suspended, but its pods %s are still terminating past their grace period, e.g. "
+          + "on a lost node. It can be resumed only after they are gone, since they keep the "
+          + "names of the pods to create again.";
 
   /** Message indicating that the suspended cluster is resumed by clearing spec.suspend. */
   public static final String CLUSTER_RESUMED_MESSAGE =

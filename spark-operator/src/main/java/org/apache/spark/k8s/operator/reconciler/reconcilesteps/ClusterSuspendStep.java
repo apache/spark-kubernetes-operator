@@ -20,8 +20,8 @@
 package org.apache.spark.k8s.operator.reconciler.reconcilesteps;
 
 import static org.apache.spark.k8s.operator.Constants.CLUSTER_RESUMED_MESSAGE;
-import static org.apache.spark.k8s.operator.Constants.CLUSTER_SUSPENDED_BY_STUCK_PODS_MESSAGE;
 import static org.apache.spark.k8s.operator.Constants.CLUSTER_SUSPENDED_MESSAGE;
+import static org.apache.spark.k8s.operator.Constants.CLUSTER_SUSPENDED_WITH_STUCK_PODS_MESSAGE;
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_CLUSTER_NAME;
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_ROLE_MASTER_VALUE;
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_ROLE_WORKER_VALUE;
@@ -99,7 +99,7 @@ public final class ClusterSuspendStep extends ClusterReconcileStep {
           new ClusterState(ClusterStateSummary.Suspended, CLUSTER_SUSPENDED_MESSAGE));
     }
     if (summary == ClusterStateSummary.Suspended) {
-      Optional<ReconcileProgress> waiting = releaseResources(context, statusRecorder, suspend);
+      Optional<ReconcileProgress> waiting = releaseResources(context, statusRecorder);
       if (waiting.isPresent()) {
         return waiting.get();
       }
@@ -135,25 +135,25 @@ public final class ClusterSuspendStep extends ClusterReconcileStep {
    * still terminating {@link #POD_RELEASE_TIMEOUT} after its grace period ended no longer holds the
    * Workload, and the wait is requeued to end right then, since such a pod may send no more events.
    * It is measured per pod rather than since Suspended, so that a release which failed or was
-   * delayed for that long still waits for the pods it deletes. A resumed cluster still waits for
-   * such a pod, which keeps the name of the master or worker it would create again, and says so in
-   * its state. Unlike the pods of an application, which are force deleted past
-   * `forceTerminationGracePeriodMillis`, such a pod is not force deleted, since its container may
-   * still run on a partitioned node while a pod of the same StatefulSet identity is created again.
-   * Other pods which carry the cluster label, e.g. to reach the workers through their
-   * NetworkPolicy, do not count. Everything here is idempotent, so pods that are not gone yet, or a
-   * release that failed, are simply looked at again. A failure which is not expected to clear on
-   * its own is reported, since Suspended is a steady state which would not tell it apart from
-   * waiting for the pods to go.
+   * delayed for that long still waits for the pods it deletes. The state of the cluster names such
+   * pods, and a resumed cluster still waits for them, since they keep the names of the master and
+   * workers it would create again. Their deletion is observed by the pod informer, so they are
+   * looked at again only as often as a suspended cluster otherwise. Unlike the pods of an
+   * application, which are force deleted past `forceTerminationGracePeriodMillis`, such a pod is
+   * not force deleted, since its container may still run on a partitioned node while a pod of the
+   * same StatefulSet identity is created again. Other pods which carry the cluster label, e.g. to
+   * reach the workers through their NetworkPolicy, do not count. Everything here is idempotent, so
+   * pods that are not gone yet, or a release that failed, are simply looked at again. A failure
+   * which is not expected to clear on its own is reported, since Suspended is a steady state which
+   * would not tell it apart from waiting for the pods to go.
    *
    * @param context The SparkClusterContext for the cluster.
    * @param statusRecorder The SparkClusterStatusRecorder for recording status updates.
-   * @param suspend Whether the cluster stays suspended, rather than being resumed.
    * @return Empty once everything is released, or the ReconcileProgress to retry with while pods
    *     remain or a release failed.
    */
   private Optional<ReconcileProgress> releaseResources(
-      SparkClusterContext context, SparkClusterStatusRecorder statusRecorder, boolean suspend) {
+      SparkClusterContext context, SparkClusterStatusRecorder statusRecorder) {
     SparkCluster cluster = context.getResource();
     String namespace = cluster.getMetadata().getNamespace();
     String name = cluster.getMetadata().getName();
@@ -214,26 +214,27 @@ public final class ClusterSuspendStep extends ClusterReconcileStep {
       }
       // A Workload admitted before the queue label was removed is released as well.
       KueueWorkloadUtils.deleteWorkloadOf(client, cluster);
-      if (!suspend && !pods.isEmpty()) {
-        log.debug("Waiting for the stuck pods of the resumed cluster to be deleted.");
+      if (!pods.isEmpty()) {
+        log.debug("Waiting for the stuck pods of the suspended cluster to be deleted.");
         // This may last until a lost node is deleted, so the state says why, once per set of pods
         String message =
             String.format(
-                CLUSTER_SUSPENDED_BY_STUCK_PODS_MESSAGE,
+                CLUSTER_SUSPENDED_WITH_STUCK_PODS_MESSAGE,
                 pods.stream()
                     .map(pod -> pod.getMetadata().getName())
                     .sorted()
                     .collect(Collectors.joining(", ")));
-        ReconcileProgress defaultRequeue = completeAndDefaultRequeue();
+        Duration holdInterval =
+            Duration.ofSeconds(SUSPEND_HOLD_REQUEUE_INTERVAL_SECONDS.getValue());
         if (message.equals(cluster.getStatus().getCurrentState().getMessage())) {
-          return Optional.of(defaultRequeue);
+          return Optional.of(completeAndRequeueAfter(holdInterval));
         }
         return Optional.of(
             appendStateAndRequeueAfter(
                 context,
                 statusRecorder,
                 new ClusterState(ClusterStateSummary.Suspended, message),
-                defaultRequeue.getRequeueAfterDuration()));
+                holdInterval));
       }
     } catch (KubernetesClientException e) {
       log.warn("Failed to release the resources of the suspended cluster, will retry.", e);
