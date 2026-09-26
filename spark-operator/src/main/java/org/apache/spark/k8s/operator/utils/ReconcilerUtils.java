@@ -47,9 +47,12 @@ import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.ListOptionsBuilder;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
+import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodList;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
+import io.fabric8.kubernetes.client.dsl.FilterWatchListDeletable;
+import io.fabric8.kubernetes.client.dsl.PodResource;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
 import io.javaoperatorsdk.operator.api.reconciler.DeleteControl;
 import io.javaoperatorsdk.operator.api.reconciler.RetryInfo;
@@ -265,6 +268,30 @@ public final class ReconcilerUtils {
   }
 
   /**
+   * Selects the pods of the given owner and roles. Other pods which carry the owner label are not
+   * selected.
+   *
+   * @param client The KubernetesClient.
+   * @param namespace The namespace of the pods.
+   * @param ownerLabel The label which names the owner of the pods.
+   * @param ownerName The name of the owner.
+   * @param roles The values of the Spark role label of the pods to select.
+   * @return The pods to list against the API server.
+   */
+  public static FilterWatchListDeletable<Pod, PodList, PodResource> podsOf(
+      final KubernetesClient client,
+      final String namespace,
+      final String ownerLabel,
+      final String ownerName,
+      final String... roles) {
+    return client
+        .pods()
+        .inNamespace(namespace)
+        .withLabel(ownerLabel, ownerName)
+        .withLabelIn(Constants.LABEL_SPARK_ROLE_NAME, roles);
+  }
+
+  /**
    * Checks against the API server whether any pod of the given owner and roles remains, including
    * one which is being deleted. Other pods which carry the owner label do not count.
    *
@@ -285,11 +312,7 @@ public final class ReconcilerUtils {
     // Only whether any pod remains matters, so one is enough. A page may come back empty with a
     // continue token, which still means that more pods remain.
     PodList pods =
-        client
-            .pods()
-            .inNamespace(namespace)
-            .withLabel(ownerLabel, ownerName)
-            .withLabelIn(Constants.LABEL_SPARK_ROLE_NAME, roles)
+        podsOf(client, namespace, ownerLabel, ownerName, roles)
             .list(new ListOptionsBuilder().withLimit(1L).build());
     return !pods.getItems().isEmpty() || StringUtils.isNotEmpty(pods.getMetadata().getContinue());
   }
