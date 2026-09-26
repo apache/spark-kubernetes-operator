@@ -140,6 +140,7 @@ class WorkloadTest {
     WorkloadStatus status = new WorkloadStatus();
     assertFalse(status.isAdmitted());
     assertFalse(status.isFinished());
+    assertFalse(WorkloadStatus.builder().conditions(null).build().isEvicted());
 
     Condition nonAdmitted =
         new ConditionBuilder().withType("Admitted").withStatus("False").build();
@@ -156,6 +157,16 @@ class WorkloadTest {
         new ConditionBuilder().withType("Finished").withStatus("True").build();
     status.getConditions().add(finished);
     assertTrue(status.isFinished());
+
+    assertFalse(status.isEvicted());
+    Condition notEvicted = new ConditionBuilder().withType("Evicted").withStatus("False").build();
+    status.getConditions().add(notEvicted);
+    assertFalse(status.isEvicted());
+    Condition evicted = new ConditionBuilder().withType("Evicted").withStatus("True").build();
+    status.getConditions().add(evicted);
+    assertTrue(status.isEvicted());
+    // Kueue keeps the admission of an evicted Workload until its integration releases it
+    assertTrue(status.isAdmitted());
   }
 
   @Test

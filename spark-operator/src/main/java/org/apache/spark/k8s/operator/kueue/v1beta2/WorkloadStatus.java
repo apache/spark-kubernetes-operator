@@ -43,6 +43,7 @@ public class WorkloadStatus {
   @Builder.Default
   private List<Condition> conditions = new ArrayList<>();
   private Admission admission;
+  private RequeueState requeueState;
 
   /**
    * Checks if the workload has been admitted by Kueue.
@@ -83,6 +84,21 @@ public class WorkloadStatus {
             .anyMatch(
                 c ->
                     "Finished".equalsIgnoreCase(c.getType())
+                        && "True".equalsIgnoreCase(c.getStatus()));
+  }
+
+  /**
+   * Checks if Kueue evicted the workload. Kueue keeps the "Admitted" condition of an evicted
+   * workload until the controller of its resources stops them and releases the quota.
+   *
+   * @return true if an "Evicted" condition exists with status "True", false otherwise.
+   */
+  public boolean isEvicted() {
+    return conditions != null
+        && conditions.stream()
+            .anyMatch(
+                c ->
+                    "Evicted".equalsIgnoreCase(c.getType())
                         && "True".equalsIgnoreCase(c.getStatus()));
   }
 }

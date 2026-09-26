@@ -28,6 +28,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -79,6 +80,9 @@ public final class KueueWorkloadUtils {
    */
   private static final String CONDITION_FINISHED = "Finished";
 
+  /** Type of the Kueue condition of an evicted Workload, as {@link WorkloadStatus#isEvicted}. */
+  private static final String CONDITION_EVICTED = "Evicted";
+
   /**
    * Requeue interval after {@link AdmissionResult#STALE} and after a transient API failure. It is
    * short because both go away shortly, while an unchanged admission and a persistent failure are
@@ -96,10 +100,15 @@ public final class KueueWorkloadUtils {
     PENDING,
     /**
      * The existing Workload cannot be used because it is owned by another resource, requests
-     * outdated pod sets, or is being deleted. It is deleted so that a later reconciliation creates
-     * the Workload of the current spec.
+     * outdated pod sets, is evicted, or is being deleted. It is deleted so that a later
+     * reconciliation creates the Workload of the current spec.
      */
-    STALE
+    STALE,
+    /**
+     * The existing Workload is evicted, but the requeue backoff which Kueue records on it has not
+     * elapsed yet. It is kept until then, since its deletion would drop the backoff.
+     */
+    BACKOFF
   }
 
   /**
@@ -150,6 +159,29 @@ public final class KueueWorkloadUtils {
       log.info(
           "Deleting the Kueue Workload {} which is owned by another resource.",
           workload.getMetadata().getName());
+      deleteWorkload(client, workload);
+      return new AdmissionResponse(AdmissionResult.STALE, workload);
+    }
+    if (isDeactivated(workload)) {
+      // Kueue neither counts nor admits a deactivated Workload, so the resources wait until it is
+      // reactivated rather than start outside the quota. It is kept as it is, since a new Workload
+      // of the same name would come back active.
+      return new AdmissionResponse(AdmissionResult.PENDING, workload);
+    }
+    WorkloadStatus status = workload.getStatus();
+    boolean holdsQuota = status != null && (status.isQuotaReserved() || status.isAdmitted());
+    // Kueue also marks a Workload which is deactivated while pending as evicted, and keeps the
+    // condition after it is reactivated until the quota is reserved again. Such a Workload holds no
+    // quota and is queued again by Kueue itself, so it is kept.
+    if (holdsQuota && findEviction(workload).isPresent()) {
+      if (!remainingRequeueBackoff(workload).isZero()) {
+        return new AdmissionResponse(AdmissionResult.BACKOFF, workload);
+      }
+      // Kueue keeps the Admitted condition of an evicted Workload, whose quota is about to be taken
+      // by another workload. Nothing was requested for it here, so the quota is released and the
+      // resource is queued again with a new Workload.
+      log.info(
+          "Deleting the Kueue Workload {} which is evicted.", workload.getMetadata().getName());
       deleteWorkload(client, workload);
       return new AdmissionResponse(AdmissionResult.STALE, workload);
     }
@@ -205,7 +237,8 @@ public final class KueueWorkloadUtils {
   /**
    * Requests the Kueue admission of the resource of the given context and reports the progress to
    * return until it is granted. The pending event is published on every reconcile while the
-   * Workload waits, since it is the only signal a queued first attempt has. A stale Workload is
+   * Workload waits, including while it is deactivated or in the requeue backoff after an eviction,
+   * since it is the only signal a queued first attempt has. A stale Workload is
    * replaced by the operator itself shortly, so it publishes nothing until the new Workload is
    * queued. An API failure of the request is retried rather than failing the resource: a transient
    * one shortly, a persistent one with the default interval, so that its event is not rewritten
@@ -240,6 +273,31 @@ public final class KueueWorkloadUtils {
           ReconcileProgress.completeAndRequeueAfter(STALE_WORKLOAD_REQUEUE_INTERVAL));
     }
     String workloadName = desired.getMetadata().getName();
+    if (admission.result() == AdmissionResult.BACKOFF) {
+      Workload evicted = admission.workload();
+      // Like the pending event below, it is the only signal of the wait.
+      EventUtils.normal(
+          context.getEventRecorder(),
+          EventUtils.REASON_KUEUE_ADMISSION_PENDING,
+          "Kueue evicted Workload "
+              + workloadName
+              + " ("
+              + findEviction(evicted).map(Condition::getMessage).orElse("")
+              + "), it is queued again after "
+              + evicted.getStatus().getRequeueState().getRequeueAt()
+              + ", "
+              + requested
+              + " would be requested after the admission.");
+      log.debug("The Kueue Workload {} is evicted, waiting for its requeue backoff.", workloadName);
+      Duration backoff = remainingRequeueBackoff(evicted);
+      ReconcileProgress defaultRequeue = ReconcileProgress.completeAndDefaultRequeue();
+      // A long backoff is waited out in default intervals, so that the event is republished like
+      // the pending event.
+      return Optional.of(
+          backoff.compareTo(defaultRequeue.getRequeueAfterDuration()) < 0
+              ? ReconcileProgress.completeAndRequeueAfter(backoff)
+              : defaultRequeue);
+    }
     if (admission.result() == AdmissionResult.PENDING) {
       // Republished while the Workload waits, rather than once when it is created. The event sink
       // keys the Event on the reason, so a repeat bumps the count of the one Event instead of
@@ -248,13 +306,19 @@ public final class KueueWorkloadUtils {
       EventUtils.normal(
           context.getEventRecorder(),
           EventUtils.REASON_KUEUE_ADMISSION_PENDING,
-          "Waiting for Kueue to admit Workload "
-              + workloadName
-              + " in queue "
-              + desired.getSpec().getQueueName()
-              + ", "
-              + requested
-              + " would be requested after the admission.");
+          isDeactivated(admission.workload())
+              ? "Kueue Workload "
+                  + workloadName
+                  + " is deactivated, "
+                  + requested
+                  + " would be requested after it is reactivated and admitted."
+              : "Waiting for Kueue to admit Workload "
+                  + workloadName
+                  + " in queue "
+                  + desired.getSpec().getQueueName()
+                  + ", "
+                  + requested
+                  + " would be requested after the admission.");
       log.debug(
           "Kueue has not admitted the Workload {}, {} would not be requested.",
           workloadName,
@@ -313,7 +377,8 @@ public final class KueueWorkloadUtils {
       return Optional.of(retryAfterRequestFailure(context, e, "Failed to read the Kueue Workload"));
     }
     if (workload == null || !isAdmitted(workload)) {
-      // A Workload which is gone or evicted must not hold the resources which are already running.
+      // A Workload which is gone or not admitted must not hold the resources which are already
+      // running. Kueue keeps the admission of an evicted one until they are released.
       log.debug("The Kueue Workload {} is not admitted, applying no flavors.", workloadName);
       return Optional.empty();
     }
@@ -389,8 +454,10 @@ public final class KueueWorkloadUtils {
    * queued resource. If they were requested already, its flavors are applied again like {@link
    * #applyAdmittedFlavors}, since the secondary resources are applied again in this reconcile.
    * Otherwise they start without Kueue, so the flavors are not read, which must not hold them
-   * back. Like the admission request, a failed release is retried before the resources are
-   * requested.
+   * back, and an evicted or deactivated Workload is released first rather than kept for resources
+   * whose quota Kueue is about to take or no longer counts. Like the admission request, a failed
+   * release is retried
+   * before the resources are requested.
    *
    * @param context The context of the resource without a queue name label.
    * @param requested Whether the driver or master was requested already. It is checked only for
@@ -408,10 +475,15 @@ public final class KueueWorkloadUtils {
       return Optional.empty();
     }
     if (isAdmitted(workload.get())) {
-      return requested.getAsBoolean() ? applyAdmittedFlavors(context) : Optional.empty();
+      if (requested.getAsBoolean()) {
+        return applyAdmittedFlavors(context);
+      }
+      if (findEviction(workload.get()).isEmpty() && !isDeactivated(workload.get())) {
+        return Optional.empty();
+      }
     }
     log.info(
-        "Deleting the pending Kueue Workload {} whose owner was removed from the queue.",
+        "Deleting the unused Kueue Workload {} whose owner was removed from the queue.",
         workload.get().getMetadata().getName());
     return releaseOrRetry(
         context, "Failed to release the Kueue Workload of a resource removed from its queue");
@@ -581,14 +653,78 @@ public final class KueueWorkloadUtils {
    * Checks whether an update of a Workload changes its admission. The Workload informer passes
    * only such updates, because Kueue updates the status of a pending Workload repeatedly, and the
    * reconciliations for them would use up the per-resource rate limit before the driver or the
-   * master is observed.
+   * master is observed. An eviction and a (de)activation count as a change of the admission, since
+   * Kueue keeps the `Admitted` condition of an evicted Workload until its resources are released,
+   * and a deactivated Workload holds its resources until it is reactivated.
    *
    * @param newWorkload The Workload after the update.
    * @param oldWorkload The Workload before the update.
-   * @return True if exactly one of them is admitted.
+   * @return True if exactly one of them is admitted, evicted, or deactivated.
    */
   public static boolean isAdmissionChanged(final Workload newWorkload, final Workload oldWorkload) {
-    return isAdmitted(newWorkload) != isAdmitted(oldWorkload);
+    return isAdmitted(newWorkload) != isAdmitted(oldWorkload)
+        || findEviction(newWorkload).isPresent() != findEviction(oldWorkload).isPresent()
+        || isDeactivated(newWorkload) != isDeactivated(oldWorkload);
+  }
+
+  /**
+   * Returns the `Evicted` condition of the given Workload if Kueue evicted it.
+   *
+   * @param workload The Workload to check.
+   * @return The `Evicted` condition with status `True`, or empty if the Workload is not evicted.
+   */
+  public static Optional<Condition> findEviction(final Workload workload) {
+    WorkloadStatus status = workload.getStatus();
+    if (status == null || status.getConditions() == null) {
+      return Optional.empty();
+    }
+    return status.getConditions().stream()
+        .filter(
+            c ->
+                CONDITION_EVICTED.equalsIgnoreCase(c.getType())
+                    && "True".equalsIgnoreCase(c.getStatus()))
+        .findFirst();
+  }
+
+  /**
+   * Checks whether the given Workload is deactivated by `spec.active` set to false, e.g. by a user
+   * or by Kueue after too many retries. Kueue neither counts nor admits it until it is reactivated.
+   *
+   * @param workload The Workload to check.
+   * @return True if the Workload is deactivated.
+   */
+  public static boolean isDeactivated(final Workload workload) {
+    return Boolean.FALSE.equals(workload.getSpec().getActive());
+  }
+
+  /**
+   * Returns how long Kueue still holds back the given Workload after an eviction, e.g. for the
+   * backoff of an admission check which asked for a retry. Deleting the Workload drops the backoff
+   * with it, so an evicted Workload is kept until then. The retry count which Kueue records with
+   * the admission checks is lost anyway, since a new Workload starts over.
+   *
+   * @param workload The Workload to check.
+   * @return The time until `status.requeueState.requeueAt`, or zero if it is not in the future.
+   */
+  public static Duration remainingRequeueBackoff(final Workload workload) {
+    WorkloadStatus status = workload.getStatus();
+    if (status == null
+        || status.getRequeueState() == null
+        || status.getRequeueState().getRequeueAt() == null) {
+      return Duration.ZERO;
+    }
+    Instant requeueAt;
+    try {
+      requeueAt = Instant.parse(status.getRequeueState().getRequeueAt());
+    } catch (DateTimeParseException e) {
+      log.warn(
+          "Ignoring the requeue time of the Kueue Workload {} which cannot be parsed.",
+          workload.getMetadata().getName(),
+          e);
+      return Duration.ZERO;
+    }
+    Duration remaining = Duration.between(Instant.now(), requeueAt);
+    return remaining.isNegative() ? Duration.ZERO : remaining;
   }
 
   /**

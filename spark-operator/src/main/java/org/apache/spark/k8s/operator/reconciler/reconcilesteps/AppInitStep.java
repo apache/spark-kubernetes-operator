@@ -44,6 +44,7 @@ import org.apache.spark.k8s.operator.context.SparkAppContext;
 import org.apache.spark.k8s.operator.decorators.DriverResourceDecorator;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadFactory;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils;
+import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.spec.RestartConfig;
 import org.apache.spark.k8s.operator.status.ApplicationAttemptSummary;
@@ -220,7 +221,10 @@ public final class AppInitStep extends AppReconcileStep {
    * the case where the driver was created but the status update to DriverRequested failed, so that
    * a suspended application still completes its initialization instead of being held with a live
    * driver. See {@link SparkAppContext#getCurrentAttemptDriverPod()} for how a pod left
-   * from a previous attempt is told apart.
+   * from a previous attempt is told apart. The informer cache may not have seen a driver created
+   * in the previous reconcile yet, so a driver missing from it is looked up on the API server as
+   * well if the Kueue Workload is evicted or deactivated, since that Workload would be released or
+   * held under the driver. Otherwise, the driver spec is not built for the lookup.
    *
    * @param context The SparkAppContext for the application.
    * @return True if the driver pod of the current attempt exists, false otherwise.
@@ -228,7 +232,17 @@ public final class AppInitStep extends AppReconcileStep {
    *     mistaken for one that was never requested.
    */
   private boolean isDriverRequested(SparkAppContext context) {
-    return context.getCurrentAttemptDriverPod().isPresent();
+    if (context.getCurrentAttemptDriverPod().isPresent()) {
+      return true;
+    }
+    Optional<Workload> workload = context.getCachedKueueWorkload();
+    if (workload.isEmpty()
+        || KueueWorkloadUtils.findEviction(workload.get()).isEmpty()
+            && !KueueWorkloadUtils.isDeactivated(workload.get())) {
+      return false;
+    }
+    Pod driverPod = context.getClient().resource(context.getDriverPodSpec()).get();
+    return driverPod != null && driverPod.getMetadata().getDeletionTimestamp() == null;
   }
 
   /**

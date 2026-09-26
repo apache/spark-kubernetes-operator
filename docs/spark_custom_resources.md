@@ -720,9 +720,29 @@ spec:
 * Dynamic allocation, a `SparkCluster` with `minWorkers < maxWorkers`, and pod template files set
   through `spark.kubernetes.{driver,executor}.podTemplateFile` are not supported yet. Such a
   resource fails with `SchedulingFailure` instead of being queued.
-* Preemption is not honored yet. The operator checks the admission only before it creates the
-  resources, so a later eviction (or `spec.active` set to `false` on the `Workload`) releases the
-  Kueue quota while the driver and executors, or the master and workers, keep running.
+* A resource whose `Workload` is deactivated (`spec.active` set to `false`), e.g. by
+  `kueuectl stop workload`, before its driver (or master) is requested waits until the `Workload`
+  is reactivated, since Kueue neither counts nor admits a deactivated `Workload`, and the
+  `KueueAdmissionPending` event says so. The operator keeps the `Workload` as it is meanwhile, even
+  if the spec of the resource changes, unless `spec.suspend` deletes it as described above, after
+  which the resumed resource is queued with an active `Workload`. Once it is
+  reactivated, a pending `Workload` keeps its place in the queue, while one which Kueue admitted
+  before is deleted, like an evicted one below, since Kueue counts its admission again. A spec
+  change made while it is deactivated is applied only if the operator sees the reactivation
+  before Kueue admits the pending `Workload` again. Otherwise, the resources are requested under
+  the admission of the old spec, like after a spec change right after an admission.
+* A `Workload` which Kueue evicts before the driver (or master) is requested, e.g. to preempt it
+  for a workload of a higher priority, is kept until the requeue backoff which Kueue records on it
+  (`status.requeueState.requeueAt`) elapses, e.g. after an admission check asked for a retry, and
+  the `KueueAdmissionPending` event names the eviction meanwhile. Kueue keeps the quota of an
+  evicted `Workload` until then, so the operator then deletes it, and the resource is queued again
+  with a new `Workload`. Unlike Kueue built-in integrations, which keep the evicted
+  `Workload`, the new `Workload` is ordered in its queue like a newly created one, and it starts
+  over the retry counts of its admission checks.
+* Preemption is not honored yet after the driver (or master) is requested. The operator checks the
+  admission only before it creates the resources, so after a later eviction the driver and
+  executors, or the master and workers, keep running. An evicted `Workload` keeps its Kueue quota
+  meanwhile, while a deactivated one no longer counts against it.
 
 ## Spark Cluster
 
