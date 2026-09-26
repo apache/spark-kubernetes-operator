@@ -322,8 +322,8 @@ public class SparkClusterResourceSpec {
             .endMetadata()
             .editOrNewSpec()
             .withSchedulerName(scheduler)
-            .withNewDnsConfig()
-            .withSearches(String.format("%s-worker-svc.%s.svc.cluster.local", name, namespace))
+            .editOrNewDnsConfig()
+            .addToSearches(String.format("%s-worker-svc.%s.svc.cluster.local", name, namespace))
             .endDnsConfig();
     if (!partialStatefulSet.hasTerminationGracePeriodSeconds()) {
       partialStatefulSet = partialStatefulSet.withTerminationGracePeriodSeconds(0L);

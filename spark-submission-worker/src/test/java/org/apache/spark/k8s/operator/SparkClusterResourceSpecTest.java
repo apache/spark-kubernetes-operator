@@ -25,11 +25,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
+import io.fabric8.kubernetes.api.model.PodDNSConfig;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServiceSpec;
 import io.fabric8.kubernetes.api.model.ServiceSpecBuilder;
@@ -351,6 +353,34 @@ class SparkClusterResourceSpecTest {
         60L,
         spec.getWorkerStatefulSet().getSpec().getTemplate().getSpec()
             .getTerminationGracePeriodSeconds());
+  }
+
+  @Test
+  void testWorkerDnsConfig() {
+    String workerSearch = "cluster-name-worker-svc.my-namespace.svc.cluster.local";
+    StatefulSet statefulSet =
+        new SparkClusterResourceSpec(cluster, new SparkConf()).getWorkerStatefulSet();
+    assertEquals(
+        List.of(workerSearch),
+        statefulSet.getSpec().getTemplate().getSpec().getDnsConfig().getSearches());
+
+    StatefulSetSpec statefulSetSpec1 =
+        new StatefulSetSpecBuilder()
+            .withNewTemplate()
+            .withNewSpec()
+            .withNewDnsConfig()
+            .withNameservers("my.nameserver")
+            .withSearches("my.search.domain")
+            .endDnsConfig()
+            .endSpec()
+            .endTemplate()
+            .build();
+    when(workerSpec.getStatefulSetSpec()).thenReturn(statefulSetSpec1);
+    StatefulSet statefulSet2 =
+        new SparkClusterResourceSpec(cluster, new SparkConf()).getWorkerStatefulSet();
+    PodDNSConfig dnsConfig = statefulSet2.getSpec().getTemplate().getSpec().getDnsConfig();
+    assertEquals(List.of("my.nameserver"), dnsConfig.getNameservers());
+    assertEquals(List.of("my.search.domain", workerSearch), dnsConfig.getSearches());
   }
 
   @Test
