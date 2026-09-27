@@ -74,6 +74,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
+import org.apache.spark.SparkException;
 import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.SparkAppSubmissionWorker;
 import org.apache.spark.k8s.operator.SparkApplication;
@@ -934,10 +935,12 @@ class AppInitStepTest {
 
     // Suspended while queued: the Workload is deleted so that it does not hold the quota
     application.getSpec().setSuspend(true);
+    when(mockContext.getCachedKueueWorkload()).thenReturn(Optional.of(getWorkload()));
     Assertions.assertEquals(
         SUSPEND_HOLD_PROGRESS,
         appInitStep.reconcile(mockContext, recorder));
     Assertions.assertNull(getWorkload());
+    // A driver is requested only after the admission, so the driver spec is not built for a lookup
     verify(mockContext, never()).getDriverPodSpec();
     verifyNoInteractions(recorder);
     List<EventRecord> events = captureEvents(2);
@@ -1365,7 +1368,7 @@ class AppInitStepTest {
                 .withReason("Preempted")
                 .build());
     kubernetesClient.resource(workload).update();
-    kubernetesClient.resource(driverPodSpec).create();
+    createDriverPod(application);
     when(mockContext.getResource()).thenReturn(application);
     when(mockContext.getClient()).thenReturn(kubernetesClient);
     when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
@@ -1428,12 +1431,191 @@ class AppInitStepTest {
     verify(recorder, never()).persistStatus(any(), any());
   }
 
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void suspendedAppWithDriverMissingFromCacheKeepsItsKueueWorkload(boolean queueLabelRemoved) {
+    // The driver was created, but the status update to DriverRequested did not land, and the app
+    // is suspended before the informer has seen the pod. The suspend hold would release the
+    // Workload under the driver, even if the queue label was removed meanwhile.
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(kueueApplicationMetadata);
+    kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(application)).create();
+    admitWorkload();
+    createDriverPod(application);
+    application.getSpec().setSuspend(true);
+    if (queueLabelRemoved) {
+      application.getMetadata().setLabels(Map.of());
+    }
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+    when(mockContext.getCachedKueueWorkload()).thenReturn(Optional.of(getWorkload()));
+    when(mockContext.getCurrentAttemptDriverPod()).thenReturn(Optional.empty());
+    when(mockContext.getDriverPreResourcesSpec()).thenReturn(List.of());
+    when(mockContext.getDriverPodSpec()).thenReturn(driverPodSpec);
+    when(mockContext.getDriverResourcesSpec()).thenReturn(List.of());
+    when(recorder.persistStatus(any(), any()))
+        .thenAnswer(
+            invocation -> {
+              application.setStatus(invocation.getArgument(1));
+              return true;
+            });
+
+    ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
+
+    // The live driver is found, so the initialization completes and the Workload which holds its
+    // quota is not released
+    Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
+    Assertions.assertNotNull(getWorkload());
+    Assertions.assertEquals(
+        ApplicationStateSummary.DriverRequested,
+        application.getStatus().getCurrentState().getCurrentStateSummary());
+    // Like a driver found in the cache, it gets the flavors of the admitted Workload again
+    verify(mockContext).setKueuePodSetFlavors(any());
+  }
+
+  @Test
+  void suspendedAppWithUnbuildableDriverSpecReleasesKueueWorkload() {
+    // Kueue admitted the Workload, but the app is suspended before its driver is requested, and
+    // the driver spec cannot be built for the lookup. Failing the reconcile would keep the quota
+    // for the whole suspension, so the app is held instead.
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(kueueApplicationMetadata);
+    kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(application)).create();
+    admitWorkload();
+    application.getSpec().setSuspend(true);
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+    when(mockContext.getCachedKueueWorkload()).thenReturn(Optional.of(getWorkload()));
+    when(mockContext.getCurrentAttemptDriverPod()).thenReturn(Optional.empty());
+    // Spark rejects some specs with its checked SparkException, e.g. a local jar to upload
+    when(mockContext.getDriverPodSpec())
+        .thenAnswer(
+            invocation -> {
+              throw new SparkException(
+                  "Please specify spark.kubernetes.file.upload.path property.");
+            });
+
+    Assertions.assertEquals(SUSPEND_HOLD_PROGRESS, appInitStep.reconcile(mockContext, recorder));
+    Assertions.assertNull(getWorkload());
+    verifyNoInteractions(recorder);
+    Assertions.assertEquals(EventUtils.REASON_SUSPEND_HELD, captureEvents(1).get(0).reason());
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void suspendedAppWithoutLiveDriverReleasesKueueWorkload(boolean terminatingDriver) {
+    // Kueue admitted the Workload, but the app is suspended before its driver is requested. The
+    // API server has no driver either, or only one which is being deleted, so the app is held.
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(kueueApplicationMetadata);
+    kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(application)).create();
+    admitWorkload();
+    if (terminatingDriver) {
+      createDriverPod(application, "example.com/finalizer");
+      kubernetesClient.resource(driverPodSpec).delete();
+    }
+    application.getSpec().setSuspend(true);
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+    when(mockContext.getCachedKueueWorkload()).thenReturn(Optional.of(getWorkload()));
+    when(mockContext.getCurrentAttemptDriverPod()).thenReturn(Optional.empty());
+    when(mockContext.getDriverPodSpec()).thenReturn(driverPodSpec);
+
+    Assertions.assertEquals(SUSPEND_HOLD_PROGRESS, appInitStep.reconcile(mockContext, recorder));
+    Assertions.assertNull(getWorkload());
+    verify(mockContext, never()).getDriverPreResourcesSpec();
+    verifyNoInteractions(recorder);
+  }
+
+  @Test
+  void suspendedAppWithUnverifiableLiveDriverKeepsKueueWorkload() {
+    // The lookup of a driver missing from the informer cache fails, so the admitted Workload may
+    // hold a running driver, and it is not released
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(kueueApplicationMetadata);
+    kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(application)).create();
+    admitWorkload();
+    application.getSpec().setSuspend(true);
+    KubernetesClient failingClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    when(failingClient.resource(any(Pod.class)).get())
+        .thenThrow(new KubernetesClientException("unavailable", 503, null));
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getClient()).thenReturn(failingClient);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+    when(mockContext.getCachedKueueWorkload()).thenReturn(Optional.of(getWorkload()));
+    when(mockContext.getCurrentAttemptDriverPod()).thenReturn(Optional.empty());
+    when(mockContext.getDriverPodSpec()).thenReturn(driverPodSpec);
+
+    ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
+
+    Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
+    Assertions.assertNotNull(getWorkload());
+    verifyNoInteractions(recorder);
+    verifyNoInteractions(eventRecorder);
+  }
+
+  @Test
+  void anotherAppDriverPodDoesNotBypassSuspend() {
+    // Another application runs a driver pod of the same name, e.g. with the same
+    // spark.kubernetes.driver.pod.name, which the lookup must not take for the driver of this app
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(kueueApplicationMetadata);
+    kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(application)).create();
+    admitWorkload();
+    SparkApplication anotherApplication = new SparkApplication();
+    anotherApplication.setMetadata(
+        new ObjectMetaBuilder().withName("sparkapp2").withNamespace("default").build());
+    createDriverPod(anotherApplication);
+    application.getSpec().setSuspend(true);
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+    when(mockContext.getCachedKueueWorkload()).thenReturn(Optional.of(getWorkload()));
+    when(mockContext.getCurrentAttemptDriverPod()).thenReturn(Optional.empty());
+    when(mockContext.getDriverPodSpec()).thenReturn(driverPodSpec);
+
+    Assertions.assertEquals(SUSPEND_HOLD_PROGRESS, appInitStep.reconcile(mockContext, recorder));
+    Assertions.assertNull(getWorkload());
+    verify(mockContext, never()).getDriverPreResourcesSpec();
+    verifyNoInteractions(recorder);
+  }
+
   private Workload getWorkload() {
     return kubernetesClient
         .resources(Workload.class)
         .inNamespace("default")
         .withName("sparkapplication-sparkapp1")
         .get();
+  }
+
+  private void createDriverPod(SparkApplication owner, String... finalizers) {
+    kubernetesClient
+        .resource(
+            new PodBuilder(driverPodSpec)
+                .editMetadata()
+                .withLabels(driverLabels(owner))
+                .withFinalizers(finalizers)
+                .endMetadata()
+                .build())
+        .create();
   }
 
   @Test

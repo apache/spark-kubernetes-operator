@@ -24,6 +24,7 @@ import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.complet
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.completeAndImmediateRequeue;
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.proceed;
 import static org.apache.spark.k8s.operator.utils.SparkExceptionUtils.buildGeneralErrorMessage;
+import static org.apache.spark.k8s.operator.utils.Utils.driverLabels;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -73,17 +74,24 @@ public final class AppInitStep extends AppReconcileStep {
     }
     SparkApplication app = context.getResource();
     if (app.getSpec().isSuspend()) {
-      Optional<Pod> currentAttemptDriverPod;
+      boolean driverRequested = false;
       try {
-        currentAttemptDriverPod = context.getCurrentAttemptDriverPod();
+        driverRequested = isDriverRequested(context);
       } catch (KubernetesClientException e) {
         // Whether a driver of this attempt is live is unknown, not answered. Holding would claim
         // in an event that none was requested, and would do so for the whole suspend hold
-        // interval, so look again with the steady-state interval instead.
+        // interval. It would also release the Kueue quota of a running driver, so look again with
+        // the steady-state interval instead.
         log.warn("Failed to verify the driver pod of a suspended application, will retry.", e);
         return completeAndDefaultRequeue();
+      } catch (Exception e) {
+        // The driver spec cannot be built, so no driver of this attempt was requested from it.
+        // Failing every reconcile would keep the Kueue quota for the whole suspension, so the
+        // application is held like one without a driver instead. A spec which is still invalid
+        // is reported as SchedulingFailure after the application is resumed.
+        log.warn("Failed to build the driver spec of a suspended application, holding it.", e);
       }
-      if (currentAttemptDriverPod.isEmpty()) {
+      if (!driverRequested) {
         return SuspendUtils.holdForSuspend(context, "driver");
       }
     }
@@ -223,9 +231,12 @@ public final class AppInitStep extends AppReconcileStep {
    * driver. See {@link SparkAppContext#getCurrentAttemptDriverPod()} for how a pod left
    * from a previous attempt is told apart. The informer cache may not have seen a driver created
    * in the previous reconcile yet, so a driver missing from it is looked up on the API server as
-   * well if the Kueue Workload is evicted or deactivated but still admitted, since that Workload
-   * would be released or held under the driver, which is requested only after the admission.
-   * Otherwise, the driver spec is not built for the lookup.
+   * well if the Kueue Workload is still admitted and either the application is suspended or the
+   * Workload is evicted or deactivated, since that Workload would be released or held under the
+   * driver, which is requested only after the admission. Otherwise, the driver spec is not built
+   * for the lookup. Like a cached pod, the one found there counts only if it carries the driver
+   * labels and is not being deleted, so that a pod of another application with the same name is
+   * not taken for the driver.
    *
    * @param context The SparkAppContext for the application.
    * @return True if the driver pod of the current attempt exists, false otherwise.
@@ -239,12 +250,19 @@ public final class AppInitStep extends AppReconcileStep {
     Optional<Workload> workload = context.getCachedKueueWorkload();
     if (workload.isEmpty()
         || !KueueWorkloadUtils.isAdmitted(workload.get())
-        || (KueueWorkloadUtils.findEviction(workload.get()).isEmpty()
+        || (!context.getResource().getSpec().isSuspend()
+            && KueueWorkloadUtils.findEviction(workload.get()).isEmpty()
             && !KueueWorkloadUtils.isDeactivated(workload.get()))) {
       return false;
     }
     Pod driverPod = context.getClient().resource(context.getDriverPodSpec()).get();
-    return driverPod != null && driverPod.getMetadata().getDeletionTimestamp() == null;
+    return driverPod != null
+        && driverPod.getMetadata().getDeletionTimestamp() == null
+        && driverPod
+            .getMetadata()
+            .getLabels()
+            .entrySet()
+            .containsAll(driverLabels(context.getResource()).entrySet());
   }
 
   /**
