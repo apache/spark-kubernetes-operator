@@ -64,6 +64,8 @@ subprojects {
   java {
     toolchain {
       languageVersion = JavaLanguageVersion.of(27)
+      // TODO(SPARK-59809): Remove the `AZUL` vendor requirement from Java 27 toolchain
+      vendor = JvmVendorSpec.AZUL
     }
   }
 
