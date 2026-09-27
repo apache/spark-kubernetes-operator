@@ -578,6 +578,23 @@ class ClusterSuspendStepTest {
   }
 
   @Test
+  void resumedClusterReleasesDeactivatedWorkload() {
+    SparkCluster cluster = buildKueueCluster(ClusterStateSummary.Suspended, false);
+    stubContext(cluster);
+    // The Workload outlived the release on spec.suspend, e.g. after a failed delete
+    createWorkload(cluster, evictedStatus("Deactivated"), false);
+
+    // Only an eviction keeps the Workload, so the resume does not wait for its reactivation
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndImmediateRequeue(),
+        new ClusterSuspendStep().reconcile(mockContext, recorder));
+
+    Assertions.assertEquals(
+        Constants.CLUSTER_RESUMED_MESSAGE, capturePersistedState().getMessage());
+    Assertions.assertNull(getWorkload());
+  }
+
+  @Test
   void evictedWorkloadIsKeptUntilTheRequeueBackoffElapses() {
     SparkCluster cluster = buildEvictedCluster(false);
     stubContext(cluster);
@@ -614,6 +631,28 @@ class ClusterSuspendStepTest {
     ClusterState state = captureAppendedState();
     Assertions.assertEquals(ClusterStateSummary.Suspended, state.getCurrentStateSummary());
     Assertions.assertEquals(Constants.CLUSTER_SUSPENDED_MESSAGE, state.getMessage());
+
+    // Once that state is persisted, the cluster is held rather than suspended again
+    cluster.setStatus(cluster.getStatus().appendNewState(state));
+    Assertions.assertEquals(
+        SUSPEND_HOLD_PROGRESS, new ClusterSuspendStep().reconcile(mockContext, recorder));
+    verify(recorder).appendNewStateAndPersist(any(), any());
+  }
+
+  @Test
+  void evictedThenSuspendedClusterIsResumedRatherThanQueuedAgain() {
+    SparkCluster cluster = buildEvictedCluster(true);
+    stubContext(cluster);
+    createWorkload(cluster, evictedStatus("Preempted"));
+    new ClusterSuspendStep().reconcile(mockContext, recorder);
+    cluster.setStatus(cluster.getStatus().appendNewState(captureAppendedState()));
+
+    // Held by spec.suspend since the eviction, so clearing it is a resume, not a requeue
+    cluster.getSpec().setSuspend(false);
+    new ClusterSuspendStep().reconcile(mockContext, recorder);
+
+    Assertions.assertEquals(
+        Constants.CLUSTER_RESUMED_MESSAGE, capturePersistedState().getMessage());
   }
 
   @Test

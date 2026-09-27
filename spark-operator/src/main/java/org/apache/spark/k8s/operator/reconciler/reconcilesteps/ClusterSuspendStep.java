@@ -120,7 +120,7 @@ public final class ClusterSuspendStep extends ClusterReconcileStep {
             statusRecorder,
             new ClusterState(ClusterStateSummary.Suspended, CLUSTER_SUSPENDED_MESSAGE));
       }
-      Optional<Duration> keepWorkload = suspend ? Optional.empty() : keepKueueWorkload(context);
+      Optional<Duration> keepWorkload = evicted ? keepKueueWorkload(context) : Optional.empty();
       Optional<ReconcileProgress> waiting =
           releaseResources(context, statusRecorder, keepWorkload.isEmpty());
       if (waiting.isPresent()) {
