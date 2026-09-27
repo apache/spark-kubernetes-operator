@@ -680,3 +680,144 @@ spec:
           kubectl delete localqueue "$LOCAL_QUEUE" -n default --ignore-not-found=true --wait=false
           kubectl delete clusterqueue "$CLUSTER_QUEUE" --ignore-not-found=true --wait=false
           kubectl delete resourceflavor "$FLAVOR" --ignore-not-found=true --wait=false
+  - name: spark-cluster-is-preempted-by-kueue
+    # Each step uses its own queue objects, so that a step never waits for Kueue to finish
+    # deleting the objects of another step.
+    bindings:
+      - name: FLAVOR
+        value: spark-e2e-preemption-flavor
+      - name: CLUSTER_QUEUE
+        value: spark-e2e-preemption-cluster-queue
+      - name: LOCAL_QUEUE
+        value: spark-e2e-preemption-queue
+      - name: LOW_PRIORITY_CLASS
+        value: spark-e2e-preemption-low-priority
+      - name: PRIORITY_CLASS
+        value: spark-e2e-preemption-high-priority
+    try:
+    - apply:
+        file: kueue-queues.yaml
+    # The quota fits either the cluster (1 CPU for the master and 1 for the worker) or the
+    # application (1 CPU for the driver and 1 for the executor), but not both, and a Workload of a
+    # higher priority may preempt one of a lower priority.
+    - script:
+        timeout: 30s
+        env:
+          - name: CLUSTER_QUEUE
+            value: ($CLUSTER_QUEUE)
+        content: |
+          kubectl patch clusterqueue "$CLUSTER_QUEUE" --type json -p \
+            '[{"op": "replace", "path": "/spec/resourceGroups/0/flavors/0/resources/0/nominalQuota", "value": "2"},
+              {"op": "replace", "path": "/spec/resourceGroups/0/flavors/0/resources/1/nominalQuota", "value": "8Gi"},
+              {"op": "add", "path": "/spec/preemption", "value": {"withinClusterQueue": "LowerPriority"}}]'
+    - apply:
+        file: spark-cluster-example-preempted.yaml
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: spark.apache.org/v1
+          kind: SparkCluster
+          metadata:
+            name: spark-cluster-kueue-preempted-test
+            namespace: default
+          status:
+            currentState:
+              currentStateSummary: RunningHealthy
+    - apply:
+        file: spark-example-prioritized.yaml
+    # Kueue evicts the Workload of the cluster, and keeps its quota until the operator releases the
+    # master and workers first and then the Workload.
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: v1
+          kind: Event
+          metadata:
+            namespace: default
+          involvedObject:
+            kind: SparkCluster
+            name: spark-cluster-kueue-preempted-test
+          reason: Suspended
+          (contains(message || '', 'evicted by Kueue')): true
+          (contains(message || '', 'Preempted')): true
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: v1
+          kind: Event
+          metadata:
+            namespace: default
+          involvedObject:
+            kind: SparkCluster
+            name: spark-cluster-kueue-preempted-test
+          reason: Submitted
+          (contains(message || '', 'after its eviction')): true
+    # The application is admitted into the quota which the cluster gave back
+    - assert:
+        bindings:
+          - name: SPARK_APP_NAMESPACE
+            value: default
+          - name: SPARK_APPLICATION_NAME
+            value: spark-job-kueue-prioritized-test
+        timeout: 10m
+        file: "../assertions/spark-application/spark-state-transition.yaml"
+    # The cluster is admitted again with a new Workload once the application releases the quota
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: spark.apache.org/v1
+          kind: SparkCluster
+          metadata:
+            name: spark-cluster-kueue-preempted-test
+            namespace: default
+          status:
+            currentState:
+              currentStateSummary: RunningHealthy
+    - assert:
+        bindings:
+          - name: SPARK_APP_NAMESPACE
+            value: default
+          - name: SPARK_CLUSTER_NAME
+            value: spark-cluster-kueue-preempted-test
+        timeout: 5m
+        file: "../assertions/spark-cluster/spark-cluster-worker-statefulset.yaml"
+    catch:
+    - describe:
+        apiVersion: spark.apache.org/v1
+        kind: SparkCluster
+        namespace: default
+    - describe:
+        apiVersion: spark.apache.org/v1
+        kind: SparkApplication
+        namespace: default
+    - describe:
+        apiVersion: kueue.x-k8s.io/v1beta2
+        kind: Workload
+        namespace: default
+    - describe:
+        apiVersion: kueue.x-k8s.io/v1beta2
+        kind: ClusterQueue
+    - events:
+        namespace: default
+    finally:
+    - script:
+        timeout: 120s
+        env:
+          - name: FLAVOR
+            value: ($FLAVOR)
+          - name: CLUSTER_QUEUE
+            value: ($CLUSTER_QUEUE)
+          - name: LOCAL_QUEUE
+            value: ($LOCAL_QUEUE)
+          - name: LOW_PRIORITY_CLASS
+            value: ($LOW_PRIORITY_CLASS)
+          - name: PRIORITY_CLASS
+            value: ($PRIORITY_CLASS)
+        content: |
+          kubectl delete sparkapplication spark-job-kueue-prioritized-test -n default --ignore-not-found=true
+          kubectl delete sparkcluster spark-cluster-kueue-preempted-test -n default --ignore-not-found=true
+          # Kueue finalizers may delay the deletion, which later steps do not depend on.
+          kubectl delete localqueue "$LOCAL_QUEUE" -n default --ignore-not-found=true --wait=false
+          kubectl delete clusterqueue "$CLUSTER_QUEUE" --ignore-not-found=true --wait=false
+          kubectl delete resourceflavor "$FLAVOR" --ignore-not-found=true --wait=false
+          kubectl delete workloadpriorityclass "$LOW_PRIORITY_CLASS" "$PRIORITY_CLASS" --ignore-not-found=true --wait=false

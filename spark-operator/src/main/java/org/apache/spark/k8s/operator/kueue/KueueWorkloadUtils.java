@@ -83,6 +83,9 @@ public final class KueueWorkloadUtils {
   /** Type of the Kueue condition which marks an evicted Workload. */
   private static final String CONDITION_EVICTED = "Evicted";
 
+  /** Reason of the eviction of a Workload whose pods are not ready within the Kueue timeout. */
+  private static final String EVICTED_BY_PODS_READY_TIMEOUT = "PodsReadyTimeout";
+
   /**
    * Requeue interval after {@link AdmissionResult#STALE} and after a transient API failure. It is
    * short because both go away shortly, while an unchanged admission and a persistent failure are
@@ -684,6 +687,24 @@ public final class KueueWorkloadUtils {
                 CONDITION_EVICTED.equalsIgnoreCase(c.getType())
                     && "True".equalsIgnoreCase(c.getStatus()))
         .findFirst();
+  }
+
+  /**
+   * Checks whether the running resources of the given evicted Workload are kept rather than
+   * released. That is the case for a `PodsReadyTimeout` of an active Workload only, since the
+   * operator does not report the `PodsReady` condition, so every attempt would be evicted again,
+   * while Kueue keeps counting the quota of the Workload. Any other eviction releases the
+   * resources, e.g. to preempt them or since the ClusterQueue is stopped. That includes a
+   * deactivation, since Kueue stops counting the quota of a deactivated Workload right away.
+   *
+   * @param workload The Workload to check.
+   * @return True if the Workload is evicted and its resources keep running.
+   */
+  public static boolean isKeptOnEviction(final Workload workload) {
+    Optional<Condition> eviction = findEviction(workload);
+    return eviction.isPresent()
+        && !isDeactivated(workload)
+        && EVICTED_BY_PODS_READY_TIMEOUT.equals(eviction.get().getReason());
   }
 
   /**

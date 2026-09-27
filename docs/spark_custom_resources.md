@@ -663,7 +663,8 @@ spec:
 * A `SparkCluster` requests the resources set on the `master` and `worker` containers of its pod
   templates. A missing request defaults to the limit, or else to 1 CPU and `SPARK_DAEMON_MEMORY`
   plus overhead. A worker uses `SPARK_WORKER_CORES` for the CPU and adds `SPARK_WORKER_MEMORY` to
-  the memory when they are set. A `SparkCluster` keeps the quota until it is deleted or suspended.
+  the memory when they are set. A `SparkCluster` keeps the quota until it is deleted, suspended or
+  evicted.
   Set a cpu and memory request or limit on the `worker` container, or `SPARK_WORKER_CORES` and
   `SPARK_WORKER_MEMORY`: a worker with none of them advertises the whole node to its executors,
   well above the default the `Workload` requests.
@@ -739,10 +740,26 @@ spec:
   with a new `Workload`. Unlike Kueue built-in integrations, which keep the evicted
   `Workload`, the new `Workload` is ordered in its queue like a newly created one, and it starts
   over the retry counts of its admission checks.
-* Preemption is not honored yet after the driver (or master) is requested. The operator checks the
-  admission only before it creates the resources, so after a later eviction the driver and
-  executors, or the master and workers, keep running. An evicted `Workload` keeps its Kueue quota
-  meanwhile, while a deactivated one no longer counts against it.
+* A running `SparkCluster` whose `Workload` Kueue evicts, e.g. to preempt it for a workload of a
+  higher priority or since its `ClusterQueue` is stopped, is released like on `spec.suspend`
+  without setting it. The cluster enters `Suspended` with a message giving the reason of the
+  eviction, and the operator deletes its master and worker StatefulSets. Kueue keeps the quota of
+  an evicted `Workload` until then, so the operator deletes the `Workload` only after the master
+  and worker pods are gone, like on `spec.suspend`, and after its requeue backoff elapsed, like
+  above. The cluster then moves to `Submitted` and is queued again with a new `Workload`. The
+  Workload informer reconciles the cluster as soon as its `Workload` is evicted.
+* A running `SparkCluster` whose `Workload` is deactivated is released as well, since Kueue stops
+  counting its quota right away. Unlike an evicted one, the operator keeps the `Workload`, so the
+  cluster stays `Suspended` until the `Workload` is reactivated, and then it is queued again.
+* A `PodsReadyTimeout` of the `waitForPodsReady` configuration is not acted on for a running
+  `SparkCluster`, and the `KueueEvictionIgnored` [event](configuration.md#kubernetes-events) is
+  published instead, since the operator does not report the `PodsReady` condition, so it would
+  recur on every attempt. Kueue keeps counting the quota of such a `Workload`, so suspend or delete
+  the cluster to release it.
+* Preemption is not honored yet after the driver of a `SparkApplication` is requested. The operator
+  checks the admission only before it creates the resources, so after a later eviction the driver
+  and executors keep running. An evicted `Workload` keeps its Kueue quota meanwhile, while a
+  deactivated one no longer counts against it.
 
 ## Spark Cluster
 

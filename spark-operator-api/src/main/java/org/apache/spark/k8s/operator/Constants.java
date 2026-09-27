@@ -260,6 +260,19 @@ public final class Constants {
   public static final String CLUSTER_RESUMED_MESSAGE =
       "Cluster is resumed as spec.suspend is set to false.";
 
+  /**
+   * Message indicating that the running cluster is evicted by Kueue, which is followed by the
+   * reason and the message of the eviction.
+   */
+  public static final String CLUSTER_EVICTED_MESSAGE =
+      "Cluster is evicted by Kueue, so its master and workers are being released before its "
+          + "Workload. It is queued again then, or once the Workload is reactivated if it was "
+          + "deactivated.";
+
+  /** Message indicating that the cluster evicted by Kueue is submitted again. */
+  public static final String CLUSTER_REQUEUED_MESSAGE =
+      "Cluster is submitted again after its eviction by Kueue.";
+
   /** Message indicating that the cluster status cannot be processed. */
   public static final String UNKNOWN_CLUSTER_STATE_MESSAGE = "Cannot process cluster status.";
 

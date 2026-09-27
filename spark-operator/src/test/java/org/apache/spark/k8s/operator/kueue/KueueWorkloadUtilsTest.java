@@ -375,6 +375,35 @@ class KueueWorkloadUtilsTest {
     Assertions.assertTrue(KueueWorkloadUtils.isDeactivated(workload));
   }
 
+  @Test
+  void evictionKeepingTheResourcesIsDetected() {
+    Workload admitted = workload("owner-uid-1", 1);
+    admitted.setStatus(status("Admitted", "True"));
+    Assertions.assertFalse(KueueWorkloadUtils.isKeptOnEviction(admitted));
+
+    for (String reason :
+        List.of(
+            "Preempted",
+            "NodeFailures",
+            "ClusterQueueStopped",
+            "LocalQueueStopped",
+            "AdmissionCheck",
+            "FlavorMigration",
+            "Deactivated")) {
+      Workload evicted = workload("owner-uid-1", 1);
+      evicted.setStatus(evictedStatus(reason));
+      Assertions.assertFalse(KueueWorkloadUtils.isKeptOnEviction(evicted), reason);
+    }
+
+    // The operator does not report PodsReady, so every admitted Workload would time out again
+    Workload podsReadyTimeout = workload("owner-uid-1", 1);
+    podsReadyTimeout.setStatus(evictedStatus("PodsReadyTimeout"));
+    Assertions.assertTrue(KueueWorkloadUtils.isKeptOnEviction(podsReadyTimeout));
+    // Unless it is deactivated, e.g. after too many retries, since Kueue stops counting its quota
+    podsReadyTimeout.getSpec().setActive(false);
+    Assertions.assertFalse(KueueWorkloadUtils.isKeptOnEviction(podsReadyTimeout));
+  }
+
   @ParameterizedTest
   @ValueSource(strings = {"Preempted", "PodsReadyTimeout"})
   void evictedWorkloadIsRecreated(String reason) {
