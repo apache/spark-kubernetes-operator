@@ -30,7 +30,9 @@
 # Each transition publishes an event whose reason is the new state, such as a Normal
 # `DriverRequested` or a Warning `Failed`. Each reason is asserted on its own after the status
 # history, not in publication order. The initial `Submitted` state of a new resource is not
-# persisted on its own, so it publishes no event.
+# persisted on its own, so it publishes no event. Every event is reported by
+# `spark-kubernetes-operator` in both `reportingComponent` and `source.component`, which is
+# asserted once per kind and type.
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
@@ -61,6 +63,9 @@ spec:
             name: spark-job-succeeded-events-test
           type: Normal
           reason: DriverRequested
+          reportingComponent: spark-kubernetes-operator
+          source:
+            component: spark-kubernetes-operator
     - assert:
         timeout: 60s
         resource:
@@ -165,6 +170,9 @@ spec:
             name: spark-job-failed-events-test
           type: Warning
           reason: Failed
+          reportingComponent: spark-kubernetes-operator
+          source:
+            component: spark-kubernetes-operator
     catch:
     - describe:
         apiVersion: spark.apache.org/v1
@@ -204,6 +212,9 @@ spec:
             name: spark-cluster-events-test
           type: Normal
           reason: RunningHealthy
+          reportingComponent: spark-kubernetes-operator
+          source:
+            component: spark-kubernetes-operator
     catch:
     - describe:
         apiVersion: spark.apache.org/v1
