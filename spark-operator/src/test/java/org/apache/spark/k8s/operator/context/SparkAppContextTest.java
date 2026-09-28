@@ -109,6 +109,24 @@ class SparkAppContextTest {
   }
 
   @Test
+  void podOfAnotherApplicationOnApiServerIsNotCurrentAttemptDriver() {
+    // The informer still holds the driver, while the pod of that name on the API server does not
+    // carry its driver labels, e.g. one of another application with the same driver pod name
+    SparkApplication anotherApplication = new SparkApplication();
+    anotherApplication.setMetadata(
+        new ObjectMetaBuilder().withName("sparkapp2").withNamespace("default").build());
+    Pod anotherApplicationPod =
+        new PodBuilder(driverPodSpec)
+            .editMetadata()
+            .withLabels(driverLabels(anotherApplication))
+            .endMetadata()
+            .build();
+    SparkAppContext context = buildContext(List.of(driverPodSpec), anotherApplicationPod);
+
+    Assertions.assertTrue(context.getCurrentAttemptDriverPod().isEmpty());
+  }
+
+  @Test
   void apiErrorDuringVerificationIsPropagated() {
     // A failed verification must not be reported as an absent driver, which would let a
     // suspended application release the Kueue quota of its running driver

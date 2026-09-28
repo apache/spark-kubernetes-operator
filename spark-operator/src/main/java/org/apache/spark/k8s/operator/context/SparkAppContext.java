@@ -98,9 +98,9 @@ public class SparkAppContext extends BaseContext<SparkApplication> {
    *
    * <p>The informer cache is only used to find a candidate. Since the cache may still hold the
    * pre-deletion snapshot of a previous attempt's pod, the candidate is verified against the API
-   * server and returned only if it exists there and is not terminating. A failed verification is
-   * reported rather than read as an absent pod, since a caller concludes from the answer that no
-   * driver has been requested and acts on that.
+   * server and returned only if it is still a live driver pod there, see {@link #isLiveDriverPod}.
+   * A failed verification is reported rather than read as an absent pod, since a caller concludes
+   * from the answer that no driver has been requested and acts on that.
    *
    * @return An Optional containing the driver Pod of the current attempt, or empty if not found.
    * @throws KubernetesClientException if the candidate cannot be verified against the API server.
@@ -109,13 +109,7 @@ public class SparkAppContext extends BaseContext<SparkApplication> {
     List<Pod> driverPods =
         josdkContext
             .getSecondaryResourcesAsStream(Pod.class)
-            .filter(
-                p ->
-                    p.getMetadata()
-                        .getLabels()
-                        .entrySet()
-                        .containsAll(driverLabels(sparkApplication).entrySet()))
-            .filter(p -> p.getMetadata().getDeletionTimestamp() == null)
+            .filter(p -> isLiveDriverPod(sparkApplication, p))
             .toList();
     if (driverPods.isEmpty()) {
       return Optional.empty();
@@ -131,10 +125,24 @@ public class SparkAppContext extends BaseContext<SparkApplication> {
             .inNamespace(sparkApplication.getMetadata().getNamespace())
             .withName(driverPodName)
             .get();
-    if (livePod == null || livePod.getMetadata().getDeletionTimestamp() != null) {
+    if (livePod == null || !isLiveDriverPod(sparkApplication, livePod)) {
       return Optional.empty();
     }
     return Optional.of(livePod);
+  }
+
+  /**
+   * Checks whether the given pod is a live driver pod of the given application, i.e. it carries
+   * the driver labels of the application and is not being deleted. A pod in the informer cache and
+   * one on the API server are checked alike, so that both agree on what the driver is.
+   *
+   * @param app The SparkApplication.
+   * @param pod The pod to check.
+   * @return True if the pod is a driver pod of the application which is not being deleted.
+   */
+  public static boolean isLiveDriverPod(SparkApplication app, Pod pod) {
+    return pod.getMetadata().getDeletionTimestamp() == null
+        && pod.getMetadata().getLabels().entrySet().containsAll(driverLabels(app).entrySet());
   }
 
   /**
