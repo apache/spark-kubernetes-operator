@@ -39,8 +39,8 @@ there, never inline in a module.
 
 **Requirements**
 
-- **JDK 21 or newer** — the Gradle toolchain auto-provisions JDK 26 and targets Java 21 bytecode;
-  CI builds on Java 21 / 25 / 26.
+- **JDK 21 or newer** — the Gradle toolchain auto-provisions JDK 27 and targets Java 21 bytecode;
+  CI builds on Java 21 / 25 / 26 / 27.
 - **Docker** — required for `./gradlew buildDockerImage`.
 - **Kubernetes cluster** (e.g. minikube), **Helm 3**, and **kubectl** — to deploy and run the
   operator.
@@ -69,7 +69,7 @@ Gradle multi-project build (see [settings.gradle](settings.gradle)); root group 
 ## Build, Test & Dev Commands
 
 Use `./gradlew` (the bundled Gradle wrapper). The build targets Java 21 bytecode while the
-toolchain provisions JDK 26, so a JDK 21+ is required.
+toolchain provisions JDK 27, so a JDK 21+ is required.
 
 ```bash
 ./gradlew build -x test          # Compile + run linters, skip tests (fast)
@@ -112,7 +112,7 @@ chainsaw test --test-dir ./tests/e2e/state-transition --parallel 1
 ```
 
 `./gradlew build` runs the full quality gate locally — Checkstyle, PMD, SpotBugs, Spotless, and
-JaCoCo. Run it before pushing; CI runs the same matrix on Java 21 / 25 / 26 (x86 and arm).
+JaCoCo. Run it before pushing; CI runs the same matrix on Java 21 / 25 / 26 / 27 (x86 and arm).
 
 ## Code Style
 
