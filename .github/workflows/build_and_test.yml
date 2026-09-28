@@ -162,6 +162,9 @@ jobs:
             mode: events
             test-group: suspend-events
           - kubernetes-version: "1.37.0"
+            mode: events
+            test-group: events
+          - kubernetes-version: "1.37.0"
             mode: kueue
             test-group: kueue
     steps:
