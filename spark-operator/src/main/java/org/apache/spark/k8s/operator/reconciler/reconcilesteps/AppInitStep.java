@@ -24,6 +24,7 @@ import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.complet
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.completeAndImmediateRequeue;
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.proceed;
 import static org.apache.spark.k8s.operator.utils.SparkExceptionUtils.buildGeneralErrorMessage;
+import static org.apache.spark.k8s.operator.utils.Utils.driverLabels;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -235,11 +236,14 @@ public final class AppInitStep extends AppReconcileStep {
    * see {@link SparkAppContext#isLiveDriverPod}, so that a pod of another application with the
    * same name is not taken for the driver.
    *
-   * <p>A driver spec which cannot be built for that lookup fails the reconcile, except for a
-   * suspended application, which is held as it was before the lookup, releasing the Workload
-   * rather than failing every reconcile while it keeps the quota. The spec built for a cached
-   * driver, see {@link SparkAppContext#getCurrentAttemptDriverPod()}, always fails the reconcile,
-   * since that driver may be running.
+   * <p>A driver spec which cannot be built for that lookup fails the check, unless the application
+   * is suspended and the API server has no live driver pod of it: such an application is held as
+   * it was before the lookup, which releases the Workload, rather than failing every reconcile
+   * while it keeps the quota. The spec built for a cached driver, see {@link
+   * SparkAppContext#getCurrentAttemptDriverPod()}, always fails the check, since that driver may
+   * be running. Except for a KubernetesClientException, which the callers retry, the failure then
+   * throws out of the reconcile of a suspended application, which JOSDK retries, while any other
+   * application ends in SchedulingFailure.
    *
    * @param context The SparkAppContext for the application.
    * @return True if the driver pod of the current attempt exists, false otherwise.
@@ -264,7 +268,7 @@ public final class AppInitStep extends AppReconcileStep {
     try {
       driverPodSpec = context.getDriverPodSpec();
     } catch (Exception e) {
-      if (!suspended) {
+      if (!suspended || hasLiveDriverPod(context, app)) {
         throw e;
       }
       log.warn("Failed to build the driver spec of a suspended application, holding it.", e);
@@ -272,6 +276,28 @@ public final class AppInitStep extends AppReconcileStep {
     }
     Pod driverPod = context.getClient().resource(driverPodSpec).get();
     return driverPod != null && SparkAppContext.isLiveDriverPod(app, driverPod);
+  }
+
+  /**
+   * Checks whether the API server has a live driver pod of the application, whatever its name,
+   * which is taken from the driver spec otherwise. It is listed only when that spec cannot be
+   * built, so that a suspended application is not held while its driver may be running.
+   *
+   * @param context The SparkAppContext for the application.
+   * @param app The SparkApplication.
+   * @return True if a driver pod of the application which is not being deleted exists.
+   * @throws KubernetesClientException if the pods cannot be listed.
+   */
+  private static boolean hasLiveDriverPod(SparkAppContext context, SparkApplication app) {
+    return context
+        .getClient()
+        .pods()
+        .inNamespace(app.getMetadata().getNamespace())
+        .withLabels(driverLabels(app))
+        .list()
+        .getItems()
+        .stream()
+        .anyMatch(pod -> SparkAppContext.isLiveDriverPod(app, pod));
   }
 
   /**

@@ -1480,11 +1480,13 @@ class AppInitStepTest {
     verify(mockContext).getCurrentAttemptDriverPod();
   }
 
-  @Test
-  void suspendedAppWithUnbuildableDriverSpecReleasesKueueWorkload() {
-    // Kueue admitted the Workload, but the app is suspended before its driver is requested, so
-    // the informer cache has no driver, and the driver spec cannot be built for the lookup. Like
-    // before the lookup, the app is held rather than failing every reconcile with the quota.
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void suspendedAppWithUnbuildableDriverSpecReleasesKueueWorkload(boolean terminatingDriver) {
+    // Kueue admitted the Workload, but the app is suspended before its driver is requested, and
+    // the driver spec cannot be built for the lookup. The API server has no driver either, or only
+    // one which is being deleted, so like before the lookup, the app is held rather than failing
+    // every reconcile with the quota.
     AppInitStep appInitStep = new AppInitStep();
     SparkAppContext mockContext = mock(SparkAppContext.class);
     SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
@@ -1492,6 +1494,10 @@ class AppInitStepTest {
     application.setMetadata(kueueApplicationMetadata);
     kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(application)).create();
     admitWorkload();
+    if (terminatingDriver) {
+      createDriverPod(application, "example.com/finalizer");
+      kubernetesClient.resource(driverPodSpec).delete();
+    }
     application.getSpec().setSuspend(true);
     when(mockContext.getResource()).thenReturn(application);
     when(mockContext.getClient()).thenReturn(kubernetesClient);
@@ -1548,6 +1554,52 @@ class AppInitStepTest {
     doReturn(eventRecorder).when(context).getEventRecorder();
 
     Assertions.assertThrows(SparkException.class, () -> appInitStep.reconcile(context, recorder));
+    Assertions.assertNotNull(getWorkload());
+    verifyNoInteractions(recorder);
+    verifyNoInteractions(eventRecorder);
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void suspendedAppWithUncachedDriverAndUnbuildableSpecKeepsKueueWorkload(
+      boolean clientException) {
+    // The informer cache has not seen the running driver yet, and the driver spec cannot be built
+    // for the lookup, e.g. when a remote pod template cannot be downloaded. The API server still
+    // has the driver, so the admitted Workload is kept.
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(kueueApplicationMetadata);
+    kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(application)).create();
+    admitWorkload();
+    createDriverPod(application);
+    application.getSpec().setSuspend(true);
+    Exception failure =
+        clientException
+            ? new KubernetesClientException("unavailable", 503, null)
+            : new SparkException("Could not load pod from template file.");
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+    when(mockContext.getCachedKueueWorkload()).thenReturn(Optional.of(getWorkload()));
+    when(mockContext.getCurrentAttemptDriverPod()).thenReturn(Optional.empty());
+    when(mockContext.getDriverPodSpec())
+        .thenAnswer(
+            invocation -> {
+              throw failure;
+            });
+
+    if (clientException) {
+      // An unanswered request is retried like a failed lookup
+      Assertions.assertEquals(
+          ReconcileProgress.completeAndDefaultRequeue(),
+          appInitStep.reconcile(mockContext, recorder));
+    } else {
+      // Like the spec of a cached driver, the failure propagates
+      Assertions.assertThrows(
+          SparkException.class, () -> appInitStep.reconcile(mockContext, recorder));
+    }
     Assertions.assertNotNull(getWorkload());
     verifyNoInteractions(recorder);
     verifyNoInteractions(eventRecorder);
