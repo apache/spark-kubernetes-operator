@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.Map;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.fabric8.kubernetes.api.model.Condition;
 import io.fabric8.kubernetes.api.model.ConditionBuilder;
@@ -156,6 +157,23 @@ class WorkloadTest {
         new ConditionBuilder().withType("Finished").withStatus("True").build();
     status.getConditions().add(finished);
     assertTrue(status.isFinished());
+  }
+
+  @Test
+  void testWorkloadStatusSerializationExcludesConditionHelpers() {
+    WorkloadStatus status =
+        WorkloadStatus.builder()
+            .conditions(
+                List.of(
+                    new ConditionBuilder().withType("QuotaReserved").withStatus("True").build(),
+                    new ConditionBuilder().withType("Admitted").withStatus("True").build()))
+            .build();
+
+    JsonNode json = OBJECT_MAPPER.valueToTree(status);
+    assertTrue(json.has("conditions"));
+    assertFalse(json.has("admitted"));
+    assertFalse(json.has("quotaReserved"));
+    assertFalse(json.has("finished"));
   }
 
   @Test
