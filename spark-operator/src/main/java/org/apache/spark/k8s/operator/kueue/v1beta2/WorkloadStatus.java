@@ -22,6 +22,7 @@ package org.apache.spark.k8s.operator.kueue.v1beta2;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.fabric8.kubernetes.api.model.Condition;
@@ -50,6 +51,7 @@ public class WorkloadStatus {
    *
    * @return true if an "Admitted" condition exists with status "True", false otherwise.
    */
+  @JsonIgnore
   public boolean isAdmitted() {
     return conditions != null
         && conditions.stream()
@@ -64,6 +66,7 @@ public class WorkloadStatus {
    *
    * @return true if a "QuotaReserved" condition exists with status "True", false otherwise.
    */
+  @JsonIgnore
   public boolean isQuotaReserved() {
     return conditions != null
         && conditions.stream()
@@ -78,6 +81,7 @@ public class WorkloadStatus {
    *
    * @return true if a "Finished" condition exists with status "True", false otherwise.
    */
+  @JsonIgnore
   public boolean isFinished() {
     return conditions != null
         && conditions.stream()
