@@ -24,6 +24,7 @@ import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.complet
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.completeAndImmediateRequeue;
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.proceed;
 import static org.apache.spark.k8s.operator.utils.SparkExceptionUtils.buildGeneralErrorMessage;
+import static org.apache.spark.k8s.operator.utils.Utils.driverLabels;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -72,18 +73,20 @@ public final class AppInitStep extends AppReconcileStep {
       return proceed();
     }
     SparkApplication app = context.getResource();
+    // Set when the suspend check finds the driver requested, so that it is not looked up again
+    boolean driverRequested = false;
     if (app.getSpec().isSuspend()) {
-      Optional<Pod> currentAttemptDriverPod;
       try {
-        currentAttemptDriverPod = context.getCurrentAttemptDriverPod();
+        driverRequested = isDriverRequested(context);
       } catch (KubernetesClientException e) {
         // Whether a driver of this attempt is live is unknown, not answered. Holding would claim
         // in an event that none was requested, and would do so for the whole suspend hold
-        // interval, so look again with the steady-state interval instead.
+        // interval. It would also release the Kueue quota of a running driver, so look again with
+        // the steady-state interval instead.
         log.warn("Failed to verify the driver pod of a suspended application, will retry.", e);
         return completeAndDefaultRequeue();
       }
-      if (currentAttemptDriverPod.isEmpty()) {
+      if (!driverRequested) {
         return SuspendUtils.holdForSuspend(context, "driver");
       }
     }
@@ -116,7 +119,7 @@ public final class AppInitStep extends AppReconcileStep {
       }
     }
     try {
-      Optional<ReconcileProgress> kueueHold = holdForKueueAdmission(context, app);
+      Optional<ReconcileProgress> kueueHold = holdForKueueAdmission(context, app, driverRequested);
       if (kueueHold.isPresent()) {
         return kueueHold.get();
       }
@@ -185,19 +188,22 @@ public final class AppInitStep extends AppReconcileStep {
    *
    * @param context The SparkAppContext for the application.
    * @param app The SparkApplication.
+   * @param driverRequested Whether the driver was found requested already in this reconcile, e.g.
+   *     by the suspend check, so that it is not looked up again.
    * @return The progress to return while the admission is not granted, or empty to proceed.
    */
   private Optional<ReconcileProgress> holdForKueueAdmission(
-      SparkAppContext context, SparkApplication app) {
+      SparkAppContext context, SparkApplication app, boolean driverRequested) {
     try {
       if (!KueueWorkloadFactory.hasQueueName(app)) {
-        return KueueWorkloadUtils.handleDequeuedWorkload(context, () -> isDriverRequested(context));
+        return KueueWorkloadUtils.handleDequeuedWorkload(
+            context, () -> driverRequested || isDriverRequested(context));
       }
       if (!KUEUE_ENABLED.getValue()) {
         KueueWorkloadUtils.warnQueueNameIgnored(context);
         return Optional.empty();
       }
-      if (isDriverRequested(context)) {
+      if (driverRequested || isDriverRequested(context)) {
         // The driver resources are applied again in this reconcile, so the flavors of the Workload
         // which was admitted before are resolved again instead of dropping them from the resources.
         return KueueWorkloadUtils.applyAdmittedFlavors(context);
@@ -223,9 +229,21 @@ public final class AppInitStep extends AppReconcileStep {
    * driver. See {@link SparkAppContext#getCurrentAttemptDriverPod()} for how a pod left
    * from a previous attempt is told apart. The informer cache may not have seen a driver created
    * in the previous reconcile yet, so a driver missing from it is looked up on the API server as
-   * well if the Kueue Workload is evicted or deactivated but still admitted, since that Workload
-   * would be released or held under the driver, which is requested only after the admission.
-   * Otherwise, the driver spec is not built for the lookup.
+   * well if the Kueue Workload is still admitted and either the application is suspended or the
+   * Workload is evicted or deactivated, since that Workload would be released or held under the
+   * driver, which is requested only after the admission. Otherwise, the driver spec is not built
+   * for the lookup. Like a cached pod, the one found there counts only if it is a live driver pod,
+   * see {@link SparkAppContext#isLiveDriverPod}, so that a pod of another application with the
+   * same name is not taken for the driver.
+   *
+   * <p>A driver spec which cannot be built for that lookup fails the check, unless the application
+   * is suspended and the API server has no live driver pod of it: such an application is held as
+   * it was before the lookup, which releases the Workload, rather than failing every reconcile
+   * while it keeps the quota. The spec built for a cached driver, see {@link
+   * SparkAppContext#getCurrentAttemptDriverPod()}, always fails the check, since that driver may
+   * be running. Except for a KubernetesClientException, which the callers retry, the failure then
+   * throws out of the reconcile of a suspended application, which JOSDK retries, while any other
+   * application ends in SchedulingFailure.
    *
    * @param context The SparkAppContext for the application.
    * @return True if the driver pod of the current attempt exists, false otherwise.
@@ -236,15 +254,50 @@ public final class AppInitStep extends AppReconcileStep {
     if (context.getCurrentAttemptDriverPod().isPresent()) {
       return true;
     }
+    SparkApplication app = context.getResource();
+    boolean suspended = app.getSpec().isSuspend();
     Optional<Workload> workload = context.getCachedKueueWorkload();
     if (workload.isEmpty()
         || !KueueWorkloadUtils.isAdmitted(workload.get())
-        || (KueueWorkloadUtils.findEviction(workload.get()).isEmpty()
+        || (!suspended
+            && KueueWorkloadUtils.findEviction(workload.get()).isEmpty()
             && !KueueWorkloadUtils.isDeactivated(workload.get()))) {
       return false;
     }
-    Pod driverPod = context.getClient().resource(context.getDriverPodSpec()).get();
-    return driverPod != null && driverPod.getMetadata().getDeletionTimestamp() == null;
+    Pod driverPodSpec;
+    try {
+      driverPodSpec = context.getDriverPodSpec();
+    } catch (Exception e) {
+      if (!suspended || hasLiveDriverPod(context, app)) {
+        throw e;
+      }
+      log.warn("Failed to build the driver spec of a suspended application, holding it.", e);
+      return false;
+    }
+    Pod driverPod = context.getClient().resource(driverPodSpec).get();
+    return driverPod != null && SparkAppContext.isLiveDriverPod(app, driverPod);
+  }
+
+  /**
+   * Checks whether the API server has a live driver pod of the application, whatever its name,
+   * which is taken from the driver spec otherwise. It is listed only when that spec cannot be
+   * built, so that a suspended application is not held while its driver may be running.
+   *
+   * @param context The SparkAppContext for the application.
+   * @param app The SparkApplication.
+   * @return True if a driver pod of the application which is not being deleted exists.
+   * @throws KubernetesClientException if the pods cannot be listed.
+   */
+  private static boolean hasLiveDriverPod(SparkAppContext context, SparkApplication app) {
+    return context
+        .getClient()
+        .pods()
+        .inNamespace(app.getMetadata().getNamespace())
+        .withLabels(driverLabels(app))
+        .list()
+        .getItems()
+        .stream()
+        .anyMatch(pod -> SparkAppContext.isLiveDriverPod(app, pod));
   }
 
   /**
