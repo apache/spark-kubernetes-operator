@@ -18,7 +18,7 @@
 fabric8 = "7.8.0"
 lombok = "1.18.48"
 netty = "4.2.18.Final"
-jackson = "2.22.2"
+jackson = "2.22.3"
 jackson-annotations = "2.22"
 vertx = "4.5.33"
 operator-sdk = "5.6.2"
