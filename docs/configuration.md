@@ -67,7 +67,12 @@ replacing its `message`. A repeat carrying the same `message` may be paced by
 |---|---|
 | `Warning` | `SparkApplication`: `SchedulingFailure`, `Failed`, `DriverEvicted`, `DriverStartTimedOut`, `DriverReadyTimedOut`, `ExecutorsStartTimedOut`, `RunningWithBelowThresholdExecutors`, `TerminatedWithoutReleaseResources` |
 | `Warning` | `SparkCluster`: `SchedulingFailure`, `Failed` |
-| `Normal` | All other states, e.g. `Submitted`, `ScheduledToRestart`, `DriverRequested`, `DriverStarted`, `DriverReady`, `InitializedBelowThresholdExecutors`, `RunningHealthy`, `RunningWithPartialCapacity`, `Succeeded`, `ResourceReleased` and `Suspended` |
+| `Normal` | All other states, e.g. `ScheduledToRestart`, `DriverRequested`, `DriverStarted`, `DriverReady`, `InitializedBelowThresholdExecutors`, `RunningHealthy`, `RunningWithPartialCapacity`, `Succeeded`, `ResourceReleased` and `Suspended` |
+
+The initial `Submitted` status of a new resource is not persisted to the API server on its own, so
+no event is published for it. A `Submitted` event is published only when a `SparkCluster` moves
+from `Suspended` back to `Submitted`, after `spec.suspend` is set back to `false` or after its
+eviction by Kueue.
 
 In addition, the operator publishes the following `Warning` events.
 
