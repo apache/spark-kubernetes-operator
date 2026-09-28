@@ -41,7 +41,7 @@ RUN apk add --no-cache binutils && \
       --no-man-pages \
       --output /opt/custom-jre
 
-FROM alpine:3.23
+FROM alpine:3.24
 
 ARG APP_VERSION
 ARG SPARK_UID=185
