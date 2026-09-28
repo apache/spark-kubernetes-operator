@@ -40,6 +40,14 @@ import org.apache.spark.k8s.operator.status.BaseStateSummary;
  */
 public final class EventUtils {
 
+  /**
+   * Name under which every event is reported, as both {@code reportingComponent} and {@code
+   * source.component}. It is shared by both kinds and fixed rather than left to the JOSDK default,
+   * the lowercased reconciler class name, since users filter events on it and {@link
+   * io.javaoperatorsdk.operator.api.event.DefaultEventRecorder} digests it into the Event name.
+   */
+  public static final String REPORTING_COMPONENT = "spark-kubernetes-operator";
+
   /** Reason for an event describing an unhandled error thrown out of a reconciliation. */
   public static final String REASON_RECONCILE_ERROR = "ReconcileError";
 
@@ -172,6 +180,7 @@ public final class EventUtils {
             .reason(reason)
             .message(truncate(message))
             .key(reason)
+            .reportingComponent(REPORTING_COMPONENT)
             .build());
   }
 

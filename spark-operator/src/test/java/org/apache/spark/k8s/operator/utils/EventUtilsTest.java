@@ -21,17 +21,27 @@ package org.apache.spark.k8s.operator.utils;
 
 import static org.apache.spark.k8s.operator.utils.EventUtils.MAX_MESSAGE_LENGTH;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import java.util.Set;
 
+import io.fabric8.kubernetes.api.model.Event;
+import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
+import io.javaoperatorsdk.operator.api.config.ConfigurationService;
+import io.javaoperatorsdk.operator.api.config.ControllerConfiguration;
+import io.javaoperatorsdk.operator.api.event.DefaultEventRecorder;
 import io.javaoperatorsdk.operator.api.event.EventRecord;
+import io.javaoperatorsdk.operator.api.event.EventSink;
 import io.javaoperatorsdk.operator.api.event.EventType;
 import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
+import io.javaoperatorsdk.operator.api.reconciler.Context;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
 import org.apache.spark.k8s.operator.status.ClusterStateSummary;
 
@@ -89,6 +99,31 @@ class EventUtilsTest {
     assertThat(event.reason()).isEqualTo("DriverRequested");
     assertThat(event.message()).isEqualTo("driver requested");
     assertThat(event.key()).contains("DriverRequested");
+  }
+
+  @Test
+  void recordReportsUnderTheOperatorNameInsteadOfTheControllerName() {
+    // Left unset, DefaultEventRecorder would report under the controller name, the lowercased
+    // reconciler class name, so the resulting Event is checked rather than the EventRecord.
+    SparkApplication app = new SparkApplication();
+    app.setMetadata(
+        new ObjectMetaBuilder().withName("app-1").withNamespace("ns-1").withUid("uid-1").build());
+    ControllerConfiguration<?> configuration = mock(ControllerConfiguration.class);
+    doReturn("sparkappreconciler").when(configuration).getName();
+    doReturn(mock(ConfigurationService.class)).when(configuration).getConfigurationService();
+    Context<?> context = mock(Context.class);
+    doReturn(app).when(context).getPrimaryResource();
+    doReturn(configuration).when(context).getControllerConfiguration();
+    EventSink sink = mock(EventSink.class);
+
+    EventUtils.normal(
+        new DefaultEventRecorder(sink).forContext(context), "DriverRequested", "driver requested");
+
+    ArgumentCaptor<Event> captor = ArgumentCaptor.forClass(Event.class);
+    verify(sink).emit(captor.capture(), eq(context));
+    Event event = captor.getValue();
+    assertThat(event.getReportingComponent()).isEqualTo("spark-kubernetes-operator");
+    assertThat(event.getSource().getComponent()).isEqualTo("spark-kubernetes-operator");
   }
 
   @Test

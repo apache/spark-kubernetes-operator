@@ -57,6 +57,15 @@ When `spark.kubernetes.operator.events.enabled` is `true`, the operator publishe
 `Event` objects about `SparkApplication` and `SparkCluster` resources into their namespaces. They
 are visible via `kubectl describe` and `kubectl get events`.
 
+Every event is reported by `spark-kubernetes-operator`, which is set as both `source.component` and
+`reportingComponent`, so `kubectl describe` shows it in the `From` column and both the `source` and
+the `reportingComponent` field selectors match it. For example, the following lists the warnings
+of the operator in all namespaces.
+
+```bash
+kubectl get events -A --field-selector reportingComponent=spark-kubernetes-operator,type=Warning
+```
+
 Whenever a resource transitions into a new state, the operator publishes an event whose `reason`
 is the name of the new state and whose `message` is the state message. Repeated transitions into
 the same state are aggregated into a single `Event` object by incrementing its `count` and
@@ -98,10 +107,11 @@ events, since the resource stays in its initializing state without a state trans
 | `KueueAdmissionPending` | The Kueue `Workload` waits for the admission, for its reactivation, or for the requeue backoff after an eviction. It is republished while it waits, subject to [`minIntervalSeconds`](#event-frequency), so a repeat bumps the `count` of the one event rather than creating another. |
 | `KueueAdmitted` | Kueue admitted the `Workload`, so the driver (or master and worker) is requested. |
 
-The `reason` values are stable, while the `message` values may change between releases. Note that
-Kubernetes retains events only for a limited time (one hour by default), so the resource status
-remains the source of truth. The exception is a resource held by `spec.suspend` or by Kueue, whose
-status does not report the hold; that is why its event is republished while the hold lasts.
+The `reason` values and the reporting component are stable, while the `message` values may change
+between releases. Note that Kubernetes retains events only for a limited time (one hour by
+default), so the resource status remains the source of truth. The exception is a resource held by
+`spec.suspend` or by Kueue, whose status does not report the hold; that is why its event is
+republished while the hold lasts.
 
 To reduce noise, set `spark.kubernetes.operator.events.excludedReasons` to a comma-separated list
 of Java regular expressions. The operator does not publish events whose `reason` fully matches any
