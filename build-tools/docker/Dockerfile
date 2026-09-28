@@ -61,8 +61,7 @@ WORKDIR $SPARK_OPERATOR_WORK_DIR
 
 COPY --from=jlink /opt/custom-jre $JAVA_HOME
 
-RUN apk add --no-cache libstdc++ && \
-    addgroup -S -g $SPARK_UID spark && \
+RUN addgroup -S -g $SPARK_UID spark && \
     adduser -S -h $SPARK_OPERATOR_HOME -u $SPARK_UID -G spark spark && \
     chown -R spark:spark $SPARK_OPERATOR_HOME
 
