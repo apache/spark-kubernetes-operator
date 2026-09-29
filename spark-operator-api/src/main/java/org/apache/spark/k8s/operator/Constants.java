@@ -278,7 +278,7 @@ public final class Constants {
    * cause.
    */
   public static final String CLUSTER_FAILED_AFTER_SCHEDULING_FAILURE_MESSAGE =
-      "Cluster failed, since its master and workers could not be requested. See the preceding "
+      "Cluster failed, since requesting its resources failed. See the preceding "
           + "SchedulingFailure state for the cause.";
 
   /** Message indicating that the cluster status cannot be processed. */
