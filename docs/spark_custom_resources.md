@@ -739,7 +739,10 @@ spec:
   evicted `Workload` until then, so the operator then deletes it, and the resource is queued again
   with a new `Workload`. Unlike Kueue built-in integrations, which keep the evicted
   `Workload`, the new `Workload` is ordered in its queue like a newly created one, and it starts
-  over the retry counts of its admission checks.
+  over the retry counts of its admission checks and the requeue count of its `PodsReadyTimeout`s.
+  So their backoff does not grow with each eviction, e.g. it stays at
+  `requeuingStrategy.backoffBaseSeconds` (60 seconds by default) for a `PodsReadyTimeout`, and a
+  `requeuingStrategy.backoffLimitCount` above 0 never deactivates the `Workload`.
 * A running `SparkCluster` whose `Workload` Kueue evicts, e.g. to preempt it for a workload of a
   higher priority or since its `ClusterQueue` is stopped, is released like on `spec.suspend`
   without setting it. The cluster enters `Suspended` with a message giving the reason of the
@@ -764,10 +767,14 @@ spec:
   the pods are ready. Unlike Kueue built-in integrations, the condition stays `True` when a pod is
   lost later, e.g. an executor which Spark replaces, so the `recoveryTimeout` does not apply.
 * A `PodsReadyTimeout` of a running `SparkCluster`, whose master or workers are not ready in time,
-  is not acted on yet, and the `KueueEvictionIgnored` [event](configuration.md#kubernetes-events)
-  is published instead. Kueue keeps counting the quota of such a `Workload`, so suspend or delete
-  the cluster to release it. The `PodsReady` condition is still recorded once the master and
-  workers are ready, so that `blockAdmission` admits the next workload.
+  releases the cluster like any other eviction above, even if they are ready by now, as Kueue
+  built-in integrations do. So does a failure to record the `PodsReady` condition, e.g. without the
+  permission for the `workloads/status` subresource, which the `KueuePodsReadyUpdateFailed`
+  [event](configuration.md#kubernetes-events) reports. As the backoff does not grow, see above, a
+  cluster whose master or workers never get ready, e.g. since they cannot be scheduled, or whose
+  condition cannot be recorded, is admitted and evicted again and again until it is fixed,
+  suspended or deleted. With `blockAdmission`, it holds back every other workload from each
+  admission until its `Workload` is deleted after the backoff.
 * Preemption is not honored yet after the driver of a `SparkApplication` is requested, and neither
   is a `PodsReadyTimeout`, e.g. of an application which runs with fewer executors than
   `spark.executor.instances`, or a deactivation. The operator checks the admission only before it

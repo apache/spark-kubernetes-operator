@@ -504,14 +504,22 @@ class ClusterSuspendStepTest {
   }
 
   @ParameterizedTest
-  @CsvSource({"Preempted, true", "Deactivated, false", "Deactivated, true"})
+  @CsvSource({
+    "Preempted, true",
+    "PodsReadyTimeout, true",
+    "Deactivated, false",
+    "Deactivated, true"
+  })
   void evictedRunningClusterEntersSuspendedBeforeReleasingResources(String reason, boolean active) {
     // A deactivated Workload no longer counts against the quota, and a reactivated one is queued
-    // again, so both release the master and workers like a preemption
+    // again, so both release the master and workers like a preemption. So does a PodsReadyTimeout
+    // like the built-in Kueue integrations, even if the master and workers are ready by now
     SparkCluster cluster = buildKueueCluster(ClusterStateSummary.RunningHealthy, false);
     stubContext(cluster);
     createRunningCluster();
     createWorkload(cluster, evictedStatus(reason), active);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+    stubReadyPods(1L, 1L);
 
     Assertions.assertEquals(
         ReconcileProgress.completeAndImmediateRequeue(),
@@ -527,6 +535,10 @@ class ClusterSuspendStepTest {
     Assertions.assertNotNull(get(masterStatefulSetSpec));
     Assertions.assertNotNull(get(workerStatefulSetSpec));
     Assertions.assertNotNull(getWorkload());
+    // Nothing is recorded on the Workload which is about to be released, and nothing is reported
+    // but the Suspended state
+    Assertions.assertFalse(getWorkload().getStatus().isPodsReady());
+    verifyNoInteractions(eventRecorder);
   }
 
   @ParameterizedTest
@@ -622,6 +634,31 @@ class ClusterSuspendStepTest {
         progress.getRequeueAfterDuration().toString());
     Assertions.assertNotNull(getWorkload());
     verifyNoInteractions(recorder);
+  }
+
+  @Test
+  void evictedWorkloadIsReleasedOnceTheRequeueBackoffElapsesWhilePodsAreStuck() {
+    SparkCluster cluster = buildEvictedCluster(false);
+    KubernetesClient client = spy(kubernetesClient);
+    stubStuckPods(client);
+    stubContext(cluster, client);
+    WorkloadStatus status = evictedStatus("PodsReadyTimeout");
+    status.setRequeueState(
+        RequeueState.builder()
+            .count(1)
+            .requeueAt(Instant.now().plusSeconds(60).toString())
+            .build());
+    createWorkload(cluster, status);
+
+    ReconcileProgress progress = new ClusterSuspendStep().reconcile(mockContext, recorder);
+
+    // Rather than after the hold interval of the stuck pods, which would keep the quota for up to
+    // 30 minutes past the backoff
+    Assertions.assertTrue(progress.isRequeue());
+    Assertions.assertTrue(
+        progress.getRequeueAfterDuration().compareTo(Duration.ofSeconds(60)) <= 0,
+        progress.getRequeueAfterDuration().toString());
+    Assertions.assertNotNull(getWorkload());
   }
 
   @Test
@@ -734,42 +771,6 @@ class ClusterSuspendStepTest {
         new ClusterSuspendStep().reconcile(mockContext, recorder));
 
     Assertions.assertFalse(getWorkload().getStatus().isPodsReady());
-    verifyNoInteractions(recorder);
-  }
-
-  @Test
-  void podsReadyIsRecordedAfterAPodsReadyTimeout() {
-    SparkCluster cluster = buildKueueCluster(ClusterStateSummary.RunningHealthy, false);
-    stubContext(cluster);
-    createWorkload(cluster, evictedStatus("PodsReadyTimeout"));
-    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
-    stubReadyPods(1L, 1L);
-
-    Assertions.assertEquals(
-        ReconcileProgress.proceed(), new ClusterSuspendStep().reconcile(mockContext, recorder));
-
-    // Kueue keeps counting the quota of the Workload, so that with blockAdmission, it would hold
-    // back every other workload without the condition
-    Assertions.assertTrue(getWorkload().getStatus().isPodsReady());
-    verifyNoInteractions(recorder);
-  }
-
-  @Test
-  void podsReadyTimeoutIsReportedAndIgnored() {
-    SparkCluster cluster = buildKueueCluster(ClusterStateSummary.RunningHealthy, false);
-    stubContext(cluster);
-    createWorkload(cluster, evictedStatus("PodsReadyTimeout"));
-    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
-
-    // Kueue keeps counting its quota, while the master and workers are not released yet
-    Assertions.assertEquals(
-        ReconcileProgress.proceed(), new ClusterSuspendStep().reconcile(mockContext, recorder));
-
-    Assertions.assertNotNull(getWorkload());
-    ArgumentCaptor<EventRecord> event = ArgumentCaptor.forClass(EventRecord.class);
-    verify(eventRecorder).record(event.capture());
-    Assertions.assertEquals(EventType.WARNING, event.getValue().type());
-    Assertions.assertEquals(EventUtils.REASON_KUEUE_EVICTION_IGNORED, event.getValue().reason());
     verifyNoInteractions(recorder);
   }
 

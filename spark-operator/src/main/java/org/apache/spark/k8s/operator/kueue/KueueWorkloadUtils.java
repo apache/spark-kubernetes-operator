@@ -86,9 +86,6 @@ public final class KueueWorkloadUtils {
   /** Type of the Kueue condition which marks an evicted Workload. */
   private static final String CONDITION_EVICTED = "Evicted";
 
-  /** Reason of the eviction of a Workload whose pods are not ready within the Kueue timeout. */
-  private static final String EVICTED_BY_PODS_READY_TIMEOUT = "PodsReadyTimeout";
-
   /**
    * Type of the Kueue condition which reports that the pods of a Workload are ready. It has to
    * match the type which {@link WorkloadStatus#isPodsReady} checks, since that guards the
@@ -700,23 +697,6 @@ public final class KueueWorkloadUtils {
   }
 
   /**
-   * Checks whether the running resources of the given evicted Workload are kept rather than
-   * released. That is the case for a `PodsReadyTimeout` of an active Workload only, which is not
-   * acted on yet, while Kueue keeps counting the quota of the Workload. Any other eviction releases
-   * the resources, e.g. to preempt them or since the ClusterQueue is stopped. That includes a
-   * deactivation, since Kueue stops counting the quota of a deactivated Workload right away.
-   *
-   * @param workload The Workload to check.
-   * @return True if the Workload is evicted and its resources keep running.
-   */
-  public static boolean isKeptOnEviction(final Workload workload) {
-    Optional<Condition> eviction = findEviction(workload);
-    return eviction.isPresent()
-        && !isDeactivated(workload)
-        && EVICTED_BY_PODS_READY_TIMEOUT.equals(eviction.get().getReason());
-  }
-
-  /**
    * Checks whether the given Workload is deactivated by `spec.active` set to false, e.g. by a user
    * or by Kueue after too many retries. Kueue neither counts nor admits it until it is reactivated.
    *
@@ -729,9 +709,10 @@ public final class KueueWorkloadUtils {
 
   /**
    * Returns how long Kueue still holds back the given Workload after an eviction, e.g. for the
-   * backoff of an admission check which asked for a retry. Deleting the Workload drops the backoff
-   * with it, so an evicted Workload is kept until then. The retry count which Kueue records with
-   * the admission checks is lost anyway, since a new Workload starts over.
+   * backoff of a `PodsReadyTimeout` or of an admission check which asked for a retry. Deleting the
+   * Workload drops the backoff with it, so an evicted Workload is kept until then. The requeue
+   * count and the retry counts of the admission checks which Kueue records are lost anyway, since
+   * a new Workload starts over, so the backoff of the next eviction does not grow.
    *
    * @param workload The Workload to check.
    * @return The time until `status.requeueState.requeueAt`, or zero if it is not in the future.

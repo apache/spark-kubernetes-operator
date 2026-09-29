@@ -382,35 +382,6 @@ class KueueWorkloadUtilsTest {
     Assertions.assertTrue(KueueWorkloadUtils.isDeactivated(workload));
   }
 
-  @Test
-  void evictionKeepingTheResourcesIsDetected() {
-    Workload admitted = workload("owner-uid-1", 1);
-    admitted.setStatus(status("Admitted", "True"));
-    Assertions.assertFalse(KueueWorkloadUtils.isKeptOnEviction(admitted));
-
-    for (String reason :
-        List.of(
-            "Preempted",
-            "NodeFailures",
-            "ClusterQueueStopped",
-            "LocalQueueStopped",
-            "AdmissionCheck",
-            "FlavorMigration",
-            "Deactivated")) {
-      Workload evicted = workload("owner-uid-1", 1);
-      evicted.setStatus(evictedStatus(reason));
-      Assertions.assertFalse(KueueWorkloadUtils.isKeptOnEviction(evicted), reason);
-    }
-
-    // The pods of a running cluster which are not ready in time are not released yet
-    Workload podsReadyTimeout = workload("owner-uid-1", 1);
-    podsReadyTimeout.setStatus(evictedStatus("PodsReadyTimeout"));
-    Assertions.assertTrue(KueueWorkloadUtils.isKeptOnEviction(podsReadyTimeout));
-    // Unless it is deactivated, e.g. after too many retries, since Kueue stops counting its quota
-    podsReadyTimeout.getSpec().setActive(false);
-    Assertions.assertFalse(KueueWorkloadUtils.isKeptOnEviction(podsReadyTimeout));
-  }
-
   @ParameterizedTest
   @ValueSource(strings = {"Preempted", "PodsReadyTimeout"})
   void evictedWorkloadIsRecreated(String reason) {
@@ -761,6 +732,20 @@ class KueueWorkloadUtilsTest {
     Assertions.assertNotNull(condition.getLastTransitionTime());
     // The conditions which Kueue recorded are kept
     Assertions.assertTrue(workload.getStatus().isAdmitted());
+  }
+
+  @Test
+  void podsReadyIsRecordedOnAnEvictedWorkload() {
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithDriver());
+    admit(evictedStatus("PodsReadyTimeout"));
+
+    // A running application is not stopped on an eviction, so that with blockAdmission, it holds
+    // back other workloads only until its pods are ready
+    Assertions.assertEquals(
+        Optional.empty(), KueueWorkloadUtils.recordPodsReady(readyPodsContext(1, 2)));
+
+    Assertions.assertEquals("True", findCondition(getWorkload(), "PodsReady").getStatus());
+    Assertions.assertTrue(KueueWorkloadUtils.findEviction(getWorkload()).isPresent());
   }
 
   @Test
