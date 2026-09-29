@@ -49,29 +49,30 @@ public class ConfOptionDocGenerator {
     if (generated.createNewFile()) {
       log.info("Creating props at {}/{}", docsPath, CONF_FILE_NAME);
     }
-    PrintWriter printWriter = new PrintWriter(generated, StandardCharsets.UTF_8);
-    printWriter.println(String.format("[//]: # (%s)", GENERATED_FILE_HEADER));
-    printWriter.println("# Spark Operator Config Properties");
-    DocTable table =
-        DocTable.builder()
-            .headers(List.of("Key", "Type", "Default Value", "Allow Hot Reloading", "Description"))
-            .columns(5)
-            .build();
-    for (Field f : fields) {
-      if (ConfigOption.class.isAssignableFrom(f.getType())) {
-        ConfigOption<?> conf = (ConfigOption<?>) f.get(this);
-        table.addRow(
-            List.of(
-                conf.getKey(),
-                conf.getTypeParameterClass().getSimpleName(),
-                conf.getDefaultValue().toString(),
-                String.valueOf(conf.isEnableDynamicOverride()),
-                conf.getDescription()));
+    try (PrintWriter printWriter = new PrintWriter(generated, StandardCharsets.UTF_8)) {
+      printWriter.println(String.format("[//]: # (%s)", GENERATED_FILE_HEADER));
+      printWriter.println("# Spark Operator Config Properties");
+      DocTable table =
+          DocTable.builder()
+              .headers(
+                  List.of("Key", "Type", "Default Value", "Allow Hot Reloading", "Description"))
+              .columns(5)
+              .build();
+      for (Field f : fields) {
+        if (ConfigOption.class.isAssignableFrom(f.getType())) {
+          ConfigOption<?> conf = (ConfigOption<?>) f.get(this);
+          table.addRow(
+              List.of(
+                  conf.getKey(),
+                  conf.getTypeParameterClass().getSimpleName(),
+                  conf.getDefaultValue().toString(),
+                  String.valueOf(conf.isEnableDynamicOverride()),
+                  conf.getDescription()));
+        }
       }
+      table.sort();
+      table.flush(printWriter);
     }
-    table.sort();
-    table.flush(printWriter);
-    printWriter.close();
   }
 
   public static void main(String[] args) throws IOException, IllegalAccessException {
