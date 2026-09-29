@@ -20,17 +20,20 @@
 package org.apache.spark.k8s.operator.reconciler.reconcilesteps;
 
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.SUSPEND_HOLD_REQUEUE_INTERVAL_SECONDS;
+import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.completeAndDefaultRequeue;
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.completeAndRequeueAfter;
 
 import java.time.Duration;
 
 import io.fabric8.kubernetes.api.model.HasMetadata;
+import io.fabric8.kubernetes.client.KubernetesClientException;
 import lombok.extern.slf4j.Slf4j;
 
 import org.apache.spark.k8s.operator.context.BaseContext;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.utils.EventUtils;
+import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 
 /** Utilities to hold the resources of a suspended SparkApplication or SparkCluster. */
 @Slf4j
@@ -87,5 +90,38 @@ final class SuspendUtils {
     EventUtils.normal(context.getEventRecorder(), EventUtils.REASON_SUSPEND_HELD, message);
     return completeAndRequeueAfter(
         Duration.ofSeconds(SUSPEND_HOLD_REQUEUE_INTERVAL_SECONDS.getValue()));
+  }
+
+  /**
+   * Reports a failed check of whether the resources of a suspended resource were requested, and
+   * returns the progress to retry it with. Whether they are live is unknown then, so the resource
+   * is neither held, which would claim in an event that none was requested and release the Kueue
+   * quota of a running driver or master, nor started. Like a failed Kueue admission request, a
+   * transport level failure is not published, since writing an event would only add load to an API
+   * server that is often the cause of it. Anything else is, since a suspended resource may have no
+   * persisted status to show it and would otherwise be retried without any signal.
+   *
+   * @param context The context of the suspended resource.
+   * @param e The failure to report.
+   * @param requested The resources whose request could not be checked, as named in the event and
+   *     the log, e.g. {@code "driver"}.
+   * @return The progress to return, requeued after the steady-state interval.
+   */
+  static ReconcileProgress retryAfterCheckFailure(
+      final BaseContext<?> context, final KubernetesClientException e, final String requested) {
+    String what =
+        "Failed to check whether the "
+            + requested
+            + " of the suspended "
+            + context.getResource().getKind()
+            + " was requested";
+    log.warn("{}, will retry.", what, e);
+    if (!ReconcilerUtils.isTransientError(e)) {
+      EventUtils.warn(
+          context.getEventRecorder(),
+          EventUtils.REASON_SUSPEND_CHECK_FAILED,
+          what + ", will retry. " + EventUtils.describe(e));
+    }
+    return completeAndDefaultRequeue();
   }
 }
