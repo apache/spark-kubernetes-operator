@@ -51,7 +51,7 @@ public final class PodUtils {
         || pod.getStatus().getConditions().isEmpty()) {
       return false;
     }
-    return pod.getStatus().getConditions().parallelStream()
+    return pod.getStatus().getConditions().stream()
         .anyMatch(
             condition ->
                 POD_READY_CONDITION_TYPE.equalsIgnoreCase(condition.getType())
