@@ -32,7 +32,6 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.List;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.fabric8.kubernetes.client.ConfigBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientBuilder;
@@ -52,9 +51,6 @@ import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
 
 @EnableKubernetesMockClient
-@SuppressFBWarnings(
-    value = {"UWF_UNWRITTEN_FIELD", "NP_UNWRITTEN_FIELD"},
-    justification = "Unwritten fields are covered by Kubernetes mock client")
 class StatusRecorderTest {
 
   static final String DEFAULT_NS = "default";

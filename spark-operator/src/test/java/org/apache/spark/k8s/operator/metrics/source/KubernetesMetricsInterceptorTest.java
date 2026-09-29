@@ -28,7 +28,6 @@ import java.util.Map;
 
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.Metric;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -48,9 +47,6 @@ import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 
 @EnableKubernetesMockClient(crud = true)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-@SuppressFBWarnings(
-    value = {"UWF_UNWRITTEN_FIELD", "NP_UNWRITTEN_FIELD"},
-    justification = "Unwritten fields are covered by Kubernetes mock client")
 class KubernetesMetricsInterceptorTest {
 
   private KubernetesMockServer mockServer;

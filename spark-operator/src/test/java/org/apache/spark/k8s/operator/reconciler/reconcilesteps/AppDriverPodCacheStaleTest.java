@@ -55,7 +55,7 @@ import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 
 @EnableKubernetesMockClient(crud = true)
 @SuppressFBWarnings(
-    value = {"UWF_UNWRITTEN_FIELD", "NP_UNWRITTEN_FIELD", "UUF_UNUSED_FIELD"},
+    value = {"UUF_UNUSED_FIELD"},
     justification = "Fields are written by the Kubernetes mock client extension.")
 class AppDriverPodCacheStaleTest {
   private static final String APP_NAME = "stale-cache-app";
