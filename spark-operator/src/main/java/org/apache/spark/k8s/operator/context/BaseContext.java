@@ -124,6 +124,8 @@ public abstract class BaseContext<CR extends BaseResource<?, ?, ?, ?, ?>> {
         readyPodsByRole =
             josdkContext
                 .getSecondaryResourcesAsStream(Pod.class)
+                // Required, since `groupingBy` rejects a null key, and a pod without the role,
+                // e.g. a client with the cluster name label, is a secondary resource as well.
                 .filter(pod -> pod.getMetadata().getLabels().containsKey(LABEL_SPARK_ROLE_NAME))
                 .filter(PodUtils::isPodReady)
                 .collect(

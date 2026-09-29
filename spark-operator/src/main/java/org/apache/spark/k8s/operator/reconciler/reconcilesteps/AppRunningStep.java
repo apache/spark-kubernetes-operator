@@ -47,8 +47,9 @@ public final class AppRunningStep extends AppReconcileStep {
   public ReconcileProgress reconcile(
       SparkAppContext context, SparkAppStatusRecorder statusRecorder) {
     // The driver and executors are observed from DriverReady on, so the Kueue Workload learns here
-    // that they are ready, before a state transition ends the reconciliation. A failed recording is
-    // retried by a later reconciliation rather than holding back the observation of the driver.
+    // that they are ready, before a state transition ends the reconciliation. The progress which a
+    // failed recording returns is not followed, since it would end the reconciliation before the
+    // steps after this one, e.g. the executor start timeout, so a later reconciliation retries it.
     KueueWorkloadUtils.recordPodsReady(context);
     ExecutorInstanceConfig executorInstanceConfig =
         context.getResource().getSpec().getApplicationTolerations().getInstanceConfig();

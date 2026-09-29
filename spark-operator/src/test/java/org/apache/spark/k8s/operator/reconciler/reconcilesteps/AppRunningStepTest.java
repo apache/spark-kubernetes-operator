@@ -164,6 +164,44 @@ class AppRunningStepTest {
   }
 
   @Test
+  void failedPodsReadyRecordingDoesNotEndTheReconciliation() {
+    // e.g. more initial executors than `spark.executor.instances`, which the Workload requests
+    ExecutorInstanceConfig instanceConfig =
+        ExecutorInstanceConfig.builder().initExecutors(3).minExecutors(1).maxExecutors(3).build();
+    appSpec.setApplicationTolerations(
+        ApplicationTolerations.builder().instanceConfig(instanceConfig).build());
+    appStatus =
+        appStatus.appendNewState(
+            new ApplicationState(
+                ApplicationStateSummary.InitializedBelowThresholdExecutors, "Below threshold"));
+    app.setStatus(appStatus);
+    when(mockContext.countReadyPodsByRole()).thenReturn(readyExecutors(2));
+    Pod runningDriverPod =
+        new PodBuilder()
+            .withNewMetadata()
+            .withName("driver")
+            .endMetadata()
+            .withNewStatus()
+            .withPhase("Running")
+            .endStatus()
+            .build();
+    when(mockContext.getDriverPod()).thenReturn(Optional.of(runningDriverPod));
+
+    ReconcileProgress progress;
+    try (MockedStatic<KueueWorkloadUtils> kueue = mockStatic(KueueWorkloadUtils.class)) {
+      // e.g. without the permission for the `workloads/status` subresource
+      kueue
+          .when(() -> KueueWorkloadUtils.recordPodsReady(mockContext))
+          .thenReturn(Optional.of(ReconcileProgress.completeAndDefaultRequeue()));
+      progress = appRunningStep.reconcile(mockContext, mockRecorder);
+    }
+
+    // The steps after this one still run, e.g. the executor start timeout, and a later
+    // reconciliation retries the recording
+    assertEquals(ReconcileProgress.proceed(), progress);
+  }
+
+  @Test
   void runningHealthyExecutorsAtMaxCapacity() {
     // Dynamic allocation disabled, executors at max capacity
     Map<String, String> sparkConf = new HashMap<>();
