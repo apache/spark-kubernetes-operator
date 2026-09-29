@@ -104,7 +104,7 @@ import org.apache.spark.k8s.operator.utils.TestUtils;
 
 @EnableKubernetesMockClient(crud = true)
 @SuppressFBWarnings(
-    value = {"UWF_UNWRITTEN_FIELD", "NP_UNWRITTEN_FIELD", "UUF_UNUSED_FIELD"},
+    value = {"UUF_UNUSED_FIELD"},
     justification = "Unwritten fields are covered by Kubernetes mock client")
 class AppInitStepTest {
   private KubernetesMockServer mockServer;

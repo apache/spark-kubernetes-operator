@@ -60,7 +60,7 @@ import org.apache.spark.k8s.operator.utils.Utils;
 @EnableKubernetesMockClient(crud = true)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @SuppressFBWarnings(
-    value = {"UWF_UNWRITTEN_FIELD", "NP_UNWRITTEN_FIELD", "UUF_UNUSED_FIELD"},
+    value = {"UUF_UNUSED_FIELD"},
     justification = "Unwritten fields are covered by Kubernetes mock client")
 class SentinelManagerTest {
   private static final String DEFAULT = "default";

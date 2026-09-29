@@ -22,4 +22,13 @@
   <Bug pattern="EI_EXPOSE_REP2"/>
   <Bug pattern="MS_EXPOSE_REP"/>
   <Bug pattern="CT_CONSTRUCTOR_THROW"/>
+  <!--
+    Fields of test classes can be injected by JUnit extensions like `@EnableKubernetesMockClient`.
+    Exclude their unwritten-field warnings here instead of per-class `@SuppressFBWarnings`, which
+    SpotBugs reports as useless whenever its own heuristics already drop those warnings.
+  -->
+  <Match>
+    <Class name="~.*Test(\$.*)?"/>
+    <Bug pattern="UWF_UNWRITTEN_FIELD,NP_UNWRITTEN_FIELD"/>
+  </Match>
 </FindBugsFilter>
