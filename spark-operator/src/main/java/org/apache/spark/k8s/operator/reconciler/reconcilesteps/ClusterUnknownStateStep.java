@@ -39,13 +39,19 @@ public final class ClusterUnknownStateStep extends ClusterReconcileStep {
   @Override
   public ReconcileProgress reconcile(
       SparkClusterContext context, SparkClusterStatusRecorder statusRecorder) {
+    ClusterStateSummary currentStateSummary =
+        context.getResource().getStatus().getCurrentState().getCurrentStateSummary();
     // Appending Failed again would write a new status on every reconcile, forever.
-    if (context.getResource().getStatus().getCurrentState().getCurrentStateSummary()
-        == ClusterStateSummary.Failed) {
+    if (currentStateSummary == ClusterStateSummary.Failed) {
       return ReconcileProgress.completeAndNoRequeue();
     }
-    ClusterState state =
-        new ClusterState(ClusterStateSummary.Failed, Constants.UNKNOWN_CLUSTER_STATE_MESSAGE);
+    // SchedulingFailure already reports the cause, so Failed points back to it rather than reading
+    // as another, unexplained failure.
+    String message =
+        currentStateSummary == ClusterStateSummary.SchedulingFailure
+            ? Constants.CLUSTER_FAILED_AFTER_SCHEDULING_FAILURE_MESSAGE
+            : Constants.UNKNOWN_CLUSTER_STATE_MESSAGE;
+    ClusterState state = new ClusterState(ClusterStateSummary.Failed, message);
     statusRecorder.persistStatus(context, context.getResource().getStatus().appendNewState(state));
     return ReconcileProgress.completeAndImmediateRequeue();
   }

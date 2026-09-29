@@ -19,6 +19,7 @@
 
 package org.apache.spark.k8s.operator.reconciler;
 
+import static org.apache.spark.k8s.operator.Constants.CLUSTER_FAILED_AFTER_SCHEDULING_FAILURE_MESSAGE;
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_CLUSTER_NAME;
 import static org.apache.spark.k8s.operator.utils.TestUtils.setConfigKey;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -261,6 +262,10 @@ class SparkClusterReconcilerTest {
       assertEquals(
           ClusterStateSummary.Failed,
           cluster.getStatus().getCurrentState().getCurrentStateSummary());
+      // Failed points back to SchedulingFailure, which reports the cause.
+      assertEquals(
+          CLUSTER_FAILED_AFTER_SCHEDULING_FAILURE_MESSAGE,
+          cluster.getStatus().getCurrentState().getMessage());
       int historySize = cluster.getStatus().getStateTransitionHistory().size();
       verify(mockRecorder, times(1)).persistStatus(any(), any());
 
