@@ -68,26 +68,30 @@ public final class ClusterInitStep extends ClusterReconcileStep {
       return proceed();
     }
     SparkCluster cluster = context.getResource();
-    // A cluster whose master StatefulSet already exists has been requested before (e.g. the status
-    // update to RunningHealthy failed), so let it complete its initialization even if suspended.
+
+    boolean masterRequested = false;
     if (cluster.getSpec().isSuspend()) {
-      final boolean masterRequested;
+      // Unlike a first attempt, a cluster resumed from Suspended or queued again after an eviction
+      // has persisted this Submitted state, which would keep saying that it is resumed. It goes
+      // back to Suspended instead, where ClusterSuspendStep deletes the master and worker
+      // StatefulSets by name and releases whatever it holds only after its pods are gone. That
+      // happens whether or not the master was requested, so it is not looked up.
+      if (cluster.getStatus().getStateTransitionHistory().lastKey() > 0) {
+        return appendStateAndImmediateRequeue(
+            context, statusRecorder, new ClusterState(Suspended, CLUSTER_SUSPENDED_MESSAGE));
+      }
+      // A cluster whose master StatefulSet already exists has been requested before (e.g. the
+      // status update to RunningHealthy failed), so let it complete its initialization even if
+      // suspended.
       try {
         masterRequested = isMasterRequested(context);
       } catch (KubernetesClientException e) {
         // Whether the master is live is unknown, not answered. Holding would claim in an event
         // that none was requested, and would release the Kueue quota of a running master, so
         // look again with the steady-state interval instead.
-        return SuspendUtils.retryAfterCheckFailure(context, e, "master and workers");
+        return SuspendUtils.retryAfterCheckFailure(context, e, "master");
       }
       if (!masterRequested) {
-        // Unlike a first attempt, a cluster resumed from Suspended has persisted this Submitted
-        // state, which would keep saying that it is resumed. It goes back to Suspended instead,
-        // where ClusterSuspendStep releases whatever it holds only after its pods are gone.
-        if (cluster.getStatus().getStateTransitionHistory().lastKey() > 0) {
-          return appendStateAndImmediateRequeue(
-              context, statusRecorder, new ClusterState(Suspended, CLUSTER_SUSPENDED_MESSAGE));
-        }
         return SuspendUtils.holdForSuspend(context, "master and workers");
       }
     }
@@ -100,7 +104,8 @@ public final class ClusterInitStep extends ClusterReconcileStep {
       }
     }
     try {
-      Optional<ReconcileProgress> kueueHold = holdForKueueAdmission(context, cluster);
+      Optional<ReconcileProgress> kueueHold =
+          holdForKueueAdmission(context, cluster, masterRequested);
       if (kueueHold.isPresent()) {
         return kueueHold.get();
       }
@@ -223,19 +228,22 @@ public final class ClusterInitStep extends ClusterReconcileStep {
    *
    * @param context The SparkClusterContext for the cluster.
    * @param cluster The SparkCluster.
+   * @param masterRequested Whether the master was found requested already in this reconcile, e.g.
+   *     by the suspend check, so that it is not looked up again.
    * @return The progress to return while the admission is not granted, or empty to proceed.
    */
   private Optional<ReconcileProgress> holdForKueueAdmission(
-      SparkClusterContext context, SparkCluster cluster) {
+      SparkClusterContext context, SparkCluster cluster, boolean masterRequested) {
     try {
       if (!KueueWorkloadFactory.hasQueueName(cluster)) {
-        return KueueWorkloadUtils.handleDequeuedWorkload(context, () -> isMasterRequested(context));
+        return KueueWorkloadUtils.handleDequeuedWorkload(
+            context, () -> masterRequested || isMasterRequested(context));
       }
       if (!KUEUE_ENABLED.getValue()) {
         KueueWorkloadUtils.warnQueueNameIgnored(context);
         return Optional.empty();
       }
-      if (isMasterRequested(context)) {
+      if (masterRequested || isMasterRequested(context)) {
         // The master and worker StatefulSets are applied again in this reconcile, so the flavors
         // of the Workload which was admitted before are resolved again instead of dropping them
         // from the pod templates.

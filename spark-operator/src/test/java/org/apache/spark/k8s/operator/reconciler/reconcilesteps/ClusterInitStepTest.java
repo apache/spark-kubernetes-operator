@@ -325,17 +325,20 @@ class ClusterInitStepTest {
                 new ClusterState(ClusterStateSummary.Submitted, Constants.CLUSTER_RESUMED_MESSAGE),
                 true));
     cluster.getSpec().setSuspend(true);
+    // Not stubbed: a read would find a master, but the cluster must not look it up at all
     KubernetesClient mockClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
-    when(mockClient.resource(masterStatefulSetSpec).get()).thenReturn(null);
     when(mockContext.getResource()).thenReturn(cluster);
     when(mockContext.getClient()).thenReturn(mockClient);
     when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
 
     // Its status would otherwise keep saying that it is resumed, while ClusterSuspendStep releases
-    // its Workload only once its pods are gone
+    // its Workload only once its pods are gone. That holds whether or not the master was requested,
+    // so a failed lookup cannot leave it in Submitted with SuspendCheckFailed.
     Assertions.assertEquals(
         ReconcileProgress.completeAndImmediateRequeue(),
         clusterInitStep.reconcile(mockContext, recorder));
+    verify(mockContext, never()).getMasterStatefulSetSpec();
+    verifyNoInteractions(mockClient);
     ArgumentCaptor<ClusterState> stateCaptor = ArgumentCaptor.forClass(ClusterState.class);
     verify(recorder).appendNewStateAndPersist(any(), stateCaptor.capture());
     Assertions.assertEquals(
@@ -407,6 +410,61 @@ class ClusterInitStepTest {
     verify(mockClient.apps().statefulSets()).resource(masterStatefulSetSpec);
     verify(mockClient.apps().statefulSets()).resource(workerStatefulSetSpec);
     verify(statefulSetApplicable, times(2)).serverSideApply();
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void suspendedQueuedClusterWithRequestedMasterIsLookedUpOnce() {
+    // The suspend check already found the master, so the Kueue admission must not read it again:
+    // a failure of that second read would be reported as KueueAdmissionRequestFailed rather than
+    // SuspendCheckFailed, and a null would request the admission of a running master
+    ClusterInitStep clusterInitStep = new ClusterInitStep();
+    SparkClusterContext mockContext = mock(SparkClusterContext.class);
+    SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
+    SparkCluster cluster = buildKueueCluster();
+    cluster.getSpec().setSuspend(true);
+    KubernetesClient mockClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    when(mockClient.resource(masterStatefulSetSpec).get())
+        .thenReturn(masterStatefulSetSpec)
+        .thenThrow(new KubernetesClientException("forbidden", 403, null));
+    stubWorkloadRead(mockClient, admittedWorkload(cluster, Map.of()));
+    ServerSideApplicable<Service> serviceApplicable = mock(ServerSideApplicable.class);
+    ServiceResource<Service> serviceResource = mock(ServiceResource.class);
+    when(serviceResource.forceConflicts()).thenReturn(serviceApplicable);
+    when(mockClient.services().resource(any(Service.class))).thenReturn(serviceResource);
+    ServerSideApplicable<StatefulSet> statefulSetApplicable = mock(ServerSideApplicable.class);
+    RollableScalableResource<StatefulSet> statefulSetResource =
+        mock(RollableScalableResource.class);
+    when(statefulSetResource.forceConflicts()).thenReturn(statefulSetApplicable);
+    when(mockClient.apps().statefulSets().resource(any(StatefulSet.class)))
+        .thenReturn(statefulSetResource);
+    ServerSideApplicable<NetworkPolicy> networkPolicyApplicable = mock(ServerSideApplicable.class);
+    Resource<NetworkPolicy> networkPolicyResource = mock(Resource.class);
+    when(networkPolicyResource.forceConflicts()).thenReturn(networkPolicyApplicable);
+    when(mockClient.network().networkPolicies().resource(any(NetworkPolicy.class)))
+        .thenReturn(networkPolicyResource);
+    when(mockContext.getResource()).thenReturn(cluster);
+    when(mockContext.getClient()).thenReturn(mockClient);
+    when(mockContext.getMasterServiceSpec()).thenReturn(service("cluster1-master-svc"));
+    when(mockContext.getWorkerServiceSpec()).thenReturn(service("cluster1-worker-svc"));
+    when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
+    when(mockContext.getWorkerStatefulSetSpec()).thenReturn(workerStatefulSetSpec);
+    when(mockContext.getWorkerNetworkPolicySpec()).thenReturn(networkPolicy("cluster1-worker"));
+    when(mockContext.getHorizontalPodAutoscalerSpec()).thenReturn(Optional.empty());
+    when(mockContext.getPodDisruptionBudgetSpec()).thenReturn(Optional.empty());
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+
+    ReconcileProgress progress = clusterInitStep.reconcile(mockContext, recorder);
+
+    Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
+    verify(mockClient.resource(masterStatefulSetSpec)).get();
+    verify(mockClient, never()).resource(any(Workload.class));
+    verifyNoInteractions(eventRecorder);
+    ArgumentCaptor<ClusterStatus> statusCaptor = ArgumentCaptor.forClass(ClusterStatus.class);
+    verify(recorder).persistStatus(any(), statusCaptor.capture());
+    Assertions.assertEquals(
+        ClusterStateSummary.RunningHealthy,
+        statusCaptor.getValue().getCurrentState().getCurrentStateSummary());
   }
 
   @Test
@@ -895,15 +953,13 @@ class ClusterInitStepTest {
     verify(mockClient, never()).resources(Workload.class);
     verify(mockContext, never()).getMasterServiceSpec();
     verifyNoInteractions(recorder);
-    ArgumentCaptor<EventRecord> event = ArgumentCaptor.forClass(EventRecord.class);
-    verify(eventRecorder).record(event.capture());
-    Assertions.assertEquals(EventType.WARNING, event.getValue().type());
-    Assertions.assertEquals(EventUtils.REASON_SUSPEND_CHECK_FAILED, event.getValue().reason());
-    Assertions.assertTrue(
-        event.getValue().message().contains("master and workers of the suspended SparkCluster"),
-        event.getValue().message());
-    Assertions.assertFalse(
-        event.getValue().message().contains("would not be requested"), event.getValue().message());
+    EventRecord event = captureEvents(1).get(0);
+    Assertions.assertEquals(EventType.WARNING, event.type());
+    Assertions.assertEquals(EventUtils.REASON_SUSPEND_CHECK_FAILED, event.reason());
+    Assertions.assertEquals(
+        "Failed to check whether the master of the suspended SparkCluster was requested, "
+            + "will retry. KubernetesClientException: rejected",
+        event.message());
   }
 
   @Test
