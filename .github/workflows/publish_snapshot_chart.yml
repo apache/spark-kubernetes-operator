@@ -56,7 +56,7 @@ jobs:
         helm repo index tmp/$DIR --url https://nightlies.apache.org/spark/$DIR
         helm show chart tmp/$DIR/spark-kubernetes-operator-*.tgz
     - name: Upload
-      uses: burnett01/rsync-deployments@66257cad6bfeb2171d3b6bfa6c9a22279dd9c3a1
+      uses: burnett01/rsync-deployments@155b6d6c1219ab2224c20c58d423a3f1b850395f
       with:
         switches: -avzr
         path: build-tools/helm/tmp/*
