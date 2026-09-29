@@ -106,7 +106,7 @@ public abstract sealed class BaseAppDriverObserver
 
     List<ContainerStatus> initContainerStatusList = status.getInitContainerStatuses();
     if (initContainerStatusList != null
-        && initContainerStatusList.parallelStream().anyMatch(PodUtils::isContainerFailed)) {
+        && initContainerStatusList.stream().anyMatch(PodUtils::isContainerFailed)) {
       ApplicationState applicationState =
           new ApplicationState(Failed, DRIVER_FAILED_INIT_CONTAINERS_MESSAGE);
       applicationState.setLastObservedDriverStatus(status);
@@ -120,7 +120,7 @@ public abstract sealed class BaseAppDriverObserver
 
     if (!terminatedCriticalContainers.isEmpty()) {
       ApplicationState state;
-      if (terminatedCriticalContainers.parallelStream().anyMatch(PodUtils::isContainerFailed)) {
+      if (terminatedCriticalContainers.stream().anyMatch(PodUtils::isContainerFailed)) {
         state = new ApplicationState(Failed, DRIVER_FAILED_MESSAGE);
       } else {
         state = new ApplicationState(Succeeded, DRIVER_SUCCEEDED_MESSAGE);
