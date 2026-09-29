@@ -44,6 +44,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -85,6 +86,7 @@ import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils;
 import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
 import org.apache.spark.k8s.operator.kueue.v1beta2.WorkloadStatus;
 import org.apache.spark.k8s.operator.metrics.healthcheck.SentinelManager;
+import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppKueueEvictionStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppReconcileStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppResourceObserveStep;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
@@ -581,6 +583,26 @@ class SparkAppReconcilerTest {
               .skip(previousSize)
               .map(ApplicationState::getCurrentStateSummary)
               .toList(),
+          summary.name());
+    }
+  }
+
+  @Test
+  void kueueEvictionIsReportedFromTheDriverRequestUntilTheAttemptStops() {
+    Set<ApplicationStateSummary> driverRequested =
+        EnumSet.range(
+            ApplicationStateSummary.DriverRequested,
+            ApplicationStateSummary.RunningWithBelowThresholdExecutors);
+    for (ApplicationStateSummary summary : ApplicationStateSummary.values()) {
+      app.setStatus(new ApplicationStatus().appendNewState(new ApplicationState(summary, "")));
+      List<AppReconcileStep> steps = reconciler.getReconcileSteps(app);
+      boolean expected = driverRequested.contains(summary);
+      // Right after the validation and the clean up, before a state transition ends the
+      // reconciliation. Before the driver is requested, AppInitStep handles the eviction itself.
+      assertEquals(expected, steps.get(2) instanceof AppKueueEvictionStep, summary.name());
+      assertEquals(
+          expected ? 1 : 0,
+          steps.stream().filter(AppKueueEvictionStep.class::isInstance).count(),
           summary.name());
     }
   }

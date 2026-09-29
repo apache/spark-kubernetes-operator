@@ -56,6 +56,7 @@ import org.apache.spark.k8s.operator.reconciler.observers.AppDriverStartObserver
 import org.apache.spark.k8s.operator.reconciler.observers.AppDriverTimeoutObserver;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppCleanUpStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppInitStep;
+import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppKueueEvictionStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppReconcileStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppResourceObserveStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppRunningStep;
@@ -207,6 +208,7 @@ public class SparkAppReconciler implements Reconciler<SparkApplication>, Cleaner
     switch (app.getStatus().getCurrentState().getCurrentStateSummary()) {
       case Submitted, ScheduledToRestart -> steps.add(new AppInitStep());
       case DriverRequested, DriverStarted -> {
+        steps.add(new AppKueueEvictionStep());
         steps.add(
             new AppResourceObserveStep(
                 List.of(new AppDriverStartObserver(), new AppDriverReadyObserver())));
@@ -218,6 +220,7 @@ public class SparkAppReconciler implements Reconciler<SparkApplication>, Cleaner
           RunningHealthy,
           RunningWithPartialCapacity,
           RunningWithBelowThresholdExecutors -> {
+        steps.add(new AppKueueEvictionStep());
         steps.add(new AppRunningStep());
         steps.add(new AppResourceObserveStep(List.of(new AppDriverRunningObserver())));
         steps.add(new AppResourceObserveStep(List.of(new AppDriverTimeoutObserver())));

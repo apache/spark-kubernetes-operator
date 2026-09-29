@@ -98,8 +98,8 @@ public final class EventUtils {
   public static final String REASON_KUEUE_DISABLED = "KueueDisabled";
 
   /**
-   * Reason for an event describing that Kueue evicted the Workload of a running resource in a way
-   * which the operator does not act on, so the resource keeps running.
+   * Reason for an event describing that Kueue evicted or deactivated the Workload of a running
+   * resource in a way which the operator does not act on, so the resource keeps running.
    */
   public static final String REASON_KUEUE_EVICTION_IGNORED = "KueueEvictionIgnored";
 

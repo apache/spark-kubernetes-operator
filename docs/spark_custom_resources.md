@@ -770,11 +770,15 @@ spec:
   workers are ready, so that `blockAdmission` admits the next workload.
 * Preemption is not honored yet after the driver of a `SparkApplication` is requested, and neither
   is a `PodsReadyTimeout`, e.g. of an application which runs with fewer executors than
-  `spark.executor.instances`. The operator checks the admission only before it creates the
-  resources, so after a later eviction the driver and executors keep running. An evicted
-  `Workload` keeps its Kueue quota meanwhile, while a deactivated one no longer counts against it.
-  With `blockAdmission`, an application whose pods are not all ready holds back every other
-  workload until they are ready or its quota is released as described above.
+  `spark.executor.instances`, or a deactivation. The operator checks the admission only before it
+  creates the resources, so after a later eviction the driver and executors keep running, and
+  until the attempt stops, the `KueueEvictionIgnored` [event](configuration.md#kubernetes-events)
+  is published instead when enabled. An evicted `Workload` keeps its Kueue quota until the driver
+  and executors are released, so a workload which preempts the application waits until then,
+  while a deactivated one no longer counts against it. Since `spec.suspend` does not stop a
+  running attempt, delete the application to release its quota earlier. With `blockAdmission`, an
+  application whose pods are not all ready holds back every other workload until they are ready
+  or its quota is released as described above.
 
 ## Spark Cluster
 
