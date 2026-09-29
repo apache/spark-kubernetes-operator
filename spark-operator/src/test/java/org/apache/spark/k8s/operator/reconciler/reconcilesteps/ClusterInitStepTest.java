@@ -867,6 +867,41 @@ class ClusterInitStepTest {
         cluster.getStatus().getCurrentState().getCurrentStateSummary());
   }
 
+  @ParameterizedTest
+  @ValueSource(ints = {403, 429, 500})
+  void suspendedClusterWithPersistentlyUnverifiableMasterPublishesEvent(int code) {
+    // Unlike a transport level failure, a persistent one is reported, since a suspended cluster
+    // has no persisted status to show it. The event must not claim that no master was requested.
+    ClusterInitStep clusterInitStep = new ClusterInitStep();
+    SparkClusterContext mockContext = mock(SparkClusterContext.class);
+    SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
+    SparkCluster cluster = buildKueueCluster();
+    cluster.getSpec().setSuspend(true);
+    KubernetesClient mockClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    when(mockClient.resource(masterStatefulSetSpec).get())
+        .thenThrow(new KubernetesClientException("rejected", code, null));
+    when(mockContext.getResource()).thenReturn(cluster);
+    when(mockContext.getClient()).thenReturn(mockClient);
+    when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+
+    ReconcileProgress progress = clusterInitStep.reconcile(mockContext, recorder);
+
+    Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
+    verify(mockClient, never()).resources(Workload.class);
+    verify(mockContext, never()).getMasterServiceSpec();
+    verifyNoInteractions(recorder);
+    ArgumentCaptor<EventRecord> event = ArgumentCaptor.forClass(EventRecord.class);
+    verify(eventRecorder).record(event.capture());
+    Assertions.assertEquals(EventType.WARNING, event.getValue().type());
+    Assertions.assertEquals(EventUtils.REASON_SUSPEND_CHECK_FAILED, event.getValue().reason());
+    Assertions.assertTrue(
+        event.getValue().message().contains("master and workers of the suspended SparkCluster"),
+        event.getValue().message());
+    Assertions.assertFalse(
+        event.getValue().message().contains("would not be requested"), event.getValue().message());
+  }
+
   @Test
   void failedMasterLookupBeforeKueueAdmissionIsRetried() {
     // A failed lookup is not an answer either before the admission: requesting quota for a master

@@ -78,8 +78,7 @@ public final class ClusterInitStep extends ClusterReconcileStep {
         // Whether the master is live is unknown, not answered. Holding would claim in an event
         // that none was requested, and would release the Kueue quota of a running master, so
         // look again with the steady-state interval instead.
-        log.warn("Failed to check whether the master of a suspended cluster exists.", e);
-        return completeAndDefaultRequeue();
+        return SuspendUtils.retryAfterCheckFailure(context, e, "master and workers");
       }
       if (!masterRequested) {
         // Unlike a first attempt, a cluster resumed from Suspended has persisted this Submitted

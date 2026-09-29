@@ -544,7 +544,10 @@ published when enabled. Since the status is not there to fall back on, it is rep
 minutes by default while the hold lasts, so that it outlives the event retention of the API
 server. An application held later, in `ScheduledToRestart`, keeps the status its previous attempt
 already wrote and gets the same event, since that status says that a restart is due, not that the
-next attempt is withheld.
+next attempt is withheld. If the operator cannot check whether the driver (or master) was requested
+already, e.g. since the API server rejects the read, the resource is neither held nor started, and
+the `SuspendCheckFailed` event is published instead, until the check succeeds. A failure which may
+clear on its own, such as a timeout, is retried without the event.
 
 ``` yaml
 apiVersion: spark.apache.org/v1
