@@ -86,6 +86,12 @@ public final class EventUtils {
       "KueueResourceFlavorReadFailed";
 
   /**
+   * Reason for an event describing a failure to record the Kueue `PodsReady` condition of a
+   * running resource, which is retried.
+   */
+  public static final String REASON_KUEUE_PODS_READY_UPDATE_FAILED = "KueuePodsReadyUpdateFailed";
+
+  /**
    * Reason for an event describing that the Kueue queue name label of a resource is ignored,
    * since the Kueue integration is disabled.
    */

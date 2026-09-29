@@ -19,6 +19,7 @@
 
 package org.apache.spark.k8s.operator.kueue;
 
+import static java.net.HttpURLConnection.HTTP_CONFLICT;
 import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.KUEUE_ENABLED;
@@ -51,6 +52,8 @@ import io.fabric8.kubernetes.api.model.OwnerReference;
 import io.fabric8.kubernetes.api.model.Toleration;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
+import io.fabric8.kubernetes.client.RequestConfig;
+import io.fabric8.kubernetes.client.RequestConfigBuilder;
 import lombok.extern.slf4j.Slf4j;
 
 import org.apache.spark.k8s.operator.Constants;
@@ -85,6 +88,13 @@ public final class KueueWorkloadUtils {
 
   /** Reason of the eviction of a Workload whose pods are not ready within the Kueue timeout. */
   private static final String EVICTED_BY_PODS_READY_TIMEOUT = "PodsReadyTimeout";
+
+  /**
+   * Type of the Kueue condition which reports that the pods of a Workload are ready. It has to
+   * match the type which {@link WorkloadStatus#isPodsReady} checks, since that guards the
+   * recording.
+   */
+  private static final String CONDITION_PODS_READY = "PodsReady";
 
   /**
    * Requeue interval after {@link AdmissionResult#STALE} and after a transient API failure. It is
@@ -691,10 +701,9 @@ public final class KueueWorkloadUtils {
 
   /**
    * Checks whether the running resources of the given evicted Workload are kept rather than
-   * released. That is the case for a `PodsReadyTimeout` of an active Workload only, since the
-   * operator does not report the `PodsReady` condition, so every attempt would be evicted again,
-   * while Kueue keeps counting the quota of the Workload. Any other eviction releases the
-   * resources, e.g. to preempt them or since the ClusterQueue is stopped. That includes a
+   * released. That is the case for a `PodsReadyTimeout` of an active Workload only, which is not
+   * acted on yet, while Kueue keeps counting the quota of the Workload. Any other eviction releases
+   * the resources, e.g. to preempt them or since the ClusterQueue is stopped. That includes a
    * deactivation, since Kueue stops counting the quota of a deactivated Workload right away.
    *
    * @param workload The Workload to check.
@@ -840,7 +849,10 @@ public final class KueueWorkloadUtils {
       }
       client
           .resource(workload)
-          .editStatus(current -> addFinishedCondition(current, success, message));
+          .editStatus(
+              current ->
+                  putCondition(
+                      current, CONDITION_FINISHED, success ? "Succeeded" : "Failed", message));
       return true;
     } catch (KubernetesClientException e) {
       log.warn("Failed to finish the Kueue Workload {}, releasing it instead.", name, e);
@@ -849,8 +861,98 @@ public final class KueueWorkloadUtils {
     }
   }
 
-  private static Workload addFinishedCondition(
-      final Workload workload, final boolean success, final String message) {
+  /**
+   * Records the Kueue `PodsReady` condition on the Workload of the resource of the given context
+   * once as many pods of each pod set as its count are ready, so that the `waitForPodsReady`
+   * timeout of Kueue does not evict it, and with `blockAdmission`, other workloads are admitted.
+   * Unlike the built-in Kueue integrations, the condition is not set back to `False` when a pod is
+   * lost later, e.g. an executor which Spark replaces, since an eviction would restart a running
+   * cluster with its applications, and is not acted on for a running application.
+   *
+   * <p>The informer cache answers whether the condition is still missing, so that a resource which
+   * reports it already, or whose pods are not ready yet, costs no request. Like {@link
+   * #finishWorkload}, the condition is recorded on the Workload which is read again, since the
+   * cache may not have seen the condition recorded by an earlier reconciliation yet. The ready pods
+   * are checked again against its pod sets, since the cache may still hold the Workload which it
+   * replaced, e.g. for a resumed cluster with more workers. The update carries the resourceVersion
+   * which was read, so it is rejected rather than overwriting a concurrent update by Kueue.
+   *
+   * <p>A failed request is not retried by the client, since the status update goes through the
+   * admission webhook of Kueue, which fails it while Kueue is down, and the retries would hold the
+   * reconciliation meanwhile. Like {@link #retryAfterRequestFailure}, a conflict with a concurrent
+   * update and a transport level failure are retried shortly, while a persistent failure is
+   * reported and retried with the default interval. Unlike {@link #finishWorkload}, the Workload is
+   * not released, since the pods which it admitted are running.
+   *
+   * @param context The context of the running resource.
+   * @return The progress to retry a failed recording with, or empty if it succeeded or is not
+   *     needed, e.g. without an admitted Workload, before its pods are ready, or once it has the
+   *     condition.
+   */
+  public static Optional<ReconcileProgress> recordPodsReady(final BaseContext<?> context) {
+    Workload cached = context.getCachedKueueWorkload().orElse(null);
+    if (!shouldRecordPodsReady(context, cached)) {
+      return Optional.empty();
+    }
+    KubernetesClient client = withoutRetries(context.getClient());
+    String name = cached.getMetadata().getName();
+    try {
+      Workload workload = client.resource(cached).get();
+      if (!shouldRecordPodsReady(context, workload)) {
+        return Optional.empty();
+      }
+      // The reason and the message of the built-in Kueue integrations
+      client
+          .resource(workload)
+          .editStatus(
+              current ->
+                  putCondition(
+                      current,
+                      CONDITION_PODS_READY,
+                      "Started",
+                      "All pods reached readiness and the workload is running"));
+      log.info("Recorded the PodsReady condition of the Kueue Workload {}.", name);
+      return Optional.empty();
+    } catch (KubernetesClientException e) {
+      String what = "Failed to record the PodsReady condition of Kueue Workload " + name;
+      log.warn("{}, will retry.", what, e);
+      if (e.getCode() == HTTP_CONFLICT || ReconcilerUtils.isTransientError(e)) {
+        return Optional.of(
+            ReconcileProgress.completeAndRequeueAfter(STALE_WORKLOAD_REQUEUE_INTERVAL));
+      }
+      EventUtils.warn(
+          context.getEventRecorder(),
+          EventUtils.REASON_KUEUE_PODS_READY_UPDATE_FAILED,
+          what + ", will retry. " + EventUtils.describe(e));
+      return Optional.of(ReconcileProgress.completeAndDefaultRequeue());
+    }
+  }
+
+  /** Returns a client over the same connections which does not retry a failed request. */
+  private static KubernetesClient withoutRetries(final KubernetesClient client) {
+    RequestConfig requestConfig =
+        new RequestConfigBuilder(client.getConfiguration().getRequestConfig())
+            .withRequestRetryBackoffLimit(0)
+            .build();
+    return client.newClient(requestConfig).adapt(KubernetesClient.class);
+  }
+
+  /**
+   * Checks whether the given Workload is admitted without the `PodsReady` condition, while as many
+   * pods of each of its pod sets as its count are ready.
+   */
+  private static boolean shouldRecordPodsReady(
+      final BaseContext<?> context, final Workload workload) {
+    if (workload == null || !isAdmitted(workload) || workload.getStatus().isPodsReady()) {
+      return false;
+    }
+    Map<String, Long> readyPods = context.countReadyPodsByRole();
+    return workload.getSpec().getPodSets().stream()
+        .allMatch(podSet -> readyPods.getOrDefault(podSet.getName(), 0L) >= podSet.getCount());
+  }
+
+  private static Workload putCondition(
+      final Workload workload, final String type, final String reason, final String message) {
     WorkloadStatus status = workload.getStatus();
     if (status == null) {
       status = new WorkloadStatus();
@@ -860,17 +962,17 @@ public final class KueueWorkloadUtils {
     if (status.getConditions() != null) {
       // Like Kueue's SetStatusCondition, an existing condition of the type is replaced rather than
       // kept: the conditions are a map keyed by the type, so the API server rejects a second entry
-      // of it. The type is compared as `isFinished` does, which does not guard such an entry
-      // unless its status is `True`.
+      // of it. The type is compared as `isFinished` and `isPodsReady` do, which do not guard such
+      // an entry unless its status is `True`.
       status.getConditions().stream()
-          .filter(condition -> !CONDITION_FINISHED.equalsIgnoreCase(condition.getType()))
+          .filter(condition -> !type.equalsIgnoreCase(condition.getType()))
           .forEach(conditions::add);
     }
     conditions.add(
         new ConditionBuilder()
-            .withType(CONDITION_FINISHED)
+            .withType(type)
             .withStatus("True")
-            .withReason(success ? "Succeeded" : "Failed")
+            .withReason(reason)
             .withMessage(message)
             .withLastTransitionTime(Instant.now().truncatedTo(ChronoUnit.SECONDS).toString())
             .withObservedGeneration(workload.getMetadata().getGeneration())

@@ -177,9 +177,10 @@ public class SparkAppReconciler implements Reconciler<SparkApplication>, Cleaner
     if (KUEUE_ENABLED.getValue()) {
       eventSources.add(
           new InformerEventSource<>(
+              // Mapped to its owner by the owner reference, the default, rather than by the name
+              // label, since the Workload copies the labels of its owner, which may name another
+              // resource.
               InformerEventSourceConfiguration.from(Workload.class, SparkApplication.class)
-                  .withSecondaryToPrimaryMapper(
-                      basicLabelSecondaryToPrimaryMapper(LABEL_SPARK_APPLICATION_NAME))
                   .withLabelSelector(LABEL_SPARK_APPLICATION_NAME)
                   // Only an admission change, including an eviction or a (de)activation, or a
                   // deletion needs a reconciliation. The operator creates the Workload itself,

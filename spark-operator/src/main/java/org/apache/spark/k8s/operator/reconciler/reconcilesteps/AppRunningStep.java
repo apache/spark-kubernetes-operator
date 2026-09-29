@@ -23,18 +23,15 @@ import static org.apache.spark.k8s.operator.Constants.*;
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.completeAndImmediateRequeue;
 
 import java.util.List;
-import java.util.Set;
-
-import io.fabric8.kubernetes.api.model.Pod;
 
 import org.apache.spark.k8s.operator.context.SparkAppContext;
+import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.reconciler.observers.AppDriverRunningObserver;
 import org.apache.spark.k8s.operator.spec.ExecutorInstanceConfig;
 import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
-import org.apache.spark.k8s.operator.utils.PodUtils;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 
 /** Observe whether app acquires enough executors as configured in spec. */
@@ -49,6 +46,11 @@ public final class AppRunningStep extends AppReconcileStep {
   @Override
   public ReconcileProgress reconcile(
       SparkAppContext context, SparkAppStatusRecorder statusRecorder) {
+    // The driver and executors are observed from DriverReady on, so the Kueue Workload learns here
+    // that they are ready, before a state transition ends the reconciliation. The progress which a
+    // failed recording returns is not followed, since it would end the reconciliation before the
+    // steps after this one, e.g. the executor start timeout, so a later reconciliation retries it.
+    KueueWorkloadUtils.recordPodsReady(context);
     ExecutorInstanceConfig executorInstanceConfig =
         context.getResource().getSpec().getApplicationTolerations().getInstanceConfig();
     ApplicationStateSummary prevStateSummary =
@@ -61,8 +63,8 @@ public final class AppRunningStep extends AppReconcileStep {
       proposedStateSummary = ApplicationStateSummary.RunningHealthy;
       stateMessage = RUNNING_HEALTHY_MESSAGE;
     } else {
-      Set<Pod> executors = context.getExecutorsForApplication();
-      long runningExecutors = executors.stream().filter(PodUtils::isPodReady).count();
+      long runningExecutors =
+          context.countReadyPodsByRole().getOrDefault(LABEL_SPARK_ROLE_EXECUTOR_VALUE, 0L);
       if (prevStateSummary.isStarting()) {
         if (runningExecutors >= executorInstanceConfig.getInitExecutors()) {
           if (!isDynamicAllocationEnabled(context)

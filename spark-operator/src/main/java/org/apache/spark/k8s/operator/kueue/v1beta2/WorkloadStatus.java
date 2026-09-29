@@ -90,4 +90,19 @@ public class WorkloadStatus {
                     "Finished".equalsIgnoreCase(c.getType())
                         && "True".equalsIgnoreCase(c.getStatus()));
   }
+
+  /**
+   * Checks if the pods of the workload are ready.
+   *
+   * @return true if a "PodsReady" condition exists with status "True", false otherwise.
+   */
+  @JsonIgnore
+  public boolean isPodsReady() {
+    return conditions != null
+        && conditions.stream()
+            .anyMatch(
+                c ->
+                    "PodsReady".equalsIgnoreCase(c.getType())
+                        && "True".equalsIgnoreCase(c.getStatus()));
+  }
 }

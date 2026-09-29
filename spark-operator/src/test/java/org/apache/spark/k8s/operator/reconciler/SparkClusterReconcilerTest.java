@@ -63,6 +63,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
 
+import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.SparkCluster;
 import org.apache.spark.k8s.operator.SparkClusterSubmissionWorker;
 import org.apache.spark.k8s.operator.config.SparkOperatorConf;
@@ -75,6 +76,7 @@ import org.apache.spark.k8s.operator.status.ClusterState;
 import org.apache.spark.k8s.operator.status.ClusterStateSummary;
 import org.apache.spark.k8s.operator.status.ClusterStatus;
 import org.apache.spark.k8s.operator.utils.EventUtils;
+import org.apache.spark.k8s.operator.utils.ModelUtils;
 import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
 
 class SparkClusterReconcilerTest {
@@ -377,16 +379,33 @@ class SparkClusterReconcilerTest {
       InformerEventSourceConfiguration<Workload> workloadConfig =
           (InformerEventSourceConfiguration<Workload>) configs.get(1);
       assertEquals(LABEL_SPARK_CLUSTER_NAME, workloadConfig.getInformerConfig().getLabelSelector());
+      SparkCluster owner = new SparkCluster();
+      owner.setMetadata(
+          new ObjectMetaBuilder().withName("cluster-1").withNamespace("default").build());
       Workload workload = new Workload();
       workload.setMetadata(
           new ObjectMetaBuilder()
               .withName("workload-1")
               .withNamespace("default")
               .withLabels(Map.of(LABEL_SPARK_CLUSTER_NAME, "cluster-1"))
+              .withOwnerReferences(ModelUtils.buildOwnerReferenceTo(owner))
               .build());
       assertEquals(
           Set.of(new ResourceID("cluster-1", "default")),
           workloadConfig.getSecondaryToPrimaryMapper().toPrimaryResourceIDs(workload));
+      // Not by the name label, which the Workload of an app labeled after a cluster copies
+      SparkApplication app = new SparkApplication();
+      app.setMetadata(new ObjectMetaBuilder().withName("app-1").withNamespace("default").build());
+      Workload appWorkload = new Workload();
+      appWorkload.setMetadata(
+          new ObjectMetaBuilder()
+              .withName("workload-2")
+              .withNamespace("default")
+              .withLabels(Map.of(LABEL_SPARK_CLUSTER_NAME, "cluster-1"))
+              .withOwnerReferences(ModelUtils.buildOwnerReferenceTo(app))
+              .build());
+      assertEquals(
+          Set.of(), workloadConfig.getSecondaryToPrimaryMapper().toPrimaryResourceIDs(appWorkload));
 
       // Only an admission change or a deletion of a Workload triggers a reconciliation
       InformerConfiguration<Workload> informerConfig = workloadConfig.getInformerConfig();

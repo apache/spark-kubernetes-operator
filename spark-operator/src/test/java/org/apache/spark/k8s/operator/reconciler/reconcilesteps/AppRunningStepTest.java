@@ -19,24 +19,26 @@
 
 package org.apache.spark.k8s.operator.reconciler.reconcilesteps;
 
+import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_ROLE_EXECUTOR_VALUE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.context.SparkAppContext;
+import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 import org.apache.spark.k8s.operator.spec.ApplicationTolerations;
@@ -78,35 +80,8 @@ class AppRunningStepTest {
             });
   }
 
-  private Pod createReadyExecutorPod(String name) {
-    return new PodBuilder()
-        .withNewMetadata()
-        .withName(name)
-        .endMetadata()
-        .withNewStatus()
-        .withPhase("Running")
-        .addNewCondition()
-        .withType("Ready")
-        .withStatus("True")
-        .endCondition()
-        .addNewContainerStatus()
-        .withName("executor")
-        .withReady(true)
-        .withNewState()
-        .withNewRunning()
-        .endRunning()
-        .endState()
-        .endContainerStatus()
-        .endStatus()
-        .build();
-  }
-
-  private Set<Pod> createExecutorPods(int count) {
-    Set<Pod> executors = new HashSet<>();
-    for (int k = 0; k < count; k++) {
-      executors.add(createReadyExecutorPod("executor-" + k));
-    }
-    return executors;
+  private static Map<String, Long> readyExecutors(long count) {
+    return Map.of(LABEL_SPARK_ROLE_EXECUTOR_VALUE, count);
   }
 
   @Test
@@ -128,7 +103,7 @@ class AppRunningStepTest {
             new ApplicationState(ApplicationStateSummary.RunningHealthy, "Previous state"));
     app.setStatus(appStatus);
 
-    when(mockContext.getExecutorsForApplication()).thenReturn(createExecutorPods(5));
+    when(mockContext.countReadyPodsByRole()).thenReturn(readyExecutors(5));
 
     appRunningStep.reconcile(mockContext, mockRecorder);
 
@@ -156,7 +131,7 @@ class AppRunningStepTest {
             new ApplicationState(ApplicationStateSummary.DriverReady, "Driver ready"));
     app.setStatus(appStatus);
 
-    when(mockContext.getExecutorsForApplication()).thenReturn(createExecutorPods(5));
+    when(mockContext.countReadyPodsByRole()).thenReturn(readyExecutors(5));
 
     appRunningStep.reconcile(mockContext, mockRecorder);
 
@@ -175,12 +150,55 @@ class AppRunningStepTest {
             new ApplicationState(ApplicationStateSummary.DriverReady, "Driver ready"));
     app.setStatus(appStatus);
 
-    ReconcileProgress progress = appRunningStep.reconcile(mockContext, mockRecorder);
+    ReconcileProgress progress;
+    try (MockedStatic<KueueWorkloadUtils> kueue = mockStatic(KueueWorkloadUtils.class)) {
+      progress = appRunningStep.reconcile(mockContext, mockRecorder);
+      // Even when the state transition ends the reconciliation
+      kueue.verify(() -> KueueWorkloadUtils.recordPodsReady(mockContext));
+    }
 
     assertEquals(
         ApplicationStateSummary.RunningHealthy,
         app.getStatus().getCurrentState().getCurrentStateSummary());
     assertEquals(ReconcileProgress.completeAndImmediateRequeue(), progress);
+  }
+
+  @Test
+  void failedPodsReadyRecordingDoesNotEndTheReconciliation() {
+    // e.g. more initial executors than `spark.executor.instances`, which the Workload requests
+    ExecutorInstanceConfig instanceConfig =
+        ExecutorInstanceConfig.builder().initExecutors(3).minExecutors(1).maxExecutors(3).build();
+    appSpec.setApplicationTolerations(
+        ApplicationTolerations.builder().instanceConfig(instanceConfig).build());
+    appStatus =
+        appStatus.appendNewState(
+            new ApplicationState(
+                ApplicationStateSummary.InitializedBelowThresholdExecutors, "Below threshold"));
+    app.setStatus(appStatus);
+    when(mockContext.countReadyPodsByRole()).thenReturn(readyExecutors(2));
+    Pod runningDriverPod =
+        new PodBuilder()
+            .withNewMetadata()
+            .withName("driver")
+            .endMetadata()
+            .withNewStatus()
+            .withPhase("Running")
+            .endStatus()
+            .build();
+    when(mockContext.getDriverPod()).thenReturn(Optional.of(runningDriverPod));
+
+    ReconcileProgress progress;
+    try (MockedStatic<KueueWorkloadUtils> kueue = mockStatic(KueueWorkloadUtils.class)) {
+      // e.g. without the permission for the `workloads/status` subresource
+      kueue
+          .when(() -> KueueWorkloadUtils.recordPodsReady(mockContext))
+          .thenReturn(Optional.of(ReconcileProgress.completeAndDefaultRequeue()));
+      progress = appRunningStep.reconcile(mockContext, mockRecorder);
+    }
+
+    // The steps after this one still run, e.g. the executor start timeout, and a later
+    // reconciliation retries the recording
+    assertEquals(ReconcileProgress.proceed(), progress);
   }
 
   @Test
@@ -201,7 +219,7 @@ class AppRunningStepTest {
             new ApplicationState(ApplicationStateSummary.DriverReady, "Driver ready"));
     app.setStatus(appStatus);
 
-    when(mockContext.getExecutorsForApplication()).thenReturn(createExecutorPods(10));
+    when(mockContext.countReadyPodsByRole()).thenReturn(readyExecutors(10));
 
     appRunningStep.reconcile(mockContext, mockRecorder);
 
@@ -228,7 +246,7 @@ class AppRunningStepTest {
             new ApplicationState(ApplicationStateSummary.DriverReady, "Driver ready"));
     app.setStatus(appStatus);
 
-    when(mockContext.getExecutorsForApplication()).thenReturn(createExecutorPods(5));
+    when(mockContext.countReadyPodsByRole()).thenReturn(readyExecutors(5));
 
     appRunningStep.reconcile(mockContext, mockRecorder);
 
@@ -255,7 +273,7 @@ class AppRunningStepTest {
             new ApplicationState(ApplicationStateSummary.RunningHealthy, "Previous state"));
     app.setStatus(appStatus);
 
-    when(mockContext.getExecutorsForApplication()).thenReturn(createExecutorPods(3));
+    when(mockContext.countReadyPodsByRole()).thenReturn(readyExecutors(3));
 
     appRunningStep.reconcile(mockContext, mockRecorder);
 
@@ -282,7 +300,7 @@ class AppRunningStepTest {
             new ApplicationState(ApplicationStateSummary.DriverReady, "Driver ready"));
     app.setStatus(appStatus);
 
-    when(mockContext.getExecutorsForApplication()).thenReturn(createExecutorPods(3));
+    when(mockContext.countReadyPodsByRole()).thenReturn(readyExecutors(3));
 
     appRunningStep.reconcile(mockContext, mockRecorder);
 
@@ -308,7 +326,7 @@ class AppRunningStepTest {
             new ApplicationState(ApplicationStateSummary.DriverReady, "Driver ready"));
     app.setStatus(appStatus);
 
-    when(mockContext.getExecutorsForApplication()).thenReturn(createExecutorPods(5));
+    when(mockContext.countReadyPodsByRole()).thenReturn(readyExecutors(5));
 
     appRunningStep.reconcile(mockContext, mockRecorder);
 
@@ -332,7 +350,7 @@ class AppRunningStepTest {
             new ApplicationState(ApplicationStateSummary.DriverReady, "Driver ready"));
     app.setStatus(appStatus);
 
-    when(mockContext.getExecutorsForApplication()).thenReturn(createExecutorPods(3));
+    when(mockContext.countReadyPodsByRole()).thenReturn(readyExecutors(3));
 
     appRunningStep.reconcile(mockContext, mockRecorder);
 
@@ -358,7 +376,7 @@ class AppRunningStepTest {
             new ApplicationState(ApplicationStateSummary.DriverReady, "Driver ready"));
     app.setStatus(appStatus);
 
-    when(mockContext.getExecutorsForApplication()).thenReturn(createExecutorPods(3));
+    when(mockContext.countReadyPodsByRole()).thenReturn(readyExecutors(3));
 
     appRunningStep.reconcile(mockContext, mockRecorder);
 
@@ -389,7 +407,7 @@ class AppRunningStepTest {
 
     // First reconcile: 5 executors (between min and max) -> should transition to
     // RunningWithPartialCapacity
-    when(mockContext.getExecutorsForApplication()).thenReturn(createExecutorPods(5));
+    when(mockContext.countReadyPodsByRole()).thenReturn(readyExecutors(5));
     appRunningStep.reconcile(mockContext, mockRecorder);
 
     ApplicationStateSummary currentState =
@@ -414,7 +432,7 @@ class AppRunningStepTest {
     when(mockContext.getDriverPod()).thenReturn(Optional.of(mockDriverPod));
 
     // Second reconcile: 6 executors (still between min and max) -> should NOT append new state
-    when(mockContext.getExecutorsForApplication()).thenReturn(createExecutorPods(6));
+    when(mockContext.countReadyPodsByRole()).thenReturn(readyExecutors(6));
     appRunningStep.reconcile(mockContext, mockRecorder);
 
     currentState = app.getStatus().getCurrentState().getCurrentStateSummary();
@@ -426,7 +444,7 @@ class AppRunningStepTest {
         "State count should not increase when state doesn't change");
 
     // Third reconcile: 4 executors (still between min and max) -> should NOT append new state
-    when(mockContext.getExecutorsForApplication()).thenReturn(createExecutorPods(4));
+    when(mockContext.countReadyPodsByRole()).thenReturn(readyExecutors(4));
     appRunningStep.reconcile(mockContext, mockRecorder);
 
     currentState = app.getStatus().getCurrentState().getCurrentStateSummary();
@@ -438,7 +456,7 @@ class AppRunningStepTest {
         "State count should not increase when state doesn't change");
 
     // Fourth reconcile: 9 executors (still between min and max) -> should NOT append new state
-    when(mockContext.getExecutorsForApplication()).thenReturn(createExecutorPods(9));
+    when(mockContext.countReadyPodsByRole()).thenReturn(readyExecutors(9));
     appRunningStep.reconcile(mockContext, mockRecorder);
 
     currentState = app.getStatus().getCurrentState().getCurrentStateSummary();
@@ -450,7 +468,7 @@ class AppRunningStepTest {
         "State count should not increase when state doesn't change");
 
     // Fifth reconcile: 10 executors (at max) -> should transition to RunningHealthy
-    when(mockContext.getExecutorsForApplication()).thenReturn(createExecutorPods(10));
+    when(mockContext.countReadyPodsByRole()).thenReturn(readyExecutors(10));
     appRunningStep.reconcile(mockContext, mockRecorder);
 
     currentState = app.getStatus().getCurrentState().getCurrentStateSummary();

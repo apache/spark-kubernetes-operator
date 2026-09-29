@@ -19,6 +19,9 @@
 
 package org.apache.spark.k8s.operator.kueue;
 
+import static java.net.HttpURLConnection.HTTP_CONFLICT;
+import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
+import static java.net.HttpURLConnection.HTTP_UNAVAILABLE;
 import static org.mockito.AdditionalAnswers.delegatesTo;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
@@ -57,6 +60,7 @@ import io.fabric8.kubernetes.client.dsl.NamespaceableResource;
 import io.fabric8.kubernetes.client.dsl.NonNamespaceOperation;
 import io.fabric8.kubernetes.client.dsl.Resource;
 import io.fabric8.kubernetes.client.server.mock.EnableKubernetesMockClient;
+import io.fabric8.kubernetes.client.server.mock.KubernetesMockServer;
 import io.javaoperatorsdk.operator.api.event.EventRecord;
 import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
 import org.junit.jupiter.api.AfterEach;
@@ -95,7 +99,10 @@ import org.apache.spark.k8s.operator.utils.TestUtils;
     justification = "Unwritten fields are covered by Kubernetes mock client")
 class KueueWorkloadUtilsTest {
   private static final String NAME = "sparkapplication-app-1";
+  private static final String STATUS_PATH =
+      "/apis/kueue.x-k8s.io/v1beta2/namespaces/default/workloads/" + NAME + "/status";
 
+  private KubernetesMockServer server;
   private KubernetesClient kubernetesClient;
 
   @BeforeEach
@@ -395,7 +402,7 @@ class KueueWorkloadUtilsTest {
       Assertions.assertFalse(KueueWorkloadUtils.isKeptOnEviction(evicted), reason);
     }
 
-    // The operator does not report PodsReady, so every admitted Workload would time out again
+    // The pods of a running cluster which are not ready in time are not released yet
     Workload podsReadyTimeout = workload("owner-uid-1", 1);
     podsReadyTimeout.setStatus(evictedStatus("PodsReadyTimeout"));
     Assertions.assertTrue(KueueWorkloadUtils.isKeptOnEviction(podsReadyTimeout));
@@ -727,6 +734,192 @@ class KueueWorkloadUtilsTest {
 
     // The fallback must not drop the record of a Workload which already released its quota
     verify(resource, never()).delete();
+  }
+
+  @Test
+  void podsReadyIsRecordedOnceThePodsOfEveryPodSetAreReady() {
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithDriver());
+    admitWorkload();
+    SparkAppContext context = readyPodsContext(1, 1);
+
+    // One of the executors which the Workload was admitted for is not ready yet
+    Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.recordPodsReady(context));
+    Assertions.assertEquals(0L, countConditions(getWorkload(), "PodsReady"));
+    // Nor is the driver
+    stubReadyPods(context, 0, 2);
+    Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.recordPodsReady(context));
+    Assertions.assertEquals(0L, countConditions(getWorkload(), "PodsReady"));
+
+    stubReadyPods(context, 1, 2);
+    Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.recordPodsReady(context));
+
+    Workload workload = getWorkload();
+    Condition condition = findCondition(workload, "PodsReady");
+    Assertions.assertEquals("True", condition.getStatus());
+    Assertions.assertEquals("Started", condition.getReason());
+    Assertions.assertNotNull(condition.getMessage());
+    Assertions.assertNotNull(condition.getLastTransitionTime());
+    // The conditions which Kueue recorded are kept
+    Assertions.assertTrue(workload.getStatus().isAdmitted());
+  }
+
+  @Test
+  void podsReadyIsRecordedOnce() {
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithDriver());
+    admitWorkload();
+    Workload stale = getWorkload();
+    SparkAppContext context = readyPodsContext(1, 2);
+    KueueWorkloadUtils.recordPodsReady(context);
+    String resourceVersion = getWorkload().getMetadata().getResourceVersion();
+
+    // The informer cache may not have seen the condition recorded by an earlier reconciliation
+    when(context.getCachedKueueWorkload()).thenReturn(Optional.of(stale));
+    Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.recordPodsReady(context));
+    // Unlike Kueue built-in integrations, a pod lost later, e.g. an executor which Spark
+    // replaces, does not set the condition back to `False`
+    when(context.getCachedKueueWorkload()).thenAnswer(i -> Optional.ofNullable(getWorkload()));
+    stubReadyPods(context, 1, 1);
+    Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.recordPodsReady(context));
+
+    Assertions.assertEquals(resourceVersion, getWorkload().getMetadata().getResourceVersion());
+    Assertions.assertEquals(1L, countConditions(getWorkload(), "PodsReady"));
+    Assertions.assertEquals("True", findCondition(getWorkload(), "PodsReady").getStatus());
+  }
+
+  @Test
+  void podsReadyIsCheckedAgainstThePodSetsOfTheWorkloadWhichIsReadAgain() {
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithDriver());
+    admitWorkload();
+    SparkAppContext context = readyPodsContext(1, 1);
+    // The cache may still hold the Workload which one of the same name replaced, e.g. for a
+    // resumed cluster with more workers
+    Workload replaced = getWorkload();
+    replaced
+        .getSpec()
+        .setPodSets(
+            List.of(
+                PodSet.builder().name("driver").count(1).build(),
+                PodSet.builder().name("executor").count(1).build()));
+    when(context.getCachedKueueWorkload()).thenReturn(Optional.of(replaced));
+
+    Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.recordPodsReady(context));
+
+    Assertions.assertEquals(0L, countConditions(getWorkload(), "PodsReady"));
+  }
+
+  @Test
+  void podsReadyReplacesAPodsReadyConditionWhichIsNotTrue() {
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithDriver());
+    admit(admittedWithPodsReady("False"));
+
+    Assertions.assertEquals(
+        Optional.empty(), KueueWorkloadUtils.recordPodsReady(readyPodsContext(1, 2)));
+
+    // The conditions are a map keyed by the type, so a second `PodsReady` entry would be rejected
+    Assertions.assertEquals(1L, countConditions(getWorkload(), "PodsReady"));
+    Condition condition = findCondition(getWorkload(), "PodsReady");
+    Assertions.assertEquals("True", condition.getStatus());
+    Assertions.assertEquals("Started", condition.getReason());
+  }
+
+  @Test
+  void podsReadyCostsNoRequestUnlessTheCachedWorkloadNeedsIt() {
+    KubernetesClient client = mock(KubernetesClient.class);
+    SparkAppContext context = context(client);
+    stubReadyPods(context, 1, 2);
+
+    // A resource without a Workload, e.g. one which is not queued
+    Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.recordPodsReady(context));
+
+    Workload pending = workloadWithDriver();
+    when(context.getCachedKueueWorkload()).thenReturn(Optional.of(pending));
+    Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.recordPodsReady(context));
+
+    Workload recorded = workloadWithDriver();
+    recorded.setStatus(admittedWithPodsReady("True"));
+    when(context.getCachedKueueWorkload()).thenReturn(Optional.of(recorded));
+    Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.recordPodsReady(context));
+
+    // An admitted Workload whose pods are still starting
+    Workload admitted = workloadWithDriver();
+    admitted.setStatus(status("Admitted", "True"));
+    when(context.getCachedKueueWorkload()).thenReturn(Optional.of(admitted));
+    stubReadyPods(context, 1, 1);
+    Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.recordPodsReady(context));
+
+    verifyNoInteractions(client);
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {HTTP_CONFLICT, HTTP_UNAVAILABLE})
+  void podsReadyUpdateWhichFailsOnItsOwnIsRetriedShortly(final int code) {
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithDriver());
+    admitWorkload();
+    SparkAppContext context = readyPodsContext(1, 2);
+    // The update carries the resourceVersion which was read, so a concurrent update by Kueue
+    // rejects it, which goes away on its own like a transport level failure
+    server.expect().patch().withPath(STATUS_PATH).andReturn(code, null).once();
+
+    Assertions.assertEquals(
+        Optional.of(
+            ReconcileProgress.completeAndRequeueAfter(
+                KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL)),
+        KueueWorkloadUtils.recordPodsReady(context));
+
+    // The client does not retry the request in place, which would hold the reconciliation
+    Assertions.assertEquals(0L, countConditions(getWorkload(), "PodsReady"));
+    verifyNoInteractions(context.getEventRecorder());
+  }
+
+  @Test
+  void persistentPodsReadyUpdateFailureIsReported() {
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithDriver());
+    admitWorkload();
+    SparkAppContext context = readyPodsContext(1, 2);
+    ResourceEventRecorder eventRecorder = mock(ResourceEventRecorder.class);
+    when(context.getEventRecorder()).thenReturn(eventRecorder);
+    // e.g. without the permission for the `workloads/status` subresource
+    server.expect().patch().withPath(STATUS_PATH).andReturn(HTTP_FORBIDDEN, null).once();
+
+    Assertions.assertEquals(
+        Optional.of(ReconcileProgress.completeAndDefaultRequeue()),
+        KueueWorkloadUtils.recordPodsReady(context));
+
+    ArgumentCaptor<EventRecord> captor = ArgumentCaptor.forClass(EventRecord.class);
+    verify(eventRecorder).record(captor.capture());
+    Assertions.assertEquals(
+        EventUtils.REASON_KUEUE_PODS_READY_UPDATE_FAILED, captor.getValue().reason());
+    // Unlike a failure to finish it, the Workload is not released, since its pods are running
+    Assertions.assertNotNull(getWorkload());
+  }
+
+  /** Returns a context whose cache follows the Workload in the API server, like the informer. */
+  private SparkAppContext readyPodsContext(final long readyDrivers, final long readyExecutors) {
+    SparkAppContext context = context(kubernetesClient);
+    when(context.getCachedKueueWorkload()).thenAnswer(i -> Optional.ofNullable(getWorkload()));
+    stubReadyPods(context, readyDrivers, readyExecutors);
+    return context;
+  }
+
+  private static void stubReadyPods(
+      final SparkAppContext context, final long readyDrivers, final long readyExecutors) {
+    when(context.countReadyPodsByRole())
+        .thenReturn(Map.of("driver", readyDrivers, "executor", readyExecutors));
+  }
+
+  private static WorkloadStatus admittedWithPodsReady(final String podsReadyStatus) {
+    return WorkloadStatus.builder()
+        .conditions(
+            List.of(
+                new ConditionBuilder().withType("Admitted").withStatus("True").build(),
+                new ConditionBuilder().withType("PodsReady").withStatus(podsReadyStatus).build()))
+        .build();
+  }
+
+  private static long countConditions(final Workload workload, final String type) {
+    return workload.getStatus().getConditions().stream()
+        .filter(condition -> type.equals(condition.getType()))
+        .count();
   }
 
   @SuppressWarnings("unchecked")
@@ -1507,6 +1700,17 @@ class KueueWorkloadUtilsTest {
                 .withNodeSelector(nodeSelector)
                 .endSpec()
                 .build());
+    return workload;
+  }
+
+  private static Workload workloadWithDriver() {
+    Workload workload = workload("owner-uid-1", 2);
+    workload
+        .getSpec()
+        .setPodSets(
+            List.of(
+                PodSet.builder().name("driver").count(1).build(),
+                PodSet.builder().name("executor").count(2).build()));
     return workload;
   }
 

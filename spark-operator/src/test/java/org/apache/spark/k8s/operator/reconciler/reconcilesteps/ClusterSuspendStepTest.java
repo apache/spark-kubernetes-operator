@@ -19,6 +19,7 @@
 
 package org.apache.spark.k8s.operator.reconciler.reconcilesteps;
 
+import static java.net.HttpURLConnection.HTTP_CONFLICT;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
@@ -59,6 +60,7 @@ import io.fabric8.kubernetes.client.dsl.NonNamespaceOperation;
 import io.fabric8.kubernetes.client.dsl.PodResource;
 import io.fabric8.kubernetes.client.dsl.Resource;
 import io.fabric8.kubernetes.client.server.mock.EnableKubernetesMockClient;
+import io.fabric8.kubernetes.client.server.mock.KubernetesMockServer;
 import io.javaoperatorsdk.operator.api.event.EventRecord;
 import io.javaoperatorsdk.operator.api.event.EventType;
 import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
@@ -76,6 +78,7 @@ import org.apache.spark.k8s.operator.SparkCluster;
 import org.apache.spark.k8s.operator.config.SparkOperatorConf;
 import org.apache.spark.k8s.operator.context.SparkClusterContext;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadFactory;
+import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils;
 import org.apache.spark.k8s.operator.kueue.v1beta2.RequeueState;
 import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
 import org.apache.spark.k8s.operator.kueue.v1beta2.WorkloadStatus;
@@ -96,6 +99,10 @@ import org.apache.spark.k8s.operator.utils.TestUtils;
     value = {"UWF_UNWRITTEN_FIELD", "NP_UNWRITTEN_FIELD"},
     justification = "Unwritten fields are covered by Kubernetes mock client")
 class ClusterSuspendStepTest {
+  private static final String WORKLOAD_STATUS_PATH =
+      "/apis/kueue.x-k8s.io/v1beta2/namespaces/default/workloads/sparkcluster-cluster1/status";
+
+  private KubernetesMockServer server;
   private KubernetesClient kubernetesClient;
 
   // The default of spark.kubernetes.operator.reconciler.suspendHoldRequeueIntervalSeconds
@@ -691,13 +698,70 @@ class ClusterSuspendStepTest {
   }
 
   @Test
+  void runningClusterRecordsPodsReadyOnceItsMasterAndWorkersAreReady() {
+    SparkCluster cluster = buildKueueCluster(ClusterStateSummary.RunningHealthy, false);
+    stubContext(cluster);
+    createWorkload(cluster, admittedStatus());
+    stubReadyPods(1L, 0L);
+
+    // RunningHealthy does not wait for the pods, so the worker may not be ready yet
+    Assertions.assertEquals(
+        ReconcileProgress.proceed(), new ClusterSuspendStep().reconcile(mockContext, recorder));
+    Assertions.assertFalse(getWorkload().getStatus().isPodsReady());
+
+    stubReadyPods(1L, 1L);
+    Assertions.assertEquals(
+        ReconcileProgress.proceed(), new ClusterSuspendStep().reconcile(mockContext, recorder));
+
+    // So that the waitForPodsReady timeout of Kueue does not evict the running cluster
+    Assertions.assertTrue(getWorkload().getStatus().isPodsReady());
+    verifyNoInteractions(recorder);
+  }
+
+  @Test
+  void failedPodsReadyRecordingIsRetriedShortly() {
+    SparkCluster cluster = buildKueueCluster(ClusterStateSummary.RunningHealthy, false);
+    stubContext(cluster);
+    createWorkload(cluster, admittedStatus());
+    stubReadyPods(1L, 1L);
+    // A concurrent update by Kueue
+    server.expect().patch().withPath(WORKLOAD_STATUS_PATH).andReturn(HTTP_CONFLICT, null).once();
+
+    // Rather than with the default interval, which may exceed the waitForPodsReady timeout
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndRequeueAfter(
+            KueueWorkloadUtils.STALE_WORKLOAD_REQUEUE_INTERVAL),
+        new ClusterSuspendStep().reconcile(mockContext, recorder));
+
+    Assertions.assertFalse(getWorkload().getStatus().isPodsReady());
+    verifyNoInteractions(recorder);
+  }
+
+  @Test
+  void podsReadyIsRecordedAfterAPodsReadyTimeout() {
+    SparkCluster cluster = buildKueueCluster(ClusterStateSummary.RunningHealthy, false);
+    stubContext(cluster);
+    createWorkload(cluster, evictedStatus("PodsReadyTimeout"));
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+    stubReadyPods(1L, 1L);
+
+    Assertions.assertEquals(
+        ReconcileProgress.proceed(), new ClusterSuspendStep().reconcile(mockContext, recorder));
+
+    // Kueue keeps counting the quota of the Workload, so that with blockAdmission, it would hold
+    // back every other workload without the condition
+    Assertions.assertTrue(getWorkload().getStatus().isPodsReady());
+    verifyNoInteractions(recorder);
+  }
+
+  @Test
   void podsReadyTimeoutIsReportedAndIgnored() {
     SparkCluster cluster = buildKueueCluster(ClusterStateSummary.RunningHealthy, false);
     stubContext(cluster);
     createWorkload(cluster, evictedStatus("PodsReadyTimeout"));
     when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
 
-    // Kueue keeps counting its quota, and every attempt would time out again
+    // Kueue keeps counting its quota, while the master and workers are not released yet
     Assertions.assertEquals(
         ReconcileProgress.proceed(), new ClusterSuspendStep().reconcile(mockContext, recorder));
 
@@ -857,6 +921,20 @@ class ClusterSuspendStepTest {
     ClusterState state = status.getValue().getCurrentState();
     Assertions.assertEquals(ClusterStateSummary.Submitted, state.getCurrentStateSummary());
     return state;
+  }
+
+  private static WorkloadStatus admittedStatus() {
+    return WorkloadStatus.builder()
+        .conditions(List.of(new ConditionBuilder().withType("Admitted").withStatus("True").build()))
+        .build();
+  }
+
+  private void stubReadyPods(long masters, long workers) {
+    when(mockContext.countReadyPodsByRole())
+        .thenReturn(
+            Map.of(
+                Constants.LABEL_SPARK_ROLE_MASTER_VALUE, masters,
+                Constants.LABEL_SPARK_ROLE_WORKER_VALUE, workers));
   }
 
   private static WorkloadStatus evictedStatus(String reason) {

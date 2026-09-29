@@ -19,11 +19,14 @@
 
 package org.apache.spark.k8s.operator.context;
 
+import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_ROLE_NAME;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.KUEUE_ENABLED;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
+import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
@@ -31,6 +34,7 @@ import io.javaoperatorsdk.operator.api.reconciler.Context;
 import org.apache.spark.k8s.operator.BaseResource;
 import org.apache.spark.k8s.operator.kueue.KueuePodSetFlavor;
 import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
+import org.apache.spark.k8s.operator.utils.PodUtils;
 
 /**
  * Base class for context objects.
@@ -44,6 +48,9 @@ public abstract class BaseContext<CR extends BaseResource<?, ?, ?, ?, ?>> {
 
   /** The flavors which Kueue assigned to the pod sets, applied to the secondary resources. */
   protected Map<String, KueuePodSetFlavor> kueuePodSetFlavors = Map.of();
+
+  /** The ready pods by Spark role, see {@link #countReadyPodsByRole}. */
+  private Map<String, Long> readyPodsByRole;
 
   /**
    * Constructs a context over the given JOSDK reconciliation context.
@@ -102,6 +109,32 @@ public abstract class BaseContext<CR extends BaseResource<?, ?, ?, ?, ?>> {
       return Optional.empty();
     }
     return josdkContext.getSecondaryResource(Workload.class);
+  }
+
+  /**
+   * Counts the ready pods of the resource per Spark role in the informer cache, once for the
+   * lifetime of this context, since a reconciliation may check them more than once.
+   *
+   * @return The number of the ready pods by the value of their `spark-role` label, e.g. `executor`
+   *     or `worker`.
+   */
+  public Map<String, Long> countReadyPodsByRole() {
+    synchronized (this) {
+      if (readyPodsByRole == null) {
+        readyPodsByRole =
+            josdkContext
+                .getSecondaryResourcesAsStream(Pod.class)
+                // Required, since `groupingBy` rejects a null key, and a pod without the role,
+                // e.g. a client with the cluster name label, is a secondary resource as well.
+                .filter(pod -> pod.getMetadata().getLabels().containsKey(LABEL_SPARK_ROLE_NAME))
+                .filter(PodUtils::isPodReady)
+                .collect(
+                    Collectors.groupingBy(
+                        pod -> pod.getMetadata().getLabels().get(LABEL_SPARK_ROLE_NAME),
+                        Collectors.counting()));
+      }
+      return readyPodsByRole;
+    }
   }
 
   /**

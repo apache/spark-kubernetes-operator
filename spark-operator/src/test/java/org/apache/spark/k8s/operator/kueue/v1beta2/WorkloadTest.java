@@ -157,6 +157,17 @@ class WorkloadTest {
         new ConditionBuilder().withType("Finished").withStatus("True").build();
     status.getConditions().add(finished);
     assertTrue(status.isFinished());
+
+    assertFalse(status.isPodsReady());
+    Condition waitForStart =
+        new ConditionBuilder().withType("PodsReady").withStatus("False").build();
+    status.getConditions().add(waitForStart);
+    assertFalse(status.isPodsReady());
+
+    Condition podsReady =
+        new ConditionBuilder().withType("PodsReady").withStatus("True").build();
+    status.getConditions().add(podsReady);
+    assertTrue(status.isPodsReady());
   }
 
   @Test
@@ -174,6 +185,7 @@ class WorkloadTest {
     assertFalse(json.has("admitted"));
     assertFalse(json.has("quotaReserved"));
     assertFalse(json.has("finished"));
+    assertFalse(json.has("podsReady"));
   }
 
   @Test

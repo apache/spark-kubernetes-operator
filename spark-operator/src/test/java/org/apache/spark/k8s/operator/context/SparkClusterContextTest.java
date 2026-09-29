@@ -20,15 +20,19 @@
 package org.apache.spark.k8s.operator.context;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
+import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.api.model.PodSpec;
 import io.fabric8.kubernetes.api.model.Toleration;
 import io.fabric8.kubernetes.api.model.apps.StatefulSet;
@@ -103,6 +107,48 @@ class SparkClusterContextTest {
     } finally {
       TestUtils.setConfigKey(SparkOperatorConf.KUEUE_ENABLED, false);
     }
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void readyPodsAreCountedPerSparkRoleOnce() {
+    Context<SparkCluster> josdkContext = mock(Context.class);
+    when(josdkContext.getSecondaryResourcesAsStream(Pod.class))
+        .thenAnswer(
+            i ->
+                Stream.of(
+                    pod(Constants.LABEL_SPARK_ROLE_MASTER_VALUE, true),
+                    pod(Constants.LABEL_SPARK_ROLE_WORKER_VALUE, true),
+                    pod(Constants.LABEL_SPARK_ROLE_WORKER_VALUE, false),
+                    // e.g. a client which carries the cluster label to reach the workers
+                    pod(null, true)));
+    SparkClusterContext context =
+        new SparkClusterContext(buildCluster(), josdkContext, new SparkClusterSubmissionWorker());
+
+    Map<String, Long> expected =
+        Map.of(
+            Constants.LABEL_SPARK_ROLE_MASTER_VALUE, 1L,
+            Constants.LABEL_SPARK_ROLE_WORKER_VALUE, 1L);
+    Assertions.assertEquals(expected, context.countReadyPodsByRole());
+    // A reconciliation which checks them again shares the count
+    Assertions.assertEquals(expected, context.countReadyPodsByRole());
+    verify(josdkContext).getSecondaryResourcesAsStream(Pod.class);
+  }
+
+  private static Pod pod(String role, boolean ready) {
+    return new PodBuilder()
+        .withNewMetadata()
+        .withName("pod")
+        .withLabels(role == null ? Map.of() : Map.of(Constants.LABEL_SPARK_ROLE_NAME, role))
+        .endMetadata()
+        .withNewStatus()
+        .withPhase("Running")
+        .addNewCondition()
+        .withType("Ready")
+        .withStatus(String.valueOf(ready))
+        .endCondition()
+        .endStatus()
+        .build();
   }
 
   private static String asJson(Object value) {
