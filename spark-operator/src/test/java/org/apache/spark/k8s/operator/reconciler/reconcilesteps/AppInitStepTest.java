@@ -583,15 +583,13 @@ class AppInitStepTest {
     Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
     verify(mockContext, never()).getDriverPodSpec();
     verifyNoInteractions(recorder);
-    ArgumentCaptor<EventRecord> event = ArgumentCaptor.forClass(EventRecord.class);
-    verify(eventRecorder).record(event.capture());
-    Assertions.assertEquals(EventType.WARNING, event.getValue().type());
-    Assertions.assertEquals(EventUtils.REASON_SUSPEND_CHECK_FAILED, event.getValue().reason());
-    Assertions.assertTrue(
-        event.getValue().message().contains("driver of the suspended SparkApplication"),
-        event.getValue().message());
-    Assertions.assertFalse(
-        event.getValue().message().contains("would not be requested"), event.getValue().message());
+    EventRecord event = captureEvents(1).get(0);
+    Assertions.assertEquals(EventType.WARNING, event.type());
+    Assertions.assertEquals(EventUtils.REASON_SUSPEND_CHECK_FAILED, event.reason());
+    Assertions.assertEquals(
+        "Failed to check whether the driver of the suspended SparkApplication was requested, "
+            + "will retry. KubernetesClientException: rejected",
+        event.message());
   }
 
   @Test
