@@ -42,6 +42,7 @@ import io.fabric8.kubernetes.api.model.apps.StatefulSet;
 import lombok.extern.slf4j.Slf4j;
 
 import org.apache.spark.k8s.operator.Constants;
+import org.apache.spark.k8s.operator.SparkAppSubmissionWorker;
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.SparkCluster;
 import org.apache.spark.k8s.operator.SparkClusterResourceSpec;
@@ -65,10 +66,11 @@ import org.apache.spark.network.util.JavaUtils;
 @Slf4j
 public final class KueueWorkloadFactory {
 
-  public static final String PODSET_DRIVER = "driver";
-  public static final String PODSET_EXECUTOR = "executor";
-  public static final String PODSET_MASTER = "master";
-  public static final String PODSET_WORKER = "worker";
+  // Named after the Spark roles of the pods, which KueueWorkloadUtils#recordPodsReady relies on
+  public static final String PODSET_DRIVER = Constants.LABEL_SPARK_ROLE_DRIVER_VALUE;
+  public static final String PODSET_EXECUTOR = Constants.LABEL_SPARK_ROLE_EXECUTOR_VALUE;
+  public static final String PODSET_MASTER = Constants.LABEL_SPARK_ROLE_MASTER_VALUE;
+  public static final String PODSET_WORKER = Constants.LABEL_SPARK_ROLE_WORKER_VALUE;
 
   private static final String DEFAULT_CORES = "1";
   private static final String DEFAULT_MEMORY = "1g";
@@ -95,9 +97,19 @@ public final class KueueWorkloadFactory {
           "Kueue does not support SparkApplication with dynamic allocation "
               + "(spark.dynamicAllocation.enabled=true) yet.");
     }
-    // Like Spark's KubernetesClusterManager, `local[*]` runs the driver only without executors.
+    // Like Spark, only the KubernetesClusterManager of a `k8s` master URL runs the executors in
+    // pods, unless it runs the driver only by `local[*]`. Another cluster manager, e.g. the one of
+    // a SparkCluster, runs them elsewhere. Without `spark.master`, the master URL is built like the
+    // SparkAppSubmissionWorker does.
+    String master =
+        sparkConf.getOrDefault(
+            "spark.master",
+            sparkConf.getOrDefault(
+                SparkAppSubmissionWorker.MASTER_URL_PREFIX_PROPS_NAME,
+                SparkAppSubmissionWorker.DEFAULT_MASTER_URL_PREFIX));
     boolean driverOnly =
-        sparkConf.getOrDefault("spark.kubernetes.driver.master", "").startsWith("local");
+        !master.startsWith("k8s")
+            || sparkConf.getOrDefault("spark.kubernetes.driver.master", "").startsWith("local");
     checkNoPodTemplateFile(
         sparkConf,
         Constants.DRIVER_SPARK_TEMPLATE_FILE_PROP_KEY,

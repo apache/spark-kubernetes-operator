@@ -204,9 +204,17 @@ jobs:
         if: matrix.mode == 'kueue'
         run: |
           kubectl apply --server-side -f https://github.com/kubernetes-sigs/kueue/releases/download/${{ env.KUEUE_VERSION }}/manifests.yaml
+          # Kueue enables waitForPodsReady by default with a 30 minute timeout. Shorten it, so that a
+          # Workload whose pods are not ready is evicted within the test. A Kueue version which sets
+          # it already fails here, rather than with a duplicate key which Kueue rejects on start.
+          set -o pipefail
+          kubectl get configmap kueue-manager-config -n kueue-system -o json \
+            | jq '.data["controller_manager_config.yaml"] |= if ("\n" + .) | contains("\nwaitForPodsReady:") then error("waitForPodsReady is configured already") else . + "\nwaitForPodsReady:\n  timeout: 2m\n" end' \
+            | kubectl replace -f -
+          kubectl rollout restart deploy/kueue-controller-manager -n kueue-system
           # Kueue installs webhooks for pods, deployments and statefulsets with failurePolicy=Fail,
           # so wait for the controller (whose readyz covers the webhook server) before helm install.
-          kubectl wait deploy/kueue-controller-manager -n kueue-system --for=condition=Available --timeout=5m
+          kubectl rollout status deploy/kueue-controller-manager -n kueue-system --timeout=5m
       - name: Run Spark K8s Operator on K8S with Dynamic Configuration Disabled
         if: matrix.mode == 'static'
         run: |

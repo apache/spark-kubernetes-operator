@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -265,6 +266,27 @@ class KueueWorkloadFactoryTest {
     Container driverContainer =
         driverPodSet.getTemplate().getSpec().getContainers().get(0);
     assertEquals(new Quantity("5"), driverContainer.getResources().getRequests().get("cpu"));
+  }
+
+  @Test
+  void testBuildWorkloadDriverOnlyWithoutKubernetesExecutors() {
+    SparkApplication app = new SparkApplication();
+    app.setMetadata(
+        new ObjectMetaBuilder().withName("spark-connect").withNamespace("default").build());
+    ApplicationSpec spec = new ApplicationSpec();
+    app.setSpec(spec);
+
+    // The executors run in the workers of a SparkCluster, or within the driver
+    for (String master : List.of("spark://prod-master-svc:7077", "local[*]")) {
+      spec.setSparkConf(Map.of("spark.master", master));
+      assertEquals(1, KueueWorkloadFactory.buildWorkload(app).getSpec().getPodSets().size());
+    }
+    // Like the master URL which the submission worker builds with the prefix
+    spec.setSparkConf(Map.of("spark.master.url.prefix", "custom://"));
+    assertEquals(1, KueueWorkloadFactory.buildWorkload(app).getSpec().getPodSets().size());
+
+    spec.setSparkConf(Map.of("spark.master", "k8s://https://kubernetes.default.svc"));
+    assertEquals(2, KueueWorkloadFactory.buildWorkload(app).getSpec().getPodSets().size());
   }
 
   @Test

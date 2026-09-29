@@ -163,9 +163,10 @@ public class SparkClusterReconciler implements Reconciler<SparkCluster>, Cleaner
     if (KUEUE_ENABLED.getValue()) {
       eventSources.add(
           new InformerEventSource<>(
+              // Mapped to its owner by the owner reference, the default, rather than by the name
+              // label, since the Workload copies the labels of its owner, which may name another
+              // resource.
               InformerEventSourceConfiguration.from(Workload.class, SparkCluster.class)
-                  .withSecondaryToPrimaryMapper(
-                      basicLabelSecondaryToPrimaryMapper(LABEL_SPARK_CLUSTER_NAME))
                   .withLabelSelector(LABEL_SPARK_CLUSTER_NAME)
                   // Only an admission change, including an eviction or a (de)activation, or a
                   // deletion needs a reconciliation. The operator creates the Workload itself,

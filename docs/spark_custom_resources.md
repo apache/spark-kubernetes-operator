@@ -751,15 +751,30 @@ spec:
 * A running `SparkCluster` whose `Workload` is deactivated is released as well, since Kueue stops
   counting its quota right away. Unlike an evicted one, the operator keeps the `Workload`, so the
   cluster stays `Suspended` until the `Workload` is reactivated, and then it is queued again.
-* A `PodsReadyTimeout` of the `waitForPodsReady` configuration is not acted on for a running
-  `SparkCluster`, and the `KueueEvictionIgnored` [event](configuration.md#kubernetes-events) is
-  published instead, since the operator does not report the `PodsReady` condition, so it would
-  recur on every attempt. Kueue keeps counting the quota of such a `Workload`, so suspend or delete
-  the cluster to release it.
-* Preemption is not honored yet after the driver of a `SparkApplication` is requested. The operator
-  checks the admission only before it creates the resources, so after a later eviction the driver
-  and executors keep running. An evicted `Workload` keeps its Kueue quota meanwhile, while a
-  deactivated one no longer counts against it.
+* Like Kueue built-in integrations, the operator records the `PodsReady` condition on the
+  `Workload` once as many pods of each of its pod sets as requested are ready: the driver and
+  `spark.executor.instances` executors of a `SparkApplication`, regardless of the executor
+  thresholds of its `applicationTolerations`, or the master and workers of a `SparkCluster`. The
+  `Workload` of an application whose executors are not pods has the driver pod set only, and so
+  requests no quota for them, e.g. with the `spark://` master URL of a `SparkCluster` as
+  `spark.master`, or with `spark.kubernetes.driver.master` set to `local[*]`. Kueue
+  enables its `waitForPodsReady` configuration by default since v0.19, which evicts a `Workload`
+  whose pods are not ready within the `timeout` (30 minutes by default) after its admission, so a
+  resource which starts in time is not evicted, and `blockAdmission` admits the next workload once
+  the pods are ready. Unlike Kueue built-in integrations, the condition stays `True` when a pod is
+  lost later, e.g. an executor which Spark replaces, so the `recoveryTimeout` does not apply.
+* A `PodsReadyTimeout` of a running `SparkCluster`, whose master or workers are not ready in time,
+  is not acted on yet, and the `KueueEvictionIgnored` [event](configuration.md#kubernetes-events)
+  is published instead. Kueue keeps counting the quota of such a `Workload`, so suspend or delete
+  the cluster to release it. The `PodsReady` condition is still recorded once the master and
+  workers are ready, so that `blockAdmission` admits the next workload.
+* Preemption is not honored yet after the driver of a `SparkApplication` is requested, and neither
+  is a `PodsReadyTimeout`, e.g. of an application which runs with fewer executors than
+  `spark.executor.instances`. The operator checks the admission only before it creates the
+  resources, so after a later eviction the driver and executors keep running. An evicted
+  `Workload` keeps its Kueue quota meanwhile, while a deactivated one no longer counts against it.
+  With `blockAdmission`, an application whose pods are not all ready holds back every other
+  workload until they are ready or its quota is released as described above.
 
 ## Spark Cluster
 
