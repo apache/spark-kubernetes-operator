@@ -903,7 +903,9 @@ spec:
             namespace: default
           status:
             (conditions[?type == 'Evicted' && status == 'True' && reason == 'PodsReadyTimeout'] | length(@)): 1
-    # A running cluster is not released on it yet
+    # Like on a preemption, the operator releases the master and worker first and then the Workload
+    # once its requeue backoff, which the CI shortens to 10 seconds, elapses, and the cluster is
+    # queued again.
     - assert:
         timeout: 60s
         resource:
@@ -914,8 +916,21 @@ spec:
           involvedObject:
             kind: SparkCluster
             name: spark-cluster-kueue-pods-not-ready-test
-          type: Warning
-          reason: KueueEvictionIgnored
+          reason: Suspended
+          (contains(message || '', 'evicted by Kueue')): true
+          (contains(message || '', 'PodsReadyTimeout')): true
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: v1
+          kind: Event
+          metadata:
+            namespace: default
+          involvedObject:
+            kind: SparkCluster
+            name: spark-cluster-kueue-pods-not-ready-test
+          reason: Submitted
+          (contains(message || '', 'after its eviction')): true
     # The cluster whose master and worker are ready is not evicted
     - assert:
         timeout: 30s
@@ -927,6 +942,19 @@ spec:
             namespace: default
           status:
             (conditions[?type == 'Evicted' && status == 'True'] | length(@)): 0
+    # Nor was it evicted before, which the check above misses once the evicted Workload is replaced
+    # by a new one of the same name
+    - error:
+        timeout: 10s
+        resource:
+          apiVersion: v1
+          kind: Event
+          metadata:
+            namespace: default
+          involvedObject:
+            kind: SparkCluster
+            name: spark-cluster-kueue-pods-ready-test
+          reason: Suspended
     catch:
     - describe:
         apiVersion: spark.apache.org/v1

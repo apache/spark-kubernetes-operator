@@ -213,8 +213,8 @@ stateDiagram-v2
 * Spark clusters are expected to be always running after submitted, until they are suspended by
   [`spec.suspend`](spark_custom_resources.md#suspend). A cluster queued by
   [Kueue](spark_custom_resources.md#kueue) is suspended as well when Kueue evicts its `Workload`,
-  and moves to `Submitted` once its master and workers are released, or once its `Workload` is
-  reactivated if it was deactivated.
+  and moves to `Submitted` once its master and workers are released and the requeue backoff of its
+  `Workload` elapsed, or once its `Workload` is reactivated if it was deactivated.
 * Apart from `spec.suspend` and a Kueue eviction, a cluster leaves `RunningHealthy`, `Suspended` or
   `Failed` only when its custom resource is deleted. At that point, the K8s resources created for the cluster are
   garbage collected through their `ownerReference` to the `SparkCluster` custom resource.

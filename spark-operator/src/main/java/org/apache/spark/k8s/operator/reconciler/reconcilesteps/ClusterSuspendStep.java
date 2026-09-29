@@ -124,7 +124,13 @@ public final class ClusterSuspendStep extends ClusterReconcileStep {
       Optional<ReconcileProgress> waiting =
           releaseResources(context, statusRecorder, keepWorkload.isEmpty());
       if (waiting.isPresent()) {
-        return waiting.get();
+        // Pods which are stuck terminating are looked at again only as often as a suspended
+        // cluster otherwise, while the Workload which they no longer hold is released once its
+        // backoff elapses, when nothing else reconciles the cluster
+        return keepWorkload
+            .filter(backoff -> backoff.compareTo(waiting.get().getRequeueAfterDuration()) < 0)
+            .map(ReconcileProgress::completeAndRequeueAfter)
+            .orElse(waiting.get());
       }
       if (keepWorkload.isPresent()) {
         return completeAndRequeueAfter(keepWorkload.get());
@@ -153,12 +159,11 @@ public final class ClusterSuspendStep extends ClusterReconcileStep {
    * Suspends a running cluster whose Kueue Workload is evicted, so that its master and workers and
    * then its Workload are released like on spec.suspend. Kueue keeps the quota of an evicted
    * Workload until then. As spec.suspend is not set, the cluster is queued again once everything is
-   * released, see {@link #keepKueueWorkload} for when that waits. An eviction which {@link
-   * KueueWorkloadUtils#isKeptOnEviction} is only reported, and the cluster keeps running. A cluster
-   * which is not suspended records the `PodsReady` condition on the Workload once the master and
-   * workers are ready, since RunningHealthy does not wait for them, see {@link
-   * KueueWorkloadUtils#recordPodsReady}. That includes a kept eviction: with `blockAdmission`, a
-   * Workload which holds quota without the condition holds back every other workload.
+   * released, see {@link #keepKueueWorkload} for when that waits. Like the built-in Kueue
+   * integrations, which stop the job on any eviction, a `PodsReadyTimeout` suspends the cluster as
+   * well, even if its master and workers are ready by now. A cluster which is not suspended records
+   * the `PodsReady` condition on the Workload once the master and workers are ready, since
+   * RunningHealthy does not wait for them, see {@link KueueWorkloadUtils#recordPodsReady}.
    *
    * @param context The SparkClusterContext for the cluster.
    * @param statusRecorder The SparkClusterStatusRecorder for recording status updates.
@@ -166,26 +171,12 @@ public final class ClusterSuspendStep extends ClusterReconcileStep {
    */
   private ReconcileProgress suspendOnKueueEviction(
       SparkClusterContext context, SparkClusterStatusRecorder statusRecorder) {
-    Optional<Workload> cached = context.getCachedKueueWorkload();
-    Optional<Condition> eviction = cached.flatMap(KueueWorkloadUtils::findEviction);
+    Optional<Condition> eviction =
+        context.getCachedKueueWorkload().flatMap(KueueWorkloadUtils::findEviction);
     if (eviction.isEmpty()) {
       return KueueWorkloadUtils.recordPodsReady(context).orElse(proceed());
     }
-    Workload workload = cached.get();
     String cause = eviction.get().getReason() + ": " + eviction.get().getMessage();
-    if (KueueWorkloadUtils.isKeptOnEviction(workload)) {
-      EventUtils.warn(
-          context.getEventRecorder(),
-          EventUtils.REASON_KUEUE_EVICTION_IGNORED,
-          "Kueue evicted Workload "
-              + workload.getMetadata().getName()
-              + " ("
-              + cause
-              + "), which the operator does not act on, so the master and workers keep running "
-              + "and holding its quota. Set spec.suspend to true or delete the cluster to release "
-              + "them.");
-      return KueueWorkloadUtils.recordPodsReady(context).orElse(proceed());
-    }
     log.info("Kueue evicted the Workload of the cluster ({}), suspending it.", cause);
     return appendStateAndImmediateRequeue(
         context,
