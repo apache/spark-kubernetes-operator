@@ -57,6 +57,19 @@ When `spark.kubernetes.operator.events.enabled` is `true`, the operator publishe
 `Event` objects about `SparkApplication` and `SparkCluster` resources into their namespaces. They
 are visible via `kubectl describe` and `kubectl get events`.
 
+Publishing them requires the `get`, `create` and `patch` permissions on `events` in the core API
+group in each namespace of the Spark resources. Without them, the operator logs a
+`Could not record ... event` warning for each event that it cannot publish, and keeps reconciling.
+The operator ClusterRole and Roles created by the Helm chart include them. If you manage the RBAC
+of the operator yourself, e.g. with a custom `operatorRbac.roleBinding.roleRef`, add the following
+rule to its ClusterRole, or to its Role in each of those namespaces.
+
+```yaml
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["get", "create", "patch"]
+```
+
 Every event is reported by `spark-kubernetes-operator`, which is set as both `source.component` and
 `reportingComponent`, so `kubectl describe` shows it in the `From` column and both the `source` and
 the `reportingComponent` field selectors match it. For example, the following lists the warnings

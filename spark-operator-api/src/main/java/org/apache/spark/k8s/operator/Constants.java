@@ -273,6 +273,14 @@ public final class Constants {
   public static final String CLUSTER_REQUEUED_MESSAGE =
       "Cluster is submitted again after its eviction by Kueue.";
 
+  /**
+   * Message indicating that the cluster failed after SchedulingFailure, whose message tells the
+   * cause.
+   */
+  public static final String CLUSTER_FAILED_AFTER_SCHEDULING_FAILURE_MESSAGE =
+      "Cluster failed, since requesting its resources failed. See the preceding "
+          + "SchedulingFailure state for the cause.";
+
   /** Message indicating that the cluster status cannot be processed. */
   public static final String UNKNOWN_CLUSTER_STATE_MESSAGE = "Cannot process cluster status.";
 
