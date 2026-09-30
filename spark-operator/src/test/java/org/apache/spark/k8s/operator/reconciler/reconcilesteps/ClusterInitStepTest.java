@@ -329,7 +329,6 @@ class ClusterInitStepTest {
     KubernetesClient mockClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
     when(mockContext.getResource()).thenReturn(cluster);
     when(mockContext.getClient()).thenReturn(mockClient);
-    when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
 
     // Its status would otherwise keep saying that it is resumed, while ClusterSuspendStep releases
     // its Workload only once its pods are gone. That holds whether or not the master was requested,

@@ -72,10 +72,10 @@ public final class ClusterInitStep extends ClusterReconcileStep {
     boolean masterRequested = false;
     if (cluster.getSpec().isSuspend()) {
       // Unlike a first attempt, a cluster resumed from Suspended or queued again after an eviction
-      // has persisted this Submitted state, which would keep saying that it is resumed. It goes
-      // back to Suspended instead, where ClusterSuspendStep deletes the master and worker
-      // StatefulSets by name and releases whatever it holds only after its pods are gone. That
-      // happens whether or not the master was requested, so it is not looked up.
+      // has persisted this Submitted state, which would keep saying that it is resumed or queued
+      // again. It goes back to Suspended instead, where ClusterSuspendStep deletes the master and
+      // worker StatefulSets by name and releases whatever it holds only after its pods are gone.
+      // That happens whether or not the master was requested, so it is not looked up.
       if (cluster.getStatus().getStateTransitionHistory().lastKey() > 0) {
         return appendStateAndImmediateRequeue(
             context, statusRecorder, new ClusterState(Suspended, CLUSTER_SUSPENDED_MESSAGE));
