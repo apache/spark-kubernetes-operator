@@ -146,6 +146,10 @@ JaCoCo. Run it before pushing; CI runs the same matrix on Java 21 / 25 / 26 / 27
   (e.g. `[SPARK-57114] Upgrade spotless-plugin-gradle to 8.6.0`).
 - PRs are merged via **squash** or **rebase** — no merge commits (see [.asf.yaml](.asf.yaml)). Keep
   changes surgical and scoped to the ticket.
+- If a change alters a user-visible behavior of the latest release, e.g. a default value, a
+  generated resource, a state transition, an RBAC rule or a Helm value, add an item to
+  [docs/migration_guide.md](docs/migration_guide.md) in the same PR, with how to restore the
+  previous behavior if possible. Changes of unreleased features need no item.
 - Run `./gradlew spotlessApply` and `./gradlew build` before opening a PR.
 - Write PR descriptions in English following
   [.github/PULL_REQUEST_TEMPLATE](.github/PULL_REQUEST_TEMPLATE), and follow the
