@@ -546,10 +546,11 @@ server. An application held later, in `ScheduledToRestart`, keeps the status its
 already wrote and gets the same event, since that status says that a restart is due, not that the
 next attempt is withheld. If the driver (or master) cannot be read to check whether it was requested
 already, e.g. since the API server rejects the read, the resource is neither held nor started, and
-the `SuspendCheckFailed` event is published instead, until the check succeeds. A failure which may
-clear on its own, such as a timeout, is retried without the event. Once the check succeeds again,
-the `SuspendHeld` event may follow only with its next repeat, so a `SuspendCheckFailed` event which
-is no longer refreshed no longer applies.
+the `SuspendCheckFailed` event is published instead when enabled, until the check succeeds. A
+failure which may clear on its own, such as a timeout, is retried without the event. The event is
+not retracted: once the check succeeds again, it may stay the newest event until the next
+`SuspendHeld`, and a failure which continues only at the transport level no longer refreshes it.
+The operator log shows whether the check still fails.
 
 ``` yaml
 apiVersion: spark.apache.org/v1
@@ -688,7 +689,9 @@ spec:
   through the ClusterRole, hence `operatorRbac.clusterRole.create` as well. Until they can be
   read, the resource is held and the read is retried.
 * `spec.suspend` takes precedence. A suspended resource does not get a `Workload`, and suspending
-  a queued resource deletes its `Workload` to release the quota. Suspending a running
+  a queued resource deletes its `Workload` to release the quota. While its driver (or master)
+  cannot be read to check whether it was requested, as described in [Suspend](#suspend), the
+  `Workload` is kept instead, and a pending one may still be admitted. Suspending a running
   `SparkCluster` deletes its `Workload` only after its master and worker pods are gone, or are still
   terminating 5 minutes after their grace period ended, since terminating pods occupy the quota.
   The `Workload` is deleted even if the `kueue.x-k8s.io/queue-name` label was removed after the
@@ -719,8 +722,10 @@ spec:
   `SparkApplication` with a `Workload` neither terminates nor restarts, until its `Workload` is
   gone or the access is restored. Before disabling either, let the queued
   `SparkApplication`s finish or suspend those which have not started yet, and suspend the queued
-  `SparkCluster`s, so that the operator releases their `Workload`s itself. Then list the remaining
-  ones with `kubectl get workloads -A -l spark.operator/spark-app-name` and
+  `SparkCluster`s, so that the operator releases their `Workload`s itself. A suspended resource
+  whose driver (or master) cannot be read keeps its `Workload` until it can, see
+  [Suspend](#suspend). Then list the remaining ones with
+  `kubectl get workloads -A -l spark.operator/spark-app-name` and
   `kubectl get workloads -A -l spark.operator/spark-cluster-name`, and delete only those whose
   owner has no running pods, e.g. of a `Failed` `SparkCluster`.
 * Dynamic allocation, a `SparkCluster` with `minWorkers < maxWorkers`, and pod template files set
