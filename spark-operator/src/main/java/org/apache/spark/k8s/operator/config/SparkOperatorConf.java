@@ -953,7 +953,8 @@ public final class SparkOperatorConf {
       genericRetry.setMaxInterval(
           Duration.ofSeconds(RECONCILER_RETRY_MAX_INTERVAL_SECONDS.getValue()).toMillis());
     } else {
-      log.info("Reconciler retry policy is configured with unlimited max attempts");
+      genericRetry.withoutMaxInterval();
+      log.info("Reconciler retry policy is configured with unlimited max interval");
     }
     return genericRetry;
   }
