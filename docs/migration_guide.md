@@ -45,6 +45,11 @@ affect building the project, CI, tests or examples.
 
 ### Helm Chart
 
+- Since 1.1.0, `helm upgrade --reuse-values` from chart `1.8.0` fails, since it renders the new
+  chart with the default values of chart `1.8.0`, which lack
+  `operatorDeployment.networkPolicy.enabled`, `operatorConfiguration.dynamicConfig.enabled` and
+  `operatorRbac.kueue` that the chart schema now requires. Use `--reset-then-reuse-values` of Helm
+  3.14 or newer, or pass the values file again with `-f` ([SPARK-59504](https://issues.apache.org/jira/browse/SPARK-59504), [SPARK-59519](https://issues.apache.org/jira/browse/SPARK-59519)).
 - Since 1.1.0, `operatorDeployment.networkPolicy.enable` and
   `operatorConfiguration.dynamicConfig.enable` are deprecated in favor of `enabled`, and
   `helm install` and `helm upgrade` print a warning for them. They are still honored until chart
@@ -55,17 +60,18 @@ affect building the project, CI, tests or examples.
   created regardless. To restore the behavior before 1.1.0, set it to `true`, the default
   ([SPARK-59537](https://issues.apache.org/jira/browse/SPARK-59537)).
 - Since 1.1.0, the operator ClusterRole and Roles grant only `get`, `create` and `patch` on
-  `events`, which are the verbs the operator uses, instead of all verbs. If other workloads use
-  the operator ServiceAccount and need `list`, `watch`, `update` or `delete` on `events`, grant
-  them with another Role or ClusterRole ([SPARK-59587](https://issues.apache.org/jira/browse/SPARK-59587)).
+  `events`, which are the verbs the operator uses. 1.0 also granted `list`, `watch`, `update` and
+  `delete`. If other workloads use the operator ServiceAccount and need them, grant them with
+  another Role or ClusterRole ([SPARK-59587](https://issues.apache.org/jira/browse/SPARK-59587)).
 - Since 1.1.0, each option of `operatorDeployment.operatorPod.operatorContainer.jvmArgs` is passed
   to the operator JVM as its own argument. 1.0 passed the whole value as one argument, which the
   JVM took as a single `-Dfile.encoding` system property, so the other options had no effect. The
   default options now take effect, e.g. the Parallel GC and a heap of 80% of the container memory
-  limit (`2Gi` by default), fully touched at startup, instead of at most 25%. Keep a memory limit
-  on the operator container, since the percentages apply to the node memory otherwise. The options
-  also take precedence over `JAVA_TOOL_OPTIONS` and `JDK_JAVA_OPTIONS` in `operatorContainer.env`,
-  and cannot contain a space, since the value is split on spaces. To restore the behavior before
+  limit (`2Gi` by default), fully touched at startup, instead of at most 25%. An
+  `OutOfMemoryError` now crashes the JVM, so the container restarts. Keep a memory limit on the
+  operator container, since the percentages apply to the node memory otherwise. The options also
+  take precedence over `JAVA_TOOL_OPTIONS` and `JDK_JAVA_OPTIONS` in `operatorContainer.env`, and
+  cannot contain a space, since the value is split on spaces. To restore the behavior before
   1.1.0, set `jvmArgs` to `-Dfile.encoding=UTF8` ([SPARK-58426](https://issues.apache.org/jira/browse/SPARK-58426)).
 
 ### Operator
@@ -96,10 +102,9 @@ affect building the project, CI, tests or examples.
 - Since 1.1.0, an application which is configured to restart ends in `ResourceReleased` instead of
   `TerminatedWithoutReleaseResources` after its last attempt, even if its `resourceRetainPolicy`
   retains the resources, since they are released at the end of every attempt. So
-  `ttlAfterStopMillis` takes effect after the last attempt, while 1.0 applied it only once
-  `resourceRetainDurationMillis` elapsed, or never if the retain duration was disabled. To keep
-  such an application longer, increase `ttlAfterStopMillis`, or set it to a negative value
-  ([SPARK-59732](https://issues.apache.org/jira/browse/SPARK-59732)).
+  `resourceRetainDurationMillis` no longer applies to it, while `ttlAfterStopMillis` still deletes
+  it at the same time as in 1.0. A tool which waits for `TerminatedWithoutReleaseResources` has to
+  wait for `ResourceReleased` instead ([SPARK-59732](https://issues.apache.org/jira/browse/SPARK-59732)).
 - Since 1.1.0, an application whose driver pod fails before any of its containers starts, e.g.
   when the pod is evicted or its node is deleted, moves to `Failed`, or `DriverEvicted` if it is
   evicted, right away. 1.0 kept it in `DriverRequested` until `DriverStartTimedOut`, or forever if
