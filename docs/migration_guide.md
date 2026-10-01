@@ -30,6 +30,8 @@ affect building the project, CI, tests or examples.
 
 ### Kubernetes and CRDs
 
+- Since 1.1.0, `spark.apache.org/v1beta1` of the CRDs is deprecated and scheduled for removal in
+  2.0.0. Its schema is no longer updated, e.g. it lacks `spec.suspend`. Use `spark.apache.org/v1`.
 - Since 1.1.0, K8s 1.35 or newer is recommended instead of 1.34 ([SPARK-59692](https://issues.apache.org/jira/browse/SPARK-59692)).
 - Since 1.1.0, the CRDs have `spec.suspend` for `SparkApplication` and `SparkCluster`, and the
   `Suspended` state for `SparkCluster`. Since `helm upgrade` does not update CRDs, replace them
