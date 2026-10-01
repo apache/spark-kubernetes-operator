@@ -44,6 +44,8 @@ import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
 import lombok.extern.slf4j.Slf4j;
 
+import org.apache.spark.k8s.operator.client.KubernetesClientFactory;
+
 /**
  * An {@link EventRecorder} that drops every event unless {@link
  * org.apache.spark.k8s.operator.config.SparkOperatorConf#KUBERNETES_EVENTS_ENABLED} is set, drops
@@ -102,13 +104,21 @@ public class ConfigurableEventRecorder implements EventRecorder {
   }
 
   /**
-   * Constructs a recorder over the JOSDK defaults, writing events with the given client.
+   * Constructs a recorder over the JOSDK defaults, writing events with a client derived from the
+   * given one which does not retry a failed request.
    *
-   * @param client The Kubernetes client used to write events.
+   * <p>{@link DefaultEventSink} writes on the reconciliation thread, and an error event often
+   * reports a failure of the API server itself, so a failed write is dropped like any other write
+   * failure rather than retried with backoff while the reconciliation waits. A write which the API
+   * server does not answer still waits for the request timeout of the given client.
+   *
+   * @param client The Kubernetes client to derive the client which writes events from.
    * @return A recorder gated on the events config option.
    */
   public static ConfigurableEventRecorder withDefaultSink(KubernetesClient client) {
-    return new ConfigurableEventRecorder(new DefaultEventRecorder(new DefaultEventSink(client)));
+    return new ConfigurableEventRecorder(
+        new DefaultEventRecorder(
+            new DefaultEventSink(KubernetesClientFactory.withoutRetries(client))));
   }
 
   /**

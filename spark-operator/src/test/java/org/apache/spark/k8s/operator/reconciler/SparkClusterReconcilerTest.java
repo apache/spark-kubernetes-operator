@@ -33,7 +33,6 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -298,7 +297,7 @@ class SparkClusterReconcilerTest {
   }
 
   @Test
-  void updateErrorStatusPublishesOnlyOnTheFirstAttempt() {
+  void updateErrorStatusPublishesOnARetryToo() {
     when(mockContext.eventRecorder()).thenReturn(mockEventRecorder);
     var retryInfo = mock(RetryInfo.class);
     when(retryInfo.getAttemptCount()).thenReturn(1);
@@ -306,7 +305,7 @@ class SparkClusterReconcilerTest {
 
     reconciler.updateErrorStatus(cluster, mockContext, new RuntimeException("boom"));
 
-    verify(mockEventRecorder, never()).record(any(EventRecord.class));
+    assertThat(captureRecordedEvent().reason()).isEqualTo(EventUtils.REASON_RECONCILE_ERROR);
   }
 
   @Test
