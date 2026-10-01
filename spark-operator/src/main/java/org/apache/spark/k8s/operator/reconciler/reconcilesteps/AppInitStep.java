@@ -52,6 +52,7 @@ import org.apache.spark.k8s.operator.status.ApplicationAttemptSummary;
 import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
+import org.apache.spark.k8s.operator.utils.EventUtils;
 import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 
@@ -162,8 +163,15 @@ public final class AppInitStep extends AppReconcileStep {
               .getStatus()
               .appendNewState(
                   new ApplicationState(ApplicationStateSummary.SchedulingFailure, errorMessage));
-      return attemptStatusUpdate(
-          context, statusRecorder, updatedStatus, completeAndImmediateRequeue());
+      // The status keeps the stack trace, while the event, which reaches more readers, only
+      // describes the failure, like the other warning events.
+      if (!statusRecorder.persistStatus(
+          context,
+          updatedStatus,
+          Constants.SCHEDULE_FAILURE_MESSAGE + " " + EventUtils.describe(e))) {
+        log.warn("Failed to persist status, will retry status update in next reconcile attempt");
+      }
+      return completeAndImmediateRequeue();
     }
     ApplicationStatus updatedStatus =
         context

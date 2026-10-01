@@ -30,6 +30,9 @@ import java.util.Set;
 
 import io.fabric8.kubernetes.api.model.Event;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
+import io.fabric8.kubernetes.api.model.Status;
+import io.fabric8.kubernetes.api.model.StatusBuilder;
+import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.javaoperatorsdk.operator.api.config.ConfigurationService;
 import io.javaoperatorsdk.operator.api.config.ControllerConfiguration;
 import io.javaoperatorsdk.operator.api.event.DefaultEventRecorder;
@@ -192,6 +195,45 @@ class EventUtilsTest {
         .isEqualTo(
             "RuntimeException: reconcile failed, caused by: "
                 + "IllegalArgumentException: quota exceeded");
+  }
+
+  @Test
+  void describeUsesTheMessageOfTheApiServerForARejectedRequest() {
+    Status status =
+        new StatusBuilder()
+            .withCode(403)
+            .withReason("Forbidden")
+            .withMessage("pods \"app-1-driver\" is forbidden: exceeded quota: compute")
+            .build();
+    // Like fabric8 builds the failure of a request which the API server rejected, and rethrows it
+    // as a copy which carries the original as its cause.
+    KubernetesClientException rejected =
+        new KubernetesClientException(
+            "Failure executing: POST at: https://10.43.0.1:443/api/v1/namespaces/default/pods. "
+                + "Message: "
+                + status.getMessage()
+                + ". Received status: "
+                + status
+                + ".",
+            403,
+            status);
+
+    // Neither the request URL nor the dump of the Status, and the cause is not repeated.
+    assertThat(EventUtils.describe(rejected.copyAsCause()))
+        .isEqualTo("KubernetesClientException: " + status.getMessage());
+    assertThat(EventUtils.describe(new IllegalStateException("not requested", rejected)))
+        .isEqualTo(
+            "IllegalStateException: not requested, caused by: KubernetesClientException: "
+                + status.getMessage());
+  }
+
+  @Test
+  void describeKeepsTheMessageOfAFailureWithoutStatus() {
+    KubernetesClientException notFound =
+        new KubernetesClientException("Kueue ResourceFlavor spot is not found.", 404, null);
+
+    assertThat(EventUtils.describe(notFound))
+        .isEqualTo("KubernetesClientException: Kueue ResourceFlavor spot is not found.");
   }
 
   @Test

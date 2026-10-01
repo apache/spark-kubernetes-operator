@@ -236,6 +236,34 @@ class StatusRecorderTest {
   }
 
   @Test
+  void publishesTheGivenMessageInTheEventAboutTheCurrentStateOnly() {
+    var testResource = getSparkApplication("1");
+    var context = contextFor(testResource);
+    expectStatusPatch(testResource, getSparkApplication("2"));
+
+    var requested =
+        new ApplicationStatus()
+            .appendNewState(
+                new ApplicationState(ApplicationStateSummary.DriverRequested, "requested"));
+    statusRecorder.persistStatus(context, requested);
+    String stackTrace = "SparkException: boom\n\tat Foo.bar(Foo.java:1)";
+    statusRecorder.persistStatus(
+        context,
+        requested
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverStarted, "started"))
+            .appendNewState(new ApplicationState(ApplicationStateSummary.Failed, stackTrace)),
+        "SparkException: boom");
+
+    ArgumentCaptor<EventRecord> captor = ArgumentCaptor.forClass(EventRecord.class);
+    verify(mockEventRecorder, times(3)).record(captor.capture());
+    assertThat(captor.getAllValues())
+        .extracting(EventRecord::message)
+        .containsExactly("requested", "started", "SparkException: boom");
+    // The status keeps the message of the state
+    assertThat(testResource.getStatus().getCurrentState().getMessage()).isEqualTo(stackTrace);
+  }
+
+  @Test
   void publishesOnceForRepeatedStatesInASinglePatch() {
     var testResource = getSparkApplication("1");
     var context = contextFor(testResource);
