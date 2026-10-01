@@ -7,7 +7,7 @@ permissions:
   contents: read
 
 env:
-  KUEUE_VERSION: v0.19.4
+  KUEUE_VERSION: v0.20.0
   CHAINSAW_VERSION: v0.2.15
 
 jobs:
