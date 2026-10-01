@@ -90,6 +90,10 @@ affect building the project, CI, tests or examples.
   `0.5` and `0.999` quantiles of the `operator_sdk_*` histograms are the median and the 99.9th
   percentile instead of the mean and the 99th percentile. A histogram or timer of a custom metrics
   source has no `_sum` unless it is a `SummingHistogram` or a `SummingTimer` ([SPARK-59935](https://issues.apache.org/jira/browse/SPARK-59935)).
+- Since 1.1.0, `kubernetes.client.http.response.latency.nanos` records the time from sending each
+  HTTP request until its response headers arrive. 1.0 recorded nearly zero regardless of the
+  latency. It no longer records a WebSocket upgrade response, e.g. of a watch, so its count can be
+  lower than that of `kubernetes.client.http.response` ([SPARK-59928](https://issues.apache.org/jira/browse/SPARK-59928)).
 
 ### SparkApplication
 
