@@ -229,9 +229,10 @@ via [Codahale JVM Metrics](https://javadoc.io/doc/com.codahale.metrics/metrics-j
 | kubernetes.client.`ResourceName`.`Method`                 | Meter      | Tracking the rates of HTTP request for a combination of one Kubernetes resource and one http method                      |
 | kubernetes.client.`NamespaceName`.`ResourceName`.`Method` | Meter      | Tracking the rates of HTTP request for a combination of one namespace-scoped Kubernetes resource and one http method     |
 
-A request which gets no response is counted in `kubernetes.client.http.response.failed` only when
-the client retries it. So a request which the client does not retry, i.e. a Kubernetes event write
-or the update of the Kueue `PodsReady` condition, is not counted there when it gets no response.
+A request which gets no response is counted in `kubernetes.client.failed` while the client still
+has a retry left for it, even if it does not retry it, e.g. on a request timeout. So a request of
+a client which never retries, i.e. a Kubernetes event write or the recording of the Kueue
+`PodsReady` condition, is not counted there when it gets no response.
 
 ### Latency for State Transition
 

@@ -65,7 +65,7 @@ class KubernetesClientFactoryTest {
       assertThat(meterCount(interceptor, HTTP_REQUEST_GROUP)).isEqualTo(3L);
 
       // A connection failure is counted as a request but not as failed, since fabric8 reports it
-      // to the interceptors only before a retry.
+      // to the interceptors only while the request has a retry left.
       long failed = meterCount(interceptor, HTTP_REQUEST_FAILED_GROUP);
       server.shutdown();
       assertThatThrownBy(
