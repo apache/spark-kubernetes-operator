@@ -213,26 +213,27 @@ via [Codahale JVM Metrics](https://javadoc.io/doc/com.codahale.metrics/metrics-j
 
 ### Kubernetes Client Metrics
 
-| Metrics Name                                              | Type       | Description                                                                                                              |
-|-----------------------------------------------------------|------------|--------------------------------------------------------------------------------------------------------------------------|
-| kubernetes.client.http.request                            | Meter      | Tracking the rates of HTTP request sent to the Kubernetes API Server                                                     |
-| kubernetes.client.http.response                           | Meter      | Tracking the rates of HTTP response from the Kubernetes API Server                                                       |
-| kubernetes.client.http.response.failed                    | Meter      | Tracking the rates of HTTP requests which have no response from the Kubernetes API Server                                |
-| kubernetes.client.http.response.latency.nanos             | Histograms | Measures the statistical distribution of HTTP response latency from the Kubernetes API Server                            |
-| kubernetes.client.http.response.`ResponseCode`            | Meter      | Tracking the rates of HTTP response based on response code from the Kubernetes API Server                                |
-| kubernetes.client.http.request.`RequestMethod`            | Meter      | Tracking the rates of HTTP request based type of method to the Kubernetes API Server                                     |
-| kubernetes.client.http.response.1xx                       | Meter      | Tracking the rates of HTTP Code 1xx responses (informational) received from the Kubernetes API Server per response code. |
-| kubernetes.client.http.response.2xx                       | Meter      | Tracking the rates of HTTP Code 2xx responses (success) received from the Kubernetes API Server per response code.       |
-| kubernetes.client.http.response.3xx                       | Meter      | Tracking the rates of HTTP Code 3xx responses (redirection) received from the Kubernetes API Server per response code.   |
-| kubernetes.client.http.response.4xx                       | Meter      | Tracking the rates of HTTP Code 4xx responses (client error) received from the Kubernetes API Server per response code.  |
-| kubernetes.client.http.response.5xx                       | Meter      | Tracking the rates of HTTP Code 5xx responses (server error) received from the Kubernetes API Server per response code.  |
-| kubernetes.client.`ResourceName`.`Method`                 | Meter      | Tracking the rates of HTTP request for a combination of one Kubernetes resource and one http method                      |
-| kubernetes.client.`NamespaceName`.`ResourceName`.`Method` | Meter      | Tracking the rates of HTTP request for a combination of one namespace-scoped Kubernetes resource and one http method     |
+| Metrics Name                                              | Type       | Description                                                                                                                                                                                                               |
+|-----------------------------------------------------------|------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| kubernetes.client.http.request                            | Meter      | Tracking the rates of HTTP request sent to the Kubernetes API Server                                                                                                                                                      |
+| kubernetes.client.http.response                           | Meter      | Tracking the rates of HTTP response from the Kubernetes API Server                                                                                                                                                        |
+| kubernetes.client.failed                                  | Meter      | Tracking the rates of HTTP requests which have no response, or an error response, from the Kubernetes API Server                                                                                                          |
+| kubernetes.client.http.response.latency.nanos             | Histograms | Measures the statistical distribution of HTTP response latency from the Kubernetes API Server                                                                                                                             |
+| kubernetes.client.http.response.`ResponseCode`            | Meter      | Tracking the rates of HTTP response based on response code from the Kubernetes API Server                                                                                                                                 |
+| kubernetes.client.http.request.`requestmethod`            | Meter      | Tracking the rates of HTTP request based type of method (in lower case, e.g. `get`) to the Kubernetes API Server                                                                                                          |
+| kubernetes.client.1xx                                     | Meter      | Tracking the rates of HTTP Code 1xx responses (informational) received from the Kubernetes API Server. Only available when `spark.kubernetes.operator.metrics.clientMetricsGroupByResponseCodeEnabled` is true (default). |
+| kubernetes.client.2xx                                     | Meter      | Tracking the rates of HTTP Code 2xx responses (success) received from the Kubernetes API Server. Only available when `spark.kubernetes.operator.metrics.clientMetricsGroupByResponseCodeEnabled` is true (default).       |
+| kubernetes.client.3xx                                     | Meter      | Tracking the rates of HTTP Code 3xx responses (redirection) received from the Kubernetes API Server. Only available when `spark.kubernetes.operator.metrics.clientMetricsGroupByResponseCodeEnabled` is true (default).   |
+| kubernetes.client.4xx                                     | Meter      | Tracking the rates of HTTP Code 4xx responses (client error) received from the Kubernetes API Server. Only available when `spark.kubernetes.operator.metrics.clientMetricsGroupByResponseCodeEnabled` is true (default).  |
+| kubernetes.client.5xx                                     | Meter      | Tracking the rates of HTTP Code 5xx responses (server error) received from the Kubernetes API Server. Only available when `spark.kubernetes.operator.metrics.clientMetricsGroupByResponseCodeEnabled` is true (default).  |
+| kubernetes.client.`resourcename`.`method`                 | Meter      | Tracking the rates of HTTP request for a combination of one Kubernetes resource and one http method (both in lower case, e.g. `configmaps.get`)                                                                           |
+| kubernetes.client.`namespacename`.`resourcename`.`method` | Meter      | Tracking the rates of HTTP request for a combination of one namespace-scoped Kubernetes resource and one http method (e.g. `spark-test.sparkapplications.post`)                                                           |
 
 A request which gets no response is counted in `kubernetes.client.failed` while the client still
 has a retry left for it, even if it does not retry it, e.g. on a request timeout. So a request of
 a client which never retries, i.e. a Kubernetes event write or the recording of the Kueue
-`PodsReady` condition, is not counted there when it gets no response.
+`PodsReady` condition, is not counted there when it gets no response. A request which gets an error
+response, e.g. `404`, is counted there too, as well as in `kubernetes.client.http.response`.
 
 ### Latency for State Transition
 
