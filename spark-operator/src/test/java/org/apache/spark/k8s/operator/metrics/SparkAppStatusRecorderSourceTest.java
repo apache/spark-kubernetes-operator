@@ -20,6 +20,7 @@
 package org.apache.spark.k8s.operator.metrics;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
@@ -76,7 +77,7 @@ class SparkAppStatusRecorderSourceTest {
     source.recordStatusUpdateLatency(app.getMetadata(), app.getStatus(), new ApplicationState());
     Map<String, Timer> timers = source.metricRegistry().getTimers();
     assertEquals(1, timers.size());
-    assertTrue(timers.containsKey("sparkapp.latency.discover"));
+    assertInstanceOf(SummingTimer.class, timers.get("sparkapp.latency.discover"));
     assertTrue(timers.get("sparkapp.latency.discover").getSnapshot().getMin() > 0);
   }
 

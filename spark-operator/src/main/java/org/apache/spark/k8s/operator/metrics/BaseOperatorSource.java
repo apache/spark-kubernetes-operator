@@ -51,7 +51,7 @@ public class BaseOperatorSource {
     if (histograms.containsKey(metricName)) {
       histogram = histograms.get(metricName);
     } else {
-      histogram = metricRegistry.histogram(metricName);
+      histogram = metricRegistry.histogram(metricName, SummingHistogram::new);
       histograms.put(metricName, histogram);
     }
     return histogram;
@@ -109,7 +109,7 @@ public class BaseOperatorSource {
     if (timers.containsKey(metricName)) {
       timer = timers.get(metricName);
     } else {
-      timer = metricRegistry.timer(metricName);
+      timer = metricRegistry.timer(metricName, SummingTimer::new);
       timers.put(metricName, timer);
     }
     return timer;

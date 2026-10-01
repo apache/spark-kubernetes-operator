@@ -43,6 +43,7 @@ import org.junit.jupiter.api.TestMethodOrder;
 
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.client.KubernetesClientFactory;
+import org.apache.spark.k8s.operator.metrics.SummingHistogram;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 
 @EnableKubernetesMockClient(crud = true)
@@ -70,6 +71,8 @@ class KubernetesMetricsInterceptorTest {
 
       Map<String, Metric> metrics = new HashMap<>(metricsInterceptor.metricRegistry().getMetrics());
       Assertions.assertEquals(9, metrics.size());
+      Assertions.assertInstanceOf(
+          SummingHistogram.class, metrics.get("http.response.latency.nanos"));
       client.resource(sparkApplication).create();
       client.resource(configMap).get();
       Map<String, Metric> metrics2 =

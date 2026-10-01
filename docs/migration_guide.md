@@ -81,6 +81,13 @@ affect building the project, CI, tests or examples.
   documented. 1.0 capped it at about 15 seconds, so with the other defaults, the retries now span
   about 49 minutes instead of about 3 minutes. To restore the behavior before 1.1.0, set it to
   `15` ([SPARK-59892](https://issues.apache.org/jira/browse/SPARK-59892)).
+- Since 1.1.0, the `_sum` of the Prometheus summaries of the operator histograms and timers, e.g.
+  `kubernetes_client_http_response_latency_seconds_sum`, is the sum of all recorded values. 1.0
+  exported the mean of roughly the last 5 minutes multiplied by the count instead, which can
+  decrease between scrapes, so `rate()` of it and the average derived from it were wrong. Also, the
+  `0.5` and `0.999` quantiles of the `operator_sdk_*` histograms are the median and the 99.9th
+  percentile instead of the mean and the 99th percentile. A histogram or timer of a custom metrics
+  source has no `_sum` unless it is a `SummingHistogram` or a `SummingTimer` ([SPARK-XXXXX](https://issues.apache.org/jira/browse/SPARK-XXXXX)).
 
 ### SparkApplication
 
