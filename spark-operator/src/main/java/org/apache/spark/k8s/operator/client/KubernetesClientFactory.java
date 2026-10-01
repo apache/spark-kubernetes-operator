@@ -23,6 +23,8 @@ import java.util.List;
 import io.fabric8.kubernetes.client.Config;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientBuilder;
+import io.fabric8.kubernetes.client.RequestConfig;
+import io.fabric8.kubernetes.client.RequestConfigBuilder;
 import io.fabric8.kubernetes.client.http.HttpClient;
 import io.fabric8.kubernetes.client.http.Interceptor;
 import io.fabric8.kubernetes.client.utils.HttpClientUtils;
@@ -68,5 +70,24 @@ public final class KubernetesClientFactory {
               }
             })
         .build();
+  }
+
+  /**
+   * Returns a client over the same connections, with the same interceptors and request timeout,
+   * which does not retry a failed request. The given client retries a throttled request, a server
+   * error and a connection failure with backoff, which holds the caller meanwhile. Since fabric8
+   * calls {@link Interceptor#afterConnectionFailure} only before a retry, the interceptors do not
+   * see a connection failure of the returned client, so the client metrics do not count it as
+   * failed.
+   *
+   * @param client The client to derive from.
+   * @return A client which does not retry a failed request.
+   */
+  public static KubernetesClient withoutRetries(final KubernetesClient client) {
+    RequestConfig requestConfig =
+        new RequestConfigBuilder(client.getConfiguration().getRequestConfig())
+            .withRequestRetryBackoffLimit(0)
+            .build();
+    return client.newClient(requestConfig).adapt(KubernetesClient.class);
   }
 }

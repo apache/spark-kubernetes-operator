@@ -100,7 +100,7 @@ In addition, the operator publishes the following `Warning` events.
 
 | Reason | When |
 |---|---|
-| `ReconcileError` | A reconciliation throws. Only the first attempt of a failure episode publishes. |
+| `ReconcileError` | A reconciliation throws. It is republished on every retry while the failure lasts, subject to [`minIntervalSeconds`](#event-frequency). |
 | `CleanupError` | A cleanup throws, so the resource cannot finish deleting. |
 | `StatusUpdateFailed` | A status patch is rejected. Transport-level errors are skipped. |
 | `KueueAdmissionRequestFailed` | Creating, reading or deleting a stale Kueue `Workload` fails, or the driver or master cannot be read before the admission is requested. Transport-level errors are skipped and retried every 5 seconds, while a persistent failure is retried with the default interval. |
@@ -181,7 +181,13 @@ visible.
 
 The interval is held from the moment an event is handed to the event sink, not from the moment it
 reaches the API server. The operator logs and swallows event write failures rather than failing
-the reconciliation, so a write that failed still holds the interval; the next repeat recovers it.
+the reconciliation, and its Kubernetes client does not retry an event write, e.g. one that the API
+server throttles (`429`) or fails (`5xx`), since the reconciliation waits for the write. So a
+write that failed is dropped, right away when the API server answers with an error or refuses the
+connection, or after the request timeout (10 seconds by default) when it does not answer, yet
+still holds the interval. An event which is republished, such as `SuspendHeld` or a warning about
+a failure which lasts, recovers with its next repeat after the interval, while one which is not,
+such as a state transition, is lost; the resource status remains the source of truth.
 
 ## Metrics
 
@@ -222,6 +228,10 @@ via [Codahale JVM Metrics](https://javadoc.io/doc/com.codahale.metrics/metrics-j
 | kubernetes.client.http.response.5xx                       | Meter      | Tracking the rates of HTTP Code 5xx responses (server error) received from the Kubernetes API Server per response code.  |
 | kubernetes.client.`ResourceName`.`Method`                 | Meter      | Tracking the rates of HTTP request for a combination of one Kubernetes resource and one http method                      |
 | kubernetes.client.`NamespaceName`.`ResourceName`.`Method` | Meter      | Tracking the rates of HTTP request for a combination of one namespace-scoped Kubernetes resource and one http method     |
+
+A request which gets no response is counted in `kubernetes.client.http.response.failed` only when
+the client retries it. So a request which the client does not retry, i.e. a Kubernetes event write
+or the update of the Kueue `PodsReady` condition, is not counted there when it gets no response.
 
 ### Latency for State Transition
 

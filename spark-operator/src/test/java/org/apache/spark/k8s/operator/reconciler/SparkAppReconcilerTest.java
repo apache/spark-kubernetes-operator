@@ -38,7 +38,6 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -422,7 +421,7 @@ class SparkAppReconcilerTest {
   }
 
   @Test
-  void updateErrorStatusPublishesOnlyOnTheFirstAttempt() {
+  void updateErrorStatusPublishesOnARetryToo() {
     when(mockContext.eventRecorder()).thenReturn(mockEventRecorder);
     var retryInfo = mock(RetryInfo.class);
     when(retryInfo.getAttemptCount()).thenReturn(1);
@@ -430,9 +429,9 @@ class SparkAppReconcilerTest {
 
     reconciler.updateErrorStatus(app, mockContext, new RuntimeException("boom"));
 
-    // JOSDK calls this on every retry attempt, each emit is a blocking write against an API
-    // server that is often the cause of the failure.
-    verify(mockEventRecorder, never()).record(any(EventRecord.class));
+    // The event write is not retried, so a retry attempt recovers a write which a struggling API
+    // server dropped, while the recorder drops an unchanged repeat within the minimum interval.
+    assertThat(captureRecordedEvent().reason()).isEqualTo(EventUtils.REASON_RECONCILE_ERROR);
   }
 
   @Test

@@ -52,11 +52,10 @@ import io.fabric8.kubernetes.api.model.OwnerReference;
 import io.fabric8.kubernetes.api.model.Toleration;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
-import io.fabric8.kubernetes.client.RequestConfig;
-import io.fabric8.kubernetes.client.RequestConfigBuilder;
 import lombok.extern.slf4j.Slf4j;
 
 import org.apache.spark.k8s.operator.Constants;
+import org.apache.spark.k8s.operator.client.KubernetesClientFactory;
 import org.apache.spark.k8s.operator.context.BaseContext;
 import org.apache.spark.k8s.operator.kueue.v1beta2.PodSet;
 import org.apache.spark.k8s.operator.kueue.v1beta2.PodSetAssignment;
@@ -875,7 +874,7 @@ public final class KueueWorkloadUtils {
     if (!shouldRecordPodsReady(context, cached)) {
       return Optional.empty();
     }
-    KubernetesClient client = withoutRetries(context.getClient());
+    KubernetesClient client = KubernetesClientFactory.withoutRetries(context.getClient());
     String name = cached.getMetadata().getName();
     try {
       Workload workload = client.resource(cached).get();
@@ -907,15 +906,6 @@ public final class KueueWorkloadUtils {
           what + ", will retry. " + EventUtils.describe(e));
       return Optional.of(ReconcileProgress.completeAndDefaultRequeue());
     }
-  }
-
-  /** Returns a client over the same connections which does not retry a failed request. */
-  private static KubernetesClient withoutRetries(final KubernetesClient client) {
-    RequestConfig requestConfig =
-        new RequestConfigBuilder(client.getConfiguration().getRequestConfig())
-            .withRequestRetryBackoffLimit(0)
-            .build();
-    return client.newClient(requestConfig).adapt(KubernetesClient.class);
   }
 
   /**

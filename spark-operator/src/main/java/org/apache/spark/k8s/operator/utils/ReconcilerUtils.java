@@ -53,9 +53,7 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.dsl.FilterWatchListDeletable;
 import io.fabric8.kubernetes.client.dsl.PodResource;
-import io.javaoperatorsdk.operator.api.reconciler.Context;
 import io.javaoperatorsdk.operator.api.reconciler.DeleteControl;
-import io.javaoperatorsdk.operator.api.reconciler.RetryInfo;
 import io.javaoperatorsdk.operator.api.reconciler.UpdateControl;
 import lombok.extern.slf4j.Slf4j;
 
@@ -355,18 +353,6 @@ public final class ReconcilerUtils {
       case HTTP_CONFLICT, Constants.HTTP_TOO_MANY_REQUESTS, NO_RESPONSE_CODE -> true;
       default -> false;
     };
-  }
-
-  /**
-   * Whether the given reconciliation is the first attempt at the resource rather than a retry.
-   * {@link RetryInfo#getAttemptCount()} is 0 for an execution that is not a retry, and the info is
-   * absent altogether when retries are not configured.
-   *
-   * @param context The reconciliation context.
-   * @return True if this execution is not a retry, false otherwise.
-   */
-  public static boolean isFirstAttempt(Context<?> context) {
-    return context.getRetryInfo().map(RetryInfo::getAttemptCount).orElse(0) == 0;
   }
 
   /**
