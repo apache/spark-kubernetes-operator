@@ -131,6 +131,12 @@ affect building the project, CI, tests or examples.
   services outside the cluster. To restore the behavior before 1.1.0, set
   `spark.kubernetes.operator.events.enabled` to `false`. See
   [Kubernetes Events](configuration.md#kubernetes-events) for details.
+- Since 1.1.0, `kubernetes.client.http.response.latency.nanos` records the latency of HTTP
+  responses, not including the time to read the response body. 1.0 recorded nearly zero
+  regardless of the latency. A request re-sent after a `401` is recorded twice, and the two values
+  add up to the time from sending it until the re-sent response arrives, including the token
+  refresh. It no longer records a WebSocket upgrade response, e.g. of a watch, so its count can be
+  lower than that of `kubernetes.client.http.response`.
 
 ### SparkApplication
 
