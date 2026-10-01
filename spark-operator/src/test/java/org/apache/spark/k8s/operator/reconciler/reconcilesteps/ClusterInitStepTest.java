@@ -362,108 +362,39 @@ class ClusterInitStepTest {
     when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
   }
 
-  @Test
-  @SuppressWarnings("unchecked")
-  void suspendAfterMasterRequestedCompletesInitialization() {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void suspendAfterMasterRequestedGoesToSuspended(boolean queued) {
+    // The master was requested by a previous reconcile whose status update did not land. Like a
+    // resumed cluster, it goes to Suspended, where ClusterSuspendStep deletes what was applied,
+    // rather than applying everything again or requesting the Kueue admission
     ClusterInitStep clusterInitStep = new ClusterInitStep();
     SparkClusterContext mockContext = mock(SparkClusterContext.class);
     SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
-    SparkCluster cluster = buildCluster();
+    when(recorder.appendNewStateAndPersist(any(), any())).thenReturn(true);
+    SparkCluster cluster = queued ? buildKueueCluster() : buildCluster();
     cluster.getSpec().setSuspend(true);
-    // The master was requested by a previous reconcile whose status update did not land
     KubernetesClient mockClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
     when(mockClient.resource(masterStatefulSetSpec).get()).thenReturn(masterStatefulSetSpec);
-    ServerSideApplicable<Service> serviceApplicable = mock(ServerSideApplicable.class);
-    ServiceResource<Service> serviceResource = mock(ServiceResource.class);
-    when(serviceResource.forceConflicts()).thenReturn(serviceApplicable);
-    when(mockClient.services().resource(any(Service.class))).thenReturn(serviceResource);
-    ServerSideApplicable<StatefulSet> statefulSetApplicable = mock(ServerSideApplicable.class);
-    RollableScalableResource<StatefulSet> statefulSetResource =
-        mock(RollableScalableResource.class);
-    when(statefulSetResource.forceConflicts()).thenReturn(statefulSetApplicable);
-    when(mockClient.apps().statefulSets().resource(any(StatefulSet.class)))
-        .thenReturn(statefulSetResource);
-    ServerSideApplicable<NetworkPolicy> networkPolicyApplicable = mock(ServerSideApplicable.class);
-    Resource<NetworkPolicy> networkPolicyResource = mock(Resource.class);
-    when(networkPolicyResource.forceConflicts()).thenReturn(networkPolicyApplicable);
-    when(mockClient.network().networkPolicies().resource(any(NetworkPolicy.class)))
-        .thenReturn(networkPolicyResource);
     when(mockContext.getResource()).thenReturn(cluster);
     when(mockContext.getClient()).thenReturn(mockClient);
-    when(mockContext.getMasterServiceSpec()).thenReturn(service("cluster1-master-svc"));
-    when(mockContext.getWorkerServiceSpec()).thenReturn(service("cluster1-worker-svc"));
     when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
-    when(mockContext.getWorkerStatefulSetSpec()).thenReturn(workerStatefulSetSpec);
-    when(mockContext.getWorkerNetworkPolicySpec()).thenReturn(networkPolicy("cluster1-worker"));
-    when(mockContext.getHorizontalPodAutoscalerSpec()).thenReturn(Optional.empty());
-    when(mockContext.getPodDisruptionBudgetSpec()).thenReturn(Optional.empty());
 
-    ReconcileProgress progress = clusterInitStep.reconcile(mockContext, recorder);
-
-    Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
-    ArgumentCaptor<ClusterStatus> statusCaptor = ArgumentCaptor.forClass(ClusterStatus.class);
-    verify(recorder).persistStatus(any(), statusCaptor.capture());
     Assertions.assertEquals(
-        ClusterStateSummary.RunningHealthy,
-        statusCaptor.getValue().getCurrentState().getCurrentStateSummary());
-    verify(mockClient.apps().statefulSets()).resource(masterStatefulSetSpec);
-    verify(mockClient.apps().statefulSets()).resource(workerStatefulSetSpec);
-    verify(statefulSetApplicable, times(2)).serverSideApply();
-  }
-
-  @Test
-  @SuppressWarnings("unchecked")
-  void suspendedQueuedClusterWithRequestedMasterIsLookedUpOnce() {
-    // The suspend check already found the master, so the Kueue admission must not read it again:
-    // a failure of that second read would be reported as KueueAdmissionRequestFailed rather than
-    // SuspendCheckFailed, and a null would request the admission of a running master
-    ClusterInitStep clusterInitStep = new ClusterInitStep();
-    SparkClusterContext mockContext = mock(SparkClusterContext.class);
-    SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
-    SparkCluster cluster = buildKueueCluster();
-    cluster.getSpec().setSuspend(true);
-    KubernetesClient mockClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
-    when(mockClient.resource(masterStatefulSetSpec).get())
-        .thenReturn(masterStatefulSetSpec)
-        .thenThrow(new KubernetesClientException("forbidden", 403, null));
-    stubWorkloadRead(mockClient, admittedWorkload(cluster, Map.of()));
-    ServerSideApplicable<Service> serviceApplicable = mock(ServerSideApplicable.class);
-    ServiceResource<Service> serviceResource = mock(ServiceResource.class);
-    when(serviceResource.forceConflicts()).thenReturn(serviceApplicable);
-    when(mockClient.services().resource(any(Service.class))).thenReturn(serviceResource);
-    ServerSideApplicable<StatefulSet> statefulSetApplicable = mock(ServerSideApplicable.class);
-    RollableScalableResource<StatefulSet> statefulSetResource =
-        mock(RollableScalableResource.class);
-    when(statefulSetResource.forceConflicts()).thenReturn(statefulSetApplicable);
-    when(mockClient.apps().statefulSets().resource(any(StatefulSet.class)))
-        .thenReturn(statefulSetResource);
-    ServerSideApplicable<NetworkPolicy> networkPolicyApplicable = mock(ServerSideApplicable.class);
-    Resource<NetworkPolicy> networkPolicyResource = mock(Resource.class);
-    when(networkPolicyResource.forceConflicts()).thenReturn(networkPolicyApplicable);
-    when(mockClient.network().networkPolicies().resource(any(NetworkPolicy.class)))
-        .thenReturn(networkPolicyResource);
-    when(mockContext.getResource()).thenReturn(cluster);
-    when(mockContext.getClient()).thenReturn(mockClient);
-    when(mockContext.getMasterServiceSpec()).thenReturn(service("cluster1-master-svc"));
-    when(mockContext.getWorkerServiceSpec()).thenReturn(service("cluster1-worker-svc"));
-    when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
-    when(mockContext.getWorkerStatefulSetSpec()).thenReturn(workerStatefulSetSpec);
-    when(mockContext.getWorkerNetworkPolicySpec()).thenReturn(networkPolicy("cluster1-worker"));
-    when(mockContext.getHorizontalPodAutoscalerSpec()).thenReturn(Optional.empty());
-    when(mockContext.getPodDisruptionBudgetSpec()).thenReturn(Optional.empty());
-    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
-
-    ReconcileProgress progress = clusterInitStep.reconcile(mockContext, recorder);
-
-    Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
+        ReconcileProgress.completeAndImmediateRequeue(),
+        clusterInitStep.reconcile(mockContext, recorder));
+    ArgumentCaptor<ClusterState> stateCaptor = ArgumentCaptor.forClass(ClusterState.class);
+    verify(recorder).appendNewStateAndPersist(any(), stateCaptor.capture());
+    Assertions.assertEquals(
+        ClusterStateSummary.Suspended, stateCaptor.getValue().getCurrentStateSummary());
+    Assertions.assertEquals(
+        Constants.CLUSTER_SUSPENDED_MESSAGE, stateCaptor.getValue().getMessage());
     verify(mockClient.resource(masterStatefulSetSpec)).get();
-    verify(mockClient, never()).resource(any(Workload.class));
-    verifyNoInteractions(eventRecorder);
-    ArgumentCaptor<ClusterStatus> statusCaptor = ArgumentCaptor.forClass(ClusterStatus.class);
-    verify(recorder).persistStatus(any(), statusCaptor.capture());
-    Assertions.assertEquals(
-        ClusterStateSummary.RunningHealthy,
-        statusCaptor.getValue().getCurrentState().getCurrentStateSummary());
+    verify(mockClient, never()).services();
+    verify(mockClient, never()).apps();
+    verify(mockClient, never()).resources(Workload.class);
+    verify(mockContext, never()).getMasterServiceSpec();
+    verify(mockContext, never()).getEventRecorder();
   }
 
   @Test
