@@ -87,7 +87,7 @@ affect building the project, CI, tests or examples.
   decrease between scrapes, so `rate()` of it and the average derived from it were wrong. Also, the
   `0.5` and `0.999` quantiles of the `operator_sdk_*` histograms are the median and the 99.9th
   percentile instead of the mean and the 99th percentile. A histogram or timer of a custom metrics
-  source has no `_sum` unless it is a `SummingHistogram` or a `SummingTimer` ([SPARK-XXXXX](https://issues.apache.org/jira/browse/SPARK-XXXXX)).
+  source has no `_sum` unless it is a `SummingHistogram` or a `SummingTimer` ([SPARK-59935](https://issues.apache.org/jira/browse/SPARK-59935)).
 
 ### SparkApplication
 
