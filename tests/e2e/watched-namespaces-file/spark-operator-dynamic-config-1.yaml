@@ -23,7 +23,7 @@ kind: ConfigMap
 metadata:
   annotations:
     helm.sh/resource-policy: keep
-    meta.helm.sh/release-name: spark-kubernetes-operator
+    meta.helm.sh/release-name: spark
     meta.helm.sh/release-namespace: default
   labels:
     app.kubernetes.io/component: operator-dynamic-config-overrides
