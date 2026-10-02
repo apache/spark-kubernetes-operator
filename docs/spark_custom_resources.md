@@ -786,6 +786,10 @@ spec:
   running attempt, delete the application to release its quota earlier. With `blockAdmission`, an
   application whose pods are not all ready holds back every other workload until they are ready
   or its quota is released as described above.
+* To limit the execution time of a `SparkApplication`, the Spark native `spark.driver.timeout` is
+  recommended instead of the `kueue.x-k8s.io/max-exec-time-seconds` label, which is not copied to
+  the `Workload`. It requires `spark.plugins=org.apache.spark.deploy.DriverTimeoutPlugin`, as in
+  [this example](../examples/pi-with-driver-timeout.yaml).
 
 ## Spark Cluster
 
