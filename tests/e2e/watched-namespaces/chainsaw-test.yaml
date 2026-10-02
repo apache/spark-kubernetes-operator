@@ -35,7 +35,9 @@ spec:
           bindings:
             - name: SPARK_APP_NAMESPACE
               value: spark-1
-          file: spark-example.yaml
+            - name: SPARK_APPLICATION_NAME
+              value: spark-job-succeeded-test
+          file: "../fixtures/spark-application/spark-example.yaml"
       - assert:
           bindings:
           - name: SPARK_APP_NAMESPACE
@@ -48,7 +50,9 @@ spec:
           bindings:
             - name: SPARK_APP_NAMESPACE
               value: spark-2
-          file: spark-example.yaml
+            - name: SPARK_APPLICATION_NAME
+              value: spark-job-succeeded-test
+          file: "../fixtures/spark-application/spark-example.yaml"
       - sleep:
           duration: 60s
       - script:
@@ -86,7 +90,9 @@ spec:
           bindings:
             - name: SPARK_APP_NAMESPACE
               value: spark-3
-          file: spark-example.yaml
+            - name: SPARK_APPLICATION_NAME
+              value: spark-job-succeeded-test
+          file: "../fixtures/spark-application/spark-example.yaml"
       - sleep:
           duration: 60s
       - script:

@@ -25,9 +25,9 @@ spec:
       - name: TEST_NAME
         value: succeeded
       - name: APPLICATION_FILE_NAME
-        value: spark-example-succeeded.yaml
+        value: ../fixtures/spark-application/spark-application-succeeded.yaml
       - name: CLUSTER_FILE_NAME
-        value: spark-cluster-example-succeeded.yaml
+        value: ../fixtures/spark-cluster/spark-cluster-example.yaml
       - name: SPARK_APPLICATION_NAME
         value: spark-job-succeeded-test
       - name: SPARK_CLUSTER_NAME
@@ -35,6 +35,9 @@ spec:
   steps:
   - try:
     - apply:
+        bindings:
+          - name: SPARK_APP_NAMESPACE
+            value: default
         file: ($APPLICATION_FILE_NAME)
     - assert:
         bindings:
@@ -57,6 +60,9 @@ spec:
           kubectl delete sparkapplication $SPARK_APPLICATION_NAME
   - try:
     - apply:
+        bindings:
+          - name: SPARK_APP_NAMESPACE
+            value: default
         file: ($CLUSTER_FILE_NAME)
     - assert:
         bindings:

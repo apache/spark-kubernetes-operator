@@ -42,7 +42,12 @@ spec:
   - name: succeeded-application-publishes-normal-events
     try:
     - apply:
-        file: spark-example-succeeded.yaml
+        bindings:
+          - name: SPARK_APP_NAMESPACE
+            value: default
+          - name: SPARK_APPLICATION_NAME
+            value: spark-job-succeeded-events-test
+        file: "../fixtures/spark-application/spark-application-succeeded.yaml"
     - assert:
         bindings:
           - name: SPARK_APP_NAMESPACE
@@ -191,7 +196,12 @@ spec:
   - name: cluster-publishes-running-healthy-event
     try:
     - apply:
-        file: spark-cluster-example.yaml
+        bindings:
+          - name: SPARK_APP_NAMESPACE
+            value: default
+          - name: SPARK_CLUSTER_NAME
+            value: spark-cluster-events-test
+        file: "../fixtures/spark-cluster/spark-cluster-example.yaml"
     - assert:
         bindings:
           - name: SPARK_APP_NAMESPACE

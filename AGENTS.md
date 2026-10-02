@@ -61,8 +61,8 @@ Gradle multi-project build (see [settings.gradle](settings.gradle)); root group 
 - `build-tools/docs-utils/` — Gradle subproject (`build-tools-docs-utils`) that generates the
   config and CRD documentation.
 - `tests/e2e/` — [Chainsaw](https://kyverno.github.io/chainsaw/) end-to-end tests, grouped by
-  scenario (e.g. `state-transition`, `python`, `watched-namespaces`); shared assertions live in
-  `tests/e2e/assertions/`.
+  scenario (e.g. `state-transition`, `python`, `watched-namespaces`); shared assertions and
+  fixtures live in `tests/e2e/assertions/` and `tests/e2e/fixtures/`.
 - `build-tools/`, `config/`, `examples/`, `docs/`, `dev/` — packaging (Docker / Helm), linter
   configs, example custom resources, documentation, and developer scripts.
 
