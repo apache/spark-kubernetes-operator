@@ -203,7 +203,7 @@ stateDiagram-v2
 
     RunningHealthy --> Suspended : spec.suspend=true or Kueue eviction
     Suspended --> Submitted : spec.suspend=false or after Kueue eviction
-    Submitted --> Suspended : spec.suspend=true after resume
+    Submitted --> Suspended : spec.suspend=true after resume or Kueue requeue, or once the master is requested
 
     RunningHealthy --> [*]
     Suspended --> [*]

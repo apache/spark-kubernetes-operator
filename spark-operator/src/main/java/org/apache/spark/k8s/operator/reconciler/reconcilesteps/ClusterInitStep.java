@@ -69,34 +69,31 @@ public final class ClusterInitStep extends ClusterReconcileStep {
     }
     SparkCluster cluster = context.getResource();
     if (cluster.getSpec().isSuspend()) {
-      // Unlike a first attempt, a cluster resumed from Suspended or queued again after an eviction
-      // has persisted this Submitted state, which would keep saying that it is resumed or queued
-      // again. It goes back to Suspended instead, where ClusterSuspendStep deletes the master and
-      // worker StatefulSets by name and releases whatever it holds only after its pods are gone.
-      // That happens whether or not the master was requested, so it is not looked up.
-      if (cluster.getStatus().getStateTransitionHistory().lastKey() > 0) {
-        return appendStateAndImmediateRequeue(
-            context, statusRecorder, new ClusterState(Suspended, CLUSTER_SUSPENDED_MESSAGE));
+      if (cluster.getStatus().getStateTransitionHistory().lastKey() == 0) {
+        final boolean masterRequested;
+        try {
+          masterRequested = isMasterRequested(context);
+        } catch (KubernetesClientException e) {
+          // Whether the master is live is unknown, not answered. Holding would claim in an event
+          // that none was requested, and would release the Kueue quota of a running master.
+          // Going to Suspended would show a cluster which may never have started as being
+          // released, and keep it there until it is resumed, even after a single throttled read.
+          // So look again with the steady-state interval instead.
+          return SuspendUtils.retryAfterCheckFailure(context, e, "master");
+        }
+        if (!masterRequested) {
+          return SuspendUtils.holdForSuspend(context, "master and workers");
+        }
       }
-      final boolean masterRequested;
-      try {
-        masterRequested = isMasterRequested(context);
-      } catch (KubernetesClientException e) {
-        // Whether the master is live is unknown, not answered. Holding would claim in an event
-        // that none was requested, and would release the Kueue quota of a running master, so
-        // look again with the steady-state interval instead.
-        return SuspendUtils.retryAfterCheckFailure(context, e, "master");
-      }
-      if (masterRequested) {
-        // A first attempt whose master StatefulSet already exists has been requested before, e.g.
-        // the status update to RunningHealthy failed. It goes to Suspended as well, rather than
-        // completing its initialization: that would apply every resource again only for
-        // ClusterSuspendStep to delete them, and a failure to apply them would keep the cluster
-        // from being suspended, or fail it, although it was only suspended.
-        return appendStateAndImmediateRequeue(
-            context, statusRecorder, new ClusterState(Suspended, CLUSTER_SUSPENDED_MESSAGE));
-      }
-      return SuspendUtils.holdForSuspend(context, "master and workers");
+      // Only a first attempt whose master is known to be absent is held. A cluster resumed from
+      // Suspended or queued again after an eviction has persisted this Submitted state, which
+      // would keep saying that it is resumed or queued again, and a first attempt whose master
+      // exists was requested before, e.g. the status update to RunningHealthy failed. Either goes
+      // to Suspended, where ClusterSuspendStep releases the master and workers whether or not they
+      // were requested, rather than applying every resource again. So the master of a resumed or
+      // requeued cluster is not looked up.
+      return appendStateAndImmediateRequeue(
+          context, statusRecorder, new ClusterState(Suspended, CLUSTER_SUSPENDED_MESSAGE));
     }
     if (cluster.getStatus().getPreviousAttemptSummary() != null) {
       Instant lastTransitionTime = Instant.parse(currentState.getLastTransitionTime());
@@ -217,13 +214,13 @@ public final class ClusterInitStep extends ClusterReconcileStep {
   /**
    * Requests the Kueue admission of a cluster labeled with a queue name. A master requested before
    * must complete its initialization, so only the flavors which Kueue assigned to it are applied
-   * again then. A suspended cluster never gets here, since it is held or goes to Suspended first.
-   * An unsupported spec fails to build the Workload, which the caller turns into SchedulingFailure.
-   * SchedulingFailure is terminal for a cluster, so an API failure of the admission request is
-   * retried instead, see {@link KueueWorkloadUtils#holdForAdmission}. A cluster without the label
-   * releases the Workload left pending from before the label was removed instead, or applies the
-   * flavors of the one admitted before to a master requested before, see {@link
-   * KueueWorkloadUtils#handleDequeuedWorkload}.
+   * again then. A suspended cluster never gets here, since every suspend branch of reconcile
+   * returns first. An unsupported spec fails to build the Workload, which the caller turns into
+   * SchedulingFailure. SchedulingFailure is terminal for a cluster, so an API failure of the
+   * admission request is retried instead, see {@link KueueWorkloadUtils#holdForAdmission}. A
+   * cluster without the label releases the Workload left pending from before the label was
+   * removed instead, or applies the flavors of the one admitted before to a master requested
+   * before, see {@link KueueWorkloadUtils#handleDequeuedWorkload}.
    *
    * @param context The SparkClusterContext for the cluster.
    * @param cluster The SparkCluster.

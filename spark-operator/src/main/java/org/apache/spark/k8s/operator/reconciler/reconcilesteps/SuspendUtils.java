@@ -46,7 +46,8 @@ final class SuspendUtils {
    * to return. A resource suspended while queued releases its Kueue Workload first, so that it
    * does not keep holding the quota, and its event then says so, since the pending event it was
    * queued with outlives the Workload. Callers keep their own guard for resources requested
-   * before, which must complete their initialization instead of being held.
+   * before, which are not held: an application whose driver was requested completes its
+   * initialization, while a cluster whose master was requested goes to Suspended instead.
    *
    * <p>Like the Kueue pending event, the event is republished while the hold lasts rather than
    * once when it starts. The event sink keys the Event on the reason, so a repeat bumps the count
