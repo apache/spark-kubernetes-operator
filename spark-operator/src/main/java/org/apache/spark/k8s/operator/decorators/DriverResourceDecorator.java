@@ -73,6 +73,10 @@ public class DriverResourceDecorator implements ResourceDecorator {
           new ObjectMetaBuilder(resource.getMetadata())
               .addToOwnerReferences(buildOwnerReferenceTo(driverPod))
               .addToLabels(driverPod.getMetadata().getLabels())
+              // Re-apply the resource's own labels last so a label set explicitly on
+              // the resource (e.g. a per-service label) wins over the driver-pod label
+              // of the same key, rather than being overwritten by it.
+              .addToLabels(resource.getMetadata().getLabels())
               .build();
       resource.setMetadata(metaData);
     }
