@@ -84,8 +84,7 @@ public final class AppInitStep extends AppReconcileStep {
         // in an event that none was requested, and would do so for the whole suspend hold
         // interval. It would also release the Kueue quota of a running driver, so look again with
         // the steady-state interval instead.
-        log.warn("Failed to verify the driver pod of a suspended application, will retry.", e);
-        return completeAndDefaultRequeue();
+        return SuspendUtils.retryAfterCheckFailure(context, e, "driver");
       }
       if (!driverRequested) {
         return SuspendUtils.holdForSuspend(context, "driver");

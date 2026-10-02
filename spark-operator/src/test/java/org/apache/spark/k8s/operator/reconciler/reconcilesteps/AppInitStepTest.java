@@ -562,6 +562,36 @@ class AppInitStepTest {
         application.getStatus().getCurrentState().getCurrentStateSummary());
   }
 
+  @ParameterizedTest
+  @ValueSource(ints = {403, 429, 500})
+  void suspendedAppWithPersistentlyUnverifiableDriverPublishesEvent(int code) {
+    // Unlike a transport level failure, a persistent one is reported, since a suspended app has no
+    // persisted status to show it. The event must not claim that no driver was requested.
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(applicationMetadata);
+    application.getSpec().setSuspend(true);
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getCurrentAttemptDriverPod())
+        .thenThrow(new KubernetesClientException("rejected", code, null));
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+
+    ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
+
+    Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
+    verify(mockContext, never()).getDriverPodSpec();
+    verifyNoInteractions(recorder);
+    EventRecord event = captureEvents(1).get(0);
+    Assertions.assertEquals(EventType.WARNING, event.type());
+    Assertions.assertEquals(EventUtils.REASON_SUSPEND_CHECK_FAILED, event.reason());
+    Assertions.assertEquals(
+        "Failed to check whether the driver of the suspended SparkApplication was requested, "
+            + "will retry. KubernetesClientException: rejected",
+        event.message());
+  }
+
   @Test
   void suspendedAppPublishesEventOnEveryReconcile() {
     AppInitStep appInitStep = new AppInitStep();
