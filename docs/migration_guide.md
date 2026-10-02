@@ -65,6 +65,16 @@ affect building the project, CI, tests or examples.
   `events`, which are the verbs the operator uses. 1.0 also granted `list`, `watch`, `update` and
   `delete`. If other workloads use the operator ServiceAccount and need them, grant them with
   another Role or ClusterRole ([SPARK-59587](https://issues.apache.org/jira/browse/SPARK-59587)).
+- Since 1.1.0, the workload ClusterRole and Roles grant `deletecollection` on `pods`, `services`,
+  `configmaps` and `persistentvolumeclaims`, which Spark drivers need to delete the resources of
+  their application by label selector. 1.0 did not grant it, so drivers logged errors like
+  `cannot deletecollection resource "services"` when they stopped, and left the driver service,
+  the on-demand PVCs and the executor pods and configmaps until the driver pod was deleted, e.g.
+  as long as `resourceRetainPolicy` retained it. With dynamic allocation, they could not delete
+  unneeded pending executor pods either. If you manage the workload Role or ClusterRole yourself,
+  add `deletecollection` to it as well. To keep the driver service and the executor pods and
+  configmaps, set `spark.kubernetes.driver.service.deleteOnTermination` and
+  `spark.kubernetes.executor.deleteOnTermination` to `false`.
 - Since 1.1.0, each option of `operatorDeployment.operatorPod.operatorContainer.jvmArgs` is passed
   to the operator JVM as its own argument. 1.0 passed the whole value as one argument, which the
   JVM took as a single `-Dfile.encoding` system property, so the other options had no effect. The
