@@ -138,6 +138,13 @@ spec:
           kubectl auth can-i create persistentvolumeclaims --namespace={{ .Release.Namespace }}
           kubectl auth can-i watch  statefulsets.apps --namespace={{ .Release.Namespace }}
           kubectl auth can-i create statefulsets.apps --namespace={{ .Release.Namespace }}
+          kubectl auth can-i get    deployments.apps --namespace={{ .Release.Namespace }}
+          kubectl auth can-i create deployments.apps --namespace={{ .Release.Namespace }}
+          kubectl auth can-i delete deployments.apps --namespace={{ .Release.Namespace }}
+          kubectl auth can-i get    statefulsets.apps --subresource=scale --namespace={{ .Release.Namespace }}
+          kubectl auth can-i update statefulsets.apps --subresource=scale --namespace={{ .Release.Namespace }}
+          kubectl auth can-i get    deployments.apps --subresource=scale --namespace={{ .Release.Namespace }}
+          kubectl auth can-i update deployments.apps --subresource=scale --namespace={{ .Release.Namespace }}
 
           # Spark workloads must not reach beyond their own namespace. `set -e`
           # ignores a failing `!` pipeline, so assert each denial explicitly.

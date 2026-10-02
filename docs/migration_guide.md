@@ -65,6 +65,14 @@ affect building the project, CI, tests or examples.
   `events`, which are the verbs the operator uses. 1.0 also granted `list`, `watch`, `update` and
   `delete`. If other workloads use the operator ServiceAccount and need them, grant them with
   another Role or ClusterRole ([SPARK-59587](https://issues.apache.org/jira/browse/SPARK-59587)).
+- Since 1.1.0, the workload ClusterRole and Roles also grant `get`, `create` and `delete` on
+  `deployments` in the `apps` API group, and `get` and `update` on the `scale` subresource of
+  `statefulsets` and `deployments`. Spark drivers need them for
+  `spark.kubernetes.allocation.pods.allocator=deployment` of Spark 4.2.0 or newer, and to scale
+  the executor StatefulSet or Deployment, e.g. with dynamic allocation. With 1.0, such a driver
+  failed to start, since creating the Deployment or scaling the StatefulSet was forbidden. To keep
+  the rules of 1.0, set `workloadResources.clusterRole.create` and `workloadResources.role.create`
+  to `false`, and grant them with your own Role or ClusterRole.
 - Since 1.1.0, each option of `operatorDeployment.operatorPod.operatorContainer.jvmArgs` is passed
   to the operator JVM as its own argument. 1.0 passed the whole value as one argument, which the
   JVM took as a single `-Dfile.encoding` system property, so the other options had no effect. The
