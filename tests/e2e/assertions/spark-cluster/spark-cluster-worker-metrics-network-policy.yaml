@@ -1,3 +1,4 @@
+#
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -5,35 +6,37 @@
 # (the "License"); you may not use this file except in compliance with
 # the License.  You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-apiVersion: spark.apache.org/v1
-kind: SparkCluster
+#
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
 metadata:
-  name: spark-cluster-succeeded-test
-  namespace: default
+  name: (join('-', [$SPARK_CLUSTER_NAME, 'worker']))
+  namespace: ($SPARK_APP_NAMESPACE)
 spec:
-  runtimeVersions:
-    sparkVersion: "4.2.0"
-  clusterTolerations:
-    instanceConfig:
-      initWorkers: 1
-      minWorkers: 1
-      maxWorkers: 1
-  workerSpec:
-    networkPolicy:
-      metricsPort: 9404
-      metricsIngress:
+  podSelector:
+    matchLabels:
+      spark-role: worker
+      spark.operator/spark-cluster-name: ($SPARK_CLUSTER_NAME)
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              spark.operator/spark-cluster-name: ($SPARK_CLUSTER_NAME)
+        - podSelector:
+            matchLabels:
+              spark-role: driver
+    - from:
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: "monitoring"
-  sparkConf:
-    spark.kubernetes.container.image: "apache/spark:{{SPARK_VERSION}}"
-    spark.master.ui.title: "Spark Cluster E2E Test"
-    spark.master.rest.host: "0.0.0.0"
-    spark.ui.reverseProxy: "true"
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - port: 9404
+          protocol: TCP

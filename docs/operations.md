@@ -215,6 +215,58 @@ It is still honored: the NetworkPolicy is created when either key is `true`, so 
 `enable: true` in a base values file wins over `enabled: false` and must be removed to turn
 the feature off. The same rule applies to `operatorConfiguration.dynamicConfig.enable`.
 
+## Exposing SparkCluster Worker Metrics
+
+Every `SparkCluster` gets a generated worker `NetworkPolicy` that only admits ingress from pods
+carrying the cluster label or the driver-role label, so a Prometheus scraper is locked out by
+default. Opening the worker web UI port (`8081` by default) is not a safe fix: Spark's built-in
+`PrometheusServlet` metrics endpoint is served by the same embedded HTTP server as the web UI, so
+admitting that port to any source would expose the whole UI, not just metrics.
+
+Use the [Prometheus JMX Exporter](https://github.com/prometheus/jmx_exporter)
+(`jmx_prometheus_javaagent`) to serve metrics on a dedicated HTTP port. See
+[examples/cluster-with-jmx-exporter.yaml](../examples/cluster-with-jmx-exporter.yaml) for the full
+`ConfigMap` and `SparkCluster` configuration. Replace the example's image with a custom Spark image
+containing the exporter jar at `/opt/jmx_exporter/jmx_prometheus_javaagent.jar`; the stock
+`apache/spark` image does not include it.
+
+The example mounts the exporter rules and attaches the agent through `SPARK_DAEMON_JAVA_OPTS`.
+The operator sets `SPARK_WORKER_OPTS` itself, so a value there would be overwritten. It also sets
+`spark.metrics.conf.worker.sink.jmx.class` to `org.apache.spark.metrics.sink.JmxSink` in `sparkConf` to
+register Spark worker metrics as MBeans. Without this sink, the example exporter emits no Spark
+worker metrics.
+See also the [JmxSink configuration](spark_custom_resources.md) using `metrics.properties`.
+
+Set `workerSpec.networkPolicy.metricsPort` to the exporter port and list the scraper's peers under
+`metricsIngress`. The generated policy adds ingress on that port for those peers, alongside the
+existing cluster/driver label allow-list. This mirrors
+`operatorDeployment.networkPolicy.metricsIngress`
+([above](#restricting-network-access-to-the-operator)) and accepts the same
+[`NetworkPolicyPeer`](https://kubernetes.io/docs/reference/kubernetes-api/policy-resources/network-policy-v1/#NetworkPolicyPeer)
+entries:
+
+```yaml
+spec:
+  workerSpec:
+    networkPolicy:
+      metricsPort: 9404
+      metricsIngress:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: "monitoring"
+```
+
+The `networkPolicy` block is optional. When present, the API server requires both fields and a
+port between 1 and 65535, and rejects an empty `metricsIngress` list. Choose a dedicated exporter
+port, not the worker web UI port; the operator does not verify this. Configuring this policy does
+not start a metrics endpoint. The policy is generated when the cluster is created; changing scraper
+peers requires recreating the `SparkCluster`.
+
+Master pods do not get a `NetworkPolicy` today, so nothing needs to change for masters to be
+scrapable — the same javaagent-plus-`ConfigMap` approach applied under `masterSpec` is enough to
+expose master metrics, with no equivalent of `networkPolicy.metricsPort` /
+`networkPolicy.metricsIngress` needed.
+
 ## Operator Health(Liveness) Probe with Sentinel Resource
 
 Learning
