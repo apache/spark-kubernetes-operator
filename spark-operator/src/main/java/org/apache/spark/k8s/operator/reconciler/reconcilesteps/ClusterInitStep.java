@@ -199,12 +199,15 @@ public final class ClusterInitStep extends ClusterReconcileStep {
       log.error("Failed to request master resource.", e);
     }
     String msg = CLUSTER_SCHEDULE_FAILURE_MESSAGE + " StackTrace: " + buildGeneralErrorMessage(e);
+    // The status keeps the stack trace, while the event, which reaches more readers, only
+    // describes the failure, like the other warning events.
     statusRecorder.persistStatus(
         context,
         context
             .getResource()
             .getStatus()
-            .appendNewState(new ClusterState(SchedulingFailure, msg)));
+            .appendNewState(new ClusterState(SchedulingFailure, msg)),
+        CLUSTER_SCHEDULE_FAILURE_MESSAGE + " " + EventUtils.describe(e));
     return completeAndImmediateRequeue();
   }
 

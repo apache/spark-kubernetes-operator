@@ -84,8 +84,11 @@ public class StatusRecorder<
    * behavior.
    *
    * @param context Context of the resource for which status update should be performed.
+   * @param currentStateEventMessage The message of the event about the current state, or null for
+   *     the message of that state.
    */
-  private void patchAndStatusWithVersionLocked(BaseContext<CR> context) {
+  private void patchAndStatusWithVersionLocked(
+      BaseContext<CR> context, String currentStateEventMessage) {
     CR resource = context.getResource();
     KubernetesClient client = context.getClient();
     ObjectNode newStatusNode = objectMapper.convertValue(resource.getStatus(), ObjectNode.class);
@@ -139,7 +142,7 @@ public class StatusRecorder<
         listener -> {
           listener.listenStatus(resource, prevStatus, resource.getStatus());
         });
-    recordTransitionEvents(context, prevStatus, resource.getStatus());
+    recordTransitionEvents(context, prevStatus, resource.getStatus(), currentStateEventMessage);
   }
 
   /**
@@ -159,13 +162,17 @@ public class StatusRecorder<
    *
    * <p>The event type follows {@link EventUtils#eventTypeOf(BaseStateSummary)}. The state name is
    * used as both reason and dedup key, so an app that keeps re-entering the same state bumps the
-   * count on one Event instead of accumulating one per attempt.
+   * count on one Event instead of accumulating one per attempt. The message is the state message,
+   * unless a message is given for the event about the current state.
    *
    * @param context Context of the resource whose status has just been patched.
    * @param prevStatus The status before the patch, may be null.
    * @param status The status that was persisted.
+   * @param currentStateEventMessage The message of the event about the current state, or null for
+   *     the message of that state.
    */
-  private void recordTransitionEvents(BaseContext<CR> context, STATUS prevStatus, STATUS status) {
+  private void recordTransitionEvents(
+      BaseContext<CR> context, STATUS prevStatus, STATUS status, String currentStateEventMessage) {
     BaseState<?> currentState = status.getCurrentState();
     if (currentState == null
         || (prevStatus != null && currentState.equals(prevStatus.getCurrentState()))) {
@@ -175,7 +182,10 @@ public class StatusRecorder<
     for (BaseState<?> state : newStatesSince(prevStatus, status)) {
       Object summary = state.getCurrentStateSummary();
       if (summary instanceof BaseStateSummary stateSummary && !summary.equals(lastSummary)) {
-        String message = state.getMessage();
+        String message =
+            currentStateEventMessage != null && state.equals(currentState)
+                ? currentStateEventMessage
+                : state.getMessage();
         EventUtils.record(
             context.getEventRecorder(),
             EventUtils.eventTypeOf(stateSummary),
@@ -219,9 +229,28 @@ public class StatusRecorder<
    * @return true if the status is successfully patched.
    */
   public boolean persistStatus(BaseContext<CR> context, STATUS newStatus) {
+    return persistStatus(context, newStatus, null);
+  }
+
+  /**
+   * Persists the new status of the resource to the Kubernetes cluster, like {@link
+   * #persistStatus(BaseContext, BaseStatus)}, but publishes the given message in place of the
+   * message of the current state in the event about the transition into it. It is meant for a
+   * state message which is too detailed for an event, such as one which carries a stack trace,
+   * since events typically reach more readers than the resource status, e.g. through the built-in
+   * {@code view} ClusterRole or an event exporter.
+   *
+   * @param context The BaseContext containing the resource and client.
+   * @param newStatus The new status to persist.
+   * @param currentStateEventMessage The message of the event about the current state, or null for
+   *     the message of that state.
+   * @return true if the status is successfully patched.
+   */
+  public boolean persistStatus(
+      BaseContext<CR> context, STATUS newStatus, String currentStateEventMessage) {
     try {
       context.getResource().setStatus(newStatus);
-      patchAndStatusWithVersionLocked(context);
+      patchAndStatusWithVersionLocked(context, currentStateEventMessage);
       return true;
     } catch (KubernetesClientException e) {
       log.error("Error while persisting status to {}", newStatus, e);

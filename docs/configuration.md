@@ -80,7 +80,9 @@ kubectl get events -A --field-selector reportingComponent=spark-kubernetes-opera
 ```
 
 Whenever a resource transitions into a new state, the operator publishes an event whose `reason`
-is the name of the new state and whose `message` is the state message. Repeated transitions into
+is the name of the new state and whose `message` is the state message, except that the event of
+`SchedulingFailure` leaves out the stack trace of the failure, see
+[Event messages](#event-messages). Repeated transitions into
 the same state are aggregated into a single `Event` object by incrementing its `count` and
 replacing its `message`. A repeat carrying the same `message` may be paced by
 [`minIntervalSeconds`](#event-frequency), while one carrying a new `message` is always published.
@@ -188,6 +190,29 @@ connection, or after the request timeout (10 seconds by default) when it does no
 still holds the interval. An event which is republished, such as `SuspendHeld` or a warning about
 a failure which lasts, recovers with its next repeat after the interval, while one which is not,
 such as a state transition, is lost; the resource status remains the source of truth.
+
+### Event messages
+
+The `message` of a `Warning` event about an error, such as `ReconcileError` or
+`ClusterRequestFailed`, describes the exception and its innermost cause, without the stack trace,
+which the operator logs. For a request which the API server rejected, it is the message of the API
+server, as in the events of the built-in controllers, e.g. an RBAC denial which names the
+ServiceAccount of the operator, a rejection by an admission webhook or a resource quota, or a field
+value which the API server found invalid. When `SchedulingFailure` is caused by an exception, its
+event describes the exception alike, while its state message keeps the stack trace.
+
+Events reach more readers than the status of the resources. The built-in `view`, `edit` and
+`admin` ClusterRoles grant reading the `events` of a namespace, but not the `SparkApplication` and
+`SparkCluster` resources, which the Helm chart does not aggregate into them, and event exporters
+often forward warnings out of the cluster, e.g. to chat or logging services. So keep credentials
+out of `spec.sparkConf` and pod templates, since an error may quote them, e.g. as an invalid value,
+and refer to Kubernetes Secrets instead, e.g. with `spark.kubernetes.driver.secretKeyRef.[EnvName]`
+and `spark.kubernetes.executor.secretKeyRef.[EnvName]`. To keep the details of failures in the
+resource status and the operator log only, exclude their reasons, e.g. as follows.
+
+```properties
+spark.kubernetes.operator.events.excludedReasons=SchedulingFailure,ReconcileError,CleanupError,StatusUpdateFailed,ClusterRequestFailed,SuspendReleaseFailed,Kueue.*Failed
+```
 
 ## Metrics
 

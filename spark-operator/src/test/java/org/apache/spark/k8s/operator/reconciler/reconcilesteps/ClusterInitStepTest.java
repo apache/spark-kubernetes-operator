@@ -293,11 +293,19 @@ class ClusterInitStepTest {
         ReconcileProgress.completeAndImmediateRequeue(),
         clusterInitStep.reconcile(mockContext, recorder));
     ArgumentCaptor<ClusterStatus> statusCaptor = ArgumentCaptor.forClass(ClusterStatus.class);
-    verify(recorder).persistStatus(any(), statusCaptor.capture());
+    ArgumentCaptor<String> eventMessage = ArgumentCaptor.forClass(String.class);
+    verify(recorder).persistStatus(any(), statusCaptor.capture(), eventMessage.capture());
     Assertions.assertEquals(
         ClusterStateSummary.SchedulingFailure,
         statusCaptor.getValue().getCurrentState().getCurrentStateSummary());
-    // The status already says why, so no event is needed
+    // The status keeps the stack trace, which the SchedulingFailure event leaves out
+    Assertions.assertTrue(
+        statusCaptor.getValue().getCurrentState().getMessage().contains("\tat "),
+        statusCaptor.getValue().getCurrentState().getMessage());
+    Assertions.assertEquals(
+        Constants.CLUSTER_SCHEDULE_FAILURE_MESSAGE + " KubernetesClientException: Invalid",
+        eventMessage.getValue());
+    // SchedulingFailure already says why, so no other event is needed
     verifyNoInteractions(eventRecorder);
   }
 
@@ -1082,7 +1090,7 @@ class ClusterInitStepTest {
     verify(mockContext, never()).setKueuePodSetFlavors(any());
     verify(mockContext, never()).getMasterServiceSpec();
     ArgumentCaptor<ClusterStatus> captor = ArgumentCaptor.forClass(ClusterStatus.class);
-    verify(recorder).persistStatus(any(), captor.capture());
+    verify(recorder).persistStatus(any(), captor.capture(), any());
     Assertions.assertEquals(
         ClusterStateSummary.SchedulingFailure,
         captor.getValue().getCurrentState().getCurrentStateSummary());

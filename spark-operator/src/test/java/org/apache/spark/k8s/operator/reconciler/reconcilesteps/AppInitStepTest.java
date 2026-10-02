@@ -1135,7 +1135,7 @@ class AppInitStepTest {
     Assertions.assertEquals(ReconcileProgress.completeAndImmediateRequeue(), progress);
     Assertions.assertNull(getWorkload());
     ArgumentCaptor<ApplicationStatus> captor = ArgumentCaptor.forClass(ApplicationStatus.class);
-    verify(recorder).persistStatus(any(), captor.capture());
+    verify(recorder).persistStatus(any(), captor.capture(), any());
     Assertions.assertEquals(
         ApplicationStateSummary.SchedulingFailure,
         captor.getValue().getCurrentState().getCurrentStateSummary());
@@ -1638,16 +1638,25 @@ class AppInitStepTest {
               throw new SparkException(
                   "Please specify spark.kubernetes.file.upload.path property.");
             });
-    when(recorder.persistStatus(any(), any())).thenReturn(true);
+    when(recorder.persistStatus(any(), any(), any())).thenReturn(true);
 
     ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
 
     Assertions.assertEquals(ReconcileProgress.completeAndImmediateRequeue(), progress);
     ArgumentCaptor<ApplicationStatus> captor = ArgumentCaptor.forClass(ApplicationStatus.class);
-    verify(recorder).persistStatus(any(), captor.capture());
+    ArgumentCaptor<String> eventMessage = ArgumentCaptor.forClass(String.class);
+    verify(recorder).persistStatus(any(), captor.capture(), eventMessage.capture());
     Assertions.assertEquals(
         ApplicationStateSummary.SchedulingFailure,
         captor.getValue().getCurrentState().getCurrentStateSummary());
+    // The status keeps the stack trace, while the event only describes the failure
+    Assertions.assertTrue(
+        captor.getValue().getCurrentState().getMessage().contains("\tat "),
+        captor.getValue().getCurrentState().getMessage());
+    Assertions.assertEquals(
+        Constants.SCHEDULE_FAILURE_MESSAGE
+            + " SparkException: Please specify spark.kubernetes.file.upload.path property.",
+        eventMessage.getValue());
     Assertions.assertNotNull(getWorkload());
   }
 
@@ -1804,7 +1813,7 @@ class AppInitStepTest {
     when(mockContext.getClient()).thenReturn(kubernetesClient);
     when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
     createFlavor("spot-flavor", Map.of("pool", "spot"), List.of());
-    when(recorder.persistStatus(any(), any())).thenReturn(true);
+    when(recorder.persistStatus(any(), any(), any())).thenReturn(true);
 
     appInitStep.reconcile(mockContext, recorder);
     admitWorkload(Map.of("driver", Map.of("cpu", "spot-flavor")));
@@ -1815,7 +1824,7 @@ class AppInitStepTest {
     Assertions.assertNull(getWorkload());
     verify(mockContext, never()).setKueuePodSetFlavors(any());
     ArgumentCaptor<ApplicationStatus> captor = ArgumentCaptor.forClass(ApplicationStatus.class);
-    verify(recorder).persistStatus(any(), captor.capture());
+    verify(recorder).persistStatus(any(), captor.capture(), any());
     Assertions.assertEquals(
         ApplicationStateSummary.SchedulingFailure,
         captor.getValue().getCurrentState().getCurrentStateSummary());
