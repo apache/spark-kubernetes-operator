@@ -585,11 +585,11 @@ spec:
   `SchedulingFailure`, as for a newly created cluster. With
   `spark.kubernetes.operator.reconciler.trimStateTransitionHistoryEnabled`, the resumed cluster drops
   the state transition history of its previous run, so that suspending it again and again keeps the
-  status bounded. Setting it to `true` again before the master is requested moves the cluster back
-  to `Suspended`. A pod which is still terminating 5 minutes after its grace period ended, e.g. on
-  a lost node, no longer holds the Kueue `Workload`, so that it does not hold the quota forever. The
-  cluster still stays `Suspended` until such a pod is gone, since it keeps the name of the master or
-  worker to create, and the message of its `Suspended` state names such pods.
+  status bounded. Setting it to `true` again moves the cluster back to `Suspended`. A pod which is
+  still terminating 5 minutes after its grace period ended, e.g. on a lost node, no longer holds the
+  Kueue `Workload`, so that it does not hold the quota forever. The cluster still stays `Suspended`
+  until such a pod is gone, since it keeps the name of the master or worker to create, and the
+  message of its `Suspended` state names such pods.
 * An operator version without the `Suspended` state cannot read a `SparkCluster` which is
   `Suspended`, so resume or delete such clusters before downgrading the operator.
 * Deleting a suspended resource works as usual.

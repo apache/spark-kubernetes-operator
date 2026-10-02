@@ -366,8 +366,8 @@ class ClusterInitStepTest {
   @ValueSource(booleans = {false, true})
   void suspendAfterMasterRequestedGoesToSuspended(boolean queued) {
     // The master was requested by a previous reconcile whose status update did not land. Like a
-    // resumed cluster, it goes to Suspended, where ClusterSuspendStep deletes what was applied,
-    // rather than applying everything again or requesting the Kueue admission
+    // resumed cluster, it goes to Suspended, where ClusterSuspendStep releases the master and
+    // workers, rather than applying everything again or requesting the Kueue admission
     ClusterInitStep clusterInitStep = new ClusterInitStep();
     SparkClusterContext mockContext = mock(SparkClusterContext.class);
     SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
