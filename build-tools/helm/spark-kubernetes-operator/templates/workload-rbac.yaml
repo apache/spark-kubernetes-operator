@@ -45,6 +45,22 @@ rules:
       - update
       - patch
       - delete
+  - apiGroups:
+      - "apps"
+    resources:
+      - deployments
+    verbs:
+      - get
+      - create
+      - delete
+  - apiGroups:
+      - "apps"
+    resources:
+      - statefulsets/scale
+      - deployments/scale
+    verbs:
+      - get
+      - update
 {{- end }}
 
 {{/*
