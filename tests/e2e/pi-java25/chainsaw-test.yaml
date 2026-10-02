@@ -29,8 +29,10 @@ spec:
         bindings:
           - name: SPARK_APP_NAMESPACE
             value: default
+          - name: SPARK_APPLICATION_NAME
+            value: pi-java25
         timeout: 10m
-        file: spark-state-transition.yaml
+        file: "../assertions/spark-application/spark-state-transition.yaml"
     catch:
     - describe:
         apiVersion: spark.apache.org/v1

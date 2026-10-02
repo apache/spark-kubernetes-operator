@@ -38,7 +38,12 @@ spec:
   - name: suspended-application-publishes-suspend-held-event
     try:
     - apply:
-        file: spark-example-suspend.yaml
+        bindings:
+          - name: SPARK_APP_NAMESPACE
+            value: default
+          - name: SPARK_APPLICATION_NAME
+            value: spark-job-suspend-events-test
+        file: "../fixtures/spark-application/spark-example-suspend.yaml"
     - assert:
         timeout: 60s
         resource:
@@ -94,7 +99,12 @@ spec:
   - name: suspended-cluster-publishes-suspend-held-event
     try:
     - apply:
-        file: spark-cluster-example-suspend.yaml
+        bindings:
+          - name: SPARK_APP_NAMESPACE
+            value: default
+          - name: SPARK_CLUSTER_NAME
+            value: spark-cluster-suspend-events-test
+        file: "../fixtures/spark-cluster/spark-cluster-example-suspend.yaml"
     - assert:
         timeout: 60s
         resource:

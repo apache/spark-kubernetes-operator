@@ -23,7 +23,12 @@ spec:
   steps:
   - try:
     - apply:
-        file: spark-example-suspend.yaml
+        bindings:
+          - name: SPARK_APP_NAMESPACE
+            value: default
+          - name: SPARK_APPLICATION_NAME
+            value: spark-job-suspend-test
+        file: "../fixtures/spark-application/spark-example-suspend.yaml"
     - sleep:
         duration: 30s
     - script:
@@ -75,7 +80,12 @@ spec:
           kubectl delete sparkapplication spark-job-suspend-test -n default --ignore-not-found=true
   - try:
     - apply:
-        file: spark-cluster-example-suspend.yaml
+        bindings:
+          - name: SPARK_APP_NAMESPACE
+            value: default
+          - name: SPARK_CLUSTER_NAME
+            value: spark-cluster-suspend-test
+        file: "../fixtures/spark-cluster/spark-cluster-example-suspend.yaml"
     - sleep:
         duration: 30s
     - script:

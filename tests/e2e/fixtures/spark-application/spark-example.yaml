@@ -18,15 +18,14 @@
 apiVersion: spark.apache.org/v1
 kind: SparkApplication
 metadata:
-  name: pi-java25
+  name: ($SPARK_APPLICATION_NAME)
   namespace: ($SPARK_APP_NAMESPACE)
-status:
-  stateTransitionHistory:
-    (*.currentStateSummary):
-      - "Submitted"
-      - "DriverRequested"
-      - "DriverStarted"
-      - "DriverReady"
-      - "RunningHealthy"
-      - "Succeeded"
-      - "ResourceReleased"
+spec:
+  mainClass: "org.apache.spark.examples.SparkPi"
+  jars: "local:///opt/spark/examples/jars/spark-examples.jar"
+  sparkConf:
+    spark.executor.instances: "1"
+    spark.kubernetes.container.image: "apache/spark:{{SPARK_VERSION}}-scala"
+    spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
+  runtimeVersions:
+    sparkVersion: "4.2.0"

@@ -18,9 +18,10 @@
 apiVersion: spark.apache.org/v1
 kind: SparkApplication
 metadata:
-  name: spark-job-succeeded-events-test
-  namespace: default
+  name: ($SPARK_APPLICATION_NAME)
+  namespace: ($SPARK_APP_NAMESPACE)
 spec:
+  suspend: true
   mainClass: "org.apache.spark.examples.SparkPi"
   jars: "local:///opt/spark/examples/jars/spark-examples.jar"
   sparkConf:
