@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.function.DoubleUnaryOperator;
 
 import com.codahale.metrics.Counter;
 import com.codahale.metrics.Gauge;
@@ -246,8 +247,13 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
       if (isNanosHistogram) {
         baseName = nanosMetricsNameToSeconds(baseName);
       }
-      double sum =
-          isNanosHistogram ? nanosToSeconds(snap.getMean() * count) : snap.getMean() * count;
+      DoubleUnaryOperator toUnit =
+          isNanosHistogram ? this::nanosToSeconds : DoubleUnaryOperator.identity();
+      // The sum is exported only if it is tracked, see SummingHistogram.
+      String sum = "";
+      if (histogram instanceof SummingHistogram summingHistogram) {
+        sum = baseName + "_sum " + toUnit.applyAsDouble(summingHistogram.getSum()) + "\n";
+      }
       return "# HELP "
           + baseName
           + " Histogram metric\n# TYPE "
@@ -255,38 +261,34 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
           + " summary\n"
           + baseName
           + "{quantile=\"0.5\"} "
-          + (isNanosHistogram ? nanosToSeconds(snap.getMedian()) : snap.getMean())
+          + toUnit.applyAsDouble(snap.getMedian())
           + "\n"
           + baseName
           + "{quantile=\"0.75\"} "
-          + (isNanosHistogram ? nanosToSeconds(snap.get75thPercentile()) : snap.get75thPercentile())
+          + toUnit.applyAsDouble(snap.get75thPercentile())
           + "\n"
           + baseName
           + "{quantile=\"0.95\"} "
-          + (isNanosHistogram ? nanosToSeconds(snap.get95thPercentile()) : snap.get95thPercentile())
+          + toUnit.applyAsDouble(snap.get95thPercentile())
           + "\n"
           + baseName
           + "{quantile=\"0.98\"} "
-          + (isNanosHistogram ? nanosToSeconds(snap.get98thPercentile()) : snap.get98thPercentile())
+          + toUnit.applyAsDouble(snap.get98thPercentile())
           + "\n"
           + baseName
           + "{quantile=\"0.99\"} "
-          + (isNanosHistogram ? nanosToSeconds(snap.get99thPercentile()) : snap.get99thPercentile())
+          + toUnit.applyAsDouble(snap.get99thPercentile())
           + "\n"
           + baseName
           + "{quantile=\"0.999\"} "
-          + (isNanosHistogram
-              ? nanosToSeconds(snap.get999thPercentile())
-              : snap.get99thPercentile())
+          + toUnit.applyAsDouble(snap.get999thPercentile())
           + "\n"
           + baseName
           + "_count "
           + count
           + "\n"
-          + baseName
-          + "_sum "
           + sum
-          + "\n\n";
+          + "\n";
     }
     return null;
   }
@@ -340,6 +342,11 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
       String baseName = sanitize(name);
       Snapshot snap = timer.getSnapshot();
       long count = timer.getCount();
+      // The sum is exported only if it is tracked, see SummingHistogram.
+      String sum = "";
+      if (timer instanceof SummingTimer summingTimer) {
+        sum = baseName + "_duration_seconds_sum " + nanosToSeconds(summingTimer.getSum()) + "\n";
+      }
       return "# HELP "
           + baseName
           + "_duration_seconds Timer summary\n# TYPE "
@@ -380,10 +387,8 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
           + "_duration_seconds_count "
           + count
           + "\n"
-          + baseName
-          + "_duration_seconds_sum "
-          + nanosToSeconds(snap.getMean() * count)
-          + "\n\n# TYPE "
+          + sum
+          + "\n# TYPE "
           + baseName
           + " gauge\n"
           + baseName

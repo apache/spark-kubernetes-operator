@@ -20,6 +20,7 @@
 package org.apache.spark.k8s.operator.metrics.source;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
@@ -39,6 +40,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import org.apache.spark.k8s.operator.SparkApplication;
+import org.apache.spark.k8s.operator.metrics.SummingHistogram;
 
 class OperatorJosdkMetricsTest {
   private static final String DEFAULT_NAMESPACE = "default";
@@ -66,7 +68,8 @@ class OperatorJosdkMetricsTest {
     operatorMetrics.timeControllerExecution(successExecution);
     Map<String, Metric> metrics = operatorMetrics.metricRegistry().getMetrics();
     assertEquals(4, metrics.size());
-    assertTrue(metrics.containsKey("sparkapplication.test-controller.reconcile.both"));
+    assertInstanceOf(
+        SummingHistogram.class, metrics.get("sparkapplication.test-controller.reconcile.both"));
     assertTrue(metrics.containsKey("sparkapplication.testns.test-controller.reconcile.both"));
     assertTrue(metrics.containsKey("sparkapplication.test-controller.reconcile.success.both"));
     assertTrue(

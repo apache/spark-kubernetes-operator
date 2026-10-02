@@ -36,6 +36,7 @@ import com.codahale.metrics.MetricRegistry;
 import io.fabric8.kubernetes.client.http.*;
 import lombok.extern.slf4j.Slf4j;
 
+import org.apache.spark.k8s.operator.metrics.SummingHistogram;
 import org.apache.spark.metrics.source.Source;
 import org.apache.spark.util.Pair;
 
@@ -67,7 +68,8 @@ public class KubernetesMetricsInterceptor implements Interceptor, Source {
 
     responseLatency =
         metricRegistry.histogram(
-            MetricRegistry.name(HTTP_RESPONSE_GROUP, "latency", "nanos").toLowerCase());
+            MetricRegistry.name(HTTP_RESPONSE_GROUP, "latency", "nanos").toLowerCase(),
+            SummingHistogram::new);
     requestFailedRateMeter =
         metricRegistry.meter(MetricRegistry.name(HTTP_REQUEST_FAILED_GROUP).toLowerCase());
     requestRateMeter = metricRegistry.meter(MetricRegistry.name(HTTP_REQUEST_GROUP).toLowerCase());

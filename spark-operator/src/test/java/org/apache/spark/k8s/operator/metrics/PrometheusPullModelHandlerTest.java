@@ -31,6 +31,8 @@ import com.codahale.metrics.Gauge;
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SlidingWindowReservoir;
+import com.codahale.metrics.Snapshot;
 import com.codahale.metrics.Timer;
 import org.junit.jupiter.api.Test;
 
@@ -64,7 +66,7 @@ class PrometheusPullModelHandlerTest {
   @Test
   void testFormatMetricsSnapshotIncludesHistogram() throws Exception {
     MetricRegistry registry = new MetricRegistry();
-    Histogram histogram = registry.histogram("foo_histogram");
+    Histogram histogram = registry.histogram("foo_histogram", SummingHistogram::new);
     histogram.update(100);
     histogram.update(200);
 
@@ -74,13 +76,13 @@ class PrometheusPullModelHandlerTest {
 
     assertTrue(output.contains("# TYPE foo_histogram summary"));
     assertTrue(output.contains("foo_histogram_count 2"));
-    assertTrue(output.contains("foo_histogram_sum"));
+    assertTrue(output.contains("foo_histogram_sum 300.0"));
   }
 
   @Test
   void testFormatMetricsSnapshotIncludesHistogramWithNanos() throws Exception {
     MetricRegistry registry = new MetricRegistry();
-    Histogram histogram = registry.histogram("foo_nanos_histogram");
+    Histogram histogram = registry.histogram("foo_nanos_histogram", SummingHistogram::new);
     histogram.update(563682);
     histogram.update(716252);
     histogram.update(292098);
@@ -111,7 +113,7 @@ class PrometheusPullModelHandlerTest {
   @Test
   void testFormatMetricsSnapshotIncludesTimer() throws Exception {
     MetricRegistry registry = new MetricRegistry();
-    Timer timer = registry.timer("foo_timer");
+    Timer timer = registry.timer("foo_timer", SummingTimer::new);
 
     timer.update(Duration.of(500, ChronoUnit.MILLIS));
     timer.update(Duration.of(1000, ChronoUnit.MILLIS));
@@ -122,6 +124,60 @@ class PrometheusPullModelHandlerTest {
     assertTrue(output.contains("foo_timer_duration_seconds_count 2"));
     assertTrue(output.contains("foo_timer_duration_seconds_sum 1.5"));
     assertTrue(output.contains("foo_timer_m1_rate"));
+  }
+
+  @Test
+  void testFormatHistogramQuantiles() {
+    MetricRegistry registry = new MetricRegistry();
+    Histogram histogram = registry.histogram("foo_histogram");
+    for (int i = 1; i <= 1000; i++) {
+      histogram.update(i);
+    }
+    Snapshot snapshot = histogram.getSnapshot();
+    PrometheusPullModelHandler handler = new PrometheusPullModelHandler(new Properties(), registry);
+
+    String output = handler.formatMetricsSnapshot();
+    assertTrue(
+        output.contains("foo_histogram{quantile=\"0.5\"} " + snapshot.getMedian() + "\n"), output);
+    assertTrue(
+        output.contains(
+            "foo_histogram{quantile=\"0.999\"} " + snapshot.get999thPercentile() + "\n"),
+        output);
+  }
+
+  @Test
+  void testFormatMetricsSnapshotIncludesSumOfAllValues() {
+    MetricRegistry registry = new MetricRegistry();
+    // Each reservoir keeps only the last value, so its mean times the count is not the sum.
+    Histogram histogram =
+        registry.register("foo_nanos", new SummingHistogram(new SlidingWindowReservoir(1)));
+    Timer timer =
+        registry.register(
+            "foo_timer", new SummingTimer(new SummingHistogram(new SlidingWindowReservoir(1))));
+    PrometheusPullModelHandler handler = new PrometheusPullModelHandler(new Properties(), registry);
+
+    histogram.update(Duration.ofMillis(45).toNanos());
+    histogram.update(Duration.ofMillis(15).toNanos());
+    timer.update(Duration.ofMillis(45));
+    timer.update(Duration.ofMillis(15));
+
+    String output = handler.formatMetricsSnapshot();
+    assertTrue(output.contains("foo_seconds_sum 0.06\n"), output);
+    assertTrue(output.contains("foo_timer_duration_seconds_sum 0.06\n"), output);
+  }
+
+  @Test
+  void testFormatMetricsSnapshotExcludesSumOfPlainHistogramAndTimer() {
+    MetricRegistry registry = new MetricRegistry();
+    registry.histogram("foo_histogram").update(100);
+    registry.timer("foo_timer").update(Duration.ofMillis(500));
+    PrometheusPullModelHandler handler = new PrometheusPullModelHandler(new Properties(), registry);
+
+    String output = handler.formatMetricsSnapshot();
+    assertTrue(output.contains("foo_histogram_count 1\n"));
+    assertFalse(output.contains("foo_histogram_sum"));
+    assertTrue(output.contains("foo_timer_duration_seconds_count 1\n"));
+    assertFalse(output.contains("foo_timer_duration_seconds_sum"));
   }
 
   @Test
