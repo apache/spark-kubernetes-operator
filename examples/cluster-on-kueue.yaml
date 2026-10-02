@@ -1,4 +1,3 @@
-#
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -6,22 +5,22 @@
 # (the "License"); you may not use this file except in compliance with
 # the License.  You may obtain a copy of the License at
 #
-#    http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-
+# Requires Kueue and `operatorRbac.kueue.enabled=true`. Apply kueue-single-clusterqueue-setup.yaml
+# first. The operator holds the master and the worker until Kueue admits the Workload of the
+# cluster, which keeps its quota until the cluster is deleted or suspended.
 apiVersion: spark.apache.org/v1
 kind: SparkCluster
 metadata:
-  name: spark-cluster-kueue-queued-test
-  namespace: default
+  name: cluster-on-kueue
   labels:
-    kueue.x-k8s.io/queue-name: ($LOCAL_QUEUE)
+    kueue.x-k8s.io/queue-name: spark-queue
 spec:
   runtimeVersions:
     sparkVersion: "4.2.0"
@@ -30,8 +29,27 @@ spec:
       initWorkers: 1
       minWorkers: 1
       maxWorkers: 1
+  workerSpec:
+    statefulSetSpec:
+      template:
+        spec:
+          containers:
+          - name: worker
+            # Without these, the worker advertises the whole node to its executors, well above
+            # the quota which Kueue accounts for it.
+            env:
+            - name: SPARK_WORKER_CORES
+              value: "1"
+            - name: SPARK_WORKER_MEMORY
+              value: "1g"
+            resources:
+              requests:
+                cpu: "1"
+                memory: "3Gi"
+              limits:
+                cpu: "1"
+                memory: "3Gi"
   sparkConf:
     spark.kubernetes.container.image: "apache/spark:{{SPARK_VERSION}}-scala"
-    spark.master.ui.title: "Spark Cluster Kueue E2E Test"
     spark.master.rest.host: "0.0.0.0"
     spark.ui.reverseProxy: "true"

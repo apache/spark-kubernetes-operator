@@ -41,7 +41,8 @@ under the License.
 - **Kueue** (`workloads.kueue.x-k8s.io`, `resourceflavors.kueue.x-k8s.io`,
   `workloadpriorityclasses.kueue.x-k8s.io`) — required only when `operatorRbac.kueue.enabled` is
   set. Kueue is not bundled with the operator; install it from
-  [kueue.sigs.k8s.io](https://kueue.sigs.k8s.io/docs/installation/). Kueue's
+  [kueue.sigs.k8s.io](https://kueue.sigs.k8s.io/docs/installation/), and set up its queues, e.g.
+  with [kueue-single-clusterqueue-setup.yaml](../examples/kueue-single-clusterqueue-setup.yaml). Kueue's
   `integrations.externalFrameworks` does not need to list `SparkApplication` or `SparkCluster`:
   the operator manages the `Workload` objects for them, so Kueue does not have to
   recognize the Spark custom resources as job kinds. `operatorRbac.kueue.enabled` also sets

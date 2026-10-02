@@ -25,6 +25,8 @@ metadata:
 spec:
   mainClass: "org.apache.spark.examples.SparkPi"
   jars: "local:///opt/spark/examples/jars/spark-examples.jar"
+  # Runs long enough for the test to check the executor pod before it is deleted
+  driverArgs: ["10000"]
   applicationTolerations:
     # The resources, including the Workload, are retained after the application terminated, so
     # Kueue has to release the quota on the `Finished` condition of the Workload.

@@ -115,34 +115,45 @@ spec:
         content: |
           kubectl delete sparkcluster qa --ignore-not-found=true
   - name: spark-application-waits-for-kueue-admission
-    # Each step uses its own queue objects, so that a step never waits for Kueue to finish
-    # deleting the objects of another step.
+    # The queues of the official example have fixed names, so that only this step and the next one
+    # use them. This step creates them, and the cluster step deletes them, since Kueue may not
+    # have finished deleting them when a step creates them again.
     bindings:
       - name: FLAVOR
-        value: spark-e2e-app-flavor
+        value: default-flavor
       - name: CLUSTER_QUEUE
-        value: spark-e2e-app-cluster-queue
+        value: spark-cluster-queue
       - name: LOCAL_QUEUE
-        value: spark-e2e-app-queue
+        value: spark-queue
     try:
     - apply:
-        file: kueue-queues.yaml
+        file: ../../../examples/kueue-single-clusterqueue-setup.yaml
+    # No quota at first, so that an admission has to wait
+    - script:
+        timeout: 30s
+        env:
+          - name: CLUSTER_QUEUE
+            value: ($CLUSTER_QUEUE)
+        content: |
+          kubectl patch clusterqueue "$CLUSTER_QUEUE" --type json -p \
+            '[{"op": "replace", "path": "/spec/resourceGroups/0/flavors/0/resources/0/nominalQuota", "value": "0"},
+              {"op": "replace", "path": "/spec/resourceGroups/0/flavors/0/resources/1/nominalQuota", "value": "0"}]'
     - apply:
-        file: spark-example-queued.yaml
+        file: ../../../examples/pi-on-kueue.yaml
     - assert:
         timeout: 60s
         resource:
           apiVersion: kueue.x-k8s.io/v1beta2
           kind: Workload
           metadata:
-            name: sparkapplication-spark-job-kueue-queued-test
+            name: sparkapplication-pi-on-kueue
             namespace: default
           spec:
             queueName: ($LOCAL_QUEUE)
     - script:
         timeout: 30s
         content: |
-          kubectl get workload sparkapplication-spark-job-kueue-queued-test -n default -o json \
+          kubectl get workload sparkapplication-pi-on-kueue -n default -o json \
             | jq -r 'if ([.status.conditions[]? | select(.type == "Admitted" and .status == "True")] | length) > 0 then "ADMITTED" else "PENDING" end'
         check:
           (contains($stdout, 'PENDING')): true
@@ -154,7 +165,7 @@ spec:
           metadata:
             namespace: default
             labels:
-              spark.operator/spark-app-name: spark-job-kueue-queued-test
+              spark.operator/spark-app-name: pi-on-kueue
     - assert:
         timeout: 60s
         resource:
@@ -164,10 +175,10 @@ spec:
             namespace: default
           involvedObject:
             kind: SparkApplication
-            name: spark-job-kueue-queued-test
+            name: pi-on-kueue
           type: Normal
           reason: KueueAdmissionPending
-          (contains(message || '', 'sparkapplication-spark-job-kueue-queued-test')): true
+          (contains(message || '', 'sparkapplication-pi-on-kueue')): true
     # The ValidatingAdmissionPolicy of the chart lets the queued application move to another
     # queue, here and back again
     - script:
@@ -177,47 +188,11 @@ spec:
             value: ($LOCAL_QUEUE)
         content: |
           set -e
-          kubectl label sparkapplication spark-job-kueue-queued-test -n default --overwrite kueue.x-k8s.io/queue-name=another-queue
-          kubectl label sparkapplication spark-job-kueue-queued-test -n default --overwrite "kueue.x-k8s.io/queue-name=$LOCAL_QUEUE"
-    - script:
-        timeout: 30s
-        env:
-          - name: CLUSTER_QUEUE
-            value: ($CLUSTER_QUEUE)
-        content: |
-          kubectl patch clusterqueue "$CLUSTER_QUEUE" --type json -p \
-            '[{"op": "replace", "path": "/spec/resourceGroups/0/flavors/0/resources/0/nominalQuota", "value": "4"},
-              {"op": "replace", "path": "/spec/resourceGroups/0/flavors/0/resources/1/nominalQuota", "value": "8Gi"}]'
-    # The node labels and tolerations of the assigned ResourceFlavor are injected into the driver
-    # and the executor pods, which the driver creates.
-    - assert:
-        timeout: 5m
-        resource:
-          apiVersion: v1
-          kind: Pod
-          metadata:
-            namespace: default
-            labels:
-              spark.operator/spark-app-name: spark-job-kueue-queued-test
-              spark-role: driver
-          spec:
-            nodeSelector:
-              kubernetes.io/os: linux
-            (tolerations[?key == 'spark.apache.org/kueue-e2e'] | length(@)): 1
-    - assert:
-        timeout: 5m
-        resource:
-          apiVersion: v1
-          kind: Pod
-          metadata:
-            namespace: default
-            labels:
-              spark.operator/spark-app-name: spark-job-kueue-queued-test
-              spark-role: executor
-          spec:
-            nodeSelector:
-              kubernetes.io/os: linux
-            (tolerations[?key == 'spark.apache.org/kueue-e2e'] | length(@)): 1
+          kubectl label sparkapplication pi-on-kueue -n default --overwrite kueue.x-k8s.io/queue-name=another-queue
+          kubectl label sparkapplication pi-on-kueue -n default --overwrite "kueue.x-k8s.io/queue-name=$LOCAL_QUEUE"
+    # Applying the queues again restores the quota of the example
+    - apply:
+        file: ../../../examples/kueue-single-clusterqueue-setup.yaml
     # Like Kueue built-in integrations, the operator reports that the driver and the executor are
     # ready, so that the waitForPodsReady timeout of Kueue does not evict the Workload.
     - assert:
@@ -226,7 +201,7 @@ spec:
           apiVersion: kueue.x-k8s.io/v1beta2
           kind: Workload
           metadata:
-            name: sparkapplication-spark-job-kueue-queued-test
+            name: sparkapplication-pi-on-kueue
             namespace: default
           status:
             (conditions[?type == 'PodsReady' && status == 'True' && reason == 'Started'] | length(@)): 1
@@ -235,7 +210,7 @@ spec:
           - name: SPARK_APP_NAMESPACE
             value: default
           - name: SPARK_APPLICATION_NAME
-            value: spark-job-kueue-queued-test
+            value: pi-on-kueue
         timeout: 10m
         file: "../assertions/spark-application/spark-state-transition.yaml"
     - assert:
@@ -247,10 +222,10 @@ spec:
             namespace: default
           involvedObject:
             kind: SparkApplication
-            name: spark-job-kueue-queued-test
+            name: pi-on-kueue
           type: Normal
           reason: KueueAdmitted
-          (contains(message || '', 'sparkapplication-spark-job-kueue-queued-test')): true
+          (contains(message || '', 'sparkapplication-pi-on-kueue')): true
     # The Workload is deleted to release the quota once the application stops.
     - error:
         timeout: 60s
@@ -258,13 +233,13 @@ spec:
           apiVersion: kueue.x-k8s.io/v1beta2
           kind: Workload
           metadata:
-            name: sparkapplication-spark-job-kueue-queued-test
+            name: sparkapplication-pi-on-kueue
             namespace: default
     # Like a finished Kueue job, the terminated application keeps its queue
     - script:
         timeout: 30s
         content: |
-          kubectl label sparkapplication spark-job-kueue-queued-test -n default kueue.x-k8s.io/queue-name-
+          kubectl label sparkapplication pi-on-kueue -n default kueue.x-k8s.io/queue-name-
         check:
           ($error != null): true
           (contains($stderr, 'ValidatingAdmissionPolicy')): true
@@ -282,19 +257,8 @@ spec:
     finally:
     - script:
         timeout: 120s
-        env:
-          - name: FLAVOR
-            value: ($FLAVOR)
-          - name: CLUSTER_QUEUE
-            value: ($CLUSTER_QUEUE)
-          - name: LOCAL_QUEUE
-            value: ($LOCAL_QUEUE)
         content: |
-          kubectl delete sparkapplication spark-job-kueue-queued-test -n default --ignore-not-found=true
-          # Kueue finalizers may delay the deletion, which later steps do not depend on.
-          kubectl delete localqueue "$LOCAL_QUEUE" -n default --ignore-not-found=true --wait=false
-          kubectl delete clusterqueue "$CLUSTER_QUEUE" --ignore-not-found=true --wait=false
-          kubectl delete resourceflavor "$FLAVOR" --ignore-not-found=true --wait=false
+          kubectl delete sparkapplication pi-on-kueue -n default --ignore-not-found=true
   - name: spark-application-with-retained-resources-finishes-its-workload
     # Each step uses its own queue objects, so that a step never waits for Kueue to finish
     # deleting the objects of another step.
@@ -320,6 +284,36 @@ spec:
               {"op": "replace", "path": "/spec/resourceGroups/0/flavors/0/resources/1/nominalQuota", "value": "8Gi"}]'
     - apply:
         file: spark-example-retained-queued.yaml
+    # The node labels and tolerations of the assigned ResourceFlavor are injected into the driver
+    # and the executor pods, which the driver creates.
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            namespace: default
+            labels:
+              spark.operator/spark-app-name: spark-job-kueue-retained-test
+              spark-role: driver
+          spec:
+            nodeSelector:
+              kubernetes.io/os: linux
+            (tolerations[?key == 'spark.apache.org/kueue-e2e'] | length(@)): 1
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            namespace: default
+            labels:
+              spark.operator/spark-app-name: spark-job-kueue-retained-test
+              spark-role: executor
+          spec:
+            nodeSelector:
+              kubernetes.io/os: linux
+            (tolerations[?key == 'spark.apache.org/kueue-e2e'] | length(@)): 1
     - assert:
         timeout: 10m
         resource:
@@ -450,34 +444,45 @@ spec:
           kubectl delete resourceflavor "$FLAVOR" --ignore-not-found=true --wait=false
           kubectl delete workloadpriorityclass "$PRIORITY_CLASS" --ignore-not-found=true --wait=false
   - name: spark-cluster-waits-for-kueue-admission
-    # Each step uses its own queue objects, so that a step never waits for Kueue to finish
-    # deleting the objects of another step.
+    # The queues of the official example have fixed names, which the application step created.
+    # This step deletes them at the end, since Kueue may not have finished deleting them when a
+    # step creates them again.
     bindings:
       - name: FLAVOR
-        value: spark-e2e-cluster-flavor
+        value: default-flavor
       - name: CLUSTER_QUEUE
-        value: spark-e2e-cluster-cluster-queue
+        value: spark-cluster-queue
       - name: LOCAL_QUEUE
-        value: spark-e2e-cluster-queue
+        value: spark-queue
     try:
     - apply:
-        file: kueue-queues.yaml
+        file: ../../../examples/kueue-single-clusterqueue-setup.yaml
+    # No quota at first, so that an admission has to wait
+    - script:
+        timeout: 30s
+        env:
+          - name: CLUSTER_QUEUE
+            value: ($CLUSTER_QUEUE)
+        content: |
+          kubectl patch clusterqueue "$CLUSTER_QUEUE" --type json -p \
+            '[{"op": "replace", "path": "/spec/resourceGroups/0/flavors/0/resources/0/nominalQuota", "value": "0"},
+              {"op": "replace", "path": "/spec/resourceGroups/0/flavors/0/resources/1/nominalQuota", "value": "0"}]'
     - apply:
-        file: spark-cluster-example-queued.yaml
+        file: ../../../examples/cluster-on-kueue.yaml
     - assert:
         timeout: 60s
         resource:
           apiVersion: kueue.x-k8s.io/v1beta2
           kind: Workload
           metadata:
-            name: sparkcluster-spark-cluster-kueue-queued-test
+            name: sparkcluster-cluster-on-kueue
             namespace: default
           spec:
             queueName: ($LOCAL_QUEUE)
     - script:
         timeout: 30s
         content: |
-          kubectl get workload sparkcluster-spark-cluster-kueue-queued-test -n default -o json \
+          kubectl get workload sparkcluster-cluster-on-kueue -n default -o json \
             | jq -r 'if ([.status.conditions[]? | select(.type == "Admitted" and .status == "True")] | length) > 0 then "ADMITTED" else "PENDING" end'
         check:
           (contains($stdout, 'PENDING')): true
@@ -487,7 +492,7 @@ spec:
           apiVersion: apps/v1
           kind: StatefulSet
           metadata:
-            name: spark-cluster-kueue-queued-test-master
+            name: cluster-on-kueue-master
             namespace: default
     - assert:
         timeout: 60s
@@ -498,55 +503,19 @@ spec:
             namespace: default
           involvedObject:
             kind: SparkCluster
-            name: spark-cluster-kueue-queued-test
+            name: cluster-on-kueue
           type: Normal
           reason: KueueAdmissionPending
-          (contains(message || '', 'sparkcluster-spark-cluster-kueue-queued-test')): true
-    - script:
-        timeout: 30s
-        env:
-          - name: CLUSTER_QUEUE
-            value: ($CLUSTER_QUEUE)
-        content: |
-          kubectl patch clusterqueue "$CLUSTER_QUEUE" --type json -p \
-            '[{"op": "replace", "path": "/spec/resourceGroups/0/flavors/0/resources/0/nominalQuota", "value": "4"},
-              {"op": "replace", "path": "/spec/resourceGroups/0/flavors/0/resources/1/nominalQuota", "value": "8Gi"}]'
-    # The node labels and tolerations of the assigned ResourceFlavor are injected into the master
-    # and the worker pods.
-    - assert:
-        timeout: 5m
-        resource:
-          apiVersion: apps/v1
-          kind: StatefulSet
-          metadata:
-            name: spark-cluster-kueue-queued-test-master
-            namespace: default
-          spec:
-            template:
-              spec:
-                nodeSelector:
-                  kubernetes.io/os: linux
-                (tolerations[?key == 'spark.apache.org/kueue-e2e'] | length(@)): 1
-    - assert:
-        timeout: 5m
-        resource:
-          apiVersion: apps/v1
-          kind: StatefulSet
-          metadata:
-            name: spark-cluster-kueue-queued-test-worker
-            namespace: default
-          spec:
-            template:
-              spec:
-                nodeSelector:
-                  kubernetes.io/os: linux
-                (tolerations[?key == 'spark.apache.org/kueue-e2e'] | length(@)): 1
+          (contains(message || '', 'sparkcluster-cluster-on-kueue')): true
+    # Applying the queues again restores the quota of the example
+    - apply:
+        file: ../../../examples/kueue-single-clusterqueue-setup.yaml
     - assert:
         bindings:
           - name: SPARK_APP_NAMESPACE
             value: default
           - name: SPARK_CLUSTER_NAME
-            value: spark-cluster-kueue-queued-test
+            value: cluster-on-kueue
         timeout: 10m
         file: "../assertions/spark-cluster/spark-cluster-state-transition.yaml"
     - assert:
@@ -554,7 +523,7 @@ spec:
           - name: SPARK_APP_NAMESPACE
             value: default
           - name: SPARK_CLUSTER_NAME
-            value: spark-cluster-kueue-queued-test
+            value: cluster-on-kueue
         timeout: 10m
         file: "../assertions/spark-cluster/spark-cluster-worker-statefulset.yaml"
     - assert:
@@ -566,16 +535,16 @@ spec:
             namespace: default
           involvedObject:
             kind: SparkCluster
-            name: spark-cluster-kueue-queued-test
+            name: cluster-on-kueue
           type: Normal
           reason: KueueAdmitted
-          (contains(message || '', 'sparkcluster-spark-cluster-kueue-queued-test')): true
+          (contains(message || '', 'sparkcluster-cluster-on-kueue')): true
     # The ValidatingAdmissionPolicy of the chart keeps the running cluster in its queue, since its
     # Workload holds the quota until the cluster is Suspended
     - script:
         timeout: 30s
         content: |
-          kubectl label sparkcluster spark-cluster-kueue-queued-test -n default kueue.x-k8s.io/queue-name-
+          kubectl label sparkcluster cluster-on-kueue -n default kueue.x-k8s.io/queue-name-
         check:
           ($error != null): true
           (contains($stderr, 'ValidatingAdmissionPolicy')): true
@@ -583,14 +552,14 @@ spec:
     - script:
         timeout: 30s
         content: |
-          kubectl patch sparkcluster spark-cluster-kueue-queued-test -n default --type merge -p '{"spec":{"suspend":true}}'
+          kubectl patch sparkcluster cluster-on-kueue -n default --type merge -p '{"spec":{"suspend":true}}'
     - assert:
         timeout: 60s
         resource:
           apiVersion: spark.apache.org/v1
           kind: SparkCluster
           metadata:
-            name: spark-cluster-kueue-queued-test
+            name: cluster-on-kueue
             namespace: default
           status:
             currentState:
@@ -603,8 +572,8 @@ spec:
             value: ($LOCAL_QUEUE)
         content: |
           set -e
-          kubectl label sparkcluster spark-cluster-kueue-queued-test -n default --overwrite kueue.x-k8s.io/queue-name=another-queue
-          kubectl label sparkcluster spark-cluster-kueue-queued-test -n default --overwrite "kueue.x-k8s.io/queue-name=$LOCAL_QUEUE"
+          kubectl label sparkcluster cluster-on-kueue -n default --overwrite kueue.x-k8s.io/queue-name=another-queue
+          kubectl label sparkcluster cluster-on-kueue -n default --overwrite "kueue.x-k8s.io/queue-name=$LOCAL_QUEUE"
     - error:
         timeout: 120s
         resource:
@@ -613,14 +582,14 @@ spec:
           metadata:
             namespace: default
             labels:
-              spark.operator/spark-cluster-name: spark-cluster-kueue-queued-test
+              spark.operator/spark-cluster-name: cluster-on-kueue
     - error:
         timeout: 120s
         resource:
           apiVersion: kueue.x-k8s.io/v1beta2
           kind: Workload
           metadata:
-            name: sparkcluster-spark-cluster-kueue-queued-test
+            name: sparkcluster-cluster-on-kueue
             namespace: default
     - assert:
         timeout: 60s
@@ -636,14 +605,14 @@ spec:
     - script:
         timeout: 30s
         content: |
-          kubectl patch sparkcluster spark-cluster-kueue-queued-test -n default --type merge -p '{"spec":{"suspend":false}}'
+          kubectl patch sparkcluster cluster-on-kueue -n default --type merge -p '{"spec":{"suspend":false}}'
     - assert:
         timeout: 5m
         resource:
           apiVersion: spark.apache.org/v1
           kind: SparkCluster
           metadata:
-            name: spark-cluster-kueue-queued-test
+            name: cluster-on-kueue
             namespace: default
           status:
             currentState:
@@ -662,7 +631,7 @@ spec:
           - name: SPARK_APP_NAMESPACE
             value: default
           - name: SPARK_CLUSTER_NAME
-            value: spark-cluster-kueue-queued-test
+            value: cluster-on-kueue
         timeout: 5m
         file: "../assertions/spark-cluster/spark-cluster-worker-statefulset.yaml"
     catch:
@@ -687,7 +656,7 @@ spec:
           - name: LOCAL_QUEUE
             value: ($LOCAL_QUEUE)
         content: |
-          kubectl delete sparkcluster spark-cluster-kueue-queued-test -n default --ignore-not-found=true
+          kubectl delete sparkcluster cluster-on-kueue -n default --ignore-not-found=true
           # Kueue finalizers may delay the deletion, which later steps do not depend on.
           kubectl delete localqueue "$LOCAL_QUEUE" -n default --ignore-not-found=true --wait=false
           kubectl delete clusterqueue "$CLUSTER_QUEUE" --ignore-not-found=true --wait=false
@@ -877,6 +846,36 @@ spec:
             namespace: default
           status:
             (conditions[?type == 'Admitted' && status == 'True'] | length(@)): 1
+    # The node labels and tolerations of the assigned ResourceFlavor are injected into the master
+    # and the worker pods.
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: apps/v1
+          kind: StatefulSet
+          metadata:
+            name: spark-cluster-kueue-pods-ready-test-master
+            namespace: default
+          spec:
+            template:
+              spec:
+                nodeSelector:
+                  kubernetes.io/os: linux
+                (tolerations[?key == 'spark.apache.org/kueue-e2e'] | length(@)): 1
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: apps/v1
+          kind: StatefulSet
+          metadata:
+            name: spark-cluster-kueue-pods-ready-test-worker
+            namespace: default
+          spec:
+            template:
+              spec:
+                nodeSelector:
+                  kubernetes.io/os: linux
+                (tolerations[?key == 'spark.apache.org/kueue-e2e'] | length(@)): 1
     # Admitted after the cluster above, so that the waitForPodsReady timeout of Kueue, which the CI
     # shortens to 2 minutes, has elapsed for both clusters once this one is evicted.
     - apply:
