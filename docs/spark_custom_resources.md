@@ -597,16 +597,23 @@ labeled with `kueue.x-k8s.io/queue-name` is queued by [Kueue](https://kueue.sigs
 operator creates a Kueue `Workload` that describes the driver and executor (or master and worker)
 pod sets, and holds the creation of those resources until Kueue admits the `Workload`.
 
+See [kueue-single-clusterqueue-setup.yaml](../examples/kueue-single-clusterqueue-setup.yaml) for the
+queues the administrator sets up, and [pi-on-kueue.yaml](../examples/pi-on-kueue.yaml) and
+[cluster-on-kueue.yaml](../examples/cluster-on-kueue.yaml) for a `SparkApplication` and a
+`SparkCluster` labeled with the `LocalQueue` of the setup.
+
 ```yaml
 apiVersion: spark.apache.org/v1
 kind: SparkApplication
 metadata:
-  name: spark-pi
+  name: pi-on-kueue
   labels:
     kueue.x-k8s.io/queue-name: spark-queue
 spec:
   mainClass: "org.apache.spark.examples.SparkPi"
   jars: "local:///opt/spark/examples/jars/spark-examples.jar"
+  sparkConf:
+    spark.executor.instances: "1"
   runtimeVersions:
     sparkVersion: "4.2.0"
 ```
