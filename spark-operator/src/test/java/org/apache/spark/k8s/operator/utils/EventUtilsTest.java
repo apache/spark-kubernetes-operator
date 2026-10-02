@@ -27,6 +27,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import java.util.Set;
+import java.util.concurrent.TimeoutException;
 
 import io.fabric8.kubernetes.api.model.Event;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
@@ -234,6 +235,20 @@ class EventUtilsTest {
 
     assertThat(EventUtils.describe(notFound))
         .isEqualTo("KubernetesClientException: Kueue ResourceFlavor spot is not found.");
+  }
+
+  @Test
+  void describeDoesNotRepeatACauseWithTheSameMessage() {
+    // Like fabric8 wraps a request timeout, which is neither an IOException nor a
+    // KubernetesClientException, in a KubernetesClientException with the same message.
+    String message =
+        "The timeout period of 1000ms has been exceeded while executing POST "
+            + "/api/v1/namespaces/default/pods for server 10.43.0.1:443";
+
+    assertThat(
+            EventUtils.describe(
+                new KubernetesClientException(message, new TimeoutException(message))))
+        .isEqualTo("KubernetesClientException: " + message);
   }
 
   @Test

@@ -194,8 +194,8 @@ public final class EventUtils {
   /**
    * Builds a concise single-line description of an exception, suitable for an event message. The
    * innermost cause is appended when the exception has one, since that is usually where the
-   * actionable detail is, unless it reads the same as the exception. The full stack trace is
-   * intentionally omitted, it belongs in the operator log.
+   * actionable detail is, unless its message is the same. The full stack trace is intentionally
+   * omitted, it belongs in the operator log.
    *
    * <p>A request which the API server answered with an error is described by the message of the
    * returned {@code Status}, like the events of the built-in controllers, rather than by the
@@ -210,24 +210,31 @@ public final class EventUtils {
     if (throwable == null) {
       return "";
     }
-    String description = describeSingle(throwable);
+    String message = messageOf(throwable);
+    String description = describeSingle(throwable, message);
     Throwable rootCause = rootCauseOf(throwable);
     if (rootCause == null) {
       return description;
     }
-    String rootCauseDescription = describeSingle(rootCause);
-    return rootCauseDescription.equals(description)
-        ? description
-        : description + ", caused by: " + rootCauseDescription;
+    String rootCauseMessage = messageOf(rootCause);
+    // A cause with the same message adds nothing but its type, e.g. the original of the copy which
+    // fabric8 rethrows, or the request timeout which it wraps.
+    if (StringUtils.isNotBlank(message) && message.equals(rootCauseMessage)) {
+      return description;
+    }
+    return description + ", caused by: " + describeSingle(rootCause, rootCauseMessage);
   }
 
-  private static String describeSingle(Throwable throwable) {
-    String message = throwable.getMessage();
+  private static String messageOf(Throwable throwable) {
     if (throwable instanceof KubernetesClientException e
         && e.getStatus() != null
         && StringUtils.isNotBlank(e.getStatus().getMessage())) {
-      message = e.getStatus().getMessage();
+      return e.getStatus().getMessage();
     }
+    return throwable.getMessage();
+  }
+
+  private static String describeSingle(Throwable throwable, String message) {
     String type = throwable.getClass().getSimpleName();
     return StringUtils.isBlank(message) ? type : type + ": " + message;
   }
