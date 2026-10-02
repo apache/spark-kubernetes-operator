@@ -16,8 +16,11 @@
 # Test values for validating ConfigMap labels and annotations feature
 #
 # Usage:
-#   helm install spark-operator . -f tests/test-values-configmap-metadata.yaml
-#   helm test spark-operator
+#   helm install spark --create-namespace \
+#     -f build-tools/helm/spark-kubernetes-operator/values.yaml \
+#     -f tests/e2e/helm/helm-test-values/configmap-metadata/values.yaml \
+#     build-tools/helm/spark-kubernetes-operator/
+#   helm test spark
 #
 # This file demonstrates the ConfigMap labels and annotations feature
 # and can be used to validate the Helm test for this functionality.

@@ -16,8 +16,11 @@
 # Test values for validating the operator NetworkPolicy feature
 #
 # Usage:
-#   helm install spark-operator . -f tests/e2e/helm/helm-test-values/network-policy/values.yaml
-#   helm test spark-operator
+#   helm install spark --create-namespace \
+#     -f build-tools/helm/spark-kubernetes-operator/values.yaml \
+#     -f tests/e2e/helm/helm-test-values/network-policy/values.yaml \
+#     build-tools/helm/spark-kubernetes-operator/
+#   helm test spark
 
 operatorDeployment:
   networkPolicy:

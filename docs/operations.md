@@ -74,9 +74,10 @@ in `values.yaml`) for the Helm chart.
 To override single parameters you can use `--set`, for example:
 
 ```bash
-helm install --set image.repository=<my_registry>/spark-kubernetes-operator \
+helm install spark \
+   --set image.repository=<my_registry>/spark-kubernetes-operator \
    -f build-tools/helm/spark-kubernetes-operator/values.yaml \
-  build-tools/helm/spark-kubernetes-operator/
+   build-tools/helm/spark-kubernetes-operator/
 ```
 
 You can also provide multiple custom values file by using the `-f` flag, the latest takes
