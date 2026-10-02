@@ -28,6 +28,7 @@ spec:
   scope: Namespaced
   versions:
     - name: v1beta1
+      deprecated: true
       schema:
         openAPIV3Schema:
           properties:
