@@ -29,6 +29,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
@@ -91,6 +92,25 @@ public class KubernetesMetricsInterceptor implements Interceptor, Source {
   }
 
   /**
+   * Called before a request is sent, to allow wrapping the consumer of the response body.
+   *
+   * <p>Wraps the consumer to carry the request start time, which {@link #after(HttpRequest,
+   * HttpResponse, AsyncBody.Consumer)} finds with {@link AsyncBody.Consumer#unwrap(Class)}. fabric8
+   * passes to it the outermost consumer after all interceptors have wrapped it, so an interceptor
+   * which wraps the consumer after this one must delegate {@code unwrap(...)}, or no latency is
+   * recorded.
+   *
+   * @param consumer the consumer of the response body
+   * @param request the request about to be sent
+   * @return the consumer carrying the request start time
+   */
+  @Override
+  public AsyncBody.Consumer<List<ByteBuffer>> consumer(
+      AsyncBody.Consumer<List<ByteBuffer>> consumer, HttpRequest request) {
+    return new TimedConsumer(consumer, new AtomicLong(System.nanoTime()));
+  }
+
+  /**
    * Called before a request to allow for the manipulation of the request
    *
    * @param builder used to modify the request
@@ -102,21 +122,30 @@ public class KubernetesMetricsInterceptor implements Interceptor, Source {
   }
 
   /**
-   * Called after a non-WebSocket HTTP response is received. The body might or might not be already
-   * consumed.
+   * Called after an HTTP response is received. The body might or might not be already consumed.
    *
    * <p>Should be used to analyze response codes and headers, original response shouldn't be
    * altered.
    *
+   * <p>fabric8 also calls this for a WebSocket upgrade response with a {@code null} consumer, and
+   * again for an HTTP request re-sent after {@link #afterFailure(BasicBuilder, HttpResponse,
+   * RequestTags)}. The latency of a re-sent response is measured from the previous response.
+   *
    * @param request the original request sent to the server.
    * @param response the response received from the server.
+   * @param consumer the consumer of the response body, or {@code null} for a WebSocket upgrade.
    */
   @Override
   public void after(
       HttpRequest request,
       HttpResponse<?> response,
       AsyncBody.Consumer<List<ByteBuffer>> consumer) {
-    updateResponseMetrics(response, System.nanoTime());
+    TimedConsumer timedConsumer = consumer == null ? null : consumer.unwrap(TimedConsumer.class);
+    if (timedConsumer != null) {
+      long now = System.nanoTime();
+      responseLatency.update(now - timedConsumer.startTimeNanos().getAndSet(now));
+    }
+    updateResponseMetrics(response);
   }
 
   /**
@@ -139,7 +168,8 @@ public class KubernetesMetricsInterceptor implements Interceptor, Source {
   /**
    * Called after a connection attempt fails.
    *
-   * <p>This method will be invoked on each failed connection attempt.
+   * <p>fabric8 invokes this method only for a failed connection attempt which has a retry left, not
+   * for the last attempt.
    *
    * @param request the HTTP request.
    * @param failure the Java exception that caused the failure.
@@ -183,11 +213,9 @@ public class KubernetesMetricsInterceptor implements Interceptor, Source {
         });
   }
 
-  private void updateResponseMetrics(HttpResponse response, long startTimeNanos) {
+  private void updateResponseMetrics(HttpResponse response) {
     Objects.requireNonNull(response);
-    final long latency = System.nanoTime() - startTimeNanos;
     responseRateMeter.mark();
-    responseLatency.update(latency);
     getMeterByResponseCode(response.code()).mark();
     if (KUBERNETES_CLIENT_METRICS_GROUP_BY_RESPONSE_CODE_GROUP_ENABLED.getValue()) {
       responseCodeGroupMeters.get(response.code() / 100 - 1).mark();
@@ -227,6 +255,25 @@ public class KubernetesMetricsInterceptor implements Interceptor, Source {
       return Optional.of(Pair.of(parts[0], parts[1]));
     } else {
       return Optional.empty();
+    }
+  }
+
+  /**
+   * Consumer of a response body which carries the start time of its request, restarted at each
+   * response so that a re-sent request is measured from the previous response.
+   */
+  private record TimedConsumer(
+      AsyncBody.Consumer<List<ByteBuffer>> delegate, AtomicLong startTimeNanos)
+      implements AsyncBody.Consumer<List<ByteBuffer>> {
+    @Override
+    public void consume(List<ByteBuffer> value, AsyncBody asyncBody) throws Exception {
+      delegate.consume(value, asyncBody);
+    }
+
+    @Override
+    public <U> U unwrap(Class<U> target) {
+      U self = AsyncBody.Consumer.super.unwrap(target);
+      return self != null ? self : delegate.unwrap(target);
     }
   }
 }
