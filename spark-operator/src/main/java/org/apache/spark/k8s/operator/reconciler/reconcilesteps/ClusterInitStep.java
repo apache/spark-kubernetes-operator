@@ -78,7 +78,6 @@ public final class ClusterInitStep extends ClusterReconcileStep {
           // that none was requested, and would release the Kueue quota of a running master.
           // Going to Suspended would show a cluster which may never have started as being
           // released, and keep it there until it is resumed, even after a single throttled read.
-          // So look again with the steady-state interval instead.
           return SuspendUtils.retryAfterCheckFailure(context, e, "master");
         }
         if (!masterRequested) {

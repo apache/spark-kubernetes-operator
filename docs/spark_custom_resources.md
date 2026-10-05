@@ -547,7 +547,7 @@ already wrote and gets the same event, since that status says that a restart is 
 next attempt is withheld. If the driver (or master) cannot be read to check whether it was requested
 already, e.g. since the API server rejects the read, the resource is neither held nor started, and
 the `SuspendCheckFailed` event is published instead when enabled, until the check succeeds. A
-failure which may clear on its own, such as a timeout, is retried without the event. The event is
+failure at the transport level, such as a timeout, is retried without the event. The event is
 not retracted: once the check succeeds again, it may stay the newest event until the next
 `SuspendHeld`, and a failure which continues only at the transport level no longer refreshes it.
 The operator log shows whether the check still fails.
