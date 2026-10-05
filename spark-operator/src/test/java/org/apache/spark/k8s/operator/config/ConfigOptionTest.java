@@ -20,12 +20,27 @@
 package org.apache.spark.k8s.operator.config;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.LoggerContext;
+import org.apache.logging.log4j.core.appender.AbstractAppender;
+import org.apache.logging.log4j.core.config.Property;
+import org.apache.logging.log4j.core.layout.PatternLayout;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 class ConfigOptionTest {
+  @AfterEach
+  void resetConf() {
+    SparkOperatorConfManager.INSTANCE.refresh(Map.of());
+  }
+
   @Test
   void testResolveValueWithoutOverride() {
     byte defaultByteValue = 9;
@@ -204,5 +219,98 @@ class ConfigOptionTest {
     Assertions.assertEquals(overrideByteValue, testByteConf.getValue());
     Assertions.assertEquals(overrideShortValue, testShortConf.getValue());
     Assertions.assertEquals(overrideDoubleValue, testDoubleConf.getValue());
+  }
+
+  @Test
+  void testResolveBooleanValueIgnoringCaseAndSurroundingWhitespace() {
+    ConfigOption<Boolean> falseByDefault = dynamicOption("fooboolcasetrue", Boolean.class, false);
+    for (String value : List.of("true", "TRUE", "True", " true ", "true ")) {
+      SparkOperatorConfManager.INSTANCE.refresh(Map.of(falseByDefault.getKey(), value));
+      Assertions.assertTrue(falseByDefault.getValue(), value);
+    }
+    ConfigOption<Boolean> trueByDefault = dynamicOption("fooboolcasefalse", Boolean.class, true);
+    for (String value : List.of("false", "FALSE", "False", " false ", "false ")) {
+      SparkOperatorConfManager.INSTANCE.refresh(Map.of(trueByDefault.getKey(), value));
+      Assertions.assertFalse(trueByDefault.getValue(), value);
+    }
+  }
+
+  @Test
+  void testResolveInvalidValueToDefaultValue() {
+    // Unlike Boolean.parseBoolean, an invalid value does not turn off an option enabled by default.
+    ConfigOption<Boolean> trueByDefault = dynamicOption("fooboolinvalidtrue", Boolean.class, true);
+    for (String value : List.of("0", "off", "no", "f", "\"false\"", "null")) {
+      SparkOperatorConfManager.INSTANCE.refresh(Map.of(trueByDefault.getKey(), value));
+      Assertions.assertTrue(trueByDefault.getValue(), value);
+    }
+    ConfigOption<Boolean> falseByDefault =
+        dynamicOption("fooboolinvalidfalse", Boolean.class, false);
+    for (String value : List.of("1", "-1", "on", "yes", "t", "\"true\"", "true,false")) {
+      SparkOperatorConfManager.INSTANCE.refresh(Map.of(falseByDefault.getKey(), value));
+      Assertions.assertFalse(falseByDefault.getValue(), value);
+    }
+    // A value which resolves to null is invalid for any type.
+    ConfigOption<Long> longConf = dynamicOption("foolonginvalid", Long.class, 9L);
+    for (String value : List.of("null", "\"\"", "\"null\"", "abc")) {
+      SparkOperatorConfManager.INSTANCE.refresh(Map.of(longConf.getKey(), value));
+      Assertions.assertEquals(9L, longConf.getValue(), value);
+    }
+  }
+
+  @Test
+  void testLogEachInvalidValueOnce() {
+    ConfigOption<Boolean> testBooleanConf = dynamicOption("fooboolwarn", Boolean.class, true);
+    TestLogAppender appender = new TestLogAppender();
+    appender.start();
+    LoggerContext ctx = (LoggerContext) LogManager.getContext(false);
+    ctx.getConfiguration().getRootLogger().addAppender(appender, Level.WARN, null);
+    ctx.updateLoggers();
+    try {
+      for (String value : List.of("yes", "no")) {
+        SparkOperatorConfManager.INSTANCE.refresh(Map.of(testBooleanConf.getKey(), value));
+        Assertions.assertTrue(testBooleanConf.getValue());
+        Assertions.assertTrue(testBooleanConf.getValue());
+      }
+      Assertions.assertEquals(
+          List.of(
+              "Invalid Boolean value 'yes' for config key fooboolwarn, using default value true",
+              "Invalid Boolean value 'no' for config key fooboolwarn, using default value true"),
+          appender.messages);
+    } finally {
+      ctx.getConfiguration().getRootLogger().removeAppender(appender.getName());
+      ctx.updateLoggers();
+      appender.stop();
+    }
+  }
+
+  private static <T> ConfigOption<T> dynamicOption(String key, Class<T> clazz, T defaultValue) {
+    return ConfigOption.<T>builder()
+        .key(key)
+        .enableDynamicOverride(true)
+        .typeParameterClass(clazz)
+        .description("foo foo.")
+        .defaultValue(defaultValue)
+        .build();
+  }
+
+  /** Collects the messages logged by {@link ConfigOption}. */
+  private static final class TestLogAppender extends AbstractAppender {
+    private final List<String> messages = new CopyOnWriteArrayList<>();
+
+    private TestLogAppender() {
+      super(
+          "ConfigOptionTestLogAppender",
+          null,
+          PatternLayout.createDefaultLayout(),
+          false,
+          Property.EMPTY_ARRAY);
+    }
+
+    @Override
+    public void append(LogEvent event) {
+      if (ConfigOption.class.getName().equals(event.getLoggerName())) {
+        messages.add(event.getMessage().getFormattedMessage());
+      }
+    }
   }
 }

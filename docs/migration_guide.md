@@ -108,6 +108,14 @@ affect building the project, CI, tests or examples.
   `0.5` and `0.999` quantiles of the `operator_sdk_*` histograms are the median and the 99.9th
   percentile instead of the mean and the 99th percentile. A histogram or timer of a custom metrics
   source has no `_sum` unless it is a `SummingHistogram` or a `SummingTimer` ([SPARK-59935](https://issues.apache.org/jira/browse/SPARK-59935)).
+- Since 1.1.0, a Boolean configuration property accepts `true` or `false` in any case, ignoring
+  surrounding whitespace, like Apache Spark. Any other value, e.g. `0`, `1`, `yes` or `off`, is
+  ignored, and the default value is used. 1.0 ignored a value like `False` or `TRUE` and used the
+  default value, while it took `0` as `false` and any other integer as `true`. Likewise, `null`
+  falls back to the default value for a property of any type, while 1.0 failed with a
+  `NullPointerException` for most properties. The operator logs each invalid value once as a
+  warning, instead of as an error with a stack trace whenever it reads the value. Use `true` or
+  `false`, which behave the same in both versions ([SPARK-XXXXX](https://issues.apache.org/jira/browse/SPARK-XXXXX)).
 
 ### SparkApplication
 

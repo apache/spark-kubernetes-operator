@@ -159,9 +159,7 @@ public class ConfigurableEventRecorder implements EventRecorder {
   }
 
   private static boolean eventsEnabled() {
-    // Boolean.TRUE.equals guards against a null resolved value, which the option can yield for a
-    // malformed override. Publishing events must never break a reconciliation.
-    return Boolean.TRUE.equals(KUBERNETES_EVENTS_ENABLED.getValue());
+    return KUBERNETES_EVENTS_ENABLED.getValue();
   }
 
   private static boolean isExcluded(String reason) {
@@ -271,10 +269,7 @@ public class ConfigurableEventRecorder implements EventRecorder {
   }
 
   private static long minIntervalNanos() {
-    Long seconds = KUBERNETES_EVENTS_MIN_INTERVAL_SECONDS.getValue();
-    // An unparseable override falls back to the default, but an override of the literal 'null'
-    // resolves to null, which is treated as no limit rather than throwing out of a reconciliation.
-    return seconds == null ? 0L : TimeUnit.SECONDS.toNanos(seconds);
+    return TimeUnit.SECONDS.toNanos(KUBERNETES_EVENTS_MIN_INTERVAL_SECONDS.getValue());
   }
 
   private static boolean matches(String regex, String reason) {
