@@ -93,6 +93,12 @@ affect building the project, CI, tests or examples.
   take precedence over `JAVA_TOOL_OPTIONS` and `JDK_JAVA_OPTIONS` in `operatorContainer.env`, and
   cannot contain a space, since the value is split on spaces. To restore the behavior before
   1.1.0, set `jvmArgs` to `-Dfile.encoding=UTF8` ([SPARK-58426](https://issues.apache.org/jira/browse/SPARK-58426)).
+- Since 1.1.0, `operatorConfiguration.append` is removed, and the chart no longer reads
+  `conf/log4j2.properties` and `conf/spark-operator.properties` in the chart directory, which it
+  has never included. A values file which still sets `append` keeps working, since the key is
+  ignored. If you added such files to the chart, prepend their content to
+  `operatorConfiguration.log4j2.properties` and `operatorConfiguration.spark-operator.properties`
+  respectively to restore the behavior before 1.1.0.
 
 ### Operator
 
