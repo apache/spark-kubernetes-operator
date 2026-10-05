@@ -91,6 +91,7 @@ spec:
     - podLogs:
         selector: app.kubernetes.io/name=spark-kubernetes-operator
         namespace: default
+        tail: -1
     finally:
     - script:
         timeout: 30s
@@ -151,6 +152,7 @@ spec:
     - podLogs:
         selector: app.kubernetes.io/name=spark-kubernetes-operator
         namespace: default
+        tail: -1
     finally:
     - script:
         timeout: 30s

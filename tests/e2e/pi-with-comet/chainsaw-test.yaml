@@ -39,11 +39,13 @@ spec:
         kind: SparkApplication
         namespace: default
     - podLogs:
-        selector: spark-app-name=pi-with-comet
+        selector: spark.operator/spark-app-name=pi-with-comet
         namespace: default
+        tail: -1
     - podLogs:
         selector: app.kubernetes.io/name=spark-kubernetes-operator
         namespace: default
+        tail: -1
     finally:
     - script:
         timeout: 120s

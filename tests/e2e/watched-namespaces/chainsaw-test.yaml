@@ -64,6 +64,7 @@ spec:
       - podLogs:
           namespace: default
           selector: app.kubernetes.io/component=operator-deployment,app.kubernetes.io/name=spark-kubernetes-operator
+          tail: -1
       - describe:
           apiVersion: spark.apache.org/v1
           kind: SparkApplication
@@ -112,6 +113,7 @@ spec:
       - podLogs:
           namespace: default-2
           selector: app.kubernetes.io/component=operator-deployment,app.kubernetes.io/name=spark-kubernetes-operator
+          tail: -1
       - describe:
           apiVersion: spark.apache.org/v1
           kind: SparkApplication
