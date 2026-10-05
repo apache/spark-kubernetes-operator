@@ -145,7 +145,7 @@ class ConfigurableEventRecorderTest {
 
   @Test
   void treatsAMalformedOverrideAsDisabled() {
-    // The option is a boxed Boolean, so a malformed override can resolve to null. Publishing an
+    // A malformed override falls back to the default value, which is disabled. Publishing an
     // event must never be the thing that throws out of a reconciliation.
     SparkOperatorConfManager.INSTANCE.refresh(
         Map.of(KUBERNETES_EVENTS_ENABLED.getKey(), "null"));
@@ -464,9 +464,9 @@ class ConfigurableEventRecorderTest {
   }
 
   @Test
-  void treatsAMalformedMinIntervalOverrideAsNoLimit() {
-    // The option is a boxed Long, so a malformed override can resolve to null. Unlike the enabled
-    // flag, which then drops every event, a limit that cannot be read must not drop any.
+  void usesTheDefaultMinIntervalForAMalformedOverride() {
+    // A malformed override falls back to the default value like the enabled flag, rather than
+    // lifting the limit.
     SparkOperatorConfManager.INSTANCE.refresh(
         Map.of(
             KUBERNETES_EVENTS_ENABLED.getKey(),
@@ -475,13 +475,13 @@ class ConfigurableEventRecorderTest {
             "null"));
     Context<?> context = contextOf("uid-1");
     EventRecord first = EventRecord.normal("KueueAdmissionPending", "queued");
-    EventRecord second = EventRecord.normal("KueueAdmissionPending", "queued");
 
     timedRecorder.record(first, context);
-    timedRecorder.record(second, context);
+    elapseSeconds(KUBERNETES_EVENTS_MIN_INTERVAL_SECONDS.getDefaultValue() - 1);
+    timedRecorder.record(EventRecord.normal("KueueAdmissionPending", "queued"), context);
 
     verify(delegate).record(first, context);
-    verify(delegate).record(second, context);
+    verifyNoMoreInteractions(delegate);
   }
 
   @Test

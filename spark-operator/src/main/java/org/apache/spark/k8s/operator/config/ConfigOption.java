@@ -51,6 +51,9 @@ public class ConfigOption<T> {
   /** Indexes every declared option so dynamic-config refresh can check overridability. */
   private static final Map<String, ConfigOption<?>> REGISTRY = new ConcurrentHashMap<>();
 
+  /** Invalid values already logged, as {@code key=value}, so that each is logged only once. */
+  private static final Set<String> LOGGED_INVALID_VALUES = ConcurrentHashMap.newKeySet();
+
   /**
    * Whether this option may be overridden at runtime via dynamic config. Defaults to {@code false}
    * (opt-in): dynamic override must be explicitly enabled through the builder.
@@ -100,7 +103,9 @@ public class ConfigOption<T> {
   }
 
   /**
-   * Returns the resolved value of the config option.
+   * Returns the resolved value of the config option. An unset or empty value resolves to the
+   * default value, and so does an invalid value, e.g. one which cannot be parsed or which resolves
+   * to null like {@code null}, for which a warning is logged once.
    *
    * @return The resolved value.
    */
@@ -113,40 +118,65 @@ public class ConfigOption<T> {
   }
 
   private T resolveValue() {
+    String value = SparkOperatorConfManager.INSTANCE.getValue(key);
+    if (!enableDynamicOverride) {
+      value = SparkOperatorConfManager.INSTANCE.getInitialValue(key);
+    }
     try {
-      String value = SparkOperatorConfManager.INSTANCE.getValue(key);
-      if (!enableDynamicOverride) {
-        value = SparkOperatorConfManager.INSTANCE.getInitialValue(key);
-      }
       if (StringUtils.isNotEmpty(value)) {
-        if (typeParameterClass.isPrimitive() || typeParameterClass == String.class) {
+        if (typeParameterClass.isPrimitive()
+            || typeParameterClass == String.class
+            || typeParameterClass == Boolean.class) {
           return (T) resolveValueToPrimitiveType(typeParameterClass, value);
         } else {
-          return ModelUtils.objectMapper.readValue(value, typeParameterClass);
+          T resolvedValue = ModelUtils.objectMapper.readValue(value, typeParameterClass);
+          // A JSON null like 'null' is not a valid value either.
+          return resolvedValue == null ? defaultValueInsteadOf(value) : resolvedValue;
         }
       } else {
         return defaultValue;
       }
-    } catch (NumberFormatException | JsonProcessingException t) {
-      log.error(
-          "Failed to resolve value for config key {}, using default value {}",
-          key,
-          defaultValue,
-          t);
-      return defaultValue;
+    } catch (IllegalArgumentException | JsonProcessingException e) {
+      return defaultValueInsteadOf(value);
     }
   }
 
   /**
-   * Resolves a string value to a primitive type or String.
+   * Returns the default value in place of the given invalid value. The warning is logged only the
+   * first time the invalid value is seen for this key, since an option may be read on every
+   * reconciliation, or even on every request to the API server.
+   *
+   * @param invalidValue The invalid value.
+   * @return The default value.
+   */
+  private T defaultValueInsteadOf(String invalidValue) {
+    if (LOGGED_INVALID_VALUES.add(key + "=" + invalidValue)) {
+      log.warn(
+          "Invalid {} value '{}' for config key {}, using default value {}",
+          typeParameterClass.getSimpleName(),
+          invalidValue,
+          key,
+          defaultValue);
+    }
+    return defaultValue;
+  }
+
+  /**
+   * Resolves a string value to a primitive type or String. Like Apache Spark, a boolean value must
+   * be 'true' or 'false' in any case, ignoring surrounding whitespace.
    *
    * @param clazz The class of the target type.
    * @param value The string value to resolve.
    * @return The resolved value as an Object.
+   * @throws IllegalArgumentException If the value is invalid for the target type.
    */
   public static Object resolveValueToPrimitiveType(Class<?> clazz, String value) {
     if (Boolean.class == clazz || Boolean.TYPE == clazz) {
-      return Boolean.parseBoolean(value);
+      String trimmed = value.trim();
+      if ("true".equalsIgnoreCase(trimmed) || "false".equalsIgnoreCase(trimmed)) {
+        return Boolean.parseBoolean(trimmed);
+      }
+      throw new IllegalArgumentException("Invalid boolean value: " + value);
     }
     if (Byte.class == clazz || Byte.TYPE == clazz) {
       return Byte.parseByte(value);

@@ -40,6 +40,10 @@ Spark Operator supports different ways to configure the behavior:
   * Please be advised that not all properties can be hot-loaded and honored at runtime.
       Refer the list of [supported properties](./config_properties.md) for more details.
 
+A Boolean property accepts `true` or `false` in any case, ignoring surrounding whitespace. If a
+property has an invalid value, e.g. `yes` for a Boolean property or `null`, operator ignores it and
+uses the default value instead, logging a warning once for each invalid value.
+
 To enable hot properties loading, update the **helm chart values file** with
 
 ```yaml
