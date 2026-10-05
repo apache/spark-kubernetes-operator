@@ -57,6 +57,8 @@ spec:
             file: spark-example.yaml
     - name: verify-common-created-resources
       bindings:
+        - name: SPARK_APPLICATION_NAME
+          value: (join('-', ['spark-streaming', replace_all(($SPARK_VERSION), '.', '-'), replace_all(($SCALA_VERSION), '.', '-')]))
         - name: SPARK_DRIVER_POD_NAME
           value: (join('-', ['spark-streaming', replace_all(($SPARK_VERSION), '.', '-'),
             replace_all(($SCALA_VERSION), '.', '-'), '0-driver']))
@@ -84,9 +86,11 @@ spec:
         - podLogs:
             selector: app.kubernetes.io/name=spark-kubernetes-operator
             namespace: default
+            tail: -1
         - podLogs:
-            selector: spark-app-name=spark
+            selector: (concat('spark.operator/spark-app-name=', $SPARK_APPLICATION_NAME))
             namespace: default
+            tail: -1
       finally:
         - script:
             bindings:

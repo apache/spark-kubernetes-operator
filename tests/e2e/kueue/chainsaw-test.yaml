@@ -55,6 +55,7 @@ spec:
     - podLogs:
         selector: spark.operator/spark-app-name=spark-job-kueue-test
         namespace: default
+        tail: -1
     - describe:
         apiVersion: kueue.x-k8s.io/v1beta2
         kind: Workload
@@ -105,6 +106,7 @@ spec:
     - podLogs:
         selector: spark.operator/spark-cluster-name=qa
         namespace: default
+        tail: -1
     - describe:
         apiVersion: kueue.x-k8s.io/v1beta2
         kind: Workload
