@@ -127,6 +127,6 @@ spec:
           timeout: 60s
           content: |
             kubectl delete sparkapplication spark-job-succeeded-test -n spark-3 --ignore-not-found=true
-            helm uninstall spark-kubernetes-operator -n default-2
+            helm uninstall spark -n default-2
             kubectl delete namespace default-2 --ignore-not-found=true
             kubectl delete namespace spark-3 --ignore-not-found=true
