@@ -73,6 +73,16 @@ affect building the project, CI, tests or examples.
   failed to start, since creating the Deployment or scaling the StatefulSet was forbidden. To keep
   the rules of 1.0, set `workloadResources.clusterRole.create` and `workloadResources.role.create`
   to `false`, and grant them with your own Role or ClusterRole.
+- Since 1.1.0, the workload ClusterRole and Roles grant `deletecollection` on `pods`, `services`,
+  `configmaps` and `persistentvolumeclaims`, which Spark drivers need to delete the resources of
+  their application by label selector. 1.0 did not grant it, so drivers logged errors like
+  `cannot deletecollection resource "services"` when they stopped, and left the driver service,
+  the on-demand PVCs and the executor pods and configmaps until the driver pod was deleted, e.g.
+  as long as `resourceRetainPolicy` retained it. With dynamic allocation, they could not delete
+  unneeded pending executor pods either. If you manage the workload Role or ClusterRole yourself,
+  add `deletecollection` to it as well. To keep the driver service and the executor pods and
+  configmaps, set `spark.kubernetes.driver.service.deleteOnTermination` and
+  `spark.kubernetes.executor.deleteOnTermination` to `false`.
 - Since 1.1.0, each option of `operatorDeployment.operatorPod.operatorContainer.jvmArgs` is passed
   to the operator JVM as its own argument. 1.0 passed the whole value as one argument, which the
   JVM took as a single `-Dfile.encoding` system property, so the other options had no effect. The
