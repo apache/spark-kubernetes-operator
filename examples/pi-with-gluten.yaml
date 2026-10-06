@@ -43,7 +43,7 @@ spec:
           - |
             wget -O /tmp/gluten.tar.gz "https://www.apache.org/dyn/closer.lua/gluten/1.7.0/apache-gluten-1.7.0-bin-spark-4.0.tar.gz?action=download" && \
             tar -xzf /tmp/gluten.tar.gz -C /tmp && \
-            cp /tmp/gluten-velox-bundle-spark4.0_2.13-linux_amd64-1.7.0.jar /gluten/gluten.jar
+            cp /tmp/apache-gluten-1.7.0-bin-spark-4.0/gluten-velox-bundle-spark4.0_2.13-linux_amd64-1.7.0.jar /gluten/gluten.jar
           volumeMounts:
           - name: gluten
             mountPath: /gluten
@@ -67,7 +67,7 @@ spec:
           - |
             wget -O /tmp/gluten.tar.gz "https://www.apache.org/dyn/closer.lua/gluten/1.7.0/apache-gluten-1.7.0-bin-spark-4.0.tar.gz?action=download" && \
             tar -xzf /tmp/gluten.tar.gz -C /tmp && \
-            cp /tmp/gluten-velox-bundle-spark4.0_2.13-linux_amd64-1.7.0.jar /gluten/gluten.jar
+            cp /tmp/apache-gluten-1.7.0-bin-spark-4.0/gluten-velox-bundle-spark4.0_2.13-linux_amd64-1.7.0.jar /gluten/gluten.jar
           volumeMounts:
           - name: gluten
             mountPath: /gluten
