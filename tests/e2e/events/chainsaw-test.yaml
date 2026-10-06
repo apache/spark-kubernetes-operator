@@ -18,9 +18,8 @@
 # Asserts the events published by the state transitions of a SparkApplication which succeeds, a
 # SparkApplication which fails, and a SparkCluster.
 #
-# Like the `suspend-events` suite, this suite requires an operator installed with
-# `spark.kubernetes.operator.events.enabled=true`, as the `events` CI mode does with
-# tests/e2e/helm/events-config-values.yaml. Run it locally with:
+# Like the `suspend-events` suite, this suite runs in the `events` CI mode, which installs the
+# operator with tests/e2e/helm/events-config-values.yaml. Run it locally with:
 #
 #   helm install spark --create-namespace \
 #     -f build-tools/helm/spark-kubernetes-operator/values.yaml \

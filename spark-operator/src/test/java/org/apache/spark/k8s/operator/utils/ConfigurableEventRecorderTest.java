@@ -98,15 +98,16 @@ class ConfigurableEventRecorderTest {
 
   @Test
   void dropsEventsWhileDisabled() {
-    // The option defaults to false, so an operator that never opts in writes nothing.
+    setEventsEnabled(false);
+
     recorder.record(EventRecord.warning("ReconcileError", "boom"), context);
 
     verifyNoInteractions(delegate);
   }
 
   @Test
-  void forwardsEventsWhileEnabled() {
-    setEventsEnabled(true);
+  void forwardsEventsByDefault() {
+    // The option defaults to true, so an operator that never configures it publishes events.
     EventRecord event = EventRecord.warning("ReconcileError", "boom");
 
     recorder.record(event, context);
@@ -118,6 +119,7 @@ class ConfigurableEventRecorderTest {
   void boundRecorderIsGatedOnTheFlagRatherThanOnBindingTime() {
     // Bound while disabled, then enabled mid reconciliation: the dynamic override has to take
     // effect, which it only does if the flag is read per event and not when forContext is called.
+    setEventsEnabled(false);
     var bound = recorder.forContext(context);
     bound.warn("ReconcileError", "dropped");
     verifyNoInteractions(delegate);
@@ -144,15 +146,16 @@ class ConfigurableEventRecorderTest {
   }
 
   @Test
-  void treatsAMalformedOverrideAsDisabled() {
-    // A malformed override falls back to the default value, which is disabled. Publishing an
+  void treatsAMalformedOverrideAsEnabled() {
+    // A malformed override falls back to the default value, which is enabled. Publishing an
     // event must never be the thing that throws out of a reconciliation.
     SparkOperatorConfManager.INSTANCE.refresh(
         Map.of(KUBERNETES_EVENTS_ENABLED.getKey(), "null"));
+    EventRecord event = EventRecord.warning("ReconcileError", "boom");
 
-    recorder.record(EventRecord.warning("ReconcileError", "boom"), context);
+    recorder.record(event, context);
 
-    verifyNoInteractions(delegate);
+    verify(delegate).record(event, context);
   }
 
   @Test

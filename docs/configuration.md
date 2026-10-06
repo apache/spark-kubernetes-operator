@@ -57,9 +57,11 @@ operatorConfiguration:
 
 ## Kubernetes Events
 
-When `spark.kubernetes.operator.events.enabled` is `true`, the operator publishes Kubernetes
-`Event` objects about `SparkApplication` and `SparkCluster` resources into their namespaces. They
-are visible via `kubectl describe` and `kubectl get events`.
+By default, the operator publishes Kubernetes `Event` objects about `SparkApplication` and
+`SparkCluster` resources into their namespaces. They are visible via `kubectl describe` and
+`kubectl get events`. To publish none, set `spark.kubernetes.operator.events.enabled` to `false`.
+This option supports dynamic override. To skip only some reasons, use
+`spark.kubernetes.operator.events.excludedReasons` instead, as described below.
 
 Publishing them requires the `get`, `create` and `patch` permissions on `events` in the core API
 group in each namespace of the Spark resources. Without them, the operator logs a

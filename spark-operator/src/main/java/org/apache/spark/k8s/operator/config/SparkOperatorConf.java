@@ -337,9 +337,11 @@ public final class SparkOperatorConf {
                   + "spec.suspend or Kueue. See the 'Kubernetes Events' section of "
                   + "docs/configuration.md for all reasons and the required RBAC permissions. "
                   + "These are Event resources in the core "
-                  + "API group, unrelated to the internal events that trigger reconciliation.")
+                  + "API group, unrelated to the internal events that trigger reconciliation. "
+                  + "If false, operator would publish no event. To skip only some reasons, use "
+                  + "'spark.kubernetes.operator.events.excludedReasons' instead.")
           .typeParameterClass(Boolean.class)
-          .defaultValue(false)
+          .defaultValue(true)
           .build();
 
   /**
