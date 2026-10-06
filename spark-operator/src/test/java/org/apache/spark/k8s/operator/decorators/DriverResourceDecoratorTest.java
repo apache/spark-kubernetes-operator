@@ -19,6 +19,9 @@
 
 package org.apache.spark.k8s.operator.decorators;
 
+import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_APPLICATION_NAME;
+import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_OPERATOR_NAME;
+import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_ROLE_NAME;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -41,83 +44,100 @@ class DriverResourceDecoratorTest {
         .withNewMetadata()
         .withName("spark-driver")
         .withUid("driver-uid")
-        .addToLabels("spark-app-name", "app1")
-        .addToLabels("istio.io/use-waypoint", "none")
+        .addToLabels(LABEL_SPARK_OPERATOR_NAME, "spark-operator")
+        .addToLabels(LABEL_SPARK_APPLICATION_NAME, "app1")
+        // Prefix-matched managed label that is not one of the exact-match keys.
+        .addToLabels("spark.operator/submission-id", "sub-1")
+        .addToLabels(LABEL_SPARK_ROLE_NAME, "driver")
+        .addToLabels("spark-app-selector", "spark-app-selector-1")
+        .addToLabels("overlapping-label", "driver-value")
+        .endMetadata()
+        .build();
+  }
+
+  /** Builds a Service carrying only the given metadata labels (decorator reads metadata only). */
+  private static Service service(Map<String, String> labels) {
+    return new ServiceBuilder()
+        .withNewMetadata()
+        .withName("app1-connect-svc")
+        .addToLabels(labels)
         .endMetadata()
         .build();
   }
 
   /**
-   * Regression: a label set explicitly on the resource (e.g. a per-service waypoint label) must win
-   * over a driver-pod label of the same key, not be overwritten by it.
+   * Driver-pod labels whose key is absent on the resource are propagated onto the resource, while a
+   * label the resource sets itself still wins on key collision (e.g. a per-service waypoint label).
    */
   @Test
-  void perServiceLabelWinsOverDriverPodLabel() {
-    Service service =
-        new ServiceBuilder()
-            .withNewMetadata()
-            .withName("app1-connect-svc")
-            .addToLabels("istio.io/use-waypoint", "waypoint-ns1")
-            .endMetadata()
-            .withNewSpec()
-            .endSpec()
-            .build();
+  void driverLabelsPropagatedAndResourceLabelWinsOnCollision() {
+    Service service = service(Map.of("overlapping-label", "resource-value"));
 
     new DriverResourceDecorator(driverPod()).decorate(service);
 
     assertEquals(
-        "waypoint-ns1", service.getMetadata().getLabels().get("istio.io/use-waypoint"));
+        Map.of(
+            LABEL_SPARK_OPERATOR_NAME, "spark-operator",
+            LABEL_SPARK_APPLICATION_NAME, "app1",
+            "spark.operator/submission-id", "sub-1",
+            LABEL_SPARK_ROLE_NAME, "driver",
+            "spark-app-selector", "spark-app-selector-1",
+            "overlapping-label", "resource-value"),
+        service.getMetadata().getLabels());
   }
 
-  /** Driver-pod labels whose key is absent on the resource are still propagated (GC identity). */
-  @Test
-  void driverPodOnlyLabelsArePropagated() {
-    Service service =
-        new ServiceBuilder()
-            .withNewMetadata()
-            .withName("app1-connect-svc")
-            .addToLabels("istio.io/use-waypoint", "waypoint-ns1")
-            .endMetadata()
-            .withNewSpec()
-            .endSpec()
-            .build();
-
-    new DriverResourceDecorator(driverPod()).decorate(service);
-
-    Map<String, String> labels = service.getMetadata().getLabels();
-    assertEquals("app1", labels.get("spark-app-name"));
-    assertEquals("waypoint-ns1", labels.get("istio.io/use-waypoint"));
-  }
-
-  /** A resource with no labels of its own simply inherits the driver-pod labels (no NPE). */
+  /** A resource whose label map is null inherits the driver-pod labels without an NPE. */
   @Test
   void resourceWithoutLabelsInheritsDriverPodLabels() {
-    Service service =
-        new ServiceBuilder()
-            .withNewMetadata()
-            .withName("app1-driver-svc")
-            .endMetadata()
-            .withNewSpec()
-            .endSpec()
-            .build();
+    Service service = service(Map.of());
+    // withNewMetadata() seeds an empty map, so clear it to exercise the null-labels path.
+    service.getMetadata().setLabels(null);
 
     new DriverResourceDecorator(driverPod()).decorate(service);
 
     Map<String, String> labels = service.getMetadata().getLabels();
-    assertEquals("none", labels.get("istio.io/use-waypoint"));
-    assertEquals("app1", labels.get("spark-app-name"));
+    assertEquals("app1", labels.get(LABEL_SPARK_APPLICATION_NAME));
+    assertEquals("driver", labels.get(LABEL_SPARK_ROLE_NAME));
   }
 
+  /**
+   * Managed identity labels (exact-match keys and anything under the {@code spark.operator} prefix)
+   * must keep the driver-pod value even when the resource sets a different value, so owner mapping
+   * and selectors are preserved, while a non-managed label is still allowed to win.
+   */
+  @Test
+  void managedLabelsAreNotOverriddenByResource() {
+    Service service =
+        service(
+            Map.of(
+                LABEL_SPARK_OPERATOR_NAME, "rogue-operator",
+                LABEL_SPARK_APPLICATION_NAME, "rogue-app",
+                "spark.operator/submission-id", "rogue-sub",
+                LABEL_SPARK_ROLE_NAME, "rogue-role",
+                "spark-app-selector", "rogue-selector",
+                "overlapping-label", "resource-value"));
+
+    new DriverResourceDecorator(driverPod()).decorate(service);
+
+    assertEquals(
+        Map.of(
+            LABEL_SPARK_OPERATOR_NAME, "spark-operator",
+            LABEL_SPARK_APPLICATION_NAME, "app1",
+            "spark.operator/submission-id", "sub-1",
+            LABEL_SPARK_ROLE_NAME, "driver",
+            "spark-app-selector", "spark-app-selector-1",
+            "overlapping-label", "resource-value"),
+        service.getMetadata().getLabels());
+  }
+
+  /**
+   * A resource with no existing owner reference gets exactly one pointing at the driver pod (by
+   * name and uid, with blockOwnerDeletion), which is what drives cascading garbage collection when
+   * the driver pod is deleted.
+   */
   @Test
   void addsOwnerReferenceToDriver() {
-    Service service =
-        new ServiceBuilder()
-            .withNewMetadata()
-            .withName("app1-connect-svc")
-            .endMetadata()
-            .withNewSpec()
-            .endSpec()
-            .build();
+    Service service = service(Map.of());
 
     new DriverResourceDecorator(driverPod()).decorate(service);
 
@@ -130,8 +150,9 @@ class DriverResourceDecoratorTest {
   }
 
   /**
-   * When the resource already carries the driver-pod owner reference, decoration is a no-op, so an
-   * existing per-service label is left untouched (and no duplicate owner reference is added).
+   * When the resource already carries the driver-pod owner reference, decoration is a no-op: the
+   * labels are left exactly as they were (no driver-pod labels added) and no duplicate owner
+   * reference is appended.
    */
   @Test
   void skipsWhenOwnerReferenceAlreadyExists() {
@@ -139,21 +160,21 @@ class DriverResourceDecoratorTest {
         new ServiceBuilder()
             .withNewMetadata()
             .withName("app1-connect-svc")
-            .addToLabels("istio.io/use-waypoint", "waypoint-ns1")
+            .addToLabels("overlapping-label", "resource-value")
             .addNewOwnerReference()
             .withKind("Pod")
             .withName("spark-driver")
             .withUid("driver-uid")
             .endOwnerReference()
             .endMetadata()
-            .withNewSpec()
-            .endSpec()
             .build();
 
     new DriverResourceDecorator(driverPod()).decorate(service);
 
-    assertEquals(1, service.getMetadata().getOwnerReferences().size());
+    // Labels are untouched: no driver-pod labels were merged in.
     assertEquals(
-        "waypoint-ns1", service.getMetadata().getLabels().get("istio.io/use-waypoint"));
+        Map.of("overlapping-label", "resource-value"), service.getMetadata().getLabels());
+    // And no duplicate owner reference was appended.
+    assertEquals(1, service.getMetadata().getOwnerReferences().size());
   }
 }

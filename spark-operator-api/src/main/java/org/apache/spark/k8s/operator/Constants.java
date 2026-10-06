@@ -86,6 +86,12 @@ public final class Constants {
   /** The label for the Spark version. */
   public static final String LABEL_SPARK_VERSION_NAME = "spark-version";
 
+  /** The label for the Spark application ID (Spark-defined, used as the service selector). */
+  public static final String LABEL_SPARK_APP_SELECTOR = "spark-app-selector";
+
+  /** The label for the Spark application name (Spark-defined). */
+  public static final String LABEL_SPARK_APP_NAME = "spark-app-name";
+
   /** A dummy field for sentinel resources. */
   public static final String SENTINEL_RESOURCE_DUMMY_FIELD = "sentinel.dummy.number";
 
