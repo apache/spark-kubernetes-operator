@@ -28,7 +28,8 @@ Spark Operator supports different ways to configure the behavior:
   it is also possible to override or append config properties in helm
   [Values files](../build-tools/helm/spark-kubernetes-operator/values.yaml).
 * **System Properties** : when provided as system properties (e.g. via -D options to the
-  operator JVM), it overrides the values provided in property file.
+  operator JVM), they apply only to the properties which are not provided in the property file,
+  i.e. the values in the property file take precedence over system properties.
 * **Hot property loading** : when enabled, a
   [configmap](https://kubernetes.io/docs/concepts/configuration/configmap/) would be created with
   the operator in the same namespace. Operator can monitor updates performed on the configmap. Hot
