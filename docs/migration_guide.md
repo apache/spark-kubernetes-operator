@@ -159,6 +159,18 @@ affect building the project, CI, tests or examples.
   `driverStartTimeoutMillis` was disabled. Since `DriverStartTimedOut` is an infrastructure failure
   while the others are not, `restartPolicy: OnInfrastructureFailure` no longer restarts such an
   application. Use `OnFailure` to restart it.
+- Since 1.1.0, a label set on a secondary resource of the driver takes precedence over a label of
+  the same key on the driver pod, instead of being overwritten by it. This affects the user-defined
+  labels in `spec.driverServiceIngressList` (`serviceMetadata`, `ingressMetadata`),
+  `spec.driverHttpRouteList` (`serviceMetadata`, `httpRouteMetadata`), `spec.driverGrpcRouteList`
+  (`serviceMetadata`, `grpcRouteMetadata`) and `spec.configMapSpecs`, as well as the other
+  Kubernetes resources of the driver, e.g. its config map and on-demand PVCs. 1.0 overwrote these
+  labels with the driver-pod labels of the same key, including the ones injected into the driver pod
+  by admission webhooks. The operator- and Spark-managed identity labels, i.e. any `spark.operator/`
+  key, `spark-role`, `spark-version`, `spark-app-selector` and `spark-app-name`, still take the
+  driver-pod value, so the secondary-to-primary mapping and the pod and service selectors keep
+  working. To restore the behavior before 1.1.0 for a given key, remove it from the secondary
+  resource so it inherits the driver-pod label.
 
 ### SparkCluster
 
