@@ -792,14 +792,7 @@
     "operatorConfiguration": {
       "type": "object",
       "description": "Operator configuration",
-      "required": [
-        "append"
-      ],
       "properties": {
-        "append": {
-          "type": "boolean",
-          "description": "Append configuration instead of replacing"
-        },
         "configMap": {
           "type": "object",
           "description": "Configuration for the operator config map",
