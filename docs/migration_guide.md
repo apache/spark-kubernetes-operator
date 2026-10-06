@@ -122,6 +122,16 @@ affect building the project, CI, tests or examples.
   `NullPointerException` for most properties. The operator logs each invalid value once as a
   warning, instead of as an error with a stack trace whenever it reads the value. Use `true` or
   `false`, which behave the same in both versions ([SPARK-XXXXX](https://issues.apache.org/jira/browse/SPARK-XXXXX)).
+- Since 1.1.0, the operator publishes Kubernetes `Event` objects about `SparkApplication` and
+  `SparkCluster` resources into their namespaces, e.g. whenever a resource transitions into a new
+  state, since `spark.kubernetes.operator.events.enabled` is `true` by default. 1.0 published
+  none. Publishing them requires the `get`, `create` and `patch` permissions on `events` in the
+  core API group, which the Helm chart grants. Without them, e.g. if you manage the RBAC of the
+  operator yourself, the operator logs a `Could not record ... event` warning for each event. An
+  event exporter may also forward the `Warning` events, such as `Failed`, to chat or alerting
+  services outside the cluster. To restore the behavior before 1.1.0, set
+  `spark.kubernetes.operator.events.enabled` to `false`. See
+  [Kubernetes Events](configuration.md#kubernetes-events) for details.
 
 ### SparkApplication
 

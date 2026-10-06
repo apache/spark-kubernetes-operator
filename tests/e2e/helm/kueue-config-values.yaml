@@ -26,7 +26,3 @@ operatorDeployment:
 operatorRbac:
   kueue:
     enabled: true
-
-operatorConfiguration:
-  spark-operator.properties: |+
-    spark.kubernetes.operator.events.enabled=true

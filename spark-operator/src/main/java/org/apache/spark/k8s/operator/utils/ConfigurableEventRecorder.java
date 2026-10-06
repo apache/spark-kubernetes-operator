@@ -47,8 +47,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.spark.k8s.operator.client.KubernetesClientFactory;
 
 /**
- * An {@link EventRecorder} that drops every event unless {@link
- * org.apache.spark.k8s.operator.config.SparkOperatorConf#KUBERNETES_EVENTS_ENABLED} is set, drops
+ * An {@link EventRecorder} that drops every event while {@link
+ * org.apache.spark.k8s.operator.config.SparkOperatorConf#KUBERNETES_EVENTS_ENABLED} is false, drops
  * events whose reason matches one of the patterns in {@link
  * org.apache.spark.k8s.operator.config.SparkOperatorConf#KUBERNETES_EVENTS_EXCLUDED_REASONS}, and
  * drops an event repeated on the same resource with the same reason and the same message within

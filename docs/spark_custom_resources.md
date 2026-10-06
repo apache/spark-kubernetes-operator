@@ -540,7 +540,7 @@ running `SparkCluster` is stopped instead, as described below.
 `suspend: true`, the initial `Submitted` status is not persisted to the API server, so
 `kubectl get` shows an empty `Current State` and no state transition events are published until
 initialization resumes. Instead, the `SuspendHeld` [event](configuration.md#kubernetes-events) is
-published when enabled. Since the status is not there to fall back on, it is republished every 30
+published by default. Since the status is not there to fall back on, it is republished every 30
 minutes by default while the hold lasts, so that it outlives the event retention of the API
 server. An application held later, in `ScheduledToRestart`, keeps the status its previous attempt
 already wrote and gets the same event, since that status says that a restart is due, not that the
@@ -569,7 +569,7 @@ spec:
   HorizontalPodAutoscaler and PodDisruptionBudget of its workers if any. Its Services and
   NetworkPolicy are kept. Any application running on the cluster is terminated with it, since there
   is no graceful decommission. A failure to delete them, other than one which may clear on its own,
-  publishes the `SuspendReleaseFailed` [event](configuration.md#kubernetes-events) when enabled.
+  publishes the `SuspendReleaseFailed` [event](configuration.md#kubernetes-events) by default.
 * Setting it back to `false` moves the cluster to `Submitted` once its master and worker pods are
   gone and its Kueue `Workload`, if any, is released, and the master and workers are requested
   again from scratch, like a newly created cluster. Only pods labeled with the `master` or `worker`
@@ -624,7 +624,7 @@ spec:
   label is ignored, so the resource is not queued and starts right away, and the operator does
   not access any Kueue resource, like Kueue ignores a job whose integration is not enabled. Since
   the author of the resource may not see the operator configuration, the `KueueDisabled` warning
-  [event](configuration.md#kubernetes-events) is published when enabled.
+  [event](configuration.md#kubernetes-events) is published by default.
 * The `Workload` is named `<lower-cased kind>-<resource name>` and is owned by the Spark resource,
   so it is garbage collected along with it.
 * Like Kueue built-in integrations, the `Workload` gets the priority of the `WorkloadPriorityClass`
@@ -641,7 +641,7 @@ spec:
   Like `spec.suspend`, the initial `Submitted` status of the first attempt is not persisted to the
   API server, so `kubectl get` shows an empty `Current State` and no state transition events are
   published until the `Workload` is admitted. Instead, the `KueueAdmissionPending` and
-  `KueueAdmitted` [events](configuration.md#kubernetes-events) are published when enabled. Since
+  `KueueAdmitted` [events](configuration.md#kubernetes-events) are published by default. Since
   the status is not there to fall back on, the pending event is republished while the `Workload`
   waits, so that it outlives the event retention of the API server. Use `kubectl get workload` to
   see the admission status. If the spec changes while waiting, the
@@ -787,7 +787,7 @@ spec:
   `spark.executor.instances`, or a deactivation. The operator checks the admission only before it
   creates the resources, so after a later eviction the driver and executors keep running, and
   until the attempt stops, the `KueueEvictionIgnored` [event](configuration.md#kubernetes-events)
-  is published instead when enabled. An evicted `Workload` keeps its Kueue quota until the driver
+  is published instead by default. An evicted `Workload` keeps its Kueue quota until the driver
   and executors are released, so a workload which preempts the application waits until then,
   while a deactivated one no longer counts against it. Since `spec.suspend` does not stop a
   running attempt, delete the application to release its quota earlier. With `blockAdmission`, an
