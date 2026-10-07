@@ -59,6 +59,7 @@ import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppKueueEvictionS
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppReconcileStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppResourceObserveStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppRunningStep;
+import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppSuspendStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppUnknownStateStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppValidateStep;
 import org.apache.spark.k8s.operator.utils.EventUtils;
@@ -212,6 +213,7 @@ public class SparkAppReconciler implements Reconciler<SparkApplication>, Cleaner
                 List.of(new AppDriverStartObserver(), new AppDriverReadyObserver())));
         steps.add(new AppResourceObserveStep(List.of(new AppDriverRunningObserver())));
         steps.add(new AppResourceObserveStep(List.of(new AppDriverTimeoutObserver())));
+        steps.add(new AppSuspendStep());
       }
       case DriverReady,
           InitializedBelowThresholdExecutors,
@@ -222,7 +224,9 @@ public class SparkAppReconciler implements Reconciler<SparkApplication>, Cleaner
         steps.add(new AppRunningStep());
         steps.add(new AppResourceObserveStep(List.of(new AppDriverRunningObserver())));
         steps.add(new AppResourceObserveStep(List.of(new AppDriverTimeoutObserver())));
+        steps.add(new AppSuspendStep());
       }
+      case Suspended -> steps.add(new AppSuspendStep());
       default -> steps.add(new AppUnknownStateStep());
     }
     return steps;

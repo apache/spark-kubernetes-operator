@@ -78,6 +78,86 @@ spec:
         timeout: 30s
         content: |
           kubectl delete sparkapplication spark-job-suspend-test -n default --ignore-not-found=true
+  # Suspending a running application releases its driver and executors, and resuming it starts a
+  # new attempt, which runs the application again from scratch.
+  - try:
+    - apply:
+        file: spark-example-running.yaml
+    - assert:
+        timeout: 120s
+        resource:
+          apiVersion: spark.apache.org/v1
+          kind: SparkApplication
+          metadata:
+            name: spark-job-suspend-running-test
+            namespace: default
+          status:
+            currentState:
+              currentStateSummary: RunningHealthy
+    - script:
+        timeout: 30s
+        content: |
+          kubectl patch sparkapplication spark-job-suspend-running-test -n default --type merge -p '{"spec":{"suspend":true}}'
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: spark.apache.org/v1
+          kind: SparkApplication
+          metadata:
+            name: spark-job-suspend-running-test
+            namespace: default
+          status:
+            currentState:
+              currentStateSummary: Suspended
+    - error:
+        timeout: 120s
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            namespace: default
+            labels:
+              spark.operator/spark-app-name: spark-job-suspend-running-test
+    # The executor is made schedulable while the application is suspended, so that the resumed
+    # attempt runs with the changed spec and completes.
+    - script:
+        timeout: 30s
+        content: |
+          kubectl patch sparkapplication spark-job-suspend-running-test -n default --type merge -p '{"spec":{"suspend":false,"sparkConf":{"spark.kubernetes.executor.node.selector.spark.apache.org/e2e-unschedulable":null}}}'
+    - assert:
+        timeout: 180s
+        resource:
+          apiVersion: spark.apache.org/v1
+          kind: SparkApplication
+          metadata:
+            name: spark-job-suspend-running-test
+            namespace: default
+          status:
+            currentState:
+              currentStateSummary: ResourceReleased
+            # The new attempt does not count as a restart, even with the default restartPolicy
+            # Never
+            currentAttemptSummary:
+              attemptInfo:
+                id: 1
+                restartCounter: 0
+            stateTransitionHistory:
+              (contains(*.currentStateSummary, 'Succeeded')): true
+            previousAttemptSummary:
+              stateTransitionHistory:
+                (contains(*.currentStateSummary, 'Suspended')): true
+    catch:
+    - describe:
+        apiVersion: spark.apache.org/v1
+        kind: SparkApplication
+        namespace: default
+    - events:
+        namespace: default
+    finally:
+    - script:
+        timeout: 30s
+        content: |
+          kubectl delete sparkapplication spark-job-suspend-running-test -n default --ignore-not-found=true
   - try:
     - apply:
         bindings:

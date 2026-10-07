@@ -1052,6 +1052,76 @@ spec:
           status:
             currentState:
               currentStateSummary: RunningHealthy
+    # As the event advises, suspending the application releases its driver and executors, and then
+    # the quota which its evicted Workload keeps
+    - script:
+        timeout: 30s
+        content: |
+          kubectl patch sparkapplication spark-job-kueue-executors-not-ready-test -n default --type merge -p '{"spec":{"suspend":true}}'
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: spark.apache.org/v1
+          kind: SparkApplication
+          metadata:
+            name: spark-job-kueue-executors-not-ready-test
+            namespace: default
+          status:
+            currentState:
+              currentStateSummary: Suspended
+    - error:
+        timeout: 120s
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            namespace: default
+            labels:
+              spark.operator/spark-app-name: spark-job-kueue-executors-not-ready-test
+    - error:
+        timeout: 120s
+        resource:
+          apiVersion: kueue.x-k8s.io/v1beta2
+          kind: Workload
+          metadata:
+            name: sparkapplication-spark-job-kueue-executors-not-ready-test
+            namespace: default
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: kueue.x-k8s.io/v1beta2
+          kind: ClusterQueue
+          metadata:
+            name: ($CLUSTER_QUEUE)
+          status:
+            admittedWorkloads: 0
+            reservingWorkloads: 0
+    # Resuming queues it again with a new attempt and a new Workload, which Kueue admits into the
+    # quota it gave back
+    - script:
+        timeout: 30s
+        content: |
+          kubectl patch sparkapplication spark-job-kueue-executors-not-ready-test -n default --type merge -p '{"spec":{"suspend":false}}'
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: spark.apache.org/v1
+          kind: SparkApplication
+          metadata:
+            name: spark-job-kueue-executors-not-ready-test
+            namespace: default
+          status:
+            currentState:
+              currentStateSummary: RunningHealthy
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: kueue.x-k8s.io/v1beta2
+          kind: ClusterQueue
+          metadata:
+            name: ($CLUSTER_QUEUE)
+          status:
+            admittedWorkloads: 1
     catch:
     - describe:
         apiVersion: spark.apache.org/v1

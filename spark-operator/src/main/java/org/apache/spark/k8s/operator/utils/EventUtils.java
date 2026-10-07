@@ -68,8 +68,8 @@ public final class EventUtils {
   public static final String REASON_SUSPEND_HELD = "SuspendHeld";
 
   /**
-   * Reason for an event describing a failure to release the resources of a SparkCluster which is
-   * suspended while running.
+   * Reason for an event describing a failure to release the resources of a SparkApplication or a
+   * SparkCluster which is suspended while running.
    */
   public static final String REASON_SUSPEND_RELEASE_FAILED = "SuspendReleaseFailed";
 

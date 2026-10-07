@@ -264,11 +264,11 @@ public final class SparkOperatorConf {
 
   /**
    * Requeue interval (in seconds) at which a resource held by {@code spec.suspend} is reconciled,
-   * so that its {@code SuspendHeld} event is republished. A SparkCluster suspended while running
-   * publishes no such event, since its Suspended status says so, and uses this interval only to
-   * look at its released resources again. The hold ends only when a user clears
-   * {@code spec.suspend}, which arrives as a watch event and reconciles right away, so nothing
-   * waits for this interval. It is deliberately much coarser than {@link
+   * so that its {@code SuspendHeld} event is republished. A SparkApplication or SparkCluster
+   * suspended while running publishes no such event, since its Suspended status says so, and uses
+   * this interval only to look at its released resources again. The hold ends only when a user
+   * clears {@code spec.suspend}, which arrives as a watch event and reconciles right away, so
+   * nothing waits for this interval. It is deliberately much coarser than {@link
    * #RECONCILER_INTERVAL_SECONDS}, since a suspended resource has nothing to observe while each
    * republish costs a read and a write on the API server. Keep it below the {@code --event-ttl} of
    * the API server (one hour by default), or the event expires between repeats and the hold stops
@@ -282,8 +282,9 @@ public final class SparkOperatorConf {
           .enableDynamicOverride(true)
           .description(
               "Requeue interval (in seconds) at which a resource held by spec.suspend is "
-                  + "reconciled, so that its SuspendHeld event is republished. A SparkCluster "
-                  + "suspended while running publishes no such event, since its Suspended status "
+                  + "reconciled, so that its SuspendHeld event is republished. A SparkApplication "
+                  + "or SparkCluster suspended while running publishes no such event, since its "
+                  + "Suspended status "
                   + "says so, and uses this interval only to look at its released resources "
                   + "again. The hold ends only "
                   + "when a user clears spec.suspend, which arrives as a watch event and "

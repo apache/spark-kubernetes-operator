@@ -409,6 +409,42 @@ class AppInitStepTest {
         application.getStatus().getCurrentState().getCurrentStateSummary());
   }
 
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void resumedAttemptDoesNotWaitForRestartBackoff(boolean trimStateTransitionHistory) {
+    // An attempt which starts as the application is resumed from Suspended is not a restart
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(applicationMetadata);
+    application.getSpec().setApplicationTolerations(
+        ApplicationTolerations.builder()
+            .restartConfig(RestartConfig.builder().restartBackoffMillis(60000L).build())
+            .build());
+    application.setStatus(
+        new ApplicationStatus()
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
+            .appendNewState(new ApplicationState(ApplicationStateSummary.Suspended, ""))
+            .resume("resumed", trimStateTransitionHistory));
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getDriverPreResourcesSpec()).thenReturn(List.of());
+    when(mockContext.getDriverPodSpec()).thenReturn(driverPodSpec);
+    when(mockContext.getDriverResourcesSpec()).thenReturn(List.of());
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
+    when(recorder.persistStatus(any(), any())).thenAnswer(invocation -> {
+      application.setStatus(invocation.getArgument(1));
+      return true;
+    });
+
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndDefaultRequeue(),
+        appInitStep.reconcile(mockContext, recorder));
+    Assertions.assertEquals(
+        ApplicationStateSummary.DriverRequested,
+        application.getStatus().getCurrentState().getCurrentStateSummary());
+  }
+
   @Test
   void suspendedAppDoesNotRequestDriver() {
     AppInitStep appInitStep = new AppInitStep();
