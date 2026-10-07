@@ -50,6 +50,9 @@ class DriverResourceDecoratorTest {
         .addToLabels("spark.operator/submission-id", "sub-1")
         .addToLabels(LABEL_SPARK_ROLE_NAME, "driver")
         .addToLabels("spark-app-selector", "spark-app-selector-1")
+        .addToLabels("spark-version", "4.2.0")
+        .addToLabels("spark-app-name", "app1-name")
+        .addToLabels("driver-only-label", "driver-value")   // neutral driver only label
         .addToLabels("overlapping-label", "driver-value")
         .endMetadata()
         .build();
@@ -66,12 +69,18 @@ class DriverResourceDecoratorTest {
   }
 
   /**
-   * Driver-pod labels whose key is absent on the resource are propagated onto the resource, while a
-   * label the resource sets itself still wins on key collision (e.g. a per-service waypoint label).
+   * Driver-pod labels whose key is absent on the resource are propagated onto the resource
+   * (including a neutral driver-only label), a label the resource sets itself wins on a key
+   * collision, and a neutral label only the resource sets is
+   * kept.
    */
   @Test
   void driverLabelsPropagatedAndResourceLabelWinsOnCollision() {
-    Service service = service(Map.of("overlapping-label", "resource-value"));
+    Service service =
+        service(
+            Map.of(
+                "overlapping-label", "resource-value",
+                "resource-only-label", "resource-value"));
 
     new DriverResourceDecorator(driverPod()).decorate(service);
 
@@ -82,7 +91,11 @@ class DriverResourceDecoratorTest {
             "spark.operator/submission-id", "sub-1",
             LABEL_SPARK_ROLE_NAME, "driver",
             "spark-app-selector", "spark-app-selector-1",
-            "overlapping-label", "resource-value"),
+            "spark-version", "4.2.0",
+            "spark-app-name", "app1-name",
+            "driver-only-label", "driver-value",
+            "overlapping-label", "resource-value",
+            "resource-only-label", "resource-value"),
         service.getMetadata().getLabels());
   }
 
@@ -102,8 +115,8 @@ class DriverResourceDecoratorTest {
 
   /**
    * Managed identity labels (exact-match keys and anything under the {@code spark.operator} prefix)
-   * must keep the driver-pod value even when the resource sets a different value, so owner mapping
-   * and selectors are preserved, while a non-managed label is still allowed to win.
+   * must keep the driver-pod value even when the resource sets a different value, while a
+   * non-managed label is still allowed to win.
    */
   @Test
   void managedLabelsAreNotOverriddenByResource() {
@@ -115,6 +128,8 @@ class DriverResourceDecoratorTest {
                 "spark.operator/submission-id", "rogue-sub",
                 LABEL_SPARK_ROLE_NAME, "rogue-role",
                 "spark-app-selector", "rogue-selector",
+                "spark-version", "rogue-version",
+                "spark-app-name", "rogue-app-name",
                 "overlapping-label", "resource-value"));
 
     new DriverResourceDecorator(driverPod()).decorate(service);
@@ -126,6 +141,9 @@ class DriverResourceDecoratorTest {
             "spark.operator/submission-id", "sub-1",
             LABEL_SPARK_ROLE_NAME, "driver",
             "spark-app-selector", "spark-app-selector-1",
+            "spark-version", "4.2.0",
+            "spark-app-name", "app1-name",
+            "driver-only-label", "driver-value",
             "overlapping-label", "resource-value"),
         service.getMetadata().getLabels());
   }

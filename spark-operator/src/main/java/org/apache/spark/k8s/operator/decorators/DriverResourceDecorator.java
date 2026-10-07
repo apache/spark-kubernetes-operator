@@ -19,20 +19,16 @@
 
 package org.apache.spark.k8s.operator.decorators;
 
-import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_APPLICATION_NAME;
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_APP_NAME;
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_APP_SELECTOR;
-import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_OPERATOR_NAME;
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_ROLE_NAME;
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_VERSION_NAME;
 import static org.apache.spark.k8s.operator.utils.ModelUtils.buildOwnerReferenceTo;
 
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import io.fabric8.kubernetes.api.model.HasMetadata;
-import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.OwnerReference;
 import io.fabric8.kubernetes.api.model.Pod;
@@ -57,14 +53,11 @@ public class DriverResourceDecorator implements ResourceDecorator {
 
   /**
    * Operator- and Spark-managed identity labels whose driver-pod value must always propagate to
-   * secondary resources unchanged. A resource's own label of the same key
-   * must never override them. Any label key under the {@value #MANAGED_LABEL_PREFIX} prefix is
-   * protected the same way (which already covers the operator-namespaced keys listed here).
+   * secondary resources unchanged. A resource's own label of the same key must never override them.
+   * Any label key under the {@value #MANAGED_LABEL_PREFIX} prefix is protected the same way.
    */
   private static final Set<String> MANAGED_LABEL_KEYS =
       Set.of(
-          LABEL_SPARK_OPERATOR_NAME,
-          LABEL_SPARK_APPLICATION_NAME,
           LABEL_SPARK_ROLE_NAME,
           LABEL_SPARK_VERSION_NAME,
           LABEL_SPARK_APP_SELECTOR,
@@ -102,32 +95,19 @@ public class DriverResourceDecorator implements ResourceDecorator {
     }
     if (!ownerReferenceExists) {
       log.debug("Adding OwnerReference to driver for secondary resource");
-      ObjectMeta metaData =
+      Map<String, String> resourceLabels = resource.getMetadata().getLabels();
+      ObjectMetaBuilder builder =
           new ObjectMetaBuilder(resource.getMetadata())
-              .addToOwnerReferences(buildOwnerReferenceTo(driverPod))
-              .addToLabels(driverPod.getMetadata().getLabels())
-              .addToLabels(overridableLabels(resource.getMetadata().getLabels()))
-              .build();
-      resource.setMetadata(metaData);
+              .addToOwnerReferences(buildOwnerReferenceTo(driverPod));
+      driverPod.getMetadata().getLabels().forEach((key, value) -> {
+        boolean resourceSetsKey = resourceLabels != null && resourceLabels.containsKey(key);
+        if (isManagedLabel(key) || !resourceSetsKey) {
+          builder.addToLabels(key, value);
+        }
+      });
+      resource.setMetadata(builder.build());
     }
     return resource;
-  }
-
-  /**
-   * Filters the resource's own labels down to the ones that are allowed to override a driver-pod
-   * label of the same key, dropping operator- and Spark-managed identity labels (see {@link
-   * #MANAGED_LABEL_KEYS} and {@link #MANAGED_LABEL_PREFIX}).
-   *
-   * @param resourceLabels the resource's own labels (may be {@code null}).
-   * @return the subset of labels safe to re-apply on top of the driver-pod labels.
-   */
-  private static Map<String, String> overridableLabels(Map<String, String> resourceLabels) {
-    if (resourceLabels == null || resourceLabels.isEmpty()) {
-      return Map.of();
-    }
-    return resourceLabels.entrySet().stream()
-        .filter(entry -> !isManagedLabel(entry.getKey()))
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   /**
