@@ -23,7 +23,6 @@ import static io.javaoperatorsdk.operator.api.reconciler.Constants.CONTROLLER_NA
 
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 import com.codahale.metrics.MetricRegistry;
 import io.fabric8.kubernetes.api.model.HasMetadata;
@@ -59,6 +58,7 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
   private static final String SUCCESS = "success";
   private static final String FAILURE = "failure";
   private static final String EXCEPTION = "exception";
+  private static final String NANOS = "nanos";
   private static final String PREFIX = "operator.sdk";
   private static final String RECONCILIATIONS = "reconciliations";
   private static final String RECONCILIATIONS_EXECUTIONS = RECONCILIATIONS + ".executions";
@@ -68,8 +68,18 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
 
   /** Constructs a new OperatorJosdkMetrics instance. */
   public OperatorJosdkMetrics() {
+    this(new SystemClock());
+  }
+
+  /**
+   * Constructs a new OperatorJosdkMetrics instance timing the executions with the given clock, for
+   * tests.
+   *
+   * @param clock The clock to measure the duration of the controller executions.
+   */
+  OperatorJosdkMetrics(Clock clock) {
     super(new MetricRegistry());
-    this.clock = new SystemClock();
+    this.clock = clock;
   }
 
   /**
@@ -134,7 +144,9 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
   }
 
   /**
-   * Times the execution of a controller operation and records success or failure metrics.
+   * Times the execution of a controller operation and records success or failure metrics. The
+   * duration is recorded in nanoseconds in histograms whose names end with {@code nanos}, which
+   * {@link org.apache.spark.k8s.operator.metrics.PrometheusPullModelHandler} exports in seconds.
    *
    * @param execution The ControllerExecution to time.
    * @param <T> The return type of the execution.
@@ -152,33 +164,35 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
         getResourceClass(metadata);
     final String execName = execution.name();
 
-    long startTime = clock.getTimeMillis();
+    long startTime = clock.nanoTime();
     try {
       T result = execution.execute();
+      final long durationNanos = clock.nanoTime() - startTime;
       final String successType = execution.successTypeName(result);
       if (resourceClass.isPresent()) {
         String metricsPrefix = getMetricNamePrefix(resourceClass.get());
-        getHistogram(metricsPrefix, name, execName, successType).update(toSeconds(startTime));
+        getHistogram(metricsPrefix, name, execName, successType, NANOS).update(durationNanos);
         getCounter(metricsPrefix, name, execName, SUCCESS, successType).inc();
         if (namespaceOptional.isPresent()) {
-          getHistogram(metricsPrefix, namespaceOptional.get(), name, execName, successType)
-              .update(toSeconds(startTime));
+          getHistogram(metricsPrefix, namespaceOptional.get(), name, execName, successType, NANOS)
+              .update(durationNanos);
           getCounter(metricsPrefix, namespaceOptional.get(), name, execName, SUCCESS, successType)
               .inc();
         }
       }
       return result;
     } catch (Exception e) {
+      final long durationNanos = clock.nanoTime() - startTime;
       log.error(
           "Controller execution failed for resource {}, metadata {}", resourceID, metadata, e);
       final String exception = e.getClass().getSimpleName();
       if (resourceClass.isPresent()) {
         String metricsPrefix = getMetricNamePrefix(resourceClass.get());
-        getHistogram(metricsPrefix, name, execName, FAILURE).update(toSeconds(startTime));
+        getHistogram(metricsPrefix, name, execName, FAILURE, NANOS).update(durationNanos);
         getCounter(metricsPrefix, name, execName, FAILURE, EXCEPTION, exception).inc();
         if (namespaceOptional.isPresent()) {
-          getHistogram(metricsPrefix, namespaceOptional.get(), name, execName, FAILURE)
-              .update(toSeconds(startTime));
+          getHistogram(metricsPrefix, namespaceOptional.get(), name, execName, FAILURE, NANOS)
+              .update(durationNanos);
           getCounter(
                   metricsPrefix,
                   namespaceOptional.get(),
@@ -314,10 +328,6 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
         .dec();
     getCounter(metricsPrefix, (String) metadata.get(CONTROLLER_NAME), RECONCILIATIONS_QUEUE_SIZE)
         .dec();
-  }
-
-  private long toSeconds(long startTimeInMilliseconds) {
-    return TimeUnit.MILLISECONDS.toSeconds(clock.getTimeMillis() - startTimeInMilliseconds);
   }
 
   private Optional<Class<? extends BaseResource<?, ?, ?, ?, ?>>> getResourceClass(
