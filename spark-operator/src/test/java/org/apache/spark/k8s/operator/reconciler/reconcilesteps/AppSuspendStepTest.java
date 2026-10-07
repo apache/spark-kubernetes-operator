@@ -88,9 +88,9 @@ class AppSuspendStepTest {
   private static final ReconcileProgress SUSPEND_HOLD_PROGRESS =
       ReconcileProgress.completeAndRequeueAfter(Duration.ofMinutes(30));
 
-  // The default of applicationTimeoutConfig.terminationRequeuePeriodMillis
+  // The deletion of each pod is observed by the pod informer, which reconciles again
   private static final ReconcileProgress WAITING_FOR_PODS_PROGRESS =
-      ReconcileProgress.completeAndRequeueAfter(Duration.ofSeconds(2));
+      ReconcileProgress.completeAndDefaultRequeue();
 
   private final SparkAppContext mockContext = mock(SparkAppContext.class);
   private final SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
@@ -351,6 +351,57 @@ class AppSuspendStepTest {
     Assertions.assertEquals(1, deletions.size(), deletions.toString());
     Assertions.assertTrue(deletions.get(0).contains("\"gracePeriodSeconds\":0"));
     Assertions.assertNull(getWorkload());
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void waitIsRequeuedAtTheNextPodDeadline(boolean suspend) {
+    SparkApplication app = buildKueueApp(ApplicationStateSummary.Suspended, suspend);
+    app.getSpec()
+        .getApplicationTolerations()
+        .getApplicationTimeoutConfig()
+        .setForceTerminationGracePeriodMillis(Duration.ofMinutes(1).toMillis());
+    stubContext(app);
+    // A driver which is still terminating, e.g. on a lost node, and its executor which is not
+    // deleted yet
+    createDriver(app, FINALIZER);
+    kubernetesClient.resource(driver(app)).delete();
+    createExecutor(app);
+    createWorkload(app);
+
+    ReconcileProgress progress = new AppSuspendStep().reconcile(mockContext, recorder);
+
+    // The wait is requeued to end when the driver has been terminating for the timeout, rather
+    // than after the default interval, since a driver on a lost node may send no more events
+    Assertions.assertTrue(progress.isCompleted());
+    Duration requeueAfter = progress.getRequeueAfterDuration();
+    Assertions.assertTrue(
+        requeueAfter.compareTo(Duration.ofSeconds(30)) > 0
+            && requeueAfter.compareTo(Duration.ofMinutes(1)) <= 0,
+        requeueAfter::toString);
+    Assertions.assertNotNull(getWorkload());
+    verifyNoInteractions(recorder, eventRecorder);
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void waitIsNotRequeuedAtPassedPodDeadlines(boolean suspend) {
+    SparkApplication app = buildApp(ApplicationStateSummary.Suspended, suspend);
+    app.getSpec()
+        .getApplicationTolerations()
+        .getApplicationTimeoutConfig()
+        .setForceTerminationGracePeriodMillis(0L);
+    stubContext(app);
+    createDriver(app);
+    // An executor which is still terminating, e.g. on a lost node
+    createExecutor(app, FINALIZER);
+    kubernetesClient.resource(executor(app)).delete();
+
+    // Only the driver, whose deletion is observed by the pod informer, holds the application, so
+    // the executor which no longer holds it does not requeue the wait at once
+    Assertions.assertEquals(
+        WAITING_FOR_PODS_PROGRESS, new AppSuspendStep().reconcile(mockContext, recorder));
+    Assertions.assertNull(getDriver());
   }
 
   @ParameterizedTest

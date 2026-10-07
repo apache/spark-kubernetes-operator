@@ -194,8 +194,10 @@ public final class AppSuspendStep extends AppReconcileStep {
           listPods(context, LABEL_SPARK_ROLE_DRIVER_VALUE, LABEL_SPARK_ROLE_EXECUTOR_VALUE);
       Instant now = Instant.now();
       boolean waiting = false;
+      Instant nextDeadline = Instant.MAX;
       for (Pod pod : pods) {
-        boolean holding = now.isBefore(getPodReleaseDeadline(pod, timeoutConfig));
+        Instant deadline = getPodReleaseDeadline(pod, timeoutConfig);
+        boolean holding = now.isBefore(deadline);
         boolean driver =
             LABEL_SPARK_ROLE_DRIVER_VALUE.equals(
                 pod.getMetadata().getLabels().get(LABEL_SPARK_ROLE_NAME));
@@ -205,13 +207,21 @@ public final class AppSuspendStep extends AppReconcileStep {
           // A driver which is terminating already is not deleted again until it is force deleted
           client.resource(pod).withPropagationPolicy(DeletionPropagation.FOREGROUND).delete();
         }
+        if (holding && deadline.isBefore(nextDeadline)) {
+          nextDeadline = deadline;
+        }
         waiting |= holding;
       }
       if (waiting) {
+        // The deletion of each pod is observed by the pod informer, while the end of the wait for
+        // a pod which may send no more events is observed by the requeue
         log.debug("Waiting for the driver and executor pods of the suspended app to be deleted.");
+        ReconcileProgress defaultRequeue = completeAndDefaultRequeue();
+        Duration remaining = Duration.between(now, nextDeadline);
         return Optional.of(
-            completeAndRequeueAfter(
-                Duration.ofMillis(timeoutConfig.getTerminationRequeuePeriodMillis())));
+            remaining.compareTo(defaultRequeue.getRequeueAfterDuration()) < 0
+                ? completeAndRequeueAfter(remaining)
+                : defaultRequeue);
       }
       // A Workload admitted before the queue label was removed is released as well.
       KueueWorkloadUtils.deleteWorkloadOf(client, app);
