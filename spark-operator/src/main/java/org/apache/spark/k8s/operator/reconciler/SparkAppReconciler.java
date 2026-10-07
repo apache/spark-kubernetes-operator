@@ -55,10 +55,10 @@ import org.apache.spark.k8s.operator.reconciler.observers.AppDriverStartObserver
 import org.apache.spark.k8s.operator.reconciler.observers.AppDriverTimeoutObserver;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppCleanUpStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppInitStep;
-import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppKueueEvictionStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppReconcileStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppResourceObserveStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppRunningStep;
+import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppSuspendStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppUnknownStateStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppValidateStep;
 import org.apache.spark.k8s.operator.utils.EventUtils;
@@ -206,23 +206,24 @@ public class SparkAppReconciler implements Reconciler<SparkApplication>, Cleaner
     switch (app.getStatus().getCurrentState().getCurrentStateSummary()) {
       case Submitted, ScheduledToRestart -> steps.add(new AppInitStep());
       case DriverRequested, DriverStarted -> {
-        steps.add(new AppKueueEvictionStep());
         steps.add(
             new AppResourceObserveStep(
                 List.of(new AppDriverStartObserver(), new AppDriverReadyObserver())));
         steps.add(new AppResourceObserveStep(List.of(new AppDriverRunningObserver())));
         steps.add(new AppResourceObserveStep(List.of(new AppDriverTimeoutObserver())));
+        steps.add(new AppSuspendStep());
       }
       case DriverReady,
           InitializedBelowThresholdExecutors,
           RunningHealthy,
           RunningWithPartialCapacity,
           RunningWithBelowThresholdExecutors -> {
-        steps.add(new AppKueueEvictionStep());
         steps.add(new AppRunningStep());
         steps.add(new AppResourceObserveStep(List.of(new AppDriverRunningObserver())));
         steps.add(new AppResourceObserveStep(List.of(new AppDriverTimeoutObserver())));
+        steps.add(new AppSuspendStep());
       }
+      case Suspended -> steps.add(new AppSuspendStep());
       default -> steps.add(new AppUnknownStateStep());
     }
     return steps;

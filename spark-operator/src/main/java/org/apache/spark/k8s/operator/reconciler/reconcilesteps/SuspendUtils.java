@@ -54,8 +54,9 @@ final class SuspendUtils {
    * of the one Event instead of creating another and refreshes it, so that the hold stays visible
    * past the event retention of the API server. A suspended first attempt has no persisted status
    * to fall back on, since its initial Submitted state is never written. An application held
-   * later, in ScheduledToRestart, does have the status of the previous attempt, but that status
-   * does not say that the next attempt is withheld by spec.suspend, so it gets the same event.
+   * later, in ScheduledToRestart, or in Submitted after it was resumed from Suspended, does have a
+   * persisted status, but that status does not say that the next attempt is withheld by
+   * spec.suspend, so it gets the same event.
    *
    * <p>Unlike the Kueue hold, which ends when quota arrives, this one ends only when a user clears
    * spec.suspend, so the republishing is paced by {@link

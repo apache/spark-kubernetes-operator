@@ -23,6 +23,7 @@ import static org.apache.spark.k8s.operator.config.SparkOperatorConf.KUBERNETES_
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -190,7 +191,10 @@ public class KubernetesMetricsInterceptor implements Interceptor, Source {
     responseLatency.update(latency);
     getMeterByResponseCode(response.code()).mark();
     if (KUBERNETES_CLIENT_METRICS_GROUP_BY_RESPONSE_CODE_GROUP_ENABLED.getValue()) {
-      responseCodeGroupMeters.get(response.code() / 100 - 1).mark();
+      int index = response.code() / 100 - 1;
+      if (index >= 0 && index < responseCodeGroupMeters.size()) {
+        responseCodeGroupMeters.get(index).mark();
+      }
     }
   }
 
@@ -217,14 +221,14 @@ public class KubernetesMetricsInterceptor implements Interceptor, Source {
    * Parses the given path to extract namespace-scoped resource information.
    *
    * @param path The request path.
-   * @return An Optional containing a Pair of namespace and resource name, or empty if not found.
+   * @return An Optional containing a Pair of namespace and resource name, or empty if the path has
+   *     no {@code namespaces/<namespace>/<resource>} segments.
    */
   public Optional<Pair<String, String>> parseNamespaceScopedResource(String path) {
-    if (path.contains(NAMESPACES)) {
-      int index = path.indexOf(NAMESPACES) + NAMESPACES.length();
-      String namespaceAndResources = path.substring(index + 1);
-      String[] parts = namespaceAndResources.split("/");
-      return Optional.of(Pair.of(parts[0], parts[1]));
+    List<String> segments = Arrays.asList(path.split("/"));
+    int index = segments.indexOf(NAMESPACES);
+    if (index >= 0 && index + 2 < segments.size()) {
+      return Optional.of(Pair.of(segments.get(index + 1), segments.get(index + 2)));
     } else {
       return Optional.empty();
     }

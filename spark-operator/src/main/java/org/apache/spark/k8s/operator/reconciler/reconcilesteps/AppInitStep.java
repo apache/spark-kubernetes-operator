@@ -89,7 +89,10 @@ public final class AppInitStep extends AppReconcileStep {
         return SuspendUtils.holdForSuspend(context, "driver");
       }
     }
-    if (app.getStatus().getPreviousAttemptSummary() != null) {
+    // Only a restarted attempt waits for the restart backoff, while the attempt which a suspended
+    // application starts on resume is Submitted.
+    if (ApplicationStateSummary.ScheduledToRestart == currentState.getCurrentStateSummary()
+        && app.getStatus().getPreviousAttemptSummary() != null) {
       Instant lastTransitionTime = Instant.parse(currentState.getLastTransitionTime());
       ApplicationAttemptSummary attemptSummary = app.getStatus().getPreviousAttemptSummary();
       SortedMap<Long, ApplicationState> attemptHistory = attemptSummary.getStateTransitionHistory();
@@ -212,7 +215,7 @@ public final class AppInitStep extends AppReconcileStep {
       if (driverRequested || isDriverRequested(context)) {
         // The driver resources are applied again in this reconcile, so the flavors of the Workload
         // which was admitted before are resolved again instead of dropping them from the resources.
-        return KueueWorkloadUtils.applyAdmittedFlavors(context);
+        return KueueWorkloadUtils.applyAdmittedPodSetInfos(context);
       }
     } catch (KubernetesClientException e) {
       // Requesting the admission of a driver which is already running would be wrong, so the

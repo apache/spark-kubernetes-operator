@@ -46,6 +46,7 @@ import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.status.ClusterState;
 import org.apache.spark.k8s.operator.status.ClusterStatus;
+import org.apache.spark.k8s.operator.status.SuspendReason;
 import org.apache.spark.k8s.operator.utils.EventUtils;
 import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
@@ -92,7 +93,7 @@ public final class ClusterInitStep extends ClusterReconcileStep {
       // were requested, rather than applying every resource again. So the master of a resumed or
       // requeued cluster is not looked up.
       return appendStateAndImmediateRequeue(
-          context, statusRecorder, new ClusterState(Suspended, CLUSTER_SUSPENDED_MESSAGE));
+          context, statusRecorder, new ClusterState(Suspended, CLUSTER_SUSPENDED_MESSAGE, SuspendReason.SpecSuspend));
     }
     if (cluster.getStatus().getPreviousAttemptSummary() != null) {
       Instant lastTransitionTime = Instant.parse(currentState.getLastTransitionTime());
@@ -242,7 +243,7 @@ public final class ClusterInitStep extends ClusterReconcileStep {
         // The master and worker StatefulSets are applied again in this reconcile, so the flavors
         // of the Workload which was admitted before are resolved again instead of dropping them
         // from the pod templates.
-        return KueueWorkloadUtils.applyAdmittedFlavors(context);
+        return KueueWorkloadUtils.applyAdmittedPodSetInfos(context);
       }
     } catch (KubernetesClientException e) {
       // Requesting the admission of a master which is already running would be wrong, so the

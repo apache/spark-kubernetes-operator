@@ -16556,6 +16556,7 @@ spec:
                               - SchedulingFailure
                               - Submitted
                               - Succeeded
+                              - Suspended
                               - TerminatedWithoutReleaseResources
                             type: string
                           lastObservedDriverStatus:
@@ -17207,6 +17208,11 @@ spec:
                             type: string
                           message:
                             type: string
+                          suspendReason:
+                            enum:
+                              - KueueEviction
+                              - SpecSuspend
+                            type: string
                         type: object
                       type: object
                   type: object
@@ -17231,6 +17237,7 @@ spec:
                         - SchedulingFailure
                         - Submitted
                         - Succeeded
+                        - Suspended
                         - TerminatedWithoutReleaseResources
                       type: string
                     lastObservedDriverStatus:
@@ -17882,6 +17889,11 @@ spec:
                       type: string
                     message:
                       type: string
+                    suspendReason:
+                      enum:
+                        - KueueEviction
+                        - SpecSuspend
+                      type: string
                   type: object
                 previousAttemptSummary:
                   properties:
@@ -17918,6 +17930,7 @@ spec:
                               - SchedulingFailure
                               - Submitted
                               - Succeeded
+                              - Suspended
                               - TerminatedWithoutReleaseResources
                             type: string
                           lastObservedDriverStatus:
@@ -18569,6 +18582,11 @@ spec:
                             type: string
                           message:
                             type: string
+                          suspendReason:
+                            enum:
+                              - KueueEviction
+                              - SpecSuspend
+                            type: string
                         type: object
                       type: object
                   type: object
@@ -18594,6 +18612,7 @@ spec:
                           - SchedulingFailure
                           - Submitted
                           - Succeeded
+                          - Suspended
                           - TerminatedWithoutReleaseResources
                         type: string
                       lastObservedDriverStatus:
@@ -19244,6 +19263,11 @@ spec:
                       lastTransitionTime:
                         type: string
                       message:
+                        type: string
+                      suspendReason:
+                        enum:
+                          - KueueEviction
+                          - SpecSuspend
                         type: string
                     type: object
                   type: object

@@ -189,9 +189,8 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
    */
   protected String formatGauge(String name, Gauge gauge) {
     if (gauge != null
-        && gauge.getValue() != null
-        && !EMPTY_RECORD_VALUE.equals(gauge.getValue())
-        && gauge.getValue() instanceof Number) {
+        && gauge.getValue() instanceof Number
+        && !EMPTY_RECORD_VALUE.equals(gauge.getValue())) {
       String formattedName = sanitize(name);
       return "# HELP "
           + formattedName

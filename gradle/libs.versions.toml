@@ -17,7 +17,7 @@
 [versions]
 fabric8 = "7.8.0"
 lombok = "1.18.48"
-netty = "4.2.18.Final"
+netty = "4.2.19.Final"
 jackson = "2.22.3"
 jackson-annotations = "2.22"
 vertx = "4.5.33"
@@ -35,8 +35,8 @@ mockito = "5.24.0"
 awaitility = "4.3.0"
 
 # Build Analysis
-checkstyle = "13.4.2"
-pmd = "7.27.0"
+checkstyle = "13.11.0"
+pmd = "7.28.0"
 spotbugs-tool = "4.10.4"
 spotbugs-plugin = "6.5.12"
 spotless-plugin = "8.10.1"

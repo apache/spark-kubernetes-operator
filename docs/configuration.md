@@ -23,12 +23,12 @@ under the License.
 
 Spark Operator supports different ways to configure the behavior:
 
-* **spark-operator.properties** provided when deploying the operator. In addition to the
-  [property file](../build-tools/helm/spark-kubernetes-operator/conf/spark-operator.properties),
-  it is also possible to override or append config properties in helm
+* **spark-operator.properties** provided when deploying the operator. It is possible to override
+  the [default values](./config_properties.md) of config properties in helm
   [Values files](../build-tools/helm/spark-kubernetes-operator/values.yaml).
 * **System Properties** : when provided as system properties (e.g. via -D options to the
-  operator JVM), it overrides the values provided in property file.
+  operator JVM), they apply only to the properties which are not provided in the property file,
+  i.e. the values in the property file take precedence over system properties.
 * **Hot property loading** : when enabled, a
   [configmap](https://kubernetes.io/docs/concepts/configuration/configmap/) would be created with
   the operator in the same namespace. Operator can monitor updates performed on the configmap. Hot
@@ -57,9 +57,11 @@ operatorConfiguration:
 
 ## Kubernetes Events
 
-When `spark.kubernetes.operator.events.enabled` is `true`, the operator publishes Kubernetes
-`Event` objects about `SparkApplication` and `SparkCluster` resources into their namespaces. They
-are visible via `kubectl describe` and `kubectl get events`.
+By default, the operator publishes Kubernetes `Event` objects about `SparkApplication` and
+`SparkCluster` resources into their namespaces. They are visible via `kubectl describe` and
+`kubectl get events`. To publish none, set `spark.kubernetes.operator.events.enabled` to `false`.
+This option supports dynamic override. To skip only some reasons, use
+`spark.kubernetes.operator.events.excludedReasons` instead, as described below.
 
 Publishing them requires the `get`, `create` and `patch` permissions on `events` in the core API
 group in each namespace of the Spark resources. Without them, the operator logs a
@@ -98,9 +100,9 @@ replacing its `message`. A repeat carrying the same `message` may be paced by
 | `Normal` | All other states, e.g. `ScheduledToRestart`, `DriverRequested`, `DriverStarted`, `DriverReady`, `InitializedBelowThresholdExecutors`, `RunningHealthy`, `RunningWithPartialCapacity`, `Succeeded`, `ResourceReleased` and `Suspended` |
 
 The initial `Submitted` status of a new resource is not persisted to the API server on its own, so
-no event is published for it. A `Submitted` event is published only when a `SparkCluster` moves
-from `Suspended` back to `Submitted`, after `spec.suspend` is set back to `false` or after its
-eviction by Kueue.
+no event is published for it. A `Submitted` event is published only when a `SparkApplication` or a
+`SparkCluster` moves from `Suspended` back to `Submitted`, after `spec.suspend` is set back to
+`false`, or after its eviction by Kueue.
 
 In addition, the operator publishes the following `Warning` events.
 
@@ -111,12 +113,11 @@ In addition, the operator publishes the following `Warning` events.
 | `StatusUpdateFailed` | A status patch is rejected. Transport-level errors are skipped. |
 | `KueueAdmissionRequestFailed` | Creating, reading or deleting a stale Kueue `Workload` fails, or the driver or master cannot be read before the admission is requested. Transport-level errors are skipped and retried every 5 seconds, while a persistent failure is retried with the default interval. |
 | `ClusterRequestFailed` | Applying the Services, StatefulSets, NetworkPolicy, HorizontalPodAutoscaler or PodDisruptionBudget of a `SparkCluster` fails in a way which may yet succeed, such as a throttled request or an internal server error from an admission webhook, so it is retried with the default interval instead of failing the cluster. Transport-level errors are skipped. |
-| `SuspendReleaseFailed` | Deleting the master and worker StatefulSets, the HorizontalPodAutoscaler or PodDisruptionBudget of the workers, or the Kueue `Workload` of a `SparkCluster` suspended while running fails, or its pods cannot be listed. A failure which may clear on its own, such as a timeout, is skipped. Every failure is retried with the default interval. |
+| `SuspendReleaseFailed` | Deleting the driver pod (`SparkApplication`), the master and worker StatefulSets or the HorizontalPodAutoscaler or PodDisruptionBudget of the workers (`SparkCluster`), or the Kueue `Workload` of a resource suspended while running fails, or its pods cannot be listed. A failure which may clear on its own, such as a timeout, is skipped. Every failure is retried with the default interval. |
 | `SuspendCheckFailed` | The driver of a suspended `SparkApplication`, or the master of a suspended `SparkCluster`, cannot be read to check whether it was requested, so the resource is neither held, which would release its Kueue `Workload`, nor started. Transport-level errors are skipped. Every such failure is retried with the default interval. While the failure lasts, it is republished on every reconciliation, subject to [`minIntervalSeconds`](#event-frequency). Once the check succeeds again, the unchanged `SuspendHeld` event may be dropped by the same interval until its next repeat, so this event can stay the newest one until then. The operator log shows whether the check still fails. |
 | `KueueResourceFlavorReadFailed` | Reading the `ResourceFlavor`s which Kueue assigned to an admitted `Workload` fails, so the node selector and the tolerations of the flavors cannot be applied. Transport-level errors are skipped and retried every 5 seconds, while a persistent failure is retried with the default interval. |
-| `KueuePodsReadyUpdateFailed` | Recording the `PodsReady` condition on the Kueue `Workload` of a running `SparkApplication` or `SparkCluster` fails, e.g. without the permission for the `workloads/status` subresource, so Kueue may evict it by a `PodsReadyTimeout`, which releases a running `SparkCluster` and queues it again even if its master and workers are ready. Transport-level errors and conflicts are skipped. A `SparkCluster` retries them every 5 seconds and a persistent failure with the default interval, while a `SparkApplication` retries any failure with its next reconciliation, so that the recording does not hold back the observation of its driver. See [Kueue](spark_custom_resources.md#kueue). |
+| `KueuePodsReadyUpdateFailed` | Recording the `PodsReady` condition on the Kueue `Workload` of a running `SparkApplication` or `SparkCluster` fails, e.g. without the permission for the `workloads/status` subresource, so Kueue may evict it by a `PodsReadyTimeout`, which releases it and queues it again, a `SparkApplication` with a new attempt, even if its pods are ready. Transport-level errors and conflicts are skipped. A `SparkCluster` retries them every 5 seconds and a persistent failure with the default interval, while a `SparkApplication` retries any failure with its next reconciliation, so that the recording does not hold back the observation of its driver. See [Kueue](spark_custom_resources.md#kueue). |
 | `KueueDisabled` | A `SparkApplication` or `SparkCluster` labeled with `kueue.x-k8s.io/queue-name` is not queued, since `spark.kubernetes.operator.kueue.enabled` is disabled, so the driver (or master and worker) is requested without the Kueue admission. |
-| `KueueEvictionIgnored` | Kueue evicted or deactivated the `Workload` of a `SparkApplication` whose driver is requested and whose attempt has not stopped. The operator does not act on it, so the driver and executors keep running. An evicted `Workload` keeps holding its quota, while a deactivated one no longer counts against it. It is republished on every reconciliation while it lasts, subject to [`minIntervalSeconds`](#event-frequency). See [Kueue](spark_custom_resources.md#kueue). |
 
 For a resource held by [`spec.suspend`](spark_custom_resources.md#suspend) or queued by
 [Kueue](spark_custom_resources.md#kueue), the operator also publishes the following `Normal`

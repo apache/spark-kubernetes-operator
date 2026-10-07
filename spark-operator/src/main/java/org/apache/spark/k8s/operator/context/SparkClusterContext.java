@@ -31,7 +31,7 @@ import io.javaoperatorsdk.operator.api.reconciler.Context;
 import org.apache.spark.k8s.operator.SparkCluster;
 import org.apache.spark.k8s.operator.SparkClusterResourceSpec;
 import org.apache.spark.k8s.operator.SparkClusterSubmissionWorker;
-import org.apache.spark.k8s.operator.kueue.KueuePodSetFlavor;
+import org.apache.spark.k8s.operator.kueue.KueuePodSetInfo;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadFactory;
 import org.apache.spark.k8s.operator.reconciler.SparkClusterResourceSpecFactory;
 
@@ -67,37 +67,37 @@ public class SparkClusterContext extends BaseContext<SparkCluster> {
       if (secondaryResourceSpec == null) {
         secondaryResourceSpec =
             SparkClusterResourceSpecFactory.buildResourceSpec(sparkCluster, submissionWorker);
-        applyKueuePodSetFlavors();
+        applyKueuePodSetInfos();
       }
       return secondaryResourceSpec;
     }
   }
 
   /**
-   * Adds the flavors to the StatefulSets of the resource spec, which is not built again for them:
-   * unlike the driver and the executors, the master and worker pods are created from the pod
-   * templates of these StatefulSets. Applying the same flavors twice is a no-op, so the spec built
-   * with them is left as it is.
+   * Adds the KueuePodSetInfo to the StatefulSets of the resource spec, which is not built again for
+   * it: unlike the driver and the executors, the master and worker pods are created from the pod
+   * templates of these StatefulSets. Applying the same KueuePodSetInfo twice is a no-op, so the
+   * spec built with it is left as it is.
    */
   @Override
-  protected void applyKueuePodSetFlavors() {
+  protected void applyKueuePodSetInfos() {
     // The caller holds this lock already, which is re-entrant, so that the field is guarded by
     // the same monitor as every other access to it.
     synchronized (this) {
       if (secondaryResourceSpec == null) {
         return;
       }
-      applyKueuePodSetFlavor(
+      applyKueuePodSetInfo(
           KueueWorkloadFactory.PODSET_MASTER, secondaryResourceSpec.getMasterStatefulSet());
-      applyKueuePodSetFlavor(
+      applyKueuePodSetInfo(
           KueueWorkloadFactory.PODSET_WORKER, secondaryResourceSpec.getWorkerStatefulSet());
     }
   }
 
-  private void applyKueuePodSetFlavor(String podSetName, StatefulSet statefulSet) {
-    KueuePodSetFlavor flavor = kueuePodSetFlavors.get(podSetName);
-    if (flavor != null) {
-      flavor.applyTo(statefulSet.getSpec().getTemplate().getSpec());
+  private void applyKueuePodSetInfo(String podSetName, StatefulSet statefulSet) {
+    KueuePodSetInfo podSetInfo = kueuePodSetInfos.get(podSetName);
+    if (podSetInfo != null) {
+      podSetInfo.applyTo(statefulSet.getSpec().getTemplate());
     }
   }
 

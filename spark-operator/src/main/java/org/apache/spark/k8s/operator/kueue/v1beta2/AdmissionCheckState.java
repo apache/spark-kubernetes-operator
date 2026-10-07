@@ -16,42 +16,30 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.spark.k8s.operator.kueue.v1beta2;
 
-package org.apache.spark.k8s.operator.status;
-
-import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
- * Base class for state information.
- *
- * @param <T> The type of the current state summary.
- * @since 0.1.0
+ * AdmissionCheckState is the state of an admission check of a Workload, which the controller of
+ * the check reports, e.g. with the pod set updates of a ProvisioningRequest admission check.
  */
 @Data
+@NoArgsConstructor
 @AllArgsConstructor
+@Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class BaseState<T> implements Serializable {
-  protected T currentStateSummary;
-  protected String lastTransitionTime;
-  protected String message;
-
-  /** Why the resource is suspended, only set on a Suspended state. */
-  protected SuspendReason suspendReason;
-
-  /**
-   * Constructs a new BaseState without a suspend reason.
-   *
-   * @param currentStateSummary The current state summary.
-   * @param lastTransitionTime The time of the last transition.
-   * @param message The message of the state.
-   */
-  public BaseState(T currentStateSummary, String lastTransitionTime, String message) {
-    this(currentStateSummary, lastTransitionTime, message, null);
-  }
+public class AdmissionCheckState {
+  private String name;
+  @Builder.Default
+  private List<PodSetUpdate> podSetUpdates = new ArrayList<>();
 }

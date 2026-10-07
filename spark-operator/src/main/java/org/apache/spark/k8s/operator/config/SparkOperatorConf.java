@@ -264,17 +264,19 @@ public final class SparkOperatorConf {
 
   /**
    * Requeue interval (in seconds) at which a resource held by {@code spec.suspend} is reconciled,
-   * so that its {@code SuspendHeld} event is republished. A SparkCluster suspended while running
-   * publishes no such event, since its Suspended status says so, and uses this interval only to
-   * look at its released resources again. The hold ends only when a user clears
-   * {@code spec.suspend}, which arrives as a watch event and reconciles right away, so nothing
-   * waits for this interval. It is deliberately much coarser than {@link
-   * #RECONCILER_INTERVAL_SECONDS}, since a suspended resource has nothing to observe while each
-   * republish costs a read and a write on the API server. Keep it below the {@code --event-ttl} of
-   * the API server (one hour by default), or the event expires between repeats and the hold stops
-   * being visible, and keep {@link #KUBERNETES_EVENTS_MIN_INTERVAL_SECONDS} within the rest of
-   * that TTL, that is at most the TTL minus this interval, or a repeat is dropped and the next
-   * one lands after the event expired.
+   * so that its {@code SuspendHeld} event is republished. A SparkApplication or SparkCluster
+   * suspended while running publishes no such event, since its Suspended status says so, and uses
+   * this interval only to look at its released resources again. The hold ends only when a user
+   * clears {@code spec.suspend}, which arrives as a watch event and reconciles right away, so
+   * nothing waits for this interval. It also paces a SparkApplication or SparkCluster which is
+   * suspended by a Kueue eviction and whose Workload is deactivated. That hold ends when the
+   * Workload is reactivated, which arrives as a watch event as well. It is deliberately much
+   * coarser than {@link #RECONCILER_INTERVAL_SECONDS}, since a suspended resource has nothing to
+   * observe while each republish costs a read and a write on the API server. Keep it below the
+   * {@code --event-ttl} of the API server (one hour by default), or the event expires between
+   * repeats and the hold stops being visible, and keep {@link
+   * #KUBERNETES_EVENTS_MIN_INTERVAL_SECONDS} within the rest of that TTL, that is at most the TTL
+   * minus this interval, or a repeat is dropped and the next one lands after the event expired.
    */
   public static final ConfigOption<Long> SUSPEND_HOLD_REQUEUE_INTERVAL_SECONDS =
       ConfigOption.<Long>builder()
@@ -282,12 +284,16 @@ public final class SparkOperatorConf {
           .enableDynamicOverride(true)
           .description(
               "Requeue interval (in seconds) at which a resource held by spec.suspend is "
-                  + "reconciled, so that its SuspendHeld event is republished. A SparkCluster "
-                  + "suspended while running publishes no such event, since its Suspended status "
+                  + "reconciled, so that its SuspendHeld event is republished. A SparkApplication "
+                  + "or SparkCluster suspended while running publishes no such event, since its "
+                  + "Suspended status "
                   + "says so, and uses this interval only to look at its released resources "
                   + "again. The hold ends only "
                   + "when a user clears spec.suspend, which arrives as a watch event and "
-                  + "reconciles right away, so nothing waits for this interval. It is "
+                  + "reconciles right away, so nothing waits for this interval. It also paces a "
+                  + "SparkApplication or SparkCluster which is suspended by a Kueue eviction and "
+                  + "whose Workload is deactivated. That hold ends when the Workload is "
+                  + "reactivated, which arrives as a watch event as well. It is "
                   + "deliberately much coarser than "
                   + "spark.kubernetes.operator.reconciler.intervalSeconds, since a suspended "
                   + "resource has nothing to observe while each republish costs a read and a "
@@ -337,9 +343,11 @@ public final class SparkOperatorConf {
                   + "spec.suspend or Kueue. See the 'Kubernetes Events' section of "
                   + "docs/configuration.md for all reasons and the required RBAC permissions. "
                   + "These are Event resources in the core "
-                  + "API group, unrelated to the internal events that trigger reconciliation.")
+                  + "API group, unrelated to the internal events that trigger reconciliation. "
+                  + "If false, operator would publish no event. To skip only some reasons, use "
+                  + "'spark.kubernetes.operator.events.excludedReasons' instead.")
           .typeParameterClass(Boolean.class)
-          .defaultValue(false)
+          .defaultValue(true)
           .build();
 
   /**

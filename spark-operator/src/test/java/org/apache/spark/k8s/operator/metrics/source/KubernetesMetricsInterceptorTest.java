@@ -20,17 +20,21 @@
 package org.apache.spark.k8s.operator.metrics.source;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.Metric;
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.http.HttpResponse;
 import io.fabric8.kubernetes.client.http.Interceptor;
 import io.fabric8.kubernetes.client.server.mock.EnableKubernetesMockClient;
 import io.fabric8.kubernetes.client.server.mock.KubernetesMockServer;
@@ -45,6 +49,7 @@ import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.client.KubernetesClientFactory;
 import org.apache.spark.k8s.operator.metrics.SummingHistogram;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
+import org.apache.spark.util.Pair;
 
 @EnableKubernetesMockClient(crud = true)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
@@ -123,6 +128,47 @@ class KubernetesMetricsInterceptorTest {
       Assertions.assertEquals(metric.getCount(), retry);
       Assertions.assertEquals(((Meter) map.get("http.request")).getCount(), retry + 1);
     }
+  }
+
+  @Test
+  @Order(3)
+  void testParseNamespaceScopedResource() {
+    KubernetesMetricsInterceptor metricsInterceptor = new KubernetesMetricsInterceptor();
+    Assertions.assertEquals(
+        Optional.of(Pair.of("spark-system", "configmaps")),
+        metricsInterceptor.parseNamespaceScopedResource(
+            "/api/v1/namespaces/spark-system/configmaps/spark-job-operator-configuration"));
+    Assertions.assertEquals(
+        Optional.of(Pair.of("spark-test", "sparkapplications")),
+        metricsInterceptor.parseNamespaceScopedResource(
+            "/apis/spark.apache.org/v1/namespaces/spark-test/sparkapplications"));
+    for (String path :
+        List.of(
+            "/api/v1/namespaces",
+            "/api/v1/namespaces/spark-system",
+            "/apis/rbac.authorization.k8s.io/v1/clusterroles/namespaces-reader")) {
+      Assertions.assertEquals(
+          Optional.empty(), metricsInterceptor.parseNamespaceScopedResource(path), path);
+    }
+  }
+
+  @Test
+  @Order(4)
+  void testResponseCodeGroups() {
+    KubernetesMetricsInterceptor metricsInterceptor = new KubernetesMetricsInterceptor();
+    for (int code : new int[] {99, 100, 599, 600, 999}) {
+      HttpResponse<?> response = mock(HttpResponse.class);
+      when(response.code()).thenReturn(code);
+      metricsInterceptor.after(null, response, null);
+    }
+    Map<String, Meter> meters = metricsInterceptor.metricRegistry().getMeters();
+    Assertions.assertEquals(5, meters.get("http.response").getCount());
+    Assertions.assertEquals(1, meters.get("http.response.999").getCount());
+    Assertions.assertEquals(1, meters.get("1xx").getCount());
+    Assertions.assertEquals(0, meters.get("2xx").getCount());
+    Assertions.assertEquals(0, meters.get("3xx").getCount());
+    Assertions.assertEquals(0, meters.get("4xx").getCount());
+    Assertions.assertEquals(1, meters.get("5xx").getCount());
   }
 
   private static SparkApplication createSparkApplication() {

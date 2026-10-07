@@ -230,6 +230,36 @@ public final class Constants {
   public static final String EXECUTOR_LAUNCH_TIMEOUT_MESSAGE =
       "The Spark application failed to get enough executors in the given time threshold.";
 
+  /**
+   * Message indicating that the application is suspended by spec.suspend after its driver was
+   * requested.
+   */
+  public static final String APP_SUSPENDED_MESSAGE =
+      "Application is suspended by spec.suspend, so its driver and executors are being released. "
+          + "Setting spec.suspend to false resumes it with a new attempt once they are released.";
+
+  /**
+   * Message indicating that the suspended application is resumed by clearing spec.suspend, with a
+   * new attempt.
+   */
+  public static final String APP_RESUMED_MESSAGE =
+      "Application is resumed as spec.suspend is set to false, so a new attempt starts from "
+          + "scratch.";
+
+  /**
+   * Message indicating that the application is evicted by Kueue after its driver was requested,
+   * which is followed by the reason and the message of the eviction.
+   */
+  public static final String APP_EVICTED_MESSAGE =
+      "Application is evicted by Kueue, so its driver and executors are being released before its "
+          + "Workload. It is queued again with a new attempt then, or once the Workload is "
+          + "reactivated if it was deactivated.";
+
+  /** Message indicating that the application evicted by Kueue is submitted again. */
+  public static final String APP_REQUEUED_MESSAGE =
+      "Application is submitted again after its eviction by Kueue, so a new attempt starts from "
+          + "scratch.";
+
   // Spark Cluster Messages
   /** Message indicating a failure to request the Spark cluster from the scheduler backend. */
   public static final String CLUSTER_SCHEDULE_FAILURE_MESSAGE =

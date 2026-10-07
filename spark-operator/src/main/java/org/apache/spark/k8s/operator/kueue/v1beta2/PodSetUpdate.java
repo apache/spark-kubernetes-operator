@@ -16,42 +16,39 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.spark.k8s.operator.kueue.v1beta2;
 
-package org.apache.spark.k8s.operator.status;
-
-import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import io.fabric8.kubernetes.api.model.Toleration;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
- * Base class for state information.
- *
- * @param <T> The type of the current state summary.
- * @since 0.1.0
+ * PodSetUpdate is a modification of the pods of a pod set which an admission check suggests, e.g.
+ * the annotations which let the pods consume the capacity of a ProvisioningRequest.
  */
 @Data
+@NoArgsConstructor
 @AllArgsConstructor
+@Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class BaseState<T> implements Serializable {
-  protected T currentStateSummary;
-  protected String lastTransitionTime;
-  protected String message;
-
-  /** Why the resource is suspended, only set on a Suspended state. */
-  protected SuspendReason suspendReason;
-
-  /**
-   * Constructs a new BaseState without a suspend reason.
-   *
-   * @param currentStateSummary The current state summary.
-   * @param lastTransitionTime The time of the last transition.
-   * @param message The message of the state.
-   */
-  public BaseState(T currentStateSummary, String lastTransitionTime, String message) {
-    this(currentStateSummary, lastTransitionTime, message, null);
-  }
+public class PodSetUpdate {
+  private String name;
+  @Builder.Default
+  private Map<String, String> labels = new HashMap<>();
+  @Builder.Default
+  private Map<String, String> annotations = new HashMap<>();
+  @Builder.Default
+  private Map<String, String> nodeSelector = new HashMap<>();
+  @Builder.Default
+  private List<Toleration> tolerations = new ArrayList<>();
 }

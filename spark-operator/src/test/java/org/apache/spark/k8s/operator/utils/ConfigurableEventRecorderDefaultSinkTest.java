@@ -19,10 +19,12 @@
 
 package org.apache.spark.k8s.operator.utils;
 
+import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
 import static java.net.HttpURLConnection.HTTP_UNAVAILABLE;
 import static org.apache.spark.k8s.operator.Constants.HTTP_TOO_MANY_REQUESTS;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.KUBERNETES_EVENTS_ENABLED;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 
@@ -38,6 +40,7 @@ import io.javaoperatorsdk.operator.api.config.ControllerConfiguration;
 import io.javaoperatorsdk.operator.api.event.EventRecord;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -77,6 +80,35 @@ class ConfigurableEventRecorderDefaultSinkTest {
     assertThat(client.v1().events().inNamespace("ns-1").list().getItems())
         .extracting(Event::getMessage)
         .containsExactly("published");
+  }
+
+  @Test
+  void makesNoRequestWhileDisabled() {
+    SparkOperatorConfManager.INSTANCE.refresh(Map.of(KUBERNETES_EVENTS_ENABLED.getKey(), "false"));
+    ConfigurableEventRecorder recorder = ConfigurableEventRecorder.withDefaultSink(client);
+
+    recorder.record(EventRecord.warning("ReconcileError", "dropped"), appContext());
+
+    assertThat(server.getRequestCount()).isZero();
+  }
+
+  @Test
+  void dropsAForbiddenWriteWithoutThrowing() {
+    // Without the RBAC permission to create events, every write is rejected, which must not throw
+    // out of the reconciliation that records the event.
+    SparkOperatorConfManager.INSTANCE.refresh(Map.of(KUBERNETES_EVENTS_ENABLED.getKey(), "true"));
+    ConfigurableEventRecorder recorder = ConfigurableEventRecorder.withDefaultSink(client);
+    server
+        .expect()
+        .post()
+        .withPath("/api/v1/namespaces/ns-1/events")
+        .andReturn(HTTP_FORBIDDEN, null)
+        .always();
+
+    assertThatCode(
+            () -> recorder.record(EventRecord.warning("ReconcileError", "dropped"), appContext()))
+        .doesNotThrowAnyException();
+    assertThat(client.v1().events().inNamespace("ns-1").list().getItems()).isEmpty();
   }
 
   /** Returns a context from which the JOSDK recorder can build an Event about app-1 in ns-1. */

@@ -77,7 +77,7 @@ import org.apache.spark.k8s.operator.SparkCluster;
 import org.apache.spark.k8s.operator.SparkClusterSubmissionWorker;
 import org.apache.spark.k8s.operator.config.SparkOperatorConf;
 import org.apache.spark.k8s.operator.context.SparkClusterContext;
-import org.apache.spark.k8s.operator.kueue.KueuePodSetFlavor;
+import org.apache.spark.k8s.operator.kueue.KueuePodSetInfo;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadFactory;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils;
 import org.apache.spark.k8s.operator.kueue.v1beta2.Admission;
@@ -95,6 +95,7 @@ import org.apache.spark.k8s.operator.spec.WorkerInstanceConfig;
 import org.apache.spark.k8s.operator.status.ClusterState;
 import org.apache.spark.k8s.operator.status.ClusterStateSummary;
 import org.apache.spark.k8s.operator.status.ClusterStatus;
+import org.apache.spark.k8s.operator.status.SuspendReason;
 import org.apache.spark.k8s.operator.utils.EventUtils;
 import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
 import org.apache.spark.k8s.operator.utils.TestUtils;
@@ -344,6 +345,7 @@ class ClusterInitStepTest {
         ClusterStateSummary.Suspended, stateCaptor.getValue().getCurrentStateSummary());
     Assertions.assertEquals(
         Constants.CLUSTER_SUSPENDED_MESSAGE, stateCaptor.getValue().getMessage());
+    Assertions.assertEquals(SuspendReason.SpecSuspend, stateCaptor.getValue().getSuspendReason());
     verify(mockContext, never()).getEventRecorder();
   }
 
@@ -595,7 +597,7 @@ class ClusterInitStepTest {
 
     Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
     verify(mockClient, never()).resource(any(Workload.class));
-    verify(mockContext, never()).setKueuePodSetFlavors(any());
+    verify(mockContext, never()).setKueuePodSetInfos(any());
     ArgumentCaptor<ClusterStatus> captor = ArgumentCaptor.forClass(ClusterStatus.class);
     verify(recorder).persistStatus(any(), captor.capture());
     Assertions.assertEquals(
@@ -1068,8 +1070,8 @@ class ClusterInitStepTest {
     InOrder inOrder = inOrder(mockContext);
     inOrder
         .verify(mockContext)
-        .setKueuePodSetFlavors(
-            Map.of("master", new KueuePodSetFlavor(Map.of("pool", "spot"), List.of(spot))));
+        .setKueuePodSetInfos(
+            Map.of("master", new KueuePodSetInfo(Map.of("pool", "spot"), List.of(spot))));
     inOrder.verify(mockContext).getMasterStatefulSetSpec();
     // The admission is not requested again for a master which exists, nor is the Workload released
     verify(mockClient, never()).resource(any(Workload.class));
@@ -1108,7 +1110,7 @@ class ClusterInitStepTest {
     // Like Kueue, the conflict is permanent, so the quota is released
     Assertions.assertEquals(ReconcileProgress.completeAndImmediateRequeue(), progress);
     Assertions.assertNull(getWorkload());
-    verify(mockContext, never()).setKueuePodSetFlavors(any());
+    verify(mockContext, never()).setKueuePodSetInfos(any());
     verify(mockContext, never()).getMasterServiceSpec();
     ArgumentCaptor<ClusterStatus> captor = ArgumentCaptor.forClass(ClusterStatus.class);
     verify(recorder).persistStatus(any(), captor.capture(), any());
@@ -1139,7 +1141,7 @@ class ClusterInitStepTest {
     // The cluster is not failed permanently, the flavors are read again
     Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
     Assertions.assertNotNull(getWorkload());
-    verify(mockContext, never()).setKueuePodSetFlavors(any());
+    verify(mockContext, never()).setKueuePodSetInfos(any());
     verify(mockContext, never()).getMasterServiceSpec();
     verifyNoInteractions(recorder);
     EventRecord event = captureEvents(2).get(1);
