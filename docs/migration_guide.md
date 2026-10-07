@@ -164,13 +164,22 @@ affect building the project, CI, tests or examples.
   labels in `spec.driverServiceIngressList` (`serviceMetadata`, `ingressMetadata`),
   `spec.driverHttpRouteList` (`serviceMetadata`, `httpRouteMetadata`), `spec.driverGrpcRouteList`
   (`serviceMetadata`, `grpcRouteMetadata`) and `spec.configMapSpecs`, as well as the other
-  Kubernetes resources of the driver, e.g. its config map and on-demand PVCs. 1.0 overwrote these
-  labels with the driver-pod labels of the same key, including the ones injected into the driver pod
-  by admission webhooks. The operator- and Spark-managed identity labels, i.e. any `spark.operator/`
+  Kubernetes resources of the driver, e.g. its service with `spark.kubernetes.driver.service.label.*`
+  and its on-demand PVCs with `spark.kubernetes.driver.volumes.persistentVolumeClaim.<name>.label.*`.
+  1.0 overwrote these labels with the driver-pod labels of the same key, including the ones injected
+  into the driver pod by admission webhooks. The operator- and Spark-managed identity labels, i.e. any `spark.operator/`
   key, `spark-role`, `spark-version`, `spark-app-selector` and `spark-app-name`, still take the
-  driver-pod value, so the secondary-to-primary mapping and the pod and service selectors keep
-  working. To restore the behavior before 1.1.0 for a given key, remove it from the secondary
-  resource so it inherits the driver-pod label.
+  driver-pod value, since they identify the resources of an application, e.g. Spark deletes its
+  services, PVCs and executor config maps by `spark-app-selector` and `spark-role`. To restore the
+  behavior before 1.1.0 for a given key, remove it from the secondary
+  resource so it inherits the driver-pod label. Note that Spark substitutes `{{APP_ID}}` only in
+  driver pod labels (`spark.kubernetes.driver.label.*`), not in driver service labels
+  (`spark.kubernetes.driver.service.label.*`) or PVC labels
+  (`spark.kubernetes.driver.volumes.persistentVolumeClaim.<name>.label.*`). A raw `{{APP_ID}}` in
+  those is therefore no longer replaced with the substituted driver-pod value, producing an invalid
+  label value that the API server rejects with `422`, so the application fails with
+  `SchedulingFailure`. Set such a label on the driver pod only, and let the resource inherit the
+  substituted value.
 
 ### SparkCluster
 
