@@ -167,6 +167,9 @@ jobs:
           - kubernetes-version: "1.37.0"
             mode: kueue
             test-group: kueue
+          - kubernetes-version: "1.37.0"
+            mode: kueue
+            test-group: kueue-pods-ready
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
