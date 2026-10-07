@@ -248,9 +248,7 @@ public final class Constants {
 
   /**
    * Message indicating that the application is evicted by Kueue after its driver was requested,
-   * which is followed by the reason and the message of the eviction. The operator tells such an
-   * application apart from one suspended by spec.suspend by this prefix of its persisted state
-   * message, so a changed wording no longer matches the applications suspended before.
+   * which is followed by the reason and the message of the eviction.
    */
   public static final String APP_EVICTED_MESSAGE =
       "Application is evicted by Kueue, so its driver and executors are being released before its "

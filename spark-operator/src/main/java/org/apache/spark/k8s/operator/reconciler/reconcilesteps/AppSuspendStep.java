@@ -57,6 +57,7 @@ import org.apache.spark.k8s.operator.reconciler.observers.AppDriverRunningObserv
 import org.apache.spark.k8s.operator.spec.ApplicationTimeoutConfig;
 import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
+import org.apache.spark.k8s.operator.status.SuspendReason;
 import org.apache.spark.k8s.operator.utils.EventUtils;
 import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
@@ -128,8 +129,10 @@ public final class AppSuspendStep extends AppReconcileStep {
       }
       // A rejected update, e.g. of a state unknown to an older CRD, would be rejected again right
       // away, so it is retried with the default interval, not immediately.
+      SuspendReason reason = suspend ? SuspendReason.SpecSuspend : SuspendReason.KueueEviction;
       return statusRecorder.appendNewStateAndPersist(
-              context, new ApplicationState(ApplicationStateSummary.Suspended, message.get()))
+              context,
+              new ApplicationState(ApplicationStateSummary.Suspended, message.get(), reason))
           ? completeAndImmediateRequeue()
           : completeAndDefaultRequeue();
     }
@@ -143,7 +146,8 @@ public final class AppSuspendStep extends AppReconcileStep {
       return appendStateAndImmediateRequeue(
           context,
           statusRecorder,
-          new ApplicationState(ApplicationStateSummary.Suspended, APP_SUSPENDED_MESSAGE));
+          new ApplicationState(
+              ApplicationStateSummary.Suspended, APP_SUSPENDED_MESSAGE, SuspendReason.SpecSuspend));
     }
     Optional<Duration> keepWorkload = evicted ? keepKueueWorkload(context) : Optional.empty();
     Optional<ReconcileProgress> waiting = releaseResources(context, keepWorkload.isEmpty());
@@ -191,16 +195,16 @@ public final class AppSuspendStep extends AppReconcileStep {
 
   /**
    * Checks whether the application is suspended by the eviction of its Kueue Workload rather than
-   * by spec.suspend. Unlike a suspended cluster, which may name its stuck pods in a later state, a
-   * suspended application appends no other Suspended state, so its current one says why.
+   * by spec.suspend, by the reason of its current Suspended state. A Suspended state without a
+   * reason, e.g. one whose reason the API server pruned for a CRD which does not have it yet, is
+   * not taken for an eviction.
    *
    * @param app The suspended SparkApplication.
    * @return True if the application was suspended by an eviction and not held by spec.suspend
    *     since.
    */
   private static boolean isSuspendedByEviction(SparkApplication app) {
-    String message = app.getStatus().getCurrentState().getMessage();
-    return message != null && message.startsWith(APP_EVICTED_MESSAGE);
+    return app.getStatus().getCurrentState().getSuspendReason() == SuspendReason.KueueEviction;
   }
 
   /**
