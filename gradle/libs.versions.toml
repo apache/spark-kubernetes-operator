@@ -35,7 +35,7 @@ mockito = "5.24.0"
 awaitility = "4.3.0"
 
 # Build Analysis
-checkstyle = "13.4.2"
+checkstyle = "13.11.0"
 pmd = "7.28.0"
 spotbugs-tool = "4.10.4"
 spotbugs-plugin = "6.5.12"
