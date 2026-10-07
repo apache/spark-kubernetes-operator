@@ -138,8 +138,8 @@ stateDiagram-v2
     RunningWithPartialCapacity --> Succeeded
     RunningWithPartialCapacity --> Failed
 
-    RunningHealthy --> Suspended : spec.suspend=true
-    Suspended --> Submitted : spec.suspend=false, new attempt
+    RunningHealthy --> Suspended : spec.suspend=true or Kueue eviction
+    Suspended --> Submitted : spec.suspend=false or after Kueue eviction, new attempt
 
     state Failures {
         SchedulingFailure
@@ -171,7 +171,10 @@ stateDiagram-v2
 * Likewise, an application moves to `Suspended` from any of the states from `DriverRequested` to
   `RunningWithBelowThresholdExecutors` when [`spec.suspend`](spark_custom_resources.md#suspend) is
   set to `true`. Its driver and executors are released, and setting it back to `false` starts a
-  new attempt from `Submitted`, which does not count as a restart.
+  new attempt from `Submitted`, which does not count as a restart. An application queued by
+  [Kueue](spark_custom_resources.md#kueue) is suspended as well when Kueue evicts its `Workload`,
+  and starts such a new attempt once its driver and executors are released and the requeue
+  backoff of its `Workload` elapsed, or once its `Workload` is reactivated if it was deactivated.
 * User may configure the app CR to time-out after given threshold of time if it cannot reach healthy
   state after given threshold. The timeout can be configured for different lifecycle stages,
   when driver starting, when driver becoming ready, and when requesting executor pods.

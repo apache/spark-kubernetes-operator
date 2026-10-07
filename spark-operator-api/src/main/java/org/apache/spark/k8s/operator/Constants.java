@@ -246,6 +246,22 @@ public final class Constants {
       "Application is resumed as spec.suspend is set to false, so a new attempt starts from "
           + "scratch.";
 
+  /**
+   * Message indicating that the application is evicted by Kueue after its driver was requested,
+   * which is followed by the reason and the message of the eviction. The operator tells such an
+   * application apart from one suspended by spec.suspend by this prefix of its persisted state
+   * message, so a changed wording no longer matches the applications suspended before.
+   */
+  public static final String APP_EVICTED_MESSAGE =
+      "Application is evicted by Kueue, so its driver and executors are being released before its "
+          + "Workload. It is queued again with a new attempt then, or once the Workload is "
+          + "reactivated if it was deactivated.";
+
+  /** Message indicating that the application evicted by Kueue is submitted again. */
+  public static final String APP_REQUEUED_MESSAGE =
+      "Application is submitted again after its eviction by Kueue, so a new attempt starts from "
+          + "scratch.";
+
   // Spark Cluster Messages
   /** Message indicating a failure to request the Spark cluster from the scheduler backend. */
   public static final String CLUSTER_SCHEDULE_FAILURE_MESSAGE =

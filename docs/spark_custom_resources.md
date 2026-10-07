@@ -829,18 +829,26 @@ spec:
   condition cannot be recorded, is admitted and evicted again and again until it is fixed,
   suspended or deleted. With `blockAdmission`, it holds back every other workload from each
   admission until its `Workload` is deleted after the backoff.
-* Preemption is not honored yet after the driver of a `SparkApplication` is requested, and neither
-  is a `PodsReadyTimeout`, e.g. of an application which runs with fewer executors than
-  `spark.executor.instances`, or a deactivation. The operator checks the admission only before it
-  creates the resources, so after a later eviction the driver and executors keep running, and
-  until the attempt stops or is suspended, the `KueueEvictionIgnored`
-  [event](configuration.md#kubernetes-events) is published instead by default. An evicted
-  `Workload` keeps its Kueue quota until the driver and executors are released, so a workload
-  which preempts the application waits until then, while a deactivated one no longer counts
-  against it. Set `spec.suspend` to `true`, as described in [Suspend](#suspend), or delete the
-  application to release its quota earlier. With `blockAdmission`, an
-  application whose pods are not all ready holds back every other workload until they are ready
-  or its quota is released as described above.
+* A `SparkApplication` whose driver is requested, i.e. from `DriverRequested` to
+  `RunningWithBelowThresholdExecutors`, is released like a running `SparkCluster` above when Kueue
+  evicts its `Workload`, e.g. to preempt it or by a `PodsReadyTimeout`, or deactivates it. The
+  application enters `Suspended` with a message giving the reason of the eviction, and the
+  operator deletes its driver pod, which deletes its executor pods. Like for a cluster, the
+  `Workload` is deleted once the pods are gone and its requeue backoff elapsed, or kept until it is
+  reactivated if it was deactivated, and then the application starts a new attempt from
+  `Submitted`, which is queued again with a new `Workload`. Like a resumed one, the new attempt
+  runs the application again from scratch and does not count against the restart limits, so it
+  starts even with `restartPolicy: Never`. An attempt whose driver has completed or failed by then
+  ends as usual instead, and `spec.suspend` takes precedence, so an application which is suspended
+  by it as well stays `Suspended` until it is resumed rather than being queued again.
+* Unlike without Kueue, a `SparkApplication` whose driver and `spark.executor.instances` executors
+  are not all ready within the `waitForPodsReady` timeout, e.g. since some executors cannot be
+  scheduled, does not keep running with fewer executors, even if its `applicationTolerations`
+  allow it, e.g. in `RunningWithPartialCapacity`. Its `Workload` requested the quota for all of
+  them, so the `PodsReadyTimeout` releases the application as above, and it runs again from
+  scratch with a new attempt, which waits for the quota of all of them again. Like such a cluster,
+  an application whose executors never get ready is admitted and evicted again and again, with a
+  new attempt each time, until it is fixed, suspended or deleted.
 * To limit the execution time of a `SparkApplication`, the Spark native `spark.driver.timeout` is
   recommended instead of the `kueue.x-k8s.io/max-exec-time-seconds` label, which is not copied to
   the `Workload`. It requires `spark.plugins=org.apache.spark.deploy.DriverTimeoutPlugin`, as in
