@@ -268,13 +268,15 @@ public final class SparkOperatorConf {
    * suspended while running publishes no such event, since its Suspended status says so, and uses
    * this interval only to look at its released resources again. The hold ends only when a user
    * clears {@code spec.suspend}, which arrives as a watch event and reconciles right away, so
-   * nothing waits for this interval. It is deliberately much coarser than {@link
-   * #RECONCILER_INTERVAL_SECONDS}, since a suspended resource has nothing to observe while each
-   * republish costs a read and a write on the API server. Keep it below the {@code --event-ttl} of
-   * the API server (one hour by default), or the event expires between repeats and the hold stops
-   * being visible, and keep {@link #KUBERNETES_EVENTS_MIN_INTERVAL_SECONDS} within the rest of
-   * that TTL, that is at most the TTL minus this interval, or a repeat is dropped and the next
-   * one lands after the event expired.
+   * nothing waits for this interval. It also paces a SparkApplication or SparkCluster which is
+   * suspended by a Kueue eviction and whose Workload is deactivated. That hold ends when the
+   * Workload is reactivated, which arrives as a watch event as well. It is deliberately much
+   * coarser than {@link #RECONCILER_INTERVAL_SECONDS}, since a suspended resource has nothing to
+   * observe while each republish costs a read and a write on the API server. Keep it below the
+   * {@code --event-ttl} of the API server (one hour by default), or the event expires between
+   * repeats and the hold stops being visible, and keep {@link
+   * #KUBERNETES_EVENTS_MIN_INTERVAL_SECONDS} within the rest of that TTL, that is at most the TTL
+   * minus this interval, or a repeat is dropped and the next one lands after the event expired.
    */
   public static final ConfigOption<Long> SUSPEND_HOLD_REQUEUE_INTERVAL_SECONDS =
       ConfigOption.<Long>builder()
@@ -288,7 +290,10 @@ public final class SparkOperatorConf {
                   + "says so, and uses this interval only to look at its released resources "
                   + "again. The hold ends only "
                   + "when a user clears spec.suspend, which arrives as a watch event and "
-                  + "reconciles right away, so nothing waits for this interval. It is "
+                  + "reconciles right away, so nothing waits for this interval. It also paces a "
+                  + "SparkApplication or SparkCluster which is suspended by a Kueue eviction and "
+                  + "whose Workload is deactivated. That hold ends when the Workload is "
+                  + "reactivated, which arrives as a watch event as well. It is "
                   + "deliberately much coarser than "
                   + "spark.kubernetes.operator.reconciler.intervalSeconds, since a suspended "
                   + "resource has nothing to observe while each republish costs a read and a "
