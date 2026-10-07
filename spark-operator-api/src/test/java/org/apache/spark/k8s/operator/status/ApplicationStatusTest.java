@@ -24,6 +24,7 @@ import static org.apache.spark.k8s.operator.status.ApplicationStateSummary.Succe
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
@@ -411,6 +412,126 @@ class ApplicationStatusTest {
       ApplicationStatus terminated =
           resumed.terminateOrRestart(
               config, null, trimStateTransitionHistory);
+      assertEquals(
+          ApplicationStateSummary.ResourceReleased,
+          terminated.getCurrentState().getCurrentStateSummary());
+    }
+  }
+
+  @Test
+  void testResumeStartsNextAttemptWithoutCountingARestart() {
+    // The second attempt, after a restart on a scheduling failure, runs until it is suspended
+    ApplicationAttemptInfo attemptInfo = new ApplicationAttemptInfo(1L, 1L, 1L, 1L);
+    ApplicationStatus suspended =
+        new ApplicationStatus(
+                new ApplicationState(ApplicationStateSummary.ScheduledToRestart, ""),
+                Map.of(4L, new ApplicationState(ApplicationStateSummary.ScheduledToRestart, "")),
+                new ApplicationAttemptSummary(),
+                new ApplicationAttemptSummary(attemptInfo))
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
+            .appendNewState(new ApplicationState(ApplicationStateSummary.RunningHealthy, ""))
+            .appendNewState(new ApplicationState(ApplicationStateSummary.Suspended, ""));
+
+    for (boolean trimStateTransitionHistory : new boolean[] {false, true}) {
+      ApplicationStatus resumed = suspended.resume("resumed", trimStateTransitionHistory);
+
+      ApplicationState state = resumed.getCurrentState();
+      assertEquals(Submitted, state.getCurrentStateSummary());
+      assertEquals("resumed", state.getMessage());
+      assertEquals(state, resumed.getStateTransitionHistory().get(8L));
+      // The restart counters stay, since the suspended attempt neither failed nor finished, while
+      // its driver was requested, which ends a run of consecutive scheduling failures
+      assertEquals(
+          new ApplicationAttemptInfo(2L, 1L, 1L, 0L),
+          resumed.getCurrentAttemptSummary().getAttemptInfo());
+      if (trimStateTransitionHistory) {
+        // Like a restart, the history of the suspended attempt moves to the previous attempt
+        assertEquals(1, resumed.getStateTransitionHistory().size());
+        assertEquals(attemptInfo, resumed.getPreviousAttemptSummary().getAttemptInfo());
+        assertEquals(
+            suspended.getStateTransitionHistory(),
+            resumed.getPreviousAttemptSummary().getStateTransitionHistory());
+      } else {
+        assertEquals(5, resumed.getStateTransitionHistory().size());
+        assertEquals(suspended.getCurrentAttemptSummary(), resumed.getPreviousAttemptSummary());
+      }
+    }
+  }
+
+  @Test
+  void testOnlySuspendedApplicationIsResumed() {
+    for (ApplicationStateSummary summary : ApplicationStateSummary.values()) {
+      if (summary != ApplicationStateSummary.Suspended) {
+        ApplicationStatus status =
+            new ApplicationStatus().appendNewState(new ApplicationState(summary, ""));
+        assertThrows(
+            IllegalStateException.class,
+            () -> assertNotNull(status.resume("", true)),
+            summary.name());
+      }
+    }
+  }
+
+  @Test
+  void testResumeEndsConsecutiveSchedulingFailures() {
+    RestartConfig config =
+        RestartConfig.builder()
+            .restartPolicy(RestartPolicy.Always)
+            .maxRestartAttempts(10L)
+            .maxRestartOnSchedulingFailure(1L)
+            .build();
+    // The first attempt fails to be scheduled, and the second one gets its driver and runs until
+    // it is suspended
+    ApplicationStatus suspended =
+        new ApplicationStatus()
+            .appendNewState(new ApplicationState(ApplicationStateSummary.SchedulingFailure, ""))
+            .terminateOrRestart(config, null, true)
+            .appendNewState(new ApplicationState(ApplicationStateSummary.DriverRequested, ""))
+            .appendNewState(new ApplicationState(ApplicationStateSummary.RunningHealthy, ""))
+            .appendNewState(new ApplicationState(ApplicationStateSummary.Suspended, ""));
+
+    // A scheduling failure of the resumed attempt does not follow the first one, so it restarts
+    ApplicationStatus restarted =
+        suspended
+            .resume("", true)
+            .appendNewState(new ApplicationState(ApplicationStateSummary.SchedulingFailure, ""))
+            .terminateOrRestart(config, null, true);
+    assertEquals(
+        ApplicationStateSummary.ScheduledToRestart,
+        restarted.getCurrentState().getCurrentStateSummary());
+  }
+
+  @Test
+  void testRunBeforeSuspensionDoesNotResetRestartCounter() {
+    RestartConfig config = new RestartConfig();
+    config.setRestartPolicy(RestartPolicy.Always);
+    config.setMaxRestartAttempts(1L);
+    config.setRestartCounterResetMillis(3600000L); // 1 hour
+
+    Instant now = Instant.now();
+    Instant fourHoursAgo = now.minus(Duration.ofHours(4));
+    // After its only permitted restart, the attempt runs for two hours until it is suspended, and
+    // stays suspended for two hours
+    ApplicationStatus suspended =
+        new ApplicationStatus(
+                stateAt(ApplicationStateSummary.ScheduledToRestart, fourHoursAgo),
+                Map.of(4L, stateAt(ApplicationStateSummary.ScheduledToRestart, fourHoursAgo)),
+                new ApplicationAttemptSummary(),
+                new ApplicationAttemptSummary(new ApplicationAttemptInfo(1L, 1L, 0L, 0L)))
+            .appendNewState(stateAt(ApplicationStateSummary.DriverRequested, fourHoursAgo))
+            .appendNewState(
+                stateAt(ApplicationStateSummary.Suspended, now.minus(Duration.ofHours(2))));
+
+    for (boolean trimStateTransitionHistory : new boolean[] {false, true}) {
+      // The resumed attempt fails right away. Neither the run before the suspension nor the
+      // suspension counts as a run of the resumed attempt, so no more restart is permitted.
+      ApplicationStatus failed =
+          suspended
+              .resume("", trimStateTransitionHistory)
+              .appendNewState(stateAt(ApplicationStateSummary.DriverRequested, now))
+              .appendNewState(stateAt(ApplicationStateSummary.Failed, now));
+      ApplicationStatus terminated =
+          failed.terminateOrRestart(config, null, trimStateTransitionHistory);
       assertEquals(
           ApplicationStateSummary.ResourceReleased,
           terminated.getCurrentState().getCurrentStateSummary());

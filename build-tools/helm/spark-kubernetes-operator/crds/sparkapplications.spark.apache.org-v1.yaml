@@ -16556,6 +16556,7 @@ spec:
                               - SchedulingFailure
                               - Submitted
                               - Succeeded
+                              - Suspended
                               - TerminatedWithoutReleaseResources
                             type: string
                           lastObservedDriverStatus:
@@ -17231,6 +17232,7 @@ spec:
                         - SchedulingFailure
                         - Submitted
                         - Succeeded
+                        - Suspended
                         - TerminatedWithoutReleaseResources
                       type: string
                     lastObservedDriverStatus:
@@ -17918,6 +17920,7 @@ spec:
                               - SchedulingFailure
                               - Submitted
                               - Succeeded
+                              - Suspended
                               - TerminatedWithoutReleaseResources
                             type: string
                           lastObservedDriverStatus:
@@ -18594,6 +18597,7 @@ spec:
                           - SchedulingFailure
                           - Submitted
                           - Succeeded
+                          - Suspended
                           - TerminatedWithoutReleaseResources
                         type: string
                       lastObservedDriverStatus:

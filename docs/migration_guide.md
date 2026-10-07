@@ -33,8 +33,8 @@ affect building the project, CI, tests or examples.
 - Since 1.1.0, `spark.apache.org/v1beta1` of the CRDs is deprecated and scheduled for removal in
   2.0.0. Its schema is no longer updated, e.g. it lacks `spec.suspend`. Use `spark.apache.org/v1`.
 - Since 1.1.0, K8s 1.35 or newer is recommended instead of 1.34.
-- Since 1.1.0, the CRDs have `spec.suspend` for `SparkApplication` and `SparkCluster`, and the
-  `Suspended` state for `SparkCluster`. Since `helm upgrade` does not update CRDs, replace them
+- Since 1.1.0, the CRDs have `spec.suspend` and the `Suspended` state for `SparkApplication` and
+  `SparkCluster`. Since `helm upgrade` does not update CRDs, replace them
   before upgrading the operator, e.g. with the CRDs of the Helm chart `1.9.0`, which deploys
   1.1.0. Otherwise, the API server rejects or drops `spec.suspend`, and rejects the `Suspended`
   state.
@@ -209,5 +209,5 @@ is recreated, e.g. by suspending and resuming it with [`spec.suspend`](spark_cus
   is deprecated for removal. It ignores `resourceRetainPolicy`, so it no longer returns
   `TerminatedWithoutReleaseResources`. Use `terminateOrRestart(RestartConfig, String, boolean)`
   instead.
-- Since 1.1.0, `ClusterStateSummary` has the `Suspended` constant, so an exhaustive `switch` over
-  it needs a case for it.
+- Since 1.1.0, `ApplicationStateSummary` and `ClusterStateSummary` have the `Suspended` constant,
+  so an exhaustive `switch` over either needs a case for it.

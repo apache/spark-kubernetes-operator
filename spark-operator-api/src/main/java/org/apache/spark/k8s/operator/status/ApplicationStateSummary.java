@@ -109,7 +109,15 @@ public enum ApplicationStateSummary implements BaseStateSummary {
    * If configured, operator may mark app as terminated without releasing resources. While this can
    * be helpful in dev phase, it shall not be enabled for prod use cases
    */
-  TerminatedWithoutReleaseResources;
+  TerminatedWithoutReleaseResources,
+
+  /**
+   * The application is suspended by spec.suspend after its driver was requested, so its driver
+   * and executors are released until it is resumed with a new attempt from Submitted. It is
+   * declared last, after the terminated states, so that the ordinal ranges of {@link
+   * #isStarting()} and {@link #isStopping()} exclude it.
+   */
+  Suspended;
 
   public static final Set<ApplicationStateSummary> infrastructureFailures =
       Set.of(DriverStartTimedOut, ExecutorsStartTimedOut, SchedulingFailure);
@@ -161,12 +169,13 @@ public enum ApplicationStateSummary implements BaseStateSummary {
    * Checks if the application is in the `stopping` state. The operator releases its resources based
    * on retain policy and perform retry based on retry policy.
    *
-   * @return True if the state is past RunningWithBelowThresholdExecutors but not yet terminated,
-   *     false otherwise.
+   * @return True if the state is past RunningWithBelowThresholdExecutors and before the terminated
+   *     states, false otherwise.
    * @since 0.1.0
    */
   public boolean isStopping() {
-    return RunningWithBelowThresholdExecutors.ordinal() < this.ordinal() && !isTerminated();
+    return RunningWithBelowThresholdExecutors.ordinal() < this.ordinal()
+        && this.ordinal() < ResourceReleased.ordinal();
   }
 
   /**
