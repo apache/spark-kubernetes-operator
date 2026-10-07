@@ -121,7 +121,7 @@ affect building the project, CI, tests or examples.
   falls back to the default value for a property of any type, while 1.0 failed with a
   `NullPointerException` for most properties. The operator logs each invalid value once as a
   warning, instead of as an error with a stack trace whenever it reads the value. Use `true` or
-  `false`, which behave the same in both versions ([SPARK-XXXXX](https://issues.apache.org/jira/browse/SPARK-XXXXX)).
+  `false`, which behave the same in both versions ([SPARK-59984](https://issues.apache.org/jira/browse/SPARK-59984)).
 - Since 1.1.0, the operator publishes Kubernetes `Event` objects about `SparkApplication` and
   `SparkCluster` resources into their namespaces, e.g. whenever a resource transitions into a new
   state, since `spark.kubernetes.operator.events.enabled` is `true` by default. 1.0 published
