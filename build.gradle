@@ -171,6 +171,13 @@ subprojects {
 
   test {
     useJUnitPlatform()
+    // Run unit tests on another JDK than the toolchain, e.g. `-PtestJavaVersion=21`
+    def testJavaVersion = providers.gradleProperty("testJavaVersion")
+    if (testJavaVersion.present) {
+      javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(testJavaVersion.get())
+      }
+    }
   }
 }
 
