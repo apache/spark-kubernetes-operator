@@ -606,6 +606,12 @@ spec:
   a lost node, no longer holds the Kueue `Workload`, so that it does not hold the quota forever. The
   cluster still stays `Suspended` until such a pod is gone, since it keeps the name of the master or
   worker to create, and the message of its `Suspended` state names such pods.
+* The `Suspended` state says why the resource is suspended in `status.currentState.suspendReason`:
+  `SpecSuspend` if it is held by `spec.suspend`, or `KueueEviction` if the eviction of its Kueue
+  `Workload` released it, see [Kueue](#kueue). The operator relies on this field, not on the
+  message, which is for users to read and may be reworded. `spec.suspend` takes precedence, so
+  setting it on a resource suspended by an eviction records another `Suspended` state with
+  `SpecSuspend`. A `Suspended` state without it is treated as `SpecSuspend`.
 * An operator version without the `Suspended` state cannot read a `SparkApplication` or a
   `SparkCluster` whose status has it, even after the resource is resumed. A resumed
   `SparkApplication` keeps it in its state transition history, or with

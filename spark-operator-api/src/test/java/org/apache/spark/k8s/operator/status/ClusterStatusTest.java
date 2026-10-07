@@ -22,6 +22,7 @@ package org.apache.spark.k8s.operator.status;
 import static org.apache.spark.k8s.operator.status.ClusterStateSummary.Submitted;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 class ClusterStatusTest {
@@ -59,5 +60,25 @@ class ClusterStatusTest {
     ClusterStatus kept = status.appendNewState(resumed, false);
     assertEquals(4, kept.getStateTransitionHistory().size());
     assertEquals(resumed, kept.getStateTransitionHistory().get(3L));
+  }
+
+  @Test
+  void testSuspendReasonJsonRoundTrip() throws Exception {
+    ObjectMapper mapper = new ObjectMapper();
+    ClusterState suspended =
+        new ClusterState(ClusterStateSummary.Suspended, "test", SuspendReason.SpecSuspend);
+
+    String json = mapper.writeValueAsString(suspended);
+    assertTrue(json.contains("\"suspendReason\":\"SpecSuspend\""));
+    assertEquals(suspended, mapper.readValue(json, ClusterState.class));
+
+    // The reason is set only on a Suspended state, and a status without one still reads
+    assertFalse(mapper.writeValueAsString(new ClusterState()).contains("suspendReason"));
+    assertNull(
+        mapper
+            .readValue(
+                "{\"currentStateSummary\":\"Suspended\",\"message\":\"test\"}",
+                ClusterState.class)
+            .getSuspendReason());
   }
 }

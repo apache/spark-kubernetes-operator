@@ -21,6 +21,7 @@ package org.apache.spark.k8s.operator.reconciler.reconcilesteps;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -72,6 +73,7 @@ import org.apache.spark.k8s.operator.spec.ResourceRetainPolicy;
 import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
+import org.apache.spark.k8s.operator.status.SuspendReason;
 import org.apache.spark.k8s.operator.utils.EventUtils;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 import org.apache.spark.k8s.operator.utils.TestUtils;
@@ -147,6 +149,7 @@ class AppSuspendStepTest {
     ApplicationState state = captureAppendedState();
     Assertions.assertEquals(ApplicationStateSummary.Suspended, state.getCurrentStateSummary());
     Assertions.assertEquals(Constants.APP_SUSPENDED_MESSAGE, state.getMessage());
+    Assertions.assertEquals(SuspendReason.SpecSuspend, state.getSuspendReason());
     // Nothing is released until Suspended is persisted, so that an application which is resumed
     // in the meantime is never left running without its driver, which would fail it.
     Assertions.assertNotNull(getDriver());
@@ -617,6 +620,7 @@ class AppSuspendStepTest {
     Assertions.assertEquals(
         Constants.APP_EVICTED_MESSAGE + " " + reason + ": " + reason + " by the test",
         state.getMessage());
+    Assertions.assertEquals(SuspendReason.KueueEviction, state.getSuspendReason());
     // Like spec.suspend, nothing is released until Suspended is persisted, and nothing is reported
     // but the Suspended state
     Assertions.assertNotNull(getDriver());
@@ -698,6 +702,7 @@ class AppSuspendStepTest {
 
     ApplicationState state = captureAppendedState();
     Assertions.assertEquals(Constants.APP_SUSPENDED_MESSAGE, state.getMessage());
+    Assertions.assertEquals(SuspendReason.SpecSuspend, state.getSuspendReason());
 
     // Once everything is released, the application is held rather than queued again
     app.setStatus(app.getStatus().appendNewState(state));
@@ -724,6 +729,7 @@ class AppSuspendStepTest {
     ApplicationState state = captureAppendedState();
     Assertions.assertEquals(ApplicationStateSummary.Suspended, state.getCurrentStateSummary());
     Assertions.assertEquals(Constants.APP_SUSPENDED_MESSAGE, state.getMessage());
+    Assertions.assertEquals(SuspendReason.SpecSuspend, state.getSuspendReason());
 
     // Once that state is persisted, the application is held rather than suspended again, and its
     // Workload is released like on spec.suspend
@@ -732,6 +738,26 @@ class AppSuspendStepTest {
         SUSPEND_HOLD_PROGRESS, new AppSuspendStep().reconcile(mockContext, recorder));
     verify(recorder).appendNewStateAndPersist(any(), any());
     Assertions.assertNull(getWorkload());
+  }
+
+  @Test
+  void evictionIsToldByTheSuspendReasonRatherThanByTheMessage() {
+    // A reworded message of an application suspended by an eviction before still says so
+    SparkApplication evicted = buildEvictedApp(false);
+    evicted.getStatus().getCurrentState().setMessage("Reworded in another version");
+    stubContext(evicted);
+    createWorkload(evicted, evictedStatus("Preempted"), true);
+    new AppSuspendStep().reconcile(mockContext, recorder);
+    Assertions.assertEquals(Constants.APP_REQUEUED_MESSAGE, capturePersistedState().getMessage());
+
+    // So does a Suspended state without a reason, even if its message looks like an eviction
+    SparkApplication unknown = buildEvictedApp(false);
+    unknown.getStatus().getCurrentState().setSuspendReason(null);
+    stubContext(unknown);
+    createWorkload(unknown, evictedStatus("Preempted"), true);
+    clearInvocations(recorder);
+    new AppSuspendStep().reconcile(mockContext, recorder);
+    Assertions.assertEquals(Constants.APP_RESUMED_MESSAGE, capturePersistedState().getMessage());
   }
 
   @Test
@@ -1051,6 +1077,7 @@ class AppSuspendStepTest {
     app.getStatus()
         .getCurrentState()
         .setMessage(Constants.APP_EVICTED_MESSAGE + " Preempted: Preempted by the test");
+    app.getStatus().getCurrentState().setSuspendReason(SuspendReason.KueueEviction);
     return app;
   }
 }

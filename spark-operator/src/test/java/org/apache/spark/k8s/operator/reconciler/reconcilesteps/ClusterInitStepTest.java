@@ -95,6 +95,7 @@ import org.apache.spark.k8s.operator.spec.WorkerInstanceConfig;
 import org.apache.spark.k8s.operator.status.ClusterState;
 import org.apache.spark.k8s.operator.status.ClusterStateSummary;
 import org.apache.spark.k8s.operator.status.ClusterStatus;
+import org.apache.spark.k8s.operator.status.SuspendReason;
 import org.apache.spark.k8s.operator.utils.EventUtils;
 import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
 import org.apache.spark.k8s.operator.utils.TestUtils;
@@ -342,6 +343,7 @@ class ClusterInitStepTest {
         ClusterStateSummary.Suspended, stateCaptor.getValue().getCurrentStateSummary());
     Assertions.assertEquals(
         Constants.CLUSTER_SUSPENDED_MESSAGE, stateCaptor.getValue().getMessage());
+    Assertions.assertEquals(SuspendReason.SpecSuspend, stateCaptor.getValue().getSuspendReason());
     verify(mockContext, never()).getEventRecorder();
   }
 

@@ -46,6 +46,7 @@ import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.status.ClusterState;
 import org.apache.spark.k8s.operator.status.ClusterStatus;
+import org.apache.spark.k8s.operator.status.SuspendReason;
 import org.apache.spark.k8s.operator.utils.EventUtils;
 import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
@@ -87,7 +88,9 @@ public final class ClusterInitStep extends ClusterReconcileStep {
         // where ClusterSuspendStep releases whatever it holds only after its pods are gone.
         if (cluster.getStatus().getStateTransitionHistory().lastKey() > 0) {
           return appendStateAndImmediateRequeue(
-              context, statusRecorder, new ClusterState(Suspended, CLUSTER_SUSPENDED_MESSAGE));
+              context,
+              statusRecorder,
+              new ClusterState(Suspended, CLUSTER_SUSPENDED_MESSAGE, SuspendReason.SpecSuspend));
         }
         return SuspendUtils.holdForSuspend(context, "master and workers");
       }

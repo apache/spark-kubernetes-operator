@@ -14760,6 +14760,11 @@ spec:
                             type: string
                           message:
                             type: string
+                          suspendReason:
+                            enum:
+                              - KueueEviction
+                              - SpecSuspend
+                            type: string
                         type: object
                       type: object
                   type: object
@@ -14777,6 +14782,11 @@ spec:
                     lastTransitionTime:
                       type: string
                     message:
+                      type: string
+                    suspendReason:
+                      enum:
+                        - KueueEviction
+                        - SpecSuspend
                       type: string
                   type: object
                 previousAttemptSummary:
@@ -14804,6 +14814,11 @@ spec:
                             type: string
                           message:
                             type: string
+                          suspendReason:
+                            enum:
+                              - KueueEviction
+                              - SpecSuspend
+                            type: string
                         type: object
                       type: object
                   type: object
@@ -14822,6 +14837,11 @@ spec:
                       lastTransitionTime:
                         type: string
                       message:
+                        type: string
+                      suspendReason:
+                        enum:
+                          - KueueEviction
+                          - SpecSuspend
                         type: string
                     type: object
                   type: object
