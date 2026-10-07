@@ -205,10 +205,57 @@ public class ApplicationStatus
           currentAttemptSummary);
     }
 
-    ApplicationAttemptSummary nextAttemptSummary = new ApplicationAttemptSummary(nextAttemptInfo);
-    ApplicationState state =
-        new ApplicationState(ApplicationStateSummary.ScheduledToRestart, stateMessageOverride);
+    return startNextAttempt(
+        new ApplicationState(ApplicationStateSummary.ScheduledToRestart, stateMessageOverride),
+        nextAttemptInfo,
+        trimStateTransitionHistory);
+  }
 
+  /**
+   * Starts a new attempt of a suspended application which is resumed. Like a restart, the new
+   * attempt gets the next attempt id, and the history of the suspended attempt moves to the
+   * previous attempt summary if trimStateTransitionHistory is set. Unlike a restart, it keeps the
+   * restart counters, since the suspended attempt neither failed nor finished, so it does not count
+   * against the restart limits, whatever the restart policy is. Only the counter of consecutive
+   * scheduling failures starts over, since the driver of the suspended attempt was requested, like
+   * after an attempt which failed otherwise.
+   *
+   * @param stateMessage The message of the Submitted state which the new attempt starts with.
+   * @param trimStateTransitionHistory If true, the state transition history will be trimmed.
+   * @return An updated ApplicationStatus object.
+   * @throws IllegalStateException if the application is not Suspended.
+   * @since 1.1.0
+   */
+  public ApplicationStatus resume(String stateMessage, boolean trimStateTransitionHistory) {
+    if (ApplicationStateSummary.Suspended != currentState.getCurrentStateSummary()) {
+      throw new IllegalStateException(
+          "Spark application cannot be resumed unless it is suspended, current state is: "
+              + currentState);
+    }
+    ApplicationAttemptInfo attemptInfo = currentAttemptSummary.getAttemptInfo();
+    return startNextAttempt(
+        new ApplicationState(ApplicationStateSummary.Submitted, stateMessage),
+        new ApplicationAttemptInfo(
+            attemptInfo.getId() + 1L,
+            attemptInfo.getRestartCounter(),
+            attemptInfo.getFailureRestartCounter(),
+            0L),
+        trimStateTransitionHistory);
+  }
+
+  /**
+   * Starts the next attempt with the given state as its first state.
+   *
+   * @param state The first state of the next attempt.
+   * @param nextAttemptInfo The attempt info of the next attempt.
+   * @param trimStateTransitionHistory If true, the state transition history will be trimmed.
+   * @return An updated ApplicationStatus object.
+   */
+  private ApplicationStatus startNextAttempt(
+      ApplicationState state,
+      ApplicationAttemptInfo nextAttemptInfo,
+      boolean trimStateTransitionHistory) {
+    ApplicationAttemptSummary nextAttemptSummary = new ApplicationAttemptSummary(nextAttemptInfo);
     if (trimStateTransitionHistory) {
       // when truncating, put all previous history entries into previous attempt summary
       ApplicationAttemptSummary newPrevSummary =

@@ -82,6 +82,19 @@ class ApplicationStateSummaryTest {
   }
 
   @Test
+  void testSuspendedIsNeitherStoppingNorTerminated() {
+    // A suspended application is reconciled again to be resumed, so it must not be terminated, and
+    // it must not be mistaken for a stopping attempt, which the clean up would end, by the ordinal
+    // comparison of isStopping
+    assertFalse(ApplicationStateSummary.Suspended.isInitializing());
+    assertFalse(ApplicationStateSummary.Suspended.isStarting());
+    assertFalse(ApplicationStateSummary.Suspended.isStopping());
+    assertFalse(ApplicationStateSummary.Suspended.isTerminated());
+    assertFalse(ApplicationStateSummary.Suspended.isFailure());
+    assertFalse(ApplicationStateSummary.Suspended.isInfrastructureFailure());
+  }
+
+  @Test
   void testIsTerminated() {
     assertTrue(ApplicationStateSummary.ResourceReleased.isTerminated());
     assertTrue(ApplicationStateSummary.TerminatedWithoutReleaseResources.isTerminated());
