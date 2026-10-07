@@ -35,7 +35,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-import io.fabric8.kubernetes.api.model.PodSpec;
 import io.fabric8.kubernetes.api.model.PodTemplateSpec;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import lombok.extern.slf4j.Slf4j;
@@ -112,10 +111,7 @@ public final class SparkAppResourceSpecFactory {
     if (result.getPodTemplateSpec() == null) {
       result.setPodTemplateSpec(new PodTemplateSpec());
     }
-    if (result.getPodTemplateSpec().getSpec() == null) {
-      result.getPodTemplateSpec().setSpec(new PodSpec());
-    }
-    flavor.applyTo(result.getPodTemplateSpec().getSpec());
+    flavor.applyTo(result.getPodTemplateSpec());
     return result;
   }
 

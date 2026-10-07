@@ -30,6 +30,7 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
@@ -72,9 +73,17 @@ class SparkClusterContextTest {
     context.setKueuePodSetFlavors(
         Map.of(
             KueueWorkloadFactory.PODSET_MASTER,
-            new KueuePodSetFlavor(Map.of("pool", "cpu"), List.of(spot)),
+            new KueuePodSetFlavor(
+                Map.of("pool", "cpu"),
+                List.of(spot),
+                Map.of("team", "a"),
+                Map.of("provisioning", "pr-master")),
             KueueWorkloadFactory.PODSET_WORKER,
-            new KueuePodSetFlavor(Map.of("pool", "gpu"), List.of(gpu))));
+            new KueuePodSetFlavor(
+                Map.of("pool", "gpu"),
+                List.of(gpu),
+                Map.of("team", "a"),
+                Map.of("provisioning", "pr-worker"))));
 
     PodSpec master = podSpec(context.getMasterStatefulSetSpec());
     Assertions.assertEquals(Map.of("pool", "cpu"), master.getNodeSelector());
@@ -82,6 +91,21 @@ class SparkClusterContextTest {
     PodSpec worker = podSpec(context.getWorkerStatefulSetSpec());
     Assertions.assertEquals(Map.of("pool", "gpu"), worker.getNodeSelector());
     Assertions.assertEquals(List.of(gpu), worker.getTolerations());
+    // The labels which the StatefulSets select their pods with are kept
+    ObjectMeta masterMetadata =
+        context.getMasterStatefulSetSpec().getSpec().getTemplate().getMetadata();
+    Assertions.assertEquals("a", masterMetadata.getLabels().get("team"));
+    Assertions.assertEquals("pr-master", masterMetadata.getAnnotations().get("provisioning"));
+    Assertions.assertEquals(
+        Constants.LABEL_SPARK_ROLE_MASTER_VALUE,
+        masterMetadata.getLabels().get(Constants.LABEL_SPARK_ROLE_NAME));
+    ObjectMeta workerMetadata =
+        context.getWorkerStatefulSetSpec().getSpec().getTemplate().getMetadata();
+    Assertions.assertEquals("a", workerMetadata.getLabels().get("team"));
+    Assertions.assertEquals("pr-worker", workerMetadata.getAnnotations().get("provisioning"));
+    Assertions.assertEquals(
+        Constants.LABEL_SPARK_ROLE_WORKER_VALUE,
+        workerMetadata.getLabels().get(Constants.LABEL_SPARK_ROLE_NAME));
     // The flavors are applied to the built StatefulSets only, so the SparkCluster keeps the pod
     // templates which the pod sets of its Kueue Workload are hashed from
     Assertions.assertEquals(clusterSpec, asJson(cluster.getSpec()));

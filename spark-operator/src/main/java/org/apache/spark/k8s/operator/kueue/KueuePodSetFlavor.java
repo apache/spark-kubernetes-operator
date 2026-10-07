@@ -25,19 +25,60 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.PodSpec;
+import io.fabric8.kubernetes.api.model.PodTemplateSpec;
 import io.fabric8.kubernetes.api.model.Toleration;
 
 /**
- * The node selector and tolerations of the ResourceFlavors which Kueue assigned to a pod set.
+ * The node selector, tolerations, labels and annotations which Kueue assigned to a pod set: the
+ * ones of its ResourceFlavors and of the podSetUpdates of the admission checks of its Workload.
  * Like Kueue built-in integrations, they are applied to the pods of the pod set.
  *
- * @param nodeSelector The merged `nodeLabels` of the ResourceFlavors.
- * @param tolerations The merged `tolerations` of the ResourceFlavors.
+ * @param nodeSelector The merged `nodeLabels` of the ResourceFlavors and `nodeSelector` of the
+ *     podSetUpdates.
+ * @param tolerations The merged `tolerations` of the ResourceFlavors and the podSetUpdates.
+ * @param labels The merged `labels` of the podSetUpdates.
+ * @param annotations The merged `annotations` of the podSetUpdates.
  */
-public record KueuePodSetFlavor(Map<String, String> nodeSelector, List<Toleration> tolerations) {
+public record KueuePodSetFlavor(
+    Map<String, String> nodeSelector,
+    List<Toleration> tolerations,
+    Map<String, String> labels,
+    Map<String, String> annotations) {
 
   private static final String OPERATOR_EQUAL = "Equal";
+
+  /**
+   * Creates the KueuePodSetFlavor of ResourceFlavors only, which have neither labels nor
+   * annotations.
+   *
+   * @param nodeSelector The merged `nodeLabels` of the ResourceFlavors.
+   * @param tolerations The merged `tolerations` of the ResourceFlavors.
+   */
+  public KueuePodSetFlavor(Map<String, String> nodeSelector, List<Toleration> tolerations) {
+    this(nodeSelector, tolerations, Map.of(), Map.of());
+  }
+
+  /**
+   * Adds the labels and annotations to the metadata of the given pod template, and the node
+   * selector and tolerations to its pod spec. Missing metadata or a missing pod spec is created. A
+   * conflict with the pod template must be checked beforehand, as {@link
+   * KueueWorkloadUtils#holdForAdmission} does.
+   *
+   * @param template The pod template to be modified in place.
+   */
+  public void applyTo(final PodTemplateSpec template) {
+    template.setMetadata(
+        new ObjectMetaBuilder(template.getMetadata())
+            .addToLabels(labels)
+            .addToAnnotations(annotations)
+            .build());
+    if (template.getSpec() == null) {
+      template.setSpec(new PodSpec());
+    }
+    applyTo(template.getSpec());
+  }
 
   /**
    * Adds the node selector and tolerations to the given pod spec. A node selector conflict must be
@@ -45,7 +86,7 @@ public record KueuePodSetFlavor(Map<String, String> nodeSelector, List<Toleratio
    *
    * @param podSpec The pod spec to be modified in place.
    */
-  public void applyTo(final PodSpec podSpec) {
+  void applyTo(final PodSpec podSpec) {
     Map<String, String> mergedNodeSelector = new HashMap<>();
     if (podSpec.getNodeSelector() != null) {
       mergedNodeSelector.putAll(podSpec.getNodeSelector());

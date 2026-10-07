@@ -77,8 +77,10 @@ import org.apache.spark.k8s.operator.context.SparkAppContext;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils.AdmissionResponse;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadUtils.AdmissionResult;
 import org.apache.spark.k8s.operator.kueue.v1beta2.Admission;
+import org.apache.spark.k8s.operator.kueue.v1beta2.AdmissionCheckState;
 import org.apache.spark.k8s.operator.kueue.v1beta2.PodSet;
 import org.apache.spark.k8s.operator.kueue.v1beta2.PodSetAssignment;
+import org.apache.spark.k8s.operator.kueue.v1beta2.PodSetUpdate;
 import org.apache.spark.k8s.operator.kueue.v1beta2.PriorityClassRef;
 import org.apache.spark.k8s.operator.kueue.v1beta2.RequeueState;
 import org.apache.spark.k8s.operator.kueue.v1beta2.ResourceFlavor;
@@ -994,18 +996,18 @@ class KueueWorkloadUtilsTest {
   }
 
   @Test
-  void checkNoNodeSelectorConflictAllowsTheSameNodeSelector() {
+  void checkNoPodTemplateConflictAllowsTheSameNodeSelector() {
     Map<String, KueuePodSetFlavor> flavors =
         Map.of("executor", new KueuePodSetFlavor(Map.of("pool", "cpu"), List.of()));
 
     Assertions.assertDoesNotThrow(
         () ->
-            KueueWorkloadUtils.checkNoNodeSelectorConflict(
+            KueueWorkloadUtils.checkNoPodTemplateConflict(
                 flavors, workloadWithNodeSelector(Map.of("pool", "cpu", "zone", "a"))));
   }
 
   @Test
-  void checkNoNodeSelectorConflictFailsOnDifferentValue() {
+  void checkNoPodTemplateConflictFailsOnDifferentNodeSelector() {
     Map<String, KueuePodSetFlavor> flavors =
         Map.of("executor", new KueuePodSetFlavor(Map.of("pool", "cpu"), List.of()));
 
@@ -1013,10 +1015,40 @@ class KueueWorkloadUtilsTest {
         Assertions.assertThrows(
             IllegalArgumentException.class,
             () ->
-                KueueWorkloadUtils.checkNoNodeSelectorConflict(
+                KueueWorkloadUtils.checkNoPodTemplateConflict(
                     flavors, workloadWithNodeSelector(Map.of("pool", "gpu"))));
     Assertions.assertTrue(e.getMessage().contains("executor"), e.getMessage());
     Assertions.assertTrue(e.getMessage().contains("pool"), e.getMessage());
+  }
+
+  @Test
+  void checkNoPodTemplateConflictFailsOnDifferentLabelOrAnnotation() {
+    // Like Kueue's podset.Merge, the labels and annotations of the admission checks must not
+    // change the ones of the pods either. The pod set template has no pod spec here.
+    Workload desired = workloadWithMetadata(Map.of("team", "a"), Map.of("note", "x"));
+    KueuePodSetFlavor same = flavorWithMetadata(Map.of("team", "a"), Map.of("note", "x"));
+    KueuePodSetFlavor otherLabel = flavorWithMetadata(Map.of("team", "b"), Map.of());
+    KueuePodSetFlavor otherAnnotation = flavorWithMetadata(Map.of(), Map.of("note", "y"));
+
+    Assertions.assertDoesNotThrow(
+        () -> KueueWorkloadUtils.checkNoPodTemplateConflict(Map.of("executor", same), desired));
+    IllegalArgumentException labels =
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                KueueWorkloadUtils.checkNoPodTemplateConflict(
+                    Map.of("executor", otherLabel), desired));
+    Assertions.assertTrue(labels.getMessage().contains("labels"), labels.getMessage());
+    Assertions.assertTrue(labels.getMessage().contains("team"), labels.getMessage());
+    IllegalArgumentException annotations =
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                KueueWorkloadUtils.checkNoPodTemplateConflict(
+                    Map.of("executor", otherAnnotation), desired));
+    Assertions.assertTrue(
+        annotations.getMessage().contains("annotations"), annotations.getMessage());
+    Assertions.assertTrue(annotations.getMessage().contains("note"), annotations.getMessage());
   }
 
   @Test
@@ -1029,6 +1061,144 @@ class KueueWorkloadUtilsTest {
                     kubernetesClient,
                     admittedWorkload(Map.of("executor", Map.of("cpu", "missing-flavor")))));
     Assertions.assertEquals(404, e.getCode());
+  }
+
+  @Test
+  void resolvePodSetFlavorsMergesAdmissionCheckUpdates() {
+    Toleration spot = toleration("spot");
+    Toleration provisioned = toleration("provisioned");
+    createFlavor("cpu-flavor", Map.of("pool", "cpu"), List.of(spot));
+    // Like Kueue, the admission checks are merged in the order of the list, which Kueue keeps
+    // sorted by name, and each of them contributes the first update of a pod set only.
+    Workload admitted =
+        admittedWorkload(
+            Map.of(
+                "driver", Map.of("cpu", "cpu-flavor"),
+                "executor", Map.of("cpu", "cpu-flavor")),
+            admissionCheck(
+                "a-check",
+                PodSetUpdate.builder()
+                    .name("executor")
+                    .labels(Map.of("team", "a"))
+                    .annotations(Map.of("provisioning", "pr-1"))
+                    // The node label of the flavor with the same value is no conflict
+                    .nodeSelector(Map.of("pool", "cpu"))
+                    // The toleration of the flavor is not added again
+                    .tolerations(List.of(spot, provisioned))
+                    .build(),
+                PodSetUpdate.builder().name("executor").labels(Map.of("team", "b")).build()),
+            admissionCheck(
+                "b-check",
+                PodSetUpdate.builder().name("driver").annotations(Map.of("class", "c")).build(),
+                PodSetUpdate.builder()
+                    .name("executor")
+                    .labels(Map.of("tier", "batch"))
+                    .tolerations(List.of(provisioned))
+                    .build()));
+
+    Assertions.assertEquals(
+        Map.of(
+            "driver",
+            new KueuePodSetFlavor(
+                Map.of("pool", "cpu"), List.of(spot), Map.of(), Map.of("class", "c")),
+            "executor",
+            new KueuePodSetFlavor(
+                Map.of("pool", "cpu"),
+                List.of(spot, provisioned),
+                Map.of("team", "a", "tier", "batch"),
+                Map.of("provisioning", "pr-1"))),
+        KueueWorkloadUtils.resolvePodSetFlavors(kubernetesClient, admitted));
+  }
+
+  @Test
+  void resolvePodSetFlavorsKeepsAPodSetWithAdmissionCheckUpdatesOnly() {
+    // e.g. a ProvisioningRequest admission check with Kueue's stock `default-flavor`
+    createFlavor("default-flavor", Map.of(), List.of());
+    Map<String, String> annotations =
+        Map.of(
+            "autoscaling.x-k8s.io/consume-provisioning-request", "pr",
+            "autoscaling.x-k8s.io/provisioning-class-name", "class");
+    Workload admitted =
+        admittedWorkload(
+            Map.of(
+                "driver", Map.of("cpu", "default-flavor"),
+                "executor", Map.of("cpu", "default-flavor")),
+            admissionCheck(
+                "provisioning",
+                PodSetUpdate.builder().name("executor").annotations(annotations).build()));
+
+    Assertions.assertEquals(
+        Map.of("executor", flavorWithMetadata(Map.of(), annotations)),
+        KueueWorkloadUtils.resolvePodSetFlavors(kubernetesClient, admitted));
+  }
+
+  @Test
+  void resolvePodSetFlavorsFailsOnConflictingAdmissionCheckUpdates() {
+    createFlavor("cpu-flavor", Map.of("pool", "cpu"), List.of());
+    Map<String, Map<String, String>> podSetFlavors =
+        Map.of("executor", Map.of("cpu", "cpu-flavor"));
+    // Like Kueue's PodSetInfo.Merge, an update must not change the node selector of a flavor
+    Workload overFlavor =
+        admittedWorkload(
+            podSetFlavors,
+            admissionCheck(
+                "provisioning",
+                PodSetUpdate.builder()
+                    .name("executor")
+                    .nodeSelector(Map.of("pool", "provisioned"))
+                    .build()));
+    // Nor the labels which an earlier admission check set
+    Workload overCheck =
+        admittedWorkload(
+            podSetFlavors,
+            admissionCheck(
+                "a-check",
+                PodSetUpdate.builder().name("executor").labels(Map.of("team", "a")).build()),
+            admissionCheck(
+                "b-check",
+                PodSetUpdate.builder().name("executor").labels(Map.of("team", "b")).build()));
+
+    IllegalArgumentException e =
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () -> KueueWorkloadUtils.resolvePodSetFlavors(kubernetesClient, overFlavor));
+    Assertions.assertTrue(e.getMessage().contains("provisioning"), e.getMessage());
+    Assertions.assertTrue(e.getMessage().contains("executor"), e.getMessage());
+    Assertions.assertTrue(e.getMessage().contains("pool"), e.getMessage());
+    e =
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () -> KueueWorkloadUtils.resolvePodSetFlavors(kubernetesClient, overCheck));
+    Assertions.assertTrue(e.getMessage().contains("b-check"), e.getMessage());
+    Assertions.assertTrue(e.getMessage().contains("team"), e.getMessage());
+  }
+
+  @Test
+  void admissionCheckUpdateConflictingWithThePodsReleasesTheWorkload() {
+    // Like Kueue's ErrInvalidPodSetUpdate, the conflict is permanent, so the quota is released
+    // before the caller fails the resource
+    createFlavor("default-flavor", Map.of(), List.of());
+    KueueWorkloadUtils.requestAdmission(
+        kubernetesClient, workloadWithMetadata(Map.of("team", "a"), Map.of()));
+    Workload admitted =
+        admittedWorkload(
+            Map.of("executor", Map.of("cpu", "default-flavor")),
+            admissionCheck(
+                "check",
+                PodSetUpdate.builder().name("executor").labels(Map.of("team", "b")).build()));
+    admit(admitted.getStatus());
+    SparkAppContext context = context(kubernetesClient);
+
+    IllegalArgumentException e =
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                KueueWorkloadUtils.holdForAdmission(
+                    context, workloadWithMetadata(Map.of("team", "a"), Map.of()), "driver"));
+
+    Assertions.assertTrue(e.getMessage().contains("team"), e.getMessage());
+    Assertions.assertNull(getWorkload());
+    verify(context, never()).setKueuePodSetFlavors(any());
   }
 
   @Test
@@ -1076,10 +1246,20 @@ class KueueWorkloadUtilsTest {
   @Test
   void admittedFlavorsAreAppliedWithoutRequestingTheAdmission() {
     // A resource whose driver or master exists applies its resources again, so the flavors of the
-    // Workload which was admitted before are resolved again rather than dropped.
+    // Workload which was admitted before are resolved again rather than dropped, along with the
+    // updates of its admission checks.
     createFlavor("spot-flavor", Map.of("pool", "spot"), List.of(toleration("spot")));
     KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1));
-    admit(admittedWorkload(Map.of("executor", Map.of("cpu", "spot-flavor"))).getStatus());
+    Workload admitted =
+        admittedWorkload(
+            Map.of("executor", Map.of("cpu", "spot-flavor")),
+            admissionCheck(
+                "provisioning",
+                PodSetUpdate.builder()
+                    .name("executor")
+                    .annotations(Map.of("provisioning", "pr-1"))
+                    .build()));
+    admit(admitted.getStatus());
     SparkAppContext context = context(kubernetesClient);
 
     Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.applyAdmittedFlavors(context));
@@ -1088,7 +1268,11 @@ class KueueWorkloadUtilsTest {
         .setKueuePodSetFlavors(
             Map.of(
                 "executor",
-                new KueuePodSetFlavor(Map.of("pool", "spot"), List.of(toleration("spot")))));
+                new KueuePodSetFlavor(
+                    Map.of("pool", "spot"),
+                    List.of(toleration("spot")),
+                    Map.of(),
+                    Map.of("provisioning", "pr-1"))));
   }
 
   @Test
@@ -1193,7 +1377,9 @@ class KueueWorkloadUtilsTest {
     return flavor;
   }
 
-  private static Workload admittedWorkload(final Map<String, Map<String, String>> podSetFlavors) {
+  private static Workload admittedWorkload(
+      final Map<String, Map<String, String>> podSetFlavors,
+      final AdmissionCheckState... admissionChecks) {
     Workload workload = workload("owner-uid-1", 1);
     WorkloadStatus status = status("Admitted", "True");
     status.setAdmission(
@@ -1209,12 +1395,23 @@ class KueueWorkloadUtilsTest {
                                 .build())
                     .toList())
             .build());
+    status.setAdmissionChecks(List.of(admissionChecks));
     workload.setStatus(status);
     return workload;
   }
 
   private static Toleration toleration(final String key) {
     return new Toleration("NoSchedule", key, "Exists", null, null);
+  }
+
+  private static AdmissionCheckState admissionCheck(
+      final String name, final PodSetUpdate... podSetUpdates) {
+    return AdmissionCheckState.builder().name(name).podSetUpdates(List.of(podSetUpdates)).build();
+  }
+
+  private static KueuePodSetFlavor flavorWithMetadata(
+      final Map<String, String> labels, final Map<String, String> annotations) {
+    return new KueuePodSetFlavor(Map.of(), List.of(), labels, annotations);
   }
 
   @Test
@@ -1680,6 +1877,23 @@ class KueueWorkloadUtilsTest {
                 .withNewSpec()
                 .withNodeSelector(nodeSelector)
                 .endSpec()
+                .build());
+    return workload;
+  }
+
+  private static Workload workloadWithMetadata(
+      final Map<String, String> labels, final Map<String, String> annotations) {
+    Workload workload = workload("owner-uid-1", 1);
+    workload
+        .getSpec()
+        .getPodSets()
+        .get(0)
+        .setTemplate(
+            new PodTemplateSpecBuilder()
+                .withNewMetadata()
+                .withLabels(labels)
+                .withAnnotations(annotations)
+                .endMetadata()
                 .build());
     return workload;
   }

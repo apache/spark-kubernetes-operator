@@ -716,6 +716,22 @@ spec:
   cluster-scoped, so reading them needs the rules which `operatorRbac.kueue.enabled` grants
   through the ClusterRole, hence `operatorRbac.clusterRole.create` as well. Until they can be
   read, the resource is held and the read is retried.
+* Like Kueue built-in integrations, the `labels`, `annotations`, `nodeSelector` and `tolerations`
+  which the [admission checks](https://kueue.sigs.k8s.io/docs/concepts/admission_check/) of the
+  `Workload` report for a pod set in `status.admissionChecks[].podSetUpdates` are added to its pods
+  as well, once all the checks are `Ready` and Kueue admits the `Workload`. The executor pods get
+  them through the executor pod template, like the flavors. So a resource can use a
+  [ProvisioningRequest](https://kueue.sigs.k8s.io/docs/concepts/admission_check/provisioning_request/)
+  admission check, whose `autoscaling.x-k8s.io/consume-provisioning-request` and
+  `autoscaling.x-k8s.io/provisioning-class-name` annotations, and the node selector which its
+  `ProvisioningRequestConfig` sets, bind the pods to the capacity provisioned for them. The
+  operator reads them from the `Workload`, so they need no further RBAC rules. Like Kueue, an
+  update must not change a value which the flavors or an earlier admission check set, nor a value
+  of the node selector, labels or annotations of the pods, and such a conflict fails the resource
+  like a node label conflict above. The labels and annotations which Spark sets on the driver and
+  executor pods itself, e.g. `spark-role` or the ones of
+  `spark.kubernetes.{driver,executor}.{label,annotation}.*`, are not checked, and Spark's value
+  wins over an update of the same key.
 * `spec.suspend` takes precedence. A suspended resource does not get a `Workload`, and suspending
   a queued resource deletes its `Workload` to release the quota. Suspending a running
   `SparkApplication` deletes its `Workload` only after its driver and executor pods are gone, or

@@ -97,7 +97,7 @@ public class SparkClusterContext extends BaseContext<SparkCluster> {
   private void applyKueuePodSetFlavor(String podSetName, StatefulSet statefulSet) {
     KueuePodSetFlavor flavor = kueuePodSetFlavors.get(podSetName);
     if (flavor != null) {
-      flavor.applyTo(statefulSet.getSpec().getTemplate().getSpec());
+      flavor.applyTo(statefulSet.getSpec().getTemplate());
     }
   }
 

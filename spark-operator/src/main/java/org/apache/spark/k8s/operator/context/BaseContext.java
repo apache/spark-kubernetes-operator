@@ -70,7 +70,7 @@ public abstract class BaseContext<CR extends BaseResource<?, ?, ?, ?, ?>> {
 
   /**
    * Sets the flavors which Kueue assigned to the pod sets of the resource, so that its secondary
-   * resources carry their node selectors and tolerations.
+   * resources carry their node selectors, tolerations, labels and annotations.
    *
    * @param kueuePodSetFlavors The KueuePodSetFlavor by the pod set name.
    */

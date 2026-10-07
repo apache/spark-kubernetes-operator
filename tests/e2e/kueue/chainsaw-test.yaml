@@ -1149,3 +1149,227 @@ spec:
           kubectl delete localqueue "$LOCAL_QUEUE" -n default --ignore-not-found=true --wait=false
           kubectl delete clusterqueue "$CLUSTER_QUEUE" --ignore-not-found=true --wait=false
           kubectl delete resourceflavor "$FLAVOR" --ignore-not-found=true --wait=false
+  - name: pod-set-updates-of-admission-checks-reach-the-pods
+    # Each step uses its own queue objects, so that a step never waits for Kueue to finish
+    # deleting the objects of another step.
+    bindings:
+      - name: FLAVOR
+        value: spark-e2e-admission-check-flavor
+      - name: CLUSTER_QUEUE
+        value: spark-e2e-admission-check-cluster-queue
+      - name: LOCAL_QUEUE
+        value: spark-e2e-admission-check-queue
+      - name: ADMISSION_CHECK
+        value: spark-e2e-admission-check
+    try:
+    - apply:
+        file: kueue-queues.yaml
+    # An admission check whose controller is this test
+    - apply:
+        resource:
+          apiVersion: kueue.x-k8s.io/v1beta2
+          kind: AdmissionCheck
+          metadata:
+            name: ($ADMISSION_CHECK)
+          spec:
+            controllerName: spark.apache.org/kueue-e2e
+    # Kueue keeps a ClusterQueue inactive while an admission check of it is not active, which the
+    # controller of the check reports. The quota fits both resources (1 CPU for each pod).
+    - script:
+        timeout: 30s
+        env:
+          - name: ADMISSION_CHECK
+            value: ($ADMISSION_CHECK)
+          - name: CLUSTER_QUEUE
+            value: ($CLUSTER_QUEUE)
+        content: |
+          set -e
+          kubectl patch admissioncheck "$ADMISSION_CHECK" --subresource=status --type merge -p "$(
+            jq -nc --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{status: {conditions: [{
+              type: "Active", status: "True", reason: "Active", lastTransitionTime: $now,
+              message: "The test acts as the controller of the admission check"}]}}')"
+          kubectl patch clusterqueue "$CLUSTER_QUEUE" --type json -p "$(
+            jq -nc --arg check "$ADMISSION_CHECK" '[
+              {op: "replace", path: "/spec/resourceGroups/0/flavors/0/resources/0/nominalQuota",
+                value: "4"},
+              {op: "replace", path: "/spec/resourceGroups/0/flavors/0/resources/1/nominalQuota",
+                value: "8Gi"},
+              {op: "add", path: "/spec/admissionChecksStrategy",
+                value: {admissionChecks: [{name: $check}]}}]')"
+    - apply:
+        file: spark-example-admission-check.yaml
+    - apply:
+        file: spark-cluster-example-admission-check.yaml
+    # Kueue reserves the quota of both Workloads, while they wait for the admission check
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: kueue.x-k8s.io/v1beta2
+          kind: Workload
+          metadata:
+            name: sparkapplication-spark-job-kueue-admission-check-test
+            namespace: default
+          status:
+            (conditions[?type == 'QuotaReserved' && status == 'True'] | length(@)): 1
+            admissionChecks:
+            - name: ($ADMISSION_CHECK)
+              state: Pending
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: kueue.x-k8s.io/v1beta2
+          kind: Workload
+          metadata:
+            name: sparkcluster-spark-cluster-kueue-admission-check-test
+            namespace: default
+          status:
+            (conditions[?type == 'QuotaReserved' && status == 'True'] | length(@)): 1
+            admissionChecks:
+            - name: ($ADMISSION_CHECK)
+              state: Pending
+    # Like a ProvisioningRequest admission check, the test sets the check Ready with an update of
+    # each pod set, whose label and annotation name the pod set. The node selector is the node
+    # label of the flavor, which is no conflict, and the toleration matches no taint, so the
+    # scheduling is not changed.
+    - script:
+        timeout: 30s
+        env:
+          - name: ADMISSION_CHECK
+            value: ($ADMISSION_CHECK)
+        content: |
+          set -e
+          now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          ready() {
+            workload=$1
+            shift
+            kubectl patch workload "$workload" -n default --subresource=status --type merge -p "$(
+              jq -nc --arg check "$ADMISSION_CHECK" --arg now "$now" '{status: {admissionChecks: [{
+                name: $check, state: "Ready", lastTransitionTime: $now,
+                message: "Checked by the test",
+                podSetUpdates: [$ARGS.positional[] | {
+                  name: .,
+                  labels: {"spark.apache.org/kueue-e2e-admission-check": .},
+                  annotations: {"spark.apache.org/kueue-e2e-admission-check": .},
+                  nodeSelector: {"kubernetes.io/os": "linux"},
+                  tolerations: [{key: "spark.apache.org/kueue-e2e-admission-check",
+                    operator: "Exists", effect: "NoSchedule"}]}]}]}}' --args "$@")"
+          }
+          ready sparkapplication-spark-job-kueue-admission-check-test driver executor
+          ready sparkcluster-spark-cluster-kueue-admission-check-test master worker
+    # The updates reach the driver and the executor pods along with the flavor, which the executor
+    # pods get through the executor pod template.
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            namespace: default
+            labels:
+              spark.operator/spark-app-name: spark-job-kueue-admission-check-test
+              spark-role: driver
+              spark.apache.org/kueue-e2e-admission-check: driver
+            annotations:
+              spark.apache.org/kueue-e2e-admission-check: driver
+          spec:
+            (tolerations[?key == 'spark.apache.org/kueue-e2e-admission-check'] | length(@)): 1
+            (tolerations[?key == 'spark.apache.org/kueue-e2e'] | length(@)): 1
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            namespace: default
+            labels:
+              spark.operator/spark-app-name: spark-job-kueue-admission-check-test
+              spark-role: executor
+              spark.apache.org/kueue-e2e-admission-check: executor
+            annotations:
+              spark.apache.org/kueue-e2e-admission-check: executor
+          spec:
+            (tolerations[?key == 'spark.apache.org/kueue-e2e-admission-check'] | length(@)): 1
+            (tolerations[?key == 'spark.apache.org/kueue-e2e'] | length(@)): 1
+    # So do the pod templates of the master and worker StatefulSets
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: apps/v1
+          kind: StatefulSet
+          metadata:
+            name: spark-cluster-kueue-admission-check-test-master
+            namespace: default
+          spec:
+            template:
+              metadata:
+                labels:
+                  spark.apache.org/kueue-e2e-admission-check: master
+                annotations:
+                  spark.apache.org/kueue-e2e-admission-check: master
+              spec:
+                (tolerations[?key == 'spark.apache.org/kueue-e2e-admission-check'] | length(@)): 1
+                (tolerations[?key == 'spark.apache.org/kueue-e2e'] | length(@)): 1
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: apps/v1
+          kind: StatefulSet
+          metadata:
+            name: spark-cluster-kueue-admission-check-test-worker
+            namespace: default
+          spec:
+            template:
+              metadata:
+                labels:
+                  spark.apache.org/kueue-e2e-admission-check: worker
+                annotations:
+                  spark.apache.org/kueue-e2e-admission-check: worker
+              spec:
+                (tolerations[?key == 'spark.apache.org/kueue-e2e-admission-check'] | length(@)): 1
+                (tolerations[?key == 'spark.apache.org/kueue-e2e'] | length(@)): 1
+    catch:
+    - describe:
+        apiVersion: spark.apache.org/v1
+        kind: SparkApplication
+        namespace: default
+    - describe:
+        apiVersion: spark.apache.org/v1
+        kind: SparkCluster
+        namespace: default
+    - describe:
+        apiVersion: kueue.x-k8s.io/v1beta2
+        kind: Workload
+        namespace: default
+    - describe:
+        apiVersion: kueue.x-k8s.io/v1beta2
+        kind: AdmissionCheck
+    - describe:
+        apiVersion: kueue.x-k8s.io/v1beta2
+        kind: ClusterQueue
+    - describe:
+        apiVersion: v1
+        kind: Pod
+        namespace: default
+        selector: spark.operator/spark-app-name=spark-job-kueue-admission-check-test
+    - events:
+        namespace: default
+    finally:
+    - script:
+        timeout: 120s
+        env:
+          - name: FLAVOR
+            value: ($FLAVOR)
+          - name: CLUSTER_QUEUE
+            value: ($CLUSTER_QUEUE)
+          - name: LOCAL_QUEUE
+            value: ($LOCAL_QUEUE)
+          - name: ADMISSION_CHECK
+            value: ($ADMISSION_CHECK)
+        content: |
+          # Deleted at once, so that their clean-ups are awaited together
+          kubectl delete sparkapplication/spark-job-kueue-admission-check-test sparkcluster/spark-cluster-kueue-admission-check-test -n default --ignore-not-found=true
+          # Kueue finalizers may delay the deletion, which later steps do not depend on.
+          kubectl delete localqueue "$LOCAL_QUEUE" -n default --ignore-not-found=true --wait=false
+          kubectl delete clusterqueue "$CLUSTER_QUEUE" --ignore-not-found=true --wait=false
+          kubectl delete resourceflavor "$FLAVOR" --ignore-not-found=true --wait=false
+          kubectl delete admissioncheck "$ADMISSION_CHECK" --ignore-not-found=true --wait=false
