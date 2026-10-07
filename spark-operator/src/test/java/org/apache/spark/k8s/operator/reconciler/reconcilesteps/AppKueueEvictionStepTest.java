@@ -87,6 +87,7 @@ class AppKueueEvictionStepTest {
     // Kueue keeps counting the quota of an evicted Workload until the driver and executors are
     // released
     Assertions.assertTrue(message.contains("holding its quota"), message);
+    Assertions.assertTrue(message.contains("Set spec.suspend to true"), message);
     verifyNoInteractions(recorder);
   }
 

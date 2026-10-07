@@ -45,7 +45,7 @@ import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 @Log4j2
 public abstract sealed class AppReconcileStep
     permits AppCleanUpStep, AppInitStep, AppKueueEvictionStep, AppResourceObserveStep,
-        AppRunningStep, AppUnknownStateStep, AppValidateStep {
+        AppRunningStep, AppSuspendStep, AppUnknownStateStep, AppValidateStep {
   /**
    * Reconciles a specific step for a Spark application.
    *

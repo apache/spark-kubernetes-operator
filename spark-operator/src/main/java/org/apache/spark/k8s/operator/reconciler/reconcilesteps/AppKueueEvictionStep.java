@@ -78,7 +78,7 @@ public final class AppKueueEvictionStep extends AppReconcileStep {
                 + cause
                 + ", which the operator does not act on once the driver is requested, so the "
                 + "driver and executors keep running and holding its quota until they are "
-                + "released. Delete the application to release them.");
+                + "released. Set spec.suspend to true or delete the application to release them.");
     return proceed();
   }
 }

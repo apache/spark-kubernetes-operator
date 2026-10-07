@@ -534,7 +534,7 @@ Both `SparkApplication` and `SparkCluster` support `.spec.suspend`. When it is s
 the driver pod or the master / worker StatefulSets are requested, the operator keeps the resource in
 its initializing state (`Submitted`, or `ScheduledToRestart` for an application that is scheduled to
 restart) and does not request them. Setting it back to `false` resumes the regular lifecycle. A
-running `SparkCluster` is stopped instead, as described below.
+running `SparkApplication` or `SparkCluster` is stopped instead, as described below.
 
 `Submitted` here is the operator's in-memory view. For a valid resource created with
 `suspend: true`, the initial `Submitted` status is not persisted to the API server, so
@@ -542,9 +542,10 @@ running `SparkCluster` is stopped instead, as described below.
 initialization resumes. Instead, the `SuspendHeld` [event](configuration.md#kubernetes-events) is
 published by default. Since the status is not there to fall back on, it is republished every 30
 minutes by default while the hold lasts, so that it outlives the event retention of the API
-server. An application held later, in `ScheduledToRestart`, keeps the status its previous attempt
-already wrote and gets the same event, since that status says that a restart is due, not that the
-next attempt is withheld.
+server. An application held later, in `ScheduledToRestart`, or in `Submitted` after it was resumed
+as described below, keeps the status which was already written and gets the same event, since that
+status says that a restart is due or that the application is resumed, not that the next attempt is
+withheld.
 
 ``` yaml
 apiVersion: spark.apache.org/v1
@@ -559,10 +560,31 @@ spec:
     sparkVersion: "4.2.0"
 ```
 
-* For a `SparkApplication`, `suspend` only takes effect before the driver resources are requested.
-  Setting it to `true` on a running application does not stop the current attempt. If the
-  application is configured to restart, the next attempt is held until `suspend` is set back to
-  `false`.
+* Setting it to `true` on a `SparkApplication` whose driver is requested, i.e. from
+  `DriverRequested` to `RunningWithBelowThresholdExecutors`, stops its current attempt. The
+  application enters `Suspended` first, and then the operator deletes its driver pod, which deletes
+  its executor pods and the other resources which the driver owns, e.g. its ConfigMaps and
+  Services, like at the end of an attempt, whatever its `resourceRetainPolicy` is. The progress of
+  the attempt is lost. An attempt whose driver has completed or failed by then ends as usual
+  instead, and if the application is configured to restart, its next attempt is held as above. A
+  failure to delete the driver pod or the Kueue `Workload`, other than one which may clear on its
+  own, publishes the `SuspendReleaseFailed` [event](configuration.md#kubernetes-events) by default.
+* Setting it back to `false` starts a new attempt of the application from `Submitted` once its
+  driver and executor pods are gone and its Kueue `Workload`, if any, is released. A pod which is
+  still terminating `forceTerminationGracePeriodMillis` after its grace period ended, e.g. on a lost
+  node, no longer holds the application, and a driver pod is force deleted then. This is measured
+  per pod, so that the pods are waited for even if deleting them failed or started late. The new
+  attempt runs the application again from scratch with its current spec. Like a restart, it gets
+  the next attempt ID, and with
+  `spark.kubernetes.operator.reconciler.trimStateTransitionHistoryEnabled`, the state transition
+  history of the suspended attempt moves to `previousAttemptSummary`. The attempt ID is part of the
+  names of its driver resources unless `spark.app.id` is set, while the resources which the spec
+  names, e.g. through `configMapSpecs`, keep their names. Unlike a restart, it starts without the
+  restart backoff and does not count against the restart limits, so the restart counters stay as
+  they are, and it starts even with `restartPolicy: Never`. Only the counter of consecutive
+  scheduling failures starts over, since the driver of the suspended attempt was requested.
+  `restartCounterResetMillis` and the timeouts of `applicationTimeoutConfig` apply to the new
+  attempt on its own, so neither the run before the suspension nor the time suspended counts.
 * Setting it to `true` on a running `SparkCluster` (`RunningHealthy`) stops it, since a cluster
   runs until it is deleted and has no other way to give its resources back. The cluster enters
   `Suspended` first, and then the operator deletes its master and worker StatefulSets, and the
@@ -584,11 +606,13 @@ spec:
   a lost node, no longer holds the Kueue `Workload`, so that it does not hold the quota forever. The
   cluster still stays `Suspended` until such a pod is gone, since it keeps the name of the master or
   worker to create, and the message of its `Suspended` state names such pods.
-* An operator version without the `Suspended` state cannot read a `SparkCluster` whose status
-  has it, even after the cluster is resumed. A resumed `SparkCluster` keeps it unless
-  `spark.kubernetes.operator.reconciler.trimStateTransitionHistoryEnabled` drops the history of
-  its previous run. So delete such clusters, or resume the suspended ones with that setting
-  enabled, before downgrading the operator.
+* An operator version without the `Suspended` state cannot read a `SparkApplication` or a
+  `SparkCluster` whose status has it, even after the resource is resumed. A resumed
+  `SparkApplication` keeps it in its state transition history, or with
+  `spark.kubernetes.operator.reconciler.trimStateTransitionHistoryEnabled` in that of
+  `previousAttemptSummary`, and a resumed `SparkCluster` keeps it unless that setting drops the
+  history of its previous run. So delete such applications, and delete such clusters or resume the
+  suspended ones with that setting enabled, before downgrading the operator.
 * Deleting a suspended resource works as usual.
 * This is the building block for external job queueing systems. See [Kueue](#kueue) for the
   built-in integration.
@@ -694,7 +718,9 @@ spec:
   read, the resource is held and the read is retried.
 * `spec.suspend` takes precedence. A suspended resource does not get a `Workload`, and suspending
   a queued resource deletes its `Workload` to release the quota. Suspending a running
-  `SparkCluster` deletes its `Workload` only after its master and worker pods are gone, or are still
+  `SparkApplication` deletes its `Workload` only after its driver and executor pods are gone, or
+  are still terminating `forceTerminationGracePeriodMillis` after their grace period ended, and
+  suspending a running `SparkCluster` only after its master and worker pods are gone, or are still
   terminating 5 minutes after their grace period ended, since terminating pods occupy the quota.
   The `Workload` is deleted even if the `kueue.x-k8s.io/queue-name` label was removed after the
   admission. The resource is queued again when it is resumed with the `kueue.x-k8s.io/queue-name`
@@ -705,10 +731,11 @@ spec:
   `SparkApplication` or a `SparkCluster` once its status says that it started, since the `Workload`
   admitted for it keeps its quota in that queue. The label may change again when a
   `SparkApplication` is `ScheduledToRestart`, whose next attempt is queued with a new `Workload`, or
-  when a `SparkCluster` is `Suspended`. So the label of a terminated resource, e.g. `Failed`, stays
-  as it was. To move a running `SparkCluster` to another queue, set `spec.suspend` to `true`, change
-  the label once the cluster is `Suspended`, and then resume it, while a running `SparkApplication`
-  moves with its next attempt. Before a resource starts, the operator follows the label as described
+  when a `SparkApplication` or a `SparkCluster` is `Suspended`. So the label of a terminated
+  resource, e.g. `Failed`, stays as it was. To move a running resource to another queue, set
+  `spec.suspend` to `true`, change the label once the resource is `Suspended`, and then resume it,
+  while a running `SparkApplication` also moves with its next attempt after a restart. Before a
+  resource starts, the operator follows the label as described
   above. The policy reads only the status, so a resource whose first status is not persisted yet,
   e.g. after the update following the request of its driver or master failed, looks like it has not
   started. Its label may still change then, while the operator keeps the admitted `Workload` of such
@@ -720,11 +747,11 @@ spec:
 * Once the integration is disabled or the access of the operator to `Workload`s is revoked, e.g.
   by disabling `operatorRbac.kueue.enabled`, the operator no longer deletes them, and a `Workload`
   left behind keeps its quota until its owner is deleted. While the integration stays enabled
-  without the access, a suspended `SparkCluster` does not resume, and a stopping
-  `SparkApplication` neither terminates nor restarts, until the access is restored or the
+  without the access, a suspended `SparkApplication` or `SparkCluster` does not resume, and a
+  stopping `SparkApplication` neither terminates nor restarts, until the access is restored or the
   integration is disabled, since the operator keeps deleting their `Workload`s by name, which is
   denied even once a `Workload` is gone. Before disabling either, let the queued
-  `SparkApplication`s finish or suspend those which have not started yet, and suspend the queued
+  `SparkApplication`s finish or suspend them, and suspend the queued
   `SparkCluster`s, so that the operator releases their `Workload`s itself. Then list the remaining
   ones with `kubectl get workloads -A -l spark.operator/spark-app-name` and
   `kubectl get workloads -A -l spark.operator/spark-cluster-name`, and delete only those whose
@@ -790,11 +817,12 @@ spec:
   is a `PodsReadyTimeout`, e.g. of an application which runs with fewer executors than
   `spark.executor.instances`, or a deactivation. The operator checks the admission only before it
   creates the resources, so after a later eviction the driver and executors keep running, and
-  until the attempt stops, the `KueueEvictionIgnored` [event](configuration.md#kubernetes-events)
-  is published instead by default. An evicted `Workload` keeps its Kueue quota until the driver
-  and executors are released, so a workload which preempts the application waits until then,
-  while a deactivated one no longer counts against it. Since `spec.suspend` does not stop a
-  running attempt, delete the application to release its quota earlier. With `blockAdmission`, an
+  until the attempt stops or is suspended, the `KueueEvictionIgnored`
+  [event](configuration.md#kubernetes-events) is published instead by default. An evicted
+  `Workload` keeps its Kueue quota until the driver and executors are released, so a workload
+  which preempts the application waits until then, while a deactivated one no longer counts
+  against it. Set `spec.suspend` to `true`, as described in [Suspend](#suspend), or delete the
+  application to release its quota earlier. With `blockAdmission`, an
   application whose pods are not all ready holds back every other workload until they are ready
   or its quota is released as described above.
 * To limit the execution time of a `SparkApplication`, the Spark native `spark.driver.timeout` is

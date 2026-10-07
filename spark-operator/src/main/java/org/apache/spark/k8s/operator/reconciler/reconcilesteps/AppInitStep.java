@@ -91,7 +91,10 @@ public final class AppInitStep extends AppReconcileStep {
         return SuspendUtils.holdForSuspend(context, "driver");
       }
     }
-    if (app.getStatus().getPreviousAttemptSummary() != null) {
+    // Only a restarted attempt waits for the restart backoff, while the attempt which a suspended
+    // application starts on resume is Submitted.
+    if (ApplicationStateSummary.ScheduledToRestart == currentState.getCurrentStateSummary()
+        && app.getStatus().getPreviousAttemptSummary() != null) {
       Instant lastTransitionTime = Instant.parse(currentState.getLastTransitionTime());
       ApplicationAttemptSummary attemptSummary = app.getStatus().getPreviousAttemptSummary();
       SortedMap<Long, ApplicationState> attemptHistory = attemptSummary.getStateTransitionHistory();
