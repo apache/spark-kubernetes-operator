@@ -220,6 +220,10 @@ public class ApplicationStatus
    * scheduling failures starts over, since the driver of the suspended attempt was requested, like
    * after an attempt which failed otherwise.
    *
+   * <p>It only creates the status of the new attempt. Like {@link
+   * #terminateOrRestart(RestartConfig, String, boolean)}, the resources of the suspended attempt
+   * are expected to be released already.
+   *
    * @param stateMessage The message of the Submitted state which the new attempt starts with.
    * @param trimStateTransitionHistory If true, the state transition history will be trimmed.
    * @return An updated ApplicationStatus object.
