@@ -32,7 +32,7 @@ import io.javaoperatorsdk.operator.api.event.ResourceEventRecorder;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
 
 import org.apache.spark.k8s.operator.BaseResource;
-import org.apache.spark.k8s.operator.kueue.KueuePodSetFlavor;
+import org.apache.spark.k8s.operator.kueue.KueuePodSetInfo;
 import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
 import org.apache.spark.k8s.operator.utils.PodUtils;
 
@@ -46,8 +46,8 @@ public abstract class BaseContext<CR extends BaseResource<?, ?, ?, ?, ?>> {
   /** The JOSDK context of the reconciliation this context belongs to. */
   protected final Context<?> josdkContext;
 
-  /** The flavors which Kueue assigned to the pod sets, applied to the secondary resources. */
-  protected Map<String, KueuePodSetFlavor> kueuePodSetFlavors = Map.of();
+  /** The KueuePodSetInfo by the pod set name, applied to the secondary resources. */
+  protected Map<String, KueuePodSetInfo> kueuePodSetInfos = Map.of();
 
   /** The ready pods by Spark role, see {@link #countReadyPodsByRole}. */
   private Map<String, Long> readyPodsByRole;
@@ -69,24 +69,24 @@ public abstract class BaseContext<CR extends BaseResource<?, ?, ?, ?, ?>> {
   public abstract CR getResource();
 
   /**
-   * Sets the flavors which Kueue assigned to the pod sets of the resource, so that its secondary
-   * resources carry their node selectors, tolerations, labels and annotations.
+   * Sets the KueuePodSetInfo which Kueue assigned to the pod sets of the resource, so that its
+   * secondary resources carry their node selectors, tolerations, labels and annotations.
    *
-   * @param kueuePodSetFlavors The KueuePodSetFlavor by the pod set name.
+   * @param kueuePodSetInfos The KueuePodSetInfo by the pod set name.
    */
-  public void setKueuePodSetFlavors(Map<String, KueuePodSetFlavor> kueuePodSetFlavors) {
+  public void setKueuePodSetInfos(Map<String, KueuePodSetInfo> kueuePodSetInfos) {
     synchronized (this) {
-      this.kueuePodSetFlavors = kueuePodSetFlavors;
-      applyKueuePodSetFlavors();
+      this.kueuePodSetInfos = kueuePodSetInfos;
+      applyKueuePodSetInfos();
     }
   }
 
   /**
-   * Applies the flavors to the secondary resource spec which was built before them, e.g. to find
-   * the driver pod or to check whether the master exists. Called while holding the lock of this
-   * context, so that a reader sees either spec with its flavors.
+   * Applies the KueuePodSetInfo to the secondary resource spec which was built before it, e.g. to
+   * find the driver pod or to check whether the master exists. Called while holding the lock of
+   * this context, so that a reader sees either spec with it.
    */
-  protected abstract void applyKueuePodSetFlavors();
+  protected abstract void applyKueuePodSetInfos();
 
   /**
    * Returns the Kubernetes client associated with this context.

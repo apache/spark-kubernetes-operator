@@ -218,13 +218,13 @@ class KueueWorkloadUtilsTest {
     if (requested) {
       // They are applied again, so the flavors which Kueue assigned to them are not dropped
       verify(context)
-          .setKueuePodSetFlavors(
+          .setKueuePodSetInfos(
               Map.of(
                   "executor",
-                  new KueuePodSetFlavor(Map.of("pool", "spot"), List.of(toleration("spot")))));
+                  new KueuePodSetInfo(Map.of("pool", "spot"), List.of(toleration("spot")))));
     } else {
       // They start without Kueue, so the flavors are not read, which could hold them back
-      verify(context, never()).setKueuePodSetFlavors(any());
+      verify(context, never()).setKueuePodSetInfos(any());
     }
   }
 
@@ -447,7 +447,7 @@ class KueueWorkloadUtilsTest {
             && requeueAfter.compareTo(Duration.ofSeconds(60)) <= 0,
         requeueAfter.toString());
     Assertions.assertNotNull(getWorkload());
-    verify(context, never()).setKueuePodSetFlavors(any());
+    verify(context, never()).setKueuePodSetInfos(any());
     // The wait is reported with the reason of the eviction
     ArgumentCaptor<EventRecord> captor = ArgumentCaptor.forClass(EventRecord.class);
     verify(eventRecorder).record(captor.capture());
@@ -936,7 +936,7 @@ class KueueWorkloadUtilsTest {
   }
 
   @Test
-  void resolvePodSetFlavorsMergesFlavorsOfEachPodSet() {
+  void resolvePodSetInfosMergesFlavorsOfEachPodSet() {
     Toleration spot = toleration("spot");
     Toleration gpu = toleration("gpu");
     createFlavor("cpu-flavor", Map.of("pool", "cpu", "zone", "a"), List.of(spot));
@@ -944,47 +944,47 @@ class KueueWorkloadUtilsTest {
     // Like Kueue, a flavor assigned to several resources is applied once
     Map<String, String> driverFlavors = Map.of("cpu", "cpu-flavor", "memory", "cpu-flavor");
     // Like Kueue, a later flavor overwrites a node label, which is in the resource name order.
-    // The reverse insertion order pins the assertion to the sorting of `resolvePodSetFlavors`.
+    // The reverse insertion order pins the assertion to the sorting of `resolvePodSetInfos`.
     Map<String, String> executorFlavors = new LinkedHashMap<>();
     executorFlavors.put("nvidia.com/gpu", "gpu-flavor");
     executorFlavors.put("cpu", "cpu-flavor");
 
-    Map<String, KueuePodSetFlavor> flavors =
-        KueueWorkloadUtils.resolvePodSetFlavors(
+    Map<String, KueuePodSetInfo> flavors =
+        KueueWorkloadUtils.resolvePodSetInfos(
             kubernetesClient,
             admittedWorkload(Map.of("driver", driverFlavors, "executor", executorFlavors)));
 
     Assertions.assertEquals(
         Map.of(
             "driver",
-            new KueuePodSetFlavor(Map.of("pool", "cpu", "zone", "a"), List.of(spot)),
+            new KueuePodSetInfo(Map.of("pool", "cpu", "zone", "a"), List.of(spot)),
             "executor",
-            new KueuePodSetFlavor(
+            new KueuePodSetInfo(
                 Map.of("pool", "gpu", "zone", "a", "accelerator", "a100"), List.of(spot, gpu))),
         flavors);
   }
 
   @Test
-  void resolvePodSetFlavorsWithoutAdmissionIsEmpty() {
+  void resolvePodSetInfosWithoutAdmissionIsEmpty() {
     Workload admitted = workload("owner-uid-1", 1);
     admitted.setStatus(status("Admitted", "True"));
 
     Assertions.assertEquals(
-        Map.of(), KueueWorkloadUtils.resolvePodSetFlavors(kubernetesClient, admitted));
+        Map.of(), KueueWorkloadUtils.resolvePodSetInfos(kubernetesClient, admitted));
     Assertions.assertEquals(
         Map.of(),
-        KueueWorkloadUtils.resolvePodSetFlavors(kubernetesClient, admittedWorkload(Map.of())));
+        KueueWorkloadUtils.resolvePodSetInfos(kubernetesClient, admittedWorkload(Map.of())));
   }
 
   @Test
-  void resolvePodSetFlavorsSkipsFlavorsWithoutNodeLabelsAndTolerations() {
+  void resolvePodSetInfosSkipsFlavorsWithoutNodeLabelsAndTolerations() {
     // Kueue's stock `default-flavor` has neither, so its pod sets are built as they are without
     // Kueue, instead of being rebuilt around an empty pod template.
     createFlavor("default-flavor", Map.of(), List.of());
     createFlavor("spot-flavor", Map.of("pool", "spot"), List.of());
 
-    Map<String, KueuePodSetFlavor> flavors =
-        KueueWorkloadUtils.resolvePodSetFlavors(
+    Map<String, KueuePodSetInfo> flavors =
+        KueueWorkloadUtils.resolvePodSetInfos(
             kubernetesClient,
             admittedWorkload(
                 Map.of(
@@ -992,13 +992,13 @@ class KueueWorkloadUtilsTest {
                     "executor", Map.of("cpu", "spot-flavor"))));
 
     Assertions.assertEquals(
-        Map.of("executor", new KueuePodSetFlavor(Map.of("pool", "spot"), List.of())), flavors);
+        Map.of("executor", new KueuePodSetInfo(Map.of("pool", "spot"), List.of())), flavors);
   }
 
   @Test
   void checkNoPodTemplateConflictAllowsTheSameNodeSelector() {
-    Map<String, KueuePodSetFlavor> flavors =
-        Map.of("executor", new KueuePodSetFlavor(Map.of("pool", "cpu"), List.of()));
+    Map<String, KueuePodSetInfo> flavors =
+        Map.of("executor", new KueuePodSetInfo(Map.of("pool", "cpu"), List.of()));
 
     Assertions.assertDoesNotThrow(
         () ->
@@ -1008,8 +1008,8 @@ class KueueWorkloadUtilsTest {
 
   @Test
   void checkNoPodTemplateConflictFailsOnDifferentNodeSelector() {
-    Map<String, KueuePodSetFlavor> flavors =
-        Map.of("executor", new KueuePodSetFlavor(Map.of("pool", "cpu"), List.of()));
+    Map<String, KueuePodSetInfo> flavors =
+        Map.of("executor", new KueuePodSetInfo(Map.of("pool", "cpu"), List.of()));
 
     IllegalArgumentException e =
         Assertions.assertThrows(
@@ -1026,9 +1026,9 @@ class KueueWorkloadUtilsTest {
     // Like Kueue's podset.Merge, the labels and annotations of the admission checks must not
     // change the ones of the pods either. The pod set template has no pod spec here.
     Workload desired = workloadWithMetadata(Map.of("team", "a"), Map.of("note", "x"));
-    KueuePodSetFlavor same = flavorWithMetadata(Map.of("team", "a"), Map.of("note", "x"));
-    KueuePodSetFlavor otherLabel = flavorWithMetadata(Map.of("team", "b"), Map.of());
-    KueuePodSetFlavor otherAnnotation = flavorWithMetadata(Map.of(), Map.of("note", "y"));
+    KueuePodSetInfo same = podSetInfoWithMetadata(Map.of("team", "a"), Map.of("note", "x"));
+    KueuePodSetInfo otherLabel = podSetInfoWithMetadata(Map.of("team", "b"), Map.of());
+    KueuePodSetInfo otherAnnotation = podSetInfoWithMetadata(Map.of(), Map.of("note", "y"));
 
     Assertions.assertDoesNotThrow(
         () -> KueueWorkloadUtils.checkNoPodTemplateConflict(Map.of("executor", same), desired));
@@ -1052,19 +1052,19 @@ class KueueWorkloadUtilsTest {
   }
 
   @Test
-  void resolvePodSetFlavorsFailsOnMissingFlavor() {
+  void resolvePodSetInfosFailsOnMissingFlavor() {
     KubernetesClientException e =
         Assertions.assertThrows(
             KubernetesClientException.class,
             () ->
-                KueueWorkloadUtils.resolvePodSetFlavors(
+                KueueWorkloadUtils.resolvePodSetInfos(
                     kubernetesClient,
                     admittedWorkload(Map.of("executor", Map.of("cpu", "missing-flavor")))));
     Assertions.assertEquals(404, e.getCode());
   }
 
   @Test
-  void resolvePodSetFlavorsMergesAdmissionCheckUpdates() {
+  void resolvePodSetInfosMergesAdmissionCheckUpdates() {
     Toleration spot = toleration("spot");
     Toleration provisioned = toleration("provisioned");
     createFlavor("cpu-flavor", Map.of("pool", "cpu"), List.of(spot));
@@ -1099,19 +1099,19 @@ class KueueWorkloadUtilsTest {
     Assertions.assertEquals(
         Map.of(
             "driver",
-            new KueuePodSetFlavor(
+            new KueuePodSetInfo(
                 Map.of("pool", "cpu"), List.of(spot), Map.of(), Map.of("class", "c")),
             "executor",
-            new KueuePodSetFlavor(
+            new KueuePodSetInfo(
                 Map.of("pool", "cpu"),
                 List.of(spot, provisioned),
                 Map.of("team", "a", "tier", "batch"),
                 Map.of("provisioning", "pr-1"))),
-        KueueWorkloadUtils.resolvePodSetFlavors(kubernetesClient, admitted));
+        KueueWorkloadUtils.resolvePodSetInfos(kubernetesClient, admitted));
   }
 
   @Test
-  void resolvePodSetFlavorsKeepsAPodSetWithAdmissionCheckUpdatesOnly() {
+  void resolvePodSetInfosKeepsAPodSetWithAdmissionCheckUpdatesOnly() {
     // e.g. a ProvisioningRequest admission check with Kueue's stock `default-flavor`
     createFlavor("default-flavor", Map.of(), List.of());
     Map<String, String> annotations =
@@ -1128,12 +1128,12 @@ class KueueWorkloadUtilsTest {
                 PodSetUpdate.builder().name("executor").annotations(annotations).build()));
 
     Assertions.assertEquals(
-        Map.of("executor", flavorWithMetadata(Map.of(), annotations)),
-        KueueWorkloadUtils.resolvePodSetFlavors(kubernetesClient, admitted));
+        Map.of("executor", podSetInfoWithMetadata(Map.of(), annotations)),
+        KueueWorkloadUtils.resolvePodSetInfos(kubernetesClient, admitted));
   }
 
   @Test
-  void resolvePodSetFlavorsFailsOnConflictingAdmissionCheckUpdates() {
+  void resolvePodSetInfosFailsOnConflictingAdmissionCheckUpdates() {
     createFlavor("cpu-flavor", Map.of("pool", "cpu"), List.of());
     Map<String, Map<String, String>> podSetFlavors =
         Map.of("executor", Map.of("cpu", "cpu-flavor"));
@@ -1161,14 +1161,14 @@ class KueueWorkloadUtilsTest {
     IllegalArgumentException e =
         Assertions.assertThrows(
             IllegalArgumentException.class,
-            () -> KueueWorkloadUtils.resolvePodSetFlavors(kubernetesClient, overFlavor));
+            () -> KueueWorkloadUtils.resolvePodSetInfos(kubernetesClient, overFlavor));
     Assertions.assertTrue(e.getMessage().contains("provisioning"), e.getMessage());
     Assertions.assertTrue(e.getMessage().contains("executor"), e.getMessage());
     Assertions.assertTrue(e.getMessage().contains("pool"), e.getMessage());
     e =
         Assertions.assertThrows(
             IllegalArgumentException.class,
-            () -> KueueWorkloadUtils.resolvePodSetFlavors(kubernetesClient, overCheck));
+            () -> KueueWorkloadUtils.resolvePodSetInfos(kubernetesClient, overCheck));
     Assertions.assertTrue(e.getMessage().contains("b-check"), e.getMessage());
     Assertions.assertTrue(e.getMessage().contains("team"), e.getMessage());
   }
@@ -1198,7 +1198,7 @@ class KueueWorkloadUtilsTest {
 
     Assertions.assertTrue(e.getMessage().contains("team"), e.getMessage());
     Assertions.assertNull(getWorkload());
-    verify(context, never()).setKueuePodSetFlavors(any());
+    verify(context, never()).setKueuePodSetInfos(any());
   }
 
   @Test
@@ -1240,7 +1240,7 @@ class KueueWorkloadUtilsTest {
     Assertions.assertEquals(
         Optional.of(ReconcileProgress.completeAndDefaultRequeue()),
         KueueWorkloadUtils.holdForAdmission(context, desired, "driver"));
-    verify(context, never()).setKueuePodSetFlavors(any());
+    verify(context, never()).setKueuePodSetInfos(any());
   }
 
   @Test
@@ -1262,13 +1262,13 @@ class KueueWorkloadUtilsTest {
     admit(admitted.getStatus());
     SparkAppContext context = context(kubernetesClient);
 
-    Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.applyAdmittedFlavors(context));
+    Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.applyAdmittedPodSetInfos(context));
 
     verify(context)
-        .setKueuePodSetFlavors(
+        .setKueuePodSetInfos(
             Map.of(
                 "executor",
-                new KueuePodSetFlavor(
+                new KueuePodSetInfo(
                     Map.of("pool", "spot"),
                     List.of(toleration("spot")),
                     Map.of(),
@@ -1287,11 +1287,12 @@ class KueueWorkloadUtilsTest {
 
     IllegalArgumentException e =
         Assertions.assertThrows(
-            IllegalArgumentException.class, () -> KueueWorkloadUtils.applyAdmittedFlavors(context));
+            IllegalArgumentException.class,
+            () -> KueueWorkloadUtils.applyAdmittedPodSetInfos(context));
 
     Assertions.assertTrue(e.getMessage().contains("executor"), e.getMessage());
     Assertions.assertTrue(e.getMessage().contains("pool"), e.getMessage());
-    verify(context, never()).setKueuePodSetFlavors(any());
+    verify(context, never()).setKueuePodSetInfos(any());
     // Unlike the admission, the quota is kept, since the pods it was reserved for are running
     Assertions.assertNotNull(getWorkload());
   }
@@ -1301,11 +1302,11 @@ class KueueWorkloadUtilsTest {
     SparkAppContext context = context(kubernetesClient);
 
     // The Workload is gone, e.g. evicted and deleted, which must not hold the running resources
-    Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.applyAdmittedFlavors(context));
+    Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.applyAdmittedPodSetInfos(context));
 
     KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1));
-    Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.applyAdmittedFlavors(context));
-    verify(context, never()).setKueuePodSetFlavors(any());
+    Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.applyAdmittedPodSetInfos(context));
+    verify(context, never()).setKueuePodSetInfos(any());
   }
 
   @Test
@@ -1317,8 +1318,8 @@ class KueueWorkloadUtilsTest {
     // Applying no flavors would drop them from the resources which are applied again
     Assertions.assertEquals(
         Optional.of(ReconcileProgress.completeAndDefaultRequeue()),
-        KueueWorkloadUtils.applyAdmittedFlavors(context));
-    verify(context, never()).setKueuePodSetFlavors(any());
+        KueueWorkloadUtils.applyAdmittedPodSetInfos(context));
+    verify(context, never()).setKueuePodSetInfos(any());
   }
 
   @Test
@@ -1339,7 +1340,7 @@ class KueueWorkloadUtilsTest {
 
     Assertions.assertEquals(
         Optional.of(ReconcileProgress.completeAndDefaultRequeue()),
-        KueueWorkloadUtils.applyAdmittedFlavors(context));
+        KueueWorkloadUtils.applyAdmittedPodSetInfos(context));
 
     ArgumentCaptor<EventRecord> captor = ArgumentCaptor.forClass(EventRecord.class);
     verify(eventRecorder).record(captor.capture());
@@ -1409,9 +1410,9 @@ class KueueWorkloadUtilsTest {
     return AdmissionCheckState.builder().name(name).podSetUpdates(List.of(podSetUpdates)).build();
   }
 
-  private static KueuePodSetFlavor flavorWithMetadata(
+  private static KueuePodSetInfo podSetInfoWithMetadata(
       final Map<String, String> labels, final Map<String, String> annotations) {
-    return new KueuePodSetFlavor(Map.of(), List.of(), labels, annotations);
+    return new KueuePodSetInfo(Map.of(), List.of(), labels, annotations);
   }
 
   @Test

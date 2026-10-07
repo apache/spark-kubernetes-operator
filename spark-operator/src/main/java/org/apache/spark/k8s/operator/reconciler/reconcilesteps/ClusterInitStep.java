@@ -240,7 +240,7 @@ public final class ClusterInitStep extends ClusterReconcileStep {
         // The master and worker StatefulSets are applied again in this reconcile, so the flavors
         // of the Workload which was admitted before are resolved again instead of dropping them
         // from the pod templates.
-        return KueueWorkloadUtils.applyAdmittedFlavors(context);
+        return KueueWorkloadUtils.applyAdmittedPodSetInfos(context);
       }
     } catch (KubernetesClientException e) {
       // Requesting the admission of a master which is already running would be wrong, so the

@@ -45,7 +45,7 @@ import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.SparkCluster;
 import org.apache.spark.k8s.operator.SparkClusterSubmissionWorker;
 import org.apache.spark.k8s.operator.config.SparkOperatorConf;
-import org.apache.spark.k8s.operator.kueue.KueuePodSetFlavor;
+import org.apache.spark.k8s.operator.kueue.KueuePodSetInfo;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadFactory;
 import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
 import org.apache.spark.k8s.operator.spec.ClusterSpec;
@@ -58,7 +58,7 @@ import org.apache.spark.k8s.operator.utils.TestUtils;
 class SparkClusterContextTest {
 
   @Test
-  void kueuePodSetFlavorsAreAppliedToStatefulSets() {
+  void kueuePodSetInfosAreAppliedToStatefulSets() {
     SparkCluster cluster = buildCluster();
     String clusterSpec = asJson(cluster.getSpec());
     SparkClusterContext context =
@@ -70,16 +70,16 @@ class SparkClusterContextTest {
     Assertions.assertEquals(
         List.of(), podSpec(context.getMasterStatefulSetSpec()).getTolerations());
 
-    context.setKueuePodSetFlavors(
+    context.setKueuePodSetInfos(
         Map.of(
             KueueWorkloadFactory.PODSET_MASTER,
-            new KueuePodSetFlavor(
+            new KueuePodSetInfo(
                 Map.of("pool", "cpu"),
                 List.of(spot),
                 Map.of("team", "a"),
                 Map.of("provisioning", "pr-master")),
             KueueWorkloadFactory.PODSET_WORKER,
-            new KueuePodSetFlavor(
+            new KueuePodSetInfo(
                 Map.of("pool", "gpu"),
                 List.of(gpu),
                 Map.of("team", "a"),

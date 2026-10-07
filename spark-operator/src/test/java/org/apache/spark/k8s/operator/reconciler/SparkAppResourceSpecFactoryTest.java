@@ -49,7 +49,7 @@ import org.mockito.ArgumentCaptor;
 import org.apache.spark.k8s.operator.SparkAppResourceSpec;
 import org.apache.spark.k8s.operator.SparkAppSubmissionWorker;
 import org.apache.spark.k8s.operator.SparkApplication;
-import org.apache.spark.k8s.operator.kueue.KueuePodSetFlavor;
+import org.apache.spark.k8s.operator.kueue.KueuePodSetInfo;
 import org.apache.spark.k8s.operator.spec.BaseApplicationTemplateSpec;
 import org.apache.spark.k8s.operator.utils.ModelUtils;
 
@@ -136,13 +136,13 @@ class SparkAppResourceSpecFactoryTest {
         mockWorker,
         Map.of(
             "driver",
-            new KueuePodSetFlavor(
+            new KueuePodSetInfo(
                 Map.of("pool", "cpu"),
                 List.of(spot),
                 Map.of("tier", "batch"),
                 Map.of("provisioning", "pr-driver")),
             "executor",
-            new KueuePodSetFlavor(
+            new KueuePodSetInfo(
                 Map.of("pool", "gpu"),
                 List.of(gpu),
                 Map.of("tier", "batch"),

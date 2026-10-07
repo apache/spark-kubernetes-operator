@@ -33,14 +33,14 @@ import io.fabric8.kubernetes.api.model.PodTemplateSpecBuilder;
 import io.fabric8.kubernetes.api.model.Toleration;
 import org.junit.jupiter.api.Test;
 
-class KueuePodSetFlavorTest {
+class KueuePodSetInfoTest {
 
   @Test
   void applyToAddsNodeSelectorAndTolerationsToEmptyPodSpec() {
     PodSpec podSpec = new PodSpec();
     Toleration toleration = toleration("spot", "Equal", "true", "NoSchedule", null);
 
-    new KueuePodSetFlavor(Map.of("instance-type", "spot"), List.of(toleration)).applyTo(podSpec);
+    new KueuePodSetInfo(Map.of("instance-type", "spot"), List.of(toleration)).applyTo(podSpec);
 
     assertEquals(Map.of("instance-type", "spot"), podSpec.getNodeSelector());
     assertEquals(List.of(toleration), podSpec.getTolerations());
@@ -56,7 +56,7 @@ class KueuePodSetFlavorTest {
             .withTolerations(existing)
             .build();
 
-    new KueuePodSetFlavor(Map.of("instance-type", "spot", "pool", "p1"), List.of(added))
+    new KueuePodSetInfo(Map.of("instance-type", "spot", "pool", "p1"), List.of(added))
         .applyTo(podSpec);
 
     assertEquals(
@@ -71,7 +71,7 @@ class KueuePodSetFlavorTest {
     Toleration existing = toleration("spot", "Equal", "true", "NoExecute", 30L);
     PodSpec podSpec = new PodSpecBuilder().withTolerations(existing).build();
 
-    new KueuePodSetFlavor(
+    new KueuePodSetInfo(
             Map.of(),
             List.of(
                 toleration("spot", null, "true", "NoExecute", 60L),
@@ -90,7 +90,7 @@ class KueuePodSetFlavorTest {
     PodTemplateSpec template = new PodTemplateSpec();
     Toleration toleration = toleration("provisioned", "Exists", null, "NoSchedule", null);
 
-    new KueuePodSetFlavor(
+    new KueuePodSetInfo(
             Map.of("pool", "provisioned"),
             List.of(toleration),
             Map.of("team", "a"),
@@ -118,7 +118,7 @@ class KueuePodSetFlavorTest {
             .endSpec()
             .build();
 
-    new KueuePodSetFlavor(
+    new KueuePodSetInfo(
             Map.of("pool", "p1"),
             List.of(),
             Map.of("team", "a", "tier", "batch"),
@@ -137,19 +137,19 @@ class KueuePodSetFlavorTest {
   @Test
   void isSameToleration() {
     assertTrue(
-        KueuePodSetFlavor.isSameToleration(
+        KueuePodSetInfo.isSameToleration(
             toleration("k", "", "v", "NoSchedule", null),
             toleration("k", "Equal", "v", "NoSchedule", 10L)));
     assertTrue(
-        KueuePodSetFlavor.isSameToleration(
+        KueuePodSetInfo.isSameToleration(
             toleration("k", "Exists", null, null, null),
             toleration("k", "Exists", null, null, null)));
     assertFalse(
-        KueuePodSetFlavor.isSameToleration(
+        KueuePodSetInfo.isSameToleration(
             toleration("k", "Exists", null, null, null),
             toleration("k", "Equal", null, null, null)));
     assertFalse(
-        KueuePodSetFlavor.isSameToleration(
+        KueuePodSetInfo.isSameToleration(
             toleration("k", "Equal", "v", "NoSchedule", null),
             toleration("k", "Equal", "v", "NoExecute", null)));
   }

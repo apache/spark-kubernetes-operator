@@ -340,10 +340,10 @@ public final class KueueWorkloadUtils {
           requested);
       return Optional.of(ReconcileProgress.completeAndDefaultRequeue());
     }
-    Map<String, KueuePodSetFlavor> flavors;
+    Map<String, KueuePodSetInfo> podSetInfos;
     try {
-      flavors = resolvePodSetFlavors(context.getClient(), admission.workload());
-      checkNoPodTemplateConflict(flavors, desired);
+      podSetInfos = resolvePodSetInfos(context.getClient(), admission.workload());
+      checkNoPodTemplateConflict(podSetInfos, desired);
     } catch (KubernetesClientException e) {
       return Optional.of(retryAfterFlavorReadFailure(context, e, workloadName));
     } catch (IllegalArgumentException e) {
@@ -361,22 +361,23 @@ public final class KueueWorkloadUtils {
         context.getEventRecorder(),
         EventUtils.REASON_KUEUE_ADMITTED,
         "Kueue admitted Workload " + workloadName + ", requesting " + requested + ".");
-    context.setKueuePodSetFlavors(flavors);
+    context.setKueuePodSetInfos(podSetInfos);
     return Optional.empty();
   }
 
   /**
-   * Sets the flavors of the Workload which Kueue admitted before on the context of a resource
-   * whose driver or master exists already. Such a reconcile applies the secondary resources again
-   * without requesting the admission, so rebuilding them without the flavors would remove the node
-   * selector, the tolerations, the labels and the annotations which Kueue assigned to the pods.
+   * Sets the KueuePodSetInfo of the Workload which Kueue admitted before on the context of a
+   * resource whose driver or master exists already. Such a reconcile applies the secondary
+   * resources again without requesting the admission, so rebuilding them without it would remove
+   * the node selector, the tolerations, the labels and the annotations which Kueue assigned to the
+   * pods.
    *
    * @param context The context of the resource to be reconciled.
    * @return The progress to return while the flavors cannot be read, or empty to proceed.
-   * @throws IllegalArgumentException if the flavors conflict with a pod set, like {@link
+   * @throws IllegalArgumentException if the KueuePodSetInfo conflicts with a pod set, like {@link
    *     #holdForAdmission}.
    */
-  public static Optional<ReconcileProgress> applyAdmittedFlavors(final BaseContext<?> context) {
+  public static Optional<ReconcileProgress> applyAdmittedPodSetInfos(final BaseContext<?> context) {
     HasMetadata resource = context.getResource();
     String workloadName = KueueWorkloadFactory.getWorkloadName(resource);
     Workload workload;
@@ -398,12 +399,12 @@ public final class KueueWorkloadUtils {
       return Optional.empty();
     }
     try {
-      Map<String, KueuePodSetFlavor> flavors = resolvePodSetFlavors(context.getClient(), workload);
+      Map<String, KueuePodSetInfo> podSetInfos = resolvePodSetInfos(context.getClient(), workload);
       // The pod set templates of the Workload hold the node selectors as of the admission, so the
       // check reports a ResourceFlavor which was edited since. Unlike the admission, the quota is
       // not released with the failure: the pods it was reserved for are running already.
-      checkNoPodTemplateConflict(flavors, workload);
-      context.setKueuePodSetFlavors(flavors);
+      checkNoPodTemplateConflict(podSetInfos, workload);
+      context.setKueuePodSetInfos(podSetInfos);
     } catch (KubernetesClientException e) {
       return Optional.of(retryAfterFlavorReadFailure(context, e, workloadName));
     }
@@ -467,7 +468,7 @@ public final class KueueWorkloadUtils {
    * into quota which nothing uses. An admitted Workload is kept, since the resources it was
    * admitted for may be running already, and it is released with them like the Workload of a
    * queued resource. If they were requested already, its flavors are applied again like {@link
-   * #applyAdmittedFlavors}, since the secondary resources are applied again in this reconcile.
+   * #applyAdmittedPodSetInfos}, since the secondary resources are applied again in this reconcile.
    * Otherwise they start without Kueue, so the flavors are not read, which must not hold them
    * back, and an evicted or deactivated Workload is released first rather than kept for resources
    * whose quota Kueue is about to take or no longer counts. Like the admission request, a failed
@@ -480,7 +481,7 @@ public final class KueueWorkloadUtils {
    * @return The progress to return while the release or the read of the flavors fails, or empty to
    *     proceed.
    * @throws IllegalArgumentException if the flavors of an admitted Workload conflict with a pod set
-   *     of the requested resources, like {@link #applyAdmittedFlavors}.
+   *     of the requested resources, like {@link #applyAdmittedPodSetInfos}.
    */
   public static Optional<ReconcileProgress> handleDequeuedWorkload(
       final BaseContext<?> context, final BooleanSupplier requested) {
@@ -490,7 +491,7 @@ public final class KueueWorkloadUtils {
     }
     if (isAdmitted(workload.get())) {
       if (requested.getAsBoolean()) {
-        return applyAdmittedFlavors(context);
+        return applyAdmittedPodSetInfos(context);
       }
       if (findEviction(workload.get()).isEmpty() && !isDeactivated(workload.get())) {
         return Optional.empty();
@@ -557,7 +558,7 @@ public final class KueueWorkloadUtils {
    *
    * @param client The KubernetesClient.
    * @param admitted The admitted Workload.
-   * @return The KueuePodSetFlavor by the pod set name. A pod set without an assignment, or one to
+   * @return The KueuePodSetInfo by the pod set name. A pod set without an assignment, or one to
    *     which neither its flavors nor the podSetUpdates add anything, is absent, so that the
    *     resources of such a pod set are built as they are without Kueue.
    * @throws KubernetesClientException if a ResourceFlavor cannot be read.
@@ -566,9 +567,9 @@ public final class KueueWorkloadUtils {
    *     pod set. Like Kueue built-in integrations, this is permanent. A conflict with the pod
    *     templates is checked separately, like Kueue's `podset.Merge`.
    */
-  public static Map<String, KueuePodSetFlavor> resolvePodSetFlavors(
+  public static Map<String, KueuePodSetInfo> resolvePodSetInfos(
       final KubernetesClient client, final Workload admitted) {
-    Map<String, KueuePodSetFlavor> result = new HashMap<>();
+    Map<String, KueuePodSetInfo> result = new HashMap<>();
     WorkloadStatus status = admitted.getStatus();
     if (status == null || status.getAdmission() == null) {
       return result;
@@ -590,7 +591,7 @@ public final class KueueWorkloadUtils {
             nodeSelector.putAll(flavor.getSpec().getNodeLabels());
           }
           if (flavor.getSpec().getTolerations() != null) {
-            KueuePodSetFlavor.addTolerations(tolerations, flavor.getSpec().getTolerations());
+            KueuePodSetInfo.addTolerations(tolerations, flavor.getSpec().getTolerations());
           }
         }
       }
@@ -613,7 +614,7 @@ public final class KueueWorkloadUtils {
         putAllWithoutConflict(labels, update.getLabels(), conflict + "labels");
         putAllWithoutConflict(annotations, update.getAnnotations(), conflict + "annotations");
         if (update.getTolerations() != null) {
-          KueuePodSetFlavor.addTolerations(tolerations, update.getTolerations());
+          KueuePodSetInfo.addTolerations(tolerations, update.getTolerations());
         }
       }
       if (nodeSelector.isEmpty()
@@ -623,7 +624,7 @@ public final class KueueWorkloadUtils {
         continue;
       }
       result.put(
-          podSetName, new KueuePodSetFlavor(nodeSelector, tolerations, labels, annotations));
+          podSetName, new KueuePodSetInfo(nodeSelector, tolerations, labels, annotations));
     }
     return result;
   }
@@ -698,27 +699,27 @@ public final class KueueWorkloadUtils {
    * Like Kueue's podset.Merge, the node selector, labels and annotations which Kueue assigned must
    * not change the ones of the pods.
    *
-   * @param flavors The resolved flavors by the pod set name.
+   * @param podSetInfos The resolved KueuePodSetInfo by the pod set name.
    * @param desired The Workload built for the resource, whose pod set templates have the node
    *     selectors, labels and annotations of the pods.
-   * @throws IllegalArgumentException if a value of the flavors conflicts with a pod set template.
-   *     Like Kueue built-in integrations, this is permanent.
+   * @throws IllegalArgumentException if a value of a KueuePodSetInfo conflicts with a pod set
+   *     template. Like Kueue built-in integrations, this is permanent.
    */
   static void checkNoPodTemplateConflict(
-      final Map<String, KueuePodSetFlavor> flavors, final Workload desired) {
-    for (Map.Entry<String, KueuePodSetFlavor> entry : flavors.entrySet()) {
+      final Map<String, KueuePodSetInfo> podSetInfos, final Workload desired) {
+    for (Map.Entry<String, KueuePodSetInfo> entry : podSetInfos.entrySet()) {
       PodTemplateSpec template = podSetTemplate(desired, entry.getKey());
       ObjectMeta metadata =
           template.getMetadata() == null ? new ObjectMeta() : template.getMetadata();
       PodSpec spec = template.getSpec() == null ? new PodSpec() : template.getSpec();
-      KueuePodSetFlavor flavor = entry.getValue();
+      KueuePodSetInfo info = entry.getValue();
       String conflict =
           "The Kueue ResourceFlavors and admission checks conflict with the "
               + entry.getKey()
               + " pods for the ";
-      checkNoConflict(conflict + "node selector", spec.getNodeSelector(), flavor.nodeSelector());
-      checkNoConflict(conflict + "labels", metadata.getLabels(), flavor.labels());
-      checkNoConflict(conflict + "annotations", metadata.getAnnotations(), flavor.annotations());
+      checkNoConflict(conflict + "node selector", spec.getNodeSelector(), info.nodeSelector());
+      checkNoConflict(conflict + "labels", metadata.getLabels(), info.labels());
+      checkNoConflict(conflict + "annotations", metadata.getAnnotations(), info.annotations());
     }
   }
 

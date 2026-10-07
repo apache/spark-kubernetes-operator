@@ -44,7 +44,7 @@ import org.apache.spark.k8s.operator.SparkAppSubmissionWorker;
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.decorators.OwnerResourceDecorator;
 import org.apache.spark.k8s.operator.decorators.SecurityContextDecorator;
-import org.apache.spark.k8s.operator.kueue.KueuePodSetFlavor;
+import org.apache.spark.k8s.operator.kueue.KueuePodSetInfo;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadFactory;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 import org.apache.spark.k8s.operator.spec.BaseApplicationTemplateSpec;
@@ -58,23 +58,23 @@ public final class SparkAppResourceSpecFactory {
   private SparkAppResourceSpecFactory() {}
 
   /**
-   * Builds a SparkAppResourceSpec for the given SparkApplication with the flavors which Kueue
-   * assigned to the driver and executor pod sets. The flavors are applied to the pod templates,
-   * because the executor pods are created by the driver.
+   * Builds a SparkAppResourceSpec for the given SparkApplication with the KueuePodSetInfo which
+   * Kueue assigned to the driver and executor pod sets. It is applied to the pod templates, because
+   * the executor pods are created by the driver.
    *
    * @param app The SparkApplication.
    * @param client The KubernetesClient.
    * @param worker The SparkAppSubmissionWorker.
-   * @param kueuePodSetFlavors The KueuePodSetFlavor by the pod set name.
+   * @param kueuePodSetInfos The KueuePodSetInfo by the pod set name.
    * @return A SparkAppResourceSpec containing the configured resources.
    */
   public static SparkAppResourceSpec buildResourceSpec(
       final SparkApplication app,
       final KubernetesClient client,
       final SparkAppSubmissionWorker worker,
-      final Map<String, KueuePodSetFlavor> kueuePodSetFlavors) {
+      final Map<String, KueuePodSetInfo> kueuePodSetInfos) {
     SparkApplication appToSubmit =
-        kueuePodSetFlavors.isEmpty() ? app : applyKueuePodSetFlavors(app, kueuePodSetFlavors);
+        kueuePodSetInfos.isEmpty() ? app : applyKueuePodSetInfos(app, kueuePodSetInfos);
     Map<String, String> confOverrides = overrideDependencyConf(appToSubmit);
     SparkAppResourceSpec resourceSpec = worker.getResourceSpec(appToSubmit, client, confOverrides);
     cleanUpTempResourcesForApp(appToSubmit, confOverrides);
@@ -86,32 +86,31 @@ public final class SparkAppResourceSpecFactory {
 
   /**
    * Returns a copy of the SparkApplication whose driver and executor pod templates have the
-   * flavors, so that the SparkApplication and its Kueue Workload are not changed.
+   * KueuePodSetInfo, so that the SparkApplication and its Kueue Workload are not changed.
    */
-  private static SparkApplication applyKueuePodSetFlavors(
-      final SparkApplication app, final Map<String, KueuePodSetFlavor> kueuePodSetFlavors) {
+  private static SparkApplication applyKueuePodSetInfos(
+      final SparkApplication app, final Map<String, KueuePodSetInfo> kueuePodSetInfos) {
     SparkApplication copy = ReconcilerUtils.clone(app);
     ApplicationSpec spec = copy.getSpec();
-    KueuePodSetFlavor driverFlavor = kueuePodSetFlavors.get(KueueWorkloadFactory.PODSET_DRIVER);
-    if (driverFlavor != null) {
-      spec.setDriverSpec(applyKueuePodSetFlavor(spec.getDriverSpec(), driverFlavor));
+    KueuePodSetInfo driverInfo = kueuePodSetInfos.get(KueueWorkloadFactory.PODSET_DRIVER);
+    if (driverInfo != null) {
+      spec.setDriverSpec(applyKueuePodSetInfo(spec.getDriverSpec(), driverInfo));
     }
-    KueuePodSetFlavor executorFlavor =
-        kueuePodSetFlavors.get(KueueWorkloadFactory.PODSET_EXECUTOR);
-    if (executorFlavor != null) {
-      spec.setExecutorSpec(applyKueuePodSetFlavor(spec.getExecutorSpec(), executorFlavor));
+    KueuePodSetInfo executorInfo = kueuePodSetInfos.get(KueueWorkloadFactory.PODSET_EXECUTOR);
+    if (executorInfo != null) {
+      spec.setExecutorSpec(applyKueuePodSetInfo(spec.getExecutorSpec(), executorInfo));
     }
     return copy;
   }
 
-  private static BaseApplicationTemplateSpec applyKueuePodSetFlavor(
-      final BaseApplicationTemplateSpec templateSpec, final KueuePodSetFlavor flavor) {
+  private static BaseApplicationTemplateSpec applyKueuePodSetInfo(
+      final BaseApplicationTemplateSpec templateSpec, final KueuePodSetInfo podSetInfo) {
     BaseApplicationTemplateSpec result =
         templateSpec == null ? new BaseApplicationTemplateSpec() : templateSpec;
     if (result.getPodTemplateSpec() == null) {
       result.setPodTemplateSpec(new PodTemplateSpec());
     }
-    flavor.applyTo(result.getPodTemplateSpec());
+    podSetInfo.applyTo(result.getPodTemplateSpec());
     return result;
   }
 
