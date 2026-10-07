@@ -27,6 +27,7 @@
     <exclude name="UnitTestAssertionsShouldIncludeMessage" />
     <exclude name="UnitTestContainsTooManyAsserts" />
     <exclude name="LooseCoupling" />
+    <exclude name="OnDemandImport" />
   </rule>
   <rule ref="category/java/codestyle.xml">
     <exclude name="AtLeastOneConstructor" />
