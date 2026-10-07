@@ -804,6 +804,141 @@ spec:
           kubectl delete clusterqueue "$CLUSTER_QUEUE" --ignore-not-found=true --wait=false
           kubectl delete resourceflavor "$FLAVOR" --ignore-not-found=true --wait=false
           kubectl delete workloadpriorityclass "$LOW_PRIORITY_CLASS" "$PRIORITY_CLASS" --ignore-not-found=true --wait=false
+  - name: spark-application-is-preempted-by-kueue
+    # Each step uses its own queue objects, so that a step never waits for Kueue to finish
+    # deleting the objects of another step.
+    bindings:
+      - name: FLAVOR
+        value: spark-e2e-app-preemption-flavor
+      - name: CLUSTER_QUEUE
+        value: spark-e2e-app-preemption-cluster-queue
+      - name: LOCAL_QUEUE
+        value: spark-e2e-app-preemption-queue
+      - name: LOW_PRIORITY_CLASS
+        value: spark-e2e-app-preemption-low-priority
+      - name: PRIORITY_CLASS
+        value: spark-e2e-app-preemption-high-priority
+    try:
+    - apply:
+        file: kueue-queues.yaml
+    # The quota fits only one application (1 CPU for the driver and 1 for the executor), and a
+    # Workload of a higher priority may preempt one of a lower priority.
+    - script:
+        timeout: 30s
+        env:
+          - name: CLUSTER_QUEUE
+            value: ($CLUSTER_QUEUE)
+        content: |
+          kubectl patch clusterqueue "$CLUSTER_QUEUE" --type json -p \
+            '[{"op": "replace", "path": "/spec/resourceGroups/0/flavors/0/resources/0/nominalQuota", "value": "2"},
+              {"op": "replace", "path": "/spec/resourceGroups/0/flavors/0/resources/1/nominalQuota", "value": "8Gi"},
+              {"op": "add", "path": "/spec/preemption", "value": {"withinClusterQueue": "LowerPriority"}}]'
+    - apply:
+        file: spark-example-preempted.yaml
+    # Its driver and executor are ready, so the eviction below is a preemption, not a
+    # PodsReadyTimeout
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: kueue.x-k8s.io/v1beta2
+          kind: Workload
+          metadata:
+            name: sparkapplication-spark-job-kueue-preempted-test
+            namespace: default
+          status:
+            (conditions[?type == 'PodsReady' && status == 'True'] | length(@)): 1
+    - apply:
+        file: spark-example-prioritized.yaml
+    # Kueue evicts the Workload of the running application, and keeps its quota until the operator
+    # releases the driver and executor first and then the Workload.
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: v1
+          kind: Event
+          metadata:
+            namespace: default
+          involvedObject:
+            kind: SparkApplication
+            name: spark-job-kueue-preempted-test
+          reason: Suspended
+          (contains(message || '', 'evicted by Kueue')): true
+          (contains(message || '', 'Preempted')): true
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: v1
+          kind: Event
+          metadata:
+            namespace: default
+          involvedObject:
+            kind: SparkApplication
+            name: spark-job-kueue-preempted-test
+          reason: Submitted
+          (contains(message || '', 'after its eviction')): true
+    # The application of the higher priority is admitted into the quota which the preempted one
+    # gave back
+    - assert:
+        bindings:
+          - name: SPARK_APP_NAMESPACE
+            value: default
+          - name: SPARK_APPLICATION_NAME
+            value: spark-job-kueue-prioritized-test
+        timeout: 10m
+        file: "../assertions/spark-application/spark-state-transition.yaml"
+    # The preempted application is admitted again with a new Workload once the other one releases
+    # the quota, and runs again with a new attempt, which does not count as a restart, even with
+    # the default restartPolicy Never
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: spark.apache.org/v1
+          kind: SparkApplication
+          metadata:
+            name: spark-job-kueue-preempted-test
+            namespace: default
+          status:
+            currentState:
+              currentStateSummary: RunningHealthy
+            currentAttemptSummary:
+              attemptInfo:
+                id: 1
+                restartCounter: 0
+    catch:
+    - describe:
+        apiVersion: spark.apache.org/v1
+        kind: SparkApplication
+        namespace: default
+    - describe:
+        apiVersion: kueue.x-k8s.io/v1beta2
+        kind: Workload
+        namespace: default
+    - describe:
+        apiVersion: kueue.x-k8s.io/v1beta2
+        kind: ClusterQueue
+    - events:
+        namespace: default
+    finally:
+    - script:
+        timeout: 120s
+        env:
+          - name: FLAVOR
+            value: ($FLAVOR)
+          - name: CLUSTER_QUEUE
+            value: ($CLUSTER_QUEUE)
+          - name: LOCAL_QUEUE
+            value: ($LOCAL_QUEUE)
+          - name: LOW_PRIORITY_CLASS
+            value: ($LOW_PRIORITY_CLASS)
+          - name: PRIORITY_CLASS
+            value: ($PRIORITY_CLASS)
+        content: |
+          kubectl delete sparkapplication spark-job-kueue-prioritized-test spark-job-kueue-preempted-test -n default --ignore-not-found=true
+          # Kueue finalizers may delay the deletion, which later steps do not depend on.
+          kubectl delete localqueue "$LOCAL_QUEUE" -n default --ignore-not-found=true --wait=false
+          kubectl delete clusterqueue "$CLUSTER_QUEUE" --ignore-not-found=true --wait=false
+          kubectl delete resourceflavor "$FLAVOR" --ignore-not-found=true --wait=false
+          kubectl delete workloadpriorityclass "$LOW_PRIORITY_CLASS" "$PRIORITY_CLASS" --ignore-not-found=true --wait=false
   - name: spark-cluster-whose-pods-are-not-ready-is-evicted-by-kueue
     # Each step uses its own queue objects, so that a step never waits for Kueue to finish
     # deleting the objects of another step.
@@ -1027,7 +1162,9 @@ spec:
             namespace: default
           status:
             (conditions[?type == 'Evicted' && status == 'True' && reason == 'PodsReadyTimeout'] | length(@)): 1
-    # A running application is not released on it yet
+    # Like a running SparkCluster, the operator releases the driver and executor first and then the
+    # Workload once its requeue backoff, which the CI shortens to 10 seconds, elapses, and the
+    # application is queued again with a new attempt.
     - assert:
         timeout: 60s
         resource:
@@ -1038,70 +1175,24 @@ spec:
           involvedObject:
             kind: SparkApplication
             name: spark-job-kueue-executors-not-ready-test
-          type: Warning
-          reason: KueueEvictionIgnored
+          reason: Suspended
+          (contains(message || '', 'evicted by Kueue')): true
           (contains(message || '', 'PodsReadyTimeout')): true
     - assert:
-        timeout: 30s
-        resource:
-          apiVersion: spark.apache.org/v1
-          kind: SparkApplication
-          metadata:
-            name: spark-job-kueue-executors-not-ready-test
-            namespace: default
-          status:
-            currentState:
-              currentStateSummary: RunningHealthy
-    # As the event advises, suspending the application releases its driver and executors, and then
-    # the quota which its evicted Workload keeps
-    - script:
-        timeout: 30s
-        content: |
-          kubectl patch sparkapplication spark-job-kueue-executors-not-ready-test -n default --type merge -p '{"spec":{"suspend":true}}'
-    - assert:
-        timeout: 60s
-        resource:
-          apiVersion: spark.apache.org/v1
-          kind: SparkApplication
-          metadata:
-            name: spark-job-kueue-executors-not-ready-test
-            namespace: default
-          status:
-            currentState:
-              currentStateSummary: Suspended
-    - error:
-        timeout: 120s
+        timeout: 5m
         resource:
           apiVersion: v1
-          kind: Pod
+          kind: Event
           metadata:
             namespace: default
-            labels:
-              spark.operator/spark-app-name: spark-job-kueue-executors-not-ready-test
-    - error:
-        timeout: 120s
-        resource:
-          apiVersion: kueue.x-k8s.io/v1beta2
-          kind: Workload
-          metadata:
-            name: sparkapplication-spark-job-kueue-executors-not-ready-test
-            namespace: default
-    - assert:
-        timeout: 60s
-        resource:
-          apiVersion: kueue.x-k8s.io/v1beta2
-          kind: ClusterQueue
-          metadata:
-            name: ($CLUSTER_QUEUE)
-          status:
-            admittedWorkloads: 0
-            reservingWorkloads: 0
-    # Resuming queues it again with a new attempt and a new Workload, which Kueue admits into the
-    # quota it gave back
-    - script:
-        timeout: 30s
-        content: |
-          kubectl patch sparkapplication spark-job-kueue-executors-not-ready-test -n default --type merge -p '{"spec":{"suspend":false}}'
+          involvedObject:
+            kind: SparkApplication
+            name: spark-job-kueue-executors-not-ready-test
+          reason: Submitted
+          (contains(message || '', 'after its eviction')): true
+    # The new attempt does not count as a restart, even with the default restartPolicy Never, and
+    # runs again on the quota which Kueue admits its new Workload into. It is evicted again once the
+    # waitForPodsReady timeout elapses, since its executor is never scheduled.
     - assert:
         timeout: 5m
         resource:
@@ -1113,15 +1204,21 @@ spec:
           status:
             currentState:
               currentStateSummary: RunningHealthy
+            currentAttemptSummary:
+              attemptInfo:
+                id: 1
+                restartCounter: 0
     - assert:
         timeout: 60s
         resource:
           apiVersion: kueue.x-k8s.io/v1beta2
-          kind: ClusterQueue
+          kind: Workload
           metadata:
-            name: ($CLUSTER_QUEUE)
+            name: sparkapplication-spark-job-kueue-executors-not-ready-test
+            namespace: default
           status:
-            admittedWorkloads: 1
+            (conditions[?type == 'Admitted' && status == 'True'] | length(@)): 1
+            (conditions[?type == 'Evicted' && status == 'True'] | length(@)): 0
     catch:
     - describe:
         apiVersion: spark.apache.org/v1

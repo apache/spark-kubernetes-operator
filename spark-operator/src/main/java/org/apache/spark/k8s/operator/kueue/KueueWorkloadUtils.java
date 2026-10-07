@@ -923,7 +923,7 @@ public final class KueueWorkloadUtils {
    * timeout of Kueue does not evict it, and with `blockAdmission`, other workloads are admitted.
    * Unlike the built-in Kueue integrations, the condition is not set back to `False` when a pod is
    * lost later, e.g. an executor which Spark replaces, since an eviction would restart a running
-   * cluster with its applications, and is not acted on for a running application.
+   * cluster with its applications, or the attempt of a running application from scratch.
    *
    * <p>The informer cache answers whether the condition is still missing, so that a resource which
    * reports it already, or whose pods are not ready yet, costs no request. Like {@link
