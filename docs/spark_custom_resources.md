@@ -584,8 +584,11 @@ spec:
   a lost node, no longer holds the Kueue `Workload`, so that it does not hold the quota forever. The
   cluster still stays `Suspended` until such a pod is gone, since it keeps the name of the master or
   worker to create, and the message of its `Suspended` state names such pods.
-* An operator version without the `Suspended` state cannot read a `SparkCluster` which is
-  `Suspended`, so resume or delete such clusters before downgrading the operator.
+* An operator version without the `Suspended` state cannot read a `SparkCluster` whose status
+  has it, even after the cluster is resumed. A resumed `SparkCluster` keeps it unless
+  `spark.kubernetes.operator.reconciler.trimStateTransitionHistoryEnabled` drops the history of
+  its previous run. So delete such clusters, or resume the suspended ones with that setting
+  enabled, before downgrading the operator.
 * Deleting a suspended resource works as usual.
 * This is the building block for external job queueing systems. See [Kueue](#kueue) for the
   built-in integration.
@@ -718,8 +721,9 @@ spec:
   by disabling `operatorRbac.kueue.enabled`, the operator no longer deletes them, and a `Workload`
   left behind keeps its quota until its owner is deleted. While the integration stays enabled
   without the access, a suspended `SparkCluster` does not resume, and a stopping
-  `SparkApplication` with a `Workload` neither terminates nor restarts, until its `Workload` is
-  gone or the access is restored. Before disabling either, let the queued
+  `SparkApplication` neither terminates nor restarts, until the access is restored or the
+  integration is disabled, since the operator keeps deleting their `Workload`s by name, which is
+  denied even once a `Workload` is gone. Before disabling either, let the queued
   `SparkApplication`s finish or suspend those which have not started yet, and suspend the queued
   `SparkCluster`s, so that the operator releases their `Workload`s itself. Then list the remaining
   ones with `kubectl get workloads -A -l spark.operator/spark-app-name` and
