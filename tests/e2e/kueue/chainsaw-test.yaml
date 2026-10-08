@@ -24,8 +24,16 @@ spec:
   steps:
   - name: spark-application-without-queue-name-is-not-queued
     try:
+    # `KueueWorkloadFactory` rejects dynamic allocation, so an example using it could never
+    # produce a Workload, and the Workload check below would always pass. A single static
+    # executor keeps this eligible and fits next to the Kueue controller on the test node.
     - apply:
-        file: spark-example.yaml
+        bindings:
+          - name: SPARK_APP_NAMESPACE
+            value: default
+          - name: SPARK_APPLICATION_NAME
+            value: spark-job-kueue-test
+        file: "../fixtures/spark-application/spark-example.yaml"
     - assert:
         bindings:
           - name: SPARK_APP_NAMESPACE

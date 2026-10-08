@@ -91,6 +91,109 @@ Multiple Operator instances can coexist on the same cluster (for example one per
 tenant) as long as each uses a distinct ClusterRole / ClusterRoleBinding name and a disjoint set of
 watched namespaces. See [operations.md](operations.md) for a concrete multi-instance example.
 
+## Kueue Admission and Workload Lifecycle
+
+A `SparkApplication` or a `SparkCluster` labeled with `kueue.x-k8s.io/queue-name` is queued by
+[Kueue](https://kueue.sigs.k8s.io/) when `spark.kubernetes.operator.kueue.enabled` is set, which the
+Helm chart sets with `operatorRbac.kueue.enabled` along with the RBAC rules for Kueue. The setting
+also registers the `Workload` informer, while without it, the label is ignored with the
+`KueueDisabled` warning event and the Operator does not access Kueue at all. For a queued resource,
+the Operator creates a Kueue `Workload` with the pod sets of its driver and executors (or master and
+workers), and requests the driver (or the master and workers) only once Kueue admits the
+`Workload`. Applications and clusters share this mechanism. This section relates it to the
+reconciliation and the state machines below, while [Suspend](spark_custom_resources.md#suspend)
+and [Kueue](spark_custom_resources.md#kueue) describe the behavior in detail.
+
+Waiting for the admission is not a state but a hold within the initialization step, like waiting
+for `spec.suspend` to be cleared, so the resource stays in `Submitted`, or `ScheduledToRestart` for
+a restarted application attempt, meanwhile. `AppInitStep` and `ClusterInitStep` decide as follows.
+
+```mermaid
+flowchart TD
+    init([Submitted or ScheduledToRestart]) --> suspend{spec.suspend?}
+    suspend -->|set, nothing requested yet| suspendHold[Release the Workload, SuspendHeld event]
+    suspend -->|unset, or requested already| queued{Queue label and Kueue enabled?}
+    queued -->|no| request[Request the driver, or the master and workers]
+    queued -->|yes| requested{Driver or master requested already?}
+    requested -->|yes| reapply[Apply the flavors of the earlier admission]
+    requested -->|no| admission{Admission of the Workload}
+    admission -->|PENDING or BACKOFF| kueueHold[KueueAdmissionPending event]
+    admission -->|STALE| stale[Delete the Workload to create it again]
+    admission -->|ADMITTED| admitted[Apply the flavors and pod set updates, KueueAdmitted event]
+    reapply --> request
+    admitted --> request
+    request --> next([DriverRequested or RunningHealthy])
+    suspendHold --> hold([Stay in the same state until the next reconciliation])
+    kueueHold --> hold
+    stale --> hold
+```
+
+* `spec.suspend` comes first (`SuspendUtils`), so a suspended resource is held without a
+  `Workload`, and suspending a queued one releases its `Workload`. A cluster resumed from
+  `Suspended` moves back to `Suspended` instead of being held. After the restart backoff of a
+  restarted attempt, `KueueWorkloadUtils` creates the `Workload` unless it exists, and finds it
+  `ADMITTED`, `PENDING`, `BACKOFF` if it is evicted and its requeue backoff has not elapsed, or
+  `STALE` if it is owned by another resource, still pending for an outdated spec, evicted after the
+  backoff, or being deleted.
+* Once the `Workload` is admitted, the `nodeLabels` and `tolerations` of the `ResourceFlavor`s
+  assigned to it and the pod set updates of its admission checks are applied to the driver and
+  executor pod templates of a copy of the `SparkApplication`, which the driver resources are built
+  from, or to the pod templates of the master and worker `StatefulSet`s. Neither the custom
+  resource nor the `Workload` is changed.
+* A driver or master which was requested already, e.g. when the status update after the request
+  failed, is not held and requests no admission, since it has to complete the initialization
+  rather than run unobserved. Its resources are applied again in that reconciliation, so the
+  flavors of the earlier admission are applied again as well, rather than dropped from them.
+* A hold changes no state. The initial `Submitted` state of a first attempt is not persisted to the
+  API server until the next state, so `kubectl get` shows an empty `Current State`, and the
+  `SuspendHeld`, `KueueAdmissionPending` and `KueueAdmitted`
+  [events](configuration.md#kubernetes-events) show the progress instead. A hold completes the
+  reconciliation with a requeue, after `spark.kubernetes.operator.reconciler.intervalSeconds` while
+  the `Workload` is pending, or after
+  `spark.kubernetes.operator.reconciler.suspendHoldRequeueIntervalSeconds` for `spec.suspend`, and
+  the next reconciliation decides again in the same order, which requests the admission again and
+  republishes the event.
+* The `Workload` informer reconciles the resource as soon as the admission, the eviction or the
+  activation of its `Workload` changes, or the `Workload` is deleted, so that an admission starts
+  the resource right away rather than at the next requeue. It ignores the creation of the
+  `Workload` and its other updates, e.g. of the status of a pending one, which would use up the
+  per-resource rate limit.
+* A `Workload` which Kueue evicts before the driver or master is requested is kept until the
+  requeue backoff which Kueue records on it elapses, since its deletion would drop the backoff, and
+  then it is deleted and created again, which queues the resource again. A deactivated `Workload`
+  is kept as it is until it is reactivated, since Kueue neither counts nor admits it, and a new one
+  would come back active.
+* While the resource runs, the Operator records the `PodsReady` condition on its `Workload` once
+  as many pods of each pod set as its `count` are ready, so that the `waitForPodsReady` timeout of
+  Kueue does not evict it. `AppRunningStep` records it from `DriverReady` on, and
+  `ClusterSuspendStep` while the cluster is `RunningHealthy`, which a cluster enters without
+  waiting for its pods. It is recorded only once and never set back to `False`, since an eviction
+  for a lost executor or worker, which Spark replaces, would run the resource again from scratch.
+* The `Workload` is released at the following points. Kueue would admit another workload into the
+  quota which terminating pods still occupy, so the Operator deletes it only after the pods are
+  gone, unless they are stuck terminating, and the resource keeps its state until then.
+  * When an application releases its resources, at the end of an attempt, when their retention
+    expires, or when the application is deleted, `AppCleanUpStep` deletes the `Workload` before the
+    application moves to `ResourceReleased` or `ScheduledToRestart`. The `Workload` name is fixed
+    per resource, so a restarted attempt is queued with a new `Workload` rather than run on this
+    admission.
+  * When an application retains its resources as `TerminatedWithoutReleaseResources` after
+    `Succeeded`, `Failed` or `DriverEvicted`, its `Workload` gets the Kueue `Finished` condition
+    instead, which releases the quota while keeping the `Workload` with the resources, since the
+    driver pod is in a terminal phase and no attempt follows.
+  * When a resource enters `Suspended` by `spec.suspend` or by the eviction of its `Workload`,
+    `AppSuspendStep` or `ClusterSuspendStep` releases the driver, or the master and workers, and
+    then the `Workload`, an evicted one after its requeue backoff, and a deactivated one after it is
+    reactivated. The resource then moves to `Submitted` and is queued again with a new `Workload`,
+    once `spec.suspend` is cleared if it is set. The `suspendReason` of the `Suspended` state,
+    `SpecSuspend` or `KueueEviction`, tells the two causes apart.
+  * When a `SparkCluster` is deleted, its `Workload` is garbage collected through its
+    `ownerReference`, like the other resources of the cluster.
+* The Operator writes none of the `Workload` status which Kueue owns, such as the admission or the
+  requeue state. It records only the `PodsReady` and `Finished` conditions, and releases or
+  requeues a resource by deleting its `Workload` and creating a new one, so that the integration
+  does not depend on how Kueue manages that status.
+
 ## Application State Transition
 
 ```mermaid
@@ -165,6 +268,9 @@ stateDiagram-v2
 ```
 
 * Spark applications are expected to run from submitted to succeeded before releasing resources
+* An application stays in `Submitted` or `ScheduledToRestart` while it is held by `spec.suspend` or
+  waits for the Kueue admission, since neither is a state of its own. See
+  [Kueue Admission and Workload Lifecycle](#kueue-admission-and-workload-lifecycle).
 * Once the driver is requested, an application moves to `Succeeded`, `Failed` or `DriverEvicted`
   from any of the states above whenever the driver pod terminates or is evicted. It also moves to
   `Failed` if the driver pod is removed unexpectedly.
@@ -225,6 +331,9 @@ stateDiagram-v2
   [Kueue](spark_custom_resources.md#kueue) is suspended as well when Kueue evicts its `Workload`,
   and moves to `Submitted` once its master and workers are released and the requeue backoff of its
   `Workload` elapsed, or once its `Workload` is reactivated if it was deactivated.
+* Likewise, a cluster stays in `Submitted` while it waits for the Kueue admission, or while it is
+  held by `spec.suspend` before it ever ran. See
+  [Kueue Admission and Workload Lifecycle](#kueue-admission-and-workload-lifecycle).
 * Apart from `spec.suspend` and a Kueue eviction, a cluster leaves `RunningHealthy`, `Suspended` or
   `Failed` only when its custom resource is deleted. At that point, the K8s resources created for the cluster are
   garbage collected through their `ownerReference` to the `SparkCluster` custom resource.
