@@ -19,6 +19,7 @@
 
 package org.apache.spark.k8s.operator.reconciler.reconcilesteps;
 
+import static org.apache.spark.k8s.operator.Constants.HTTP_TOO_MANY_REQUESTS;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.SUSPEND_HOLD_REQUEUE_INTERVAL_SECONDS;
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.completeAndDefaultRequeue;
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.completeAndRequeueAfter;
@@ -100,8 +101,10 @@ final class SuspendUtils {
    * is neither held, which would claim in an event that none was requested and release the Kueue
    * quota of a running driver or master, nor started. Like a failed Kueue admission request, a
    * transport level failure is not published, since writing an event would only add load to an API
-   * server that is often the cause of it. Anything else is, since a suspended resource may have no
-   * persisted status to show it and would otherwise be retried without any signal.
+   * server that is often the cause of it. A throttled read is not published for the same reason,
+   * since the API server is overloaded then by definition. Anything else is, since a suspended
+   * resource may have no persisted status to show it and would otherwise be retried without any
+   * signal.
    *
    * @param context The context of the suspended resource.
    * @param e The failure to report.
@@ -118,7 +121,7 @@ final class SuspendUtils {
             + context.getResource().getKind()
             + " was requested";
     log.warn("{}, will retry.", what, e);
-    if (!ReconcilerUtils.isTransientError(e)) {
+    if (!ReconcilerUtils.isTransientError(e) && e.getCode() != HTTP_TOO_MANY_REQUESTS) {
       EventUtils.warn(
           context.getEventRecorder(),
           EventUtils.REASON_SUSPEND_CHECK_FAILED,

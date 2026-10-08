@@ -545,13 +545,12 @@ minutes by default while the hold lasts, so that it outlives the event retention
 server. An application held later, in `ScheduledToRestart`, or in `Submitted` after it was resumed
 as described below, keeps the status which was already written and gets the same event, since that
 status says that a restart is due or that the application is resumed, not that the next attempt is
-withheld. If the driver (or master) cannot be read to check whether it was requested
-already, e.g. since the API server rejects the read, the resource is neither held nor started, and
-the `SuspendCheckFailed` event is published instead when enabled, until the check succeeds. A
-failure at the transport level, such as a timeout, is retried without the event. The event is
-not retracted: once the check succeeds again, it may stay the newest event until the next
-`SuspendHeld`, and a failure which continues only at the transport level no longer refreshes it.
-The operator log shows whether the check still fails.
+withheld. If the driver, or the master of a `SparkCluster` which has not started yet, cannot be
+read to check whether it was requested already, e.g. since the API server rejects the read, the
+resource is neither held nor started, and the `SuspendCheckFailed` event is published instead by
+default, until the check succeeds. A failure at the transport level, such as a timeout, or a
+throttled read is retried without the event. Once the check succeeds again, the next `SuspendHeld`
+event is published right away and supersedes it.
 
 ``` yaml
 apiVersion: spark.apache.org/v1
@@ -745,9 +744,9 @@ spec:
   `spark.kubernetes.{driver,executor}.{label,annotation}.*`, are not checked, and Spark's value
   wins over an update of the same key.
 * `spec.suspend` takes precedence. A suspended resource does not get a `Workload`, and suspending
-  a queued resource deletes its `Workload` to release the quota. While its driver (or master)
-  cannot be read to check whether it was requested, as described in [Suspend](#suspend), the
-  `Workload` is kept instead, and a pending one may still be admitted. Suspending a running
+  a queued resource deletes its `Workload` to release the quota. While its driver, or the master
+  of a `SparkCluster` which has not started yet, cannot be read to check whether it was requested,
+  as described in [Suspend](#suspend), the `Workload` is kept instead, and a pending one may still be admitted. Suspending a running
   `SparkApplication` deletes its `Workload` only after its driver and executor pods are gone, or
   are still terminating `forceTerminationGracePeriodMillis` after their grace period ended, and
   suspending a running `SparkCluster` only after its master and worker pods are gone, or are still
@@ -783,8 +782,8 @@ spec:
   denied even once a `Workload` is gone. Before disabling either, let the queued
   `SparkApplication`s finish or suspend them, and suspend the queued
   `SparkCluster`s, so that the operator releases their `Workload`s itself. A suspended resource
-  whose driver (or master) cannot be read keeps its `Workload` until it can, see
-  [Suspend](#suspend). Then list the remaining ones with
+  whose driver, or whose master which has not started yet, cannot be read keeps its `Workload`
+  until it can, see [Suspend](#suspend). Then list the remaining ones with
   `kubectl get workloads -A -l spark.operator/spark-app-name` and
   `kubectl get workloads -A -l spark.operator/spark-cluster-name`, and delete only those whose
   owner has no running pods, e.g. of a `Failed` `SparkCluster`.

@@ -31,8 +31,10 @@ import static org.apache.spark.k8s.operator.utils.SparkExceptionUtils.buildGener
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
+import io.fabric8.kubernetes.api.model.OwnerReference;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.apps.StatefulSet;
 import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicy;
@@ -70,7 +72,7 @@ public final class ClusterInitStep extends ClusterReconcileStep {
     }
     SparkCluster cluster = context.getResource();
     if (cluster.getSpec().isSuspend()) {
-      if (cluster.getStatus().getStateTransitionHistory().lastKey() == 0) {
+      if (isInitialSubmission(cluster)) {
         final boolean masterRequested;
         try {
           masterRequested = isMasterRequested(context);
@@ -93,7 +95,9 @@ public final class ClusterInitStep extends ClusterReconcileStep {
       // were requested, rather than applying every resource again. So the master of a resumed or
       // requeued cluster is not looked up.
       return appendStateAndImmediateRequeue(
-          context, statusRecorder, new ClusterState(Suspended, CLUSTER_SUSPENDED_MESSAGE, SuspendReason.SpecSuspend));
+          context,
+          statusRecorder,
+          new ClusterState(Suspended, CLUSTER_SUSPENDED_MESSAGE, SuspendReason.SpecSuspend));
     }
     if (cluster.getStatus().getPreviousAttemptSummary() != null) {
       Instant lastTransitionTime = Instant.parse(currentState.getLastTransitionTime());
@@ -260,11 +264,27 @@ public final class ClusterInitStep extends ClusterReconcileStep {
   }
 
   /**
-   * Checks whether the master StatefulSet has already been requested, e.g. when the status update
-   * to RunningHealthy failed after the resources were created.
+   * Checks whether the cluster has had no state but its initial Submitted state, which is never
+   * persisted while it is suspended. A cluster resumed from Suspended or queued again after a Kueue
+   * eviction has persisted another Submitted state instead, at a later key, since the keys of the
+   * state transition history keep increasing even when the history is trimmed. Only a cluster in
+   * its initial submission may have a master which was never requested, so only it looks the
+   * master up while suspended. A change which persists another state before the master is
+   * requested must keep this check in step with it.
+   *
+   * @param cluster The SparkCluster.
+   * @return True if the cluster is in its initial submission, false otherwise.
+   */
+  private static boolean isInitialSubmission(SparkCluster cluster) {
+    return cluster.getStatus().getStateTransitionHistory().lastKey() == 0L;
+  }
+
+  /**
+   * Checks whether the master StatefulSet has already been requested for this cluster, e.g. when
+   * the status update to RunningHealthy failed after the resources were created.
    *
    * @param context The SparkClusterContext for the cluster.
-   * @return True if the master StatefulSet exists, false otherwise.
+   * @return True if the master StatefulSet exists and is owned by this cluster, false otherwise.
    * @throws KubernetesClientException if the lookup fails, so that a running master is not
    *     mistaken for one that was never requested.
    */
@@ -273,6 +293,18 @@ public final class ClusterInitStep extends ClusterReconcileStep {
     // read as absent, and getResourceStrictly does the same for a transient failure, a 500 or a
     // 429, since the create path it serves re-reads anyway. Either would release the Kueue quota
     // of a running master. Only a 404 may mean absent, which the client reports as null.
-    return context.getClient().resource(context.getMasterStatefulSetSpec()).get() != null;
+    StatefulSet master = context.getClient().resource(context.getMasterStatefulSetSpec()).get();
+    // The name alone is not enough: a StatefulSet left by a deleted SparkCluster of the same
+    // name, which is still being garbage collected, was not requested by this one, and would
+    // otherwise move a recreated cluster which never ran to Suspended.
+    return master != null && isOwnedBy(master, context.getResource());
+  }
+
+  private static boolean isOwnedBy(StatefulSet statefulSet, SparkCluster cluster) {
+    String uid = cluster.getMetadata().getUid();
+    List<OwnerReference> ownerReferences = statefulSet.getMetadata().getOwnerReferences();
+    return uid != null
+        && ownerReferences != null
+        && ownerReferences.stream().anyMatch(reference -> uid.equals(reference.getUid()));
   }
 }
