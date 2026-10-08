@@ -310,23 +310,33 @@ class ClusterInitStepTest {
     verifyNoInteractions(eventRecorder);
   }
 
-  @Test
-  void resumedClusterSuspendedAgainGoesBackToSuspended() {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void resumedOrRequeuedClusterSuspendedAgainGoesBackToSuspended(boolean requeued) {
     ClusterInitStep clusterInitStep = new ClusterInitStep();
     SparkClusterContext mockContext = mock(SparkClusterContext.class);
     SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
     when(recorder.appendNewStateAndPersist(any(), any())).thenReturn(true);
-    SparkCluster cluster = buildCluster();
-    // Resumed from Suspended: the persisted Submitted state follows the states of the earlier run
+    SparkCluster cluster = buildKueueCluster();
+    // Resumed from Suspended, or queued again after a Kueue eviction: the persisted Submitted
+    // state follows the states of the earlier run
     cluster.setStatus(
         cluster
             .getStatus()
-            .appendNewState(new ClusterState(ClusterStateSummary.Suspended, ""))
             .appendNewState(
-                new ClusterState(ClusterStateSummary.Submitted, Constants.CLUSTER_RESUMED_MESSAGE),
+                new ClusterState(
+                    ClusterStateSummary.Suspended,
+                    "",
+                    requeued ? SuspendReason.KueueEviction : SuspendReason.SpecSuspend))
+            .appendNewState(
+                new ClusterState(
+                    ClusterStateSummary.Submitted,
+                    requeued
+                        ? Constants.CLUSTER_REQUEUED_MESSAGE
+                        : Constants.CLUSTER_RESUMED_MESSAGE),
                 true));
     cluster.getSpec().setSuspend(true);
-    // Not stubbed: a read would find a master, but the cluster must not look it up at all
+    // Not stubbed: a read would find a master or a Workload, but the cluster must look up neither
     KubernetesClient mockClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
     when(mockContext.getResource()).thenReturn(cluster);
     when(mockContext.getClient()).thenReturn(mockClient);
@@ -397,6 +407,32 @@ class ClusterInitStepTest {
     verify(mockClient, never()).resources(Workload.class);
     verify(mockContext, never()).getMasterServiceSpec();
     verify(mockContext, never()).getEventRecorder();
+  }
+
+  @Test
+  void suspendedClusterWithLeftoverMasterOfDeletedClusterIsHeld() {
+    // A StatefulSet of the same name left by a deleted SparkCluster, which is still being garbage
+    // collected, was not requested by this cluster, so it must not go to Suspended as if it ran
+    ClusterInitStep clusterInitStep = new ClusterInitStep();
+    SparkClusterContext mockContext = mock(SparkClusterContext.class);
+    SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
+    SparkCluster cluster = buildCluster();
+    cluster.getSpec().setSuspend(true);
+    StatefulSet leftover = statefulSet("cluster1-master");
+    leftover.getMetadata().getOwnerReferences().get(0).setUid("deleted-uid");
+    KubernetesClient mockClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    stubWorkloadRead(mockClient, null);
+    when(mockClient.resource(masterStatefulSetSpec).get()).thenReturn(leftover);
+    when(mockContext.getResource()).thenReturn(cluster);
+    when(mockContext.getClient()).thenReturn(mockClient);
+    when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+
+    ReconcileProgress progress = clusterInitStep.reconcile(mockContext, recorder);
+
+    Assertions.assertEquals(SUSPEND_HOLD_PROGRESS, progress);
+    verify(recorder, never()).appendNewStateAndPersist(any(), any());
+    Assertions.assertEquals(EventUtils.REASON_SUSPEND_HELD, captureEvents(1).get(0).reason());
   }
 
   @Test
@@ -831,11 +867,13 @@ class ClusterInitStepTest {
     verifyNoInteractions(eventRecorder);
   }
 
-  @Test
-  void suspendedClusterWithUnverifiableMasterIsNotHeld() {
+  @ParameterizedTest
+  @ValueSource(ints = {503, 429})
+  void suspendedClusterWithUnverifiableMasterIsNotHeld(int code) {
     // A failed lookup is not an answer: the master may be running, so the cluster must not be
     // held with an event claiming that none was requested, and its Kueue quota must not be
-    // released either
+    // released either. Like a transport level failure, a throttled read publishes no event, which
+    // would only add load to an overloaded API server.
     ClusterInitStep clusterInitStep = new ClusterInitStep();
     SparkClusterContext mockContext = mock(SparkClusterContext.class);
     SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
@@ -843,7 +881,7 @@ class ClusterInitStepTest {
     cluster.getSpec().setSuspend(true);
     KubernetesClient mockClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
     when(mockClient.resource(masterStatefulSetSpec).get())
-        .thenThrow(new KubernetesClientException("unavailable", 503, null));
+        .thenThrow(new KubernetesClientException("unavailable", code, null));
     when(mockContext.getResource()).thenReturn(cluster);
     when(mockContext.getClient()).thenReturn(mockClient);
     when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
@@ -862,7 +900,7 @@ class ClusterInitStepTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {403, 429, 500})
+  @ValueSource(ints = {403, 500})
   void suspendedClusterWithPersistentlyUnverifiableMasterPublishesEvent(int code) {
     // Unlike a transport level failure, a persistent one is reported, since a suspended cluster
     // has no persisted status to show it. The event must not claim that no master was requested.
@@ -1213,7 +1251,6 @@ class ClusterInitStepTest {
 
   private SparkCluster buildKueueCluster() {
     SparkCluster cluster = buildCluster();
-    cluster.getMetadata().setUid("cluster-uid");
     cluster.getMetadata().setLabels(Map.of(Constants.LABEL_QUEUE_NAME, "cluster-queue"));
     cluster.setSpec(
         ClusterSpec.builder()
@@ -1265,7 +1302,11 @@ class ClusterInitStepTest {
   private SparkCluster buildCluster() {
     SparkCluster cluster = new SparkCluster();
     cluster.setMetadata(
-        new ObjectMetaBuilder().withName("cluster1").withNamespace("default").build());
+        new ObjectMetaBuilder()
+            .withName("cluster1")
+            .withNamespace("default")
+            .withUid("cluster-uid")
+            .build());
     return cluster;
   }
 
@@ -1274,6 +1315,11 @@ class ClusterInitStepTest {
         .withNewMetadata()
         .withName(name)
         .withNamespace("default")
+        .addNewOwnerReference()
+        .withKind("SparkCluster")
+        .withName("cluster1")
+        .withUid("cluster-uid")
+        .endOwnerReference()
         .endMetadata()
         .withNewSpec()
         .withReplicas(1)

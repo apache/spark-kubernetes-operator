@@ -377,6 +377,36 @@ class ConfigurableEventRecorderTest {
   }
 
   @Test
+  void publishesARepeatedNormalEventAfterAWarningOnTheSameResource() {
+    // A Normal event repeated after a Warning says that the warning no longer applies, e.g.
+    // SuspendHeld once the check which SuspendCheckFailed reported succeeds again, so it is not
+    // dropped, or the warning would stay the newest event until the interval ends.
+    setMinIntervalSeconds(300L);
+    Context<?> context = contextOf("uid-1");
+    Context<?> other = contextOf("uid-2");
+    EventRecord held = EventRecord.normal("SuspendHeld", "held");
+    EventRecord otherHeld = EventRecord.normal("SuspendHeld", "held");
+    EventRecord failed = EventRecord.warning("SuspendCheckFailed", "boom");
+    EventRecord heldAgain = EventRecord.normal("SuspendHeld", "held");
+
+    timedRecorder.record(held, context);
+    timedRecorder.record(otherHeld, other);
+    elapseSeconds(60L);
+    timedRecorder.record(failed, context);
+    elapseSeconds(60L);
+    timedRecorder.record(heldAgain, context);
+    timedRecorder.record(EventRecord.normal("SuspendHeld", "held"), context);
+    // Another resource is not affected by the warning
+    timedRecorder.record(EventRecord.normal("SuspendHeld", "held"), other);
+
+    verify(delegate).record(held, context);
+    verify(delegate).record(otherHeld, other);
+    verify(delegate).record(failed, context);
+    verify(delegate).record(heldAgain, context);
+    verifyNoMoreInteractions(delegate);
+  }
+
+  @Test
   void limitsEachReasonIndependently() {
     setMinIntervalSeconds(300L);
     Context<?> context = contextOf("uid-1");

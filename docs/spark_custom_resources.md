@@ -743,17 +743,17 @@ spec:
   executor pods itself, e.g. `spark-role` or the ones of
   `spark.kubernetes.{driver,executor}.{label,annotation}.*`, are not checked, and Spark's value
   wins over an update of the same key.
-* `spec.suspend` takes precedence. A suspended resource does not get a `Workload`, and suspending
-  a queued resource deletes its `Workload` to release the quota. While its driver, or the master
-  of a `SparkCluster` which has not started yet, cannot be read to check whether it was requested,
-  as described in [Suspend](#suspend), the `Workload` is kept instead, and a pending one may still be admitted. Suspending a running
-  `SparkApplication` deletes its `Workload` only after its driver and executor pods are gone, or
-  are still terminating `forceTerminationGracePeriodMillis` after their grace period ended, and
-  suspending a running `SparkCluster` only after its master and worker pods are gone, or are still
-  terminating 5 minutes after their grace period ended, since terminating pods occupy the quota.
-  The `Workload` is deleted even if the `kueue.x-k8s.io/queue-name` label was removed after the
-  admission. The resource is queued again when it is resumed with the `kueue.x-k8s.io/queue-name`
-  label.
+* `spec.suspend` takes precedence. A suspended resource does not get a `Workload`, and suspending a
+  queued resource deletes its `Workload` to release the quota. While its driver, or the master of a
+  `SparkCluster` which has not started yet, cannot be read to check whether it was requested, as
+  described in [Suspend](#suspend), the `Workload` is kept instead, and a pending one may still be
+  admitted. Suspending a running `SparkApplication` deletes its `Workload` only after its driver and
+  executor pods are gone, or are still terminating `forceTerminationGracePeriodMillis` after their
+  grace period ended, and suspending a running `SparkCluster` only after its master and worker pods
+  are gone, or are still terminating 5 minutes after their grace period ended, since terminating
+  pods occupy the quota. The `Workload` is deleted even if the `kueue.x-k8s.io/queue-name` label was
+  removed after the admission. The resource is queued again when it is resumed with the
+  `kueue.x-k8s.io/queue-name` label.
 * Like the webhooks of Kueue built-in integrations, which let only a suspended job change its queue,
   the Helm chart installs a `ValidatingAdmissionPolicy` with `operatorRbac.kueue.enabled`. It
   rejects an update that adds, changes or removes the `kueue.x-k8s.io/queue-name` label of a
