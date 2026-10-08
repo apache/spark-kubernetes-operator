@@ -25,7 +25,7 @@ spec:
       - name: TEST_NAME
         value: succeeded
       - name: APPLICATION_FILE_NAME
-        value: ../fixtures/spark-application/spark-application-succeeded.yaml
+        value: ../fixtures/spark-application/spark-example.yaml
       - name: CLUSTER_FILE_NAME
         value: ../fixtures/spark-cluster/spark-cluster-example.yaml
       - name: SPARK_APPLICATION_NAME
