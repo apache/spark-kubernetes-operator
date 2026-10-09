@@ -19,10 +19,16 @@
 
 package org.apache.spark.k8s.operator.decorators;
 
+import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_APP_NAME;
+import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_APP_SELECTOR;
+import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_ROLE_NAME;
+import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_VERSION_NAME;
 import static org.apache.spark.k8s.operator.utils.ModelUtils.buildOwnerReferenceTo;
 
+import java.util.Map;
+import java.util.Set;
+
 import io.fabric8.kubernetes.api.model.HasMetadata;
-import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.OwnerReference;
 import io.fabric8.kubernetes.api.model.Pod;
@@ -46,8 +52,28 @@ public class DriverResourceDecorator implements ResourceDecorator {
   private final Pod driverPod;
 
   /**
+   * Operator- and Spark-managed identity labels whose driver-pod value must always propagate to
+   * secondary resources unchanged. A resource's own label of the same key must never override them.
+   * Any label key under the {@value #MANAGED_LABEL_PREFIX} prefix is protected the same way.
+   */
+  private static final Set<String> MANAGED_LABEL_KEYS =
+      Set.of(
+          LABEL_SPARK_ROLE_NAME,
+          LABEL_SPARK_VERSION_NAME,
+          LABEL_SPARK_APP_SELECTOR,
+          LABEL_SPARK_APP_NAME);
+
+  /** Any label key starting with this prefix is treated as operator-managed and protected. */
+  private static final String MANAGED_LABEL_PREFIX = "spark.operator/";
+
+  /**
    * Decorates a Kubernetes resource by adding an owner reference to the driver pod. This ensures
    * that secondary resources are garbage collected when the driver pod is deleted.
+   *
+   * <p>Label precedence: driver-pod labels are copied onto the resource; a label already set on the
+   * resource takes precedence on key collision, except for operator- and Spark-managed identity
+   * labels (see {@link #MANAGED_LABEL_KEYS} and {@link #MANAGED_LABEL_PREFIX}), for which the
+   * driver-pod value always wins.
    *
    * @param resource The resource to decorate.
    * @param <T> The type of the resource, extending HasMetadata.
@@ -69,13 +95,29 @@ public class DriverResourceDecorator implements ResourceDecorator {
     }
     if (!ownerReferenceExists) {
       log.debug("Adding OwnerReference to driver for secondary resource");
-      ObjectMeta metaData =
+      Map<String, String> resourceLabels = resource.getMetadata().getLabels();
+      ObjectMetaBuilder builder =
           new ObjectMetaBuilder(resource.getMetadata())
-              .addToOwnerReferences(buildOwnerReferenceTo(driverPod))
-              .addToLabels(driverPod.getMetadata().getLabels())
-              .build();
-      resource.setMetadata(metaData);
+              .addToOwnerReferences(buildOwnerReferenceTo(driverPod));
+      driverPod.getMetadata().getLabels().forEach((key, value) -> {
+        boolean resourceSetsKey = resourceLabels != null && resourceLabels.containsKey(key);
+        if (isManagedLabel(key) || !resourceSetsKey) {
+          builder.addToLabels(key, value);
+        }
+      });
+      resource.setMetadata(builder.build());
     }
     return resource;
+  }
+
+  /**
+   * Returns whether the given label key is operator- or Spark-managed and must therefore keep the
+   * driver-pod value rather than be overridden by the resource.
+   *
+   * @param key the label key to check.
+   * @return {@code true} if the key is managed and must not be overridden.
+   */
+  private static boolean isManagedLabel(String key) {
+    return MANAGED_LABEL_KEYS.contains(key) || key.startsWith(MANAGED_LABEL_PREFIX);
   }
 }
