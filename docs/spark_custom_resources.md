@@ -545,7 +545,12 @@ minutes by default while the hold lasts, so that it outlives the event retention
 server. An application held later, in `ScheduledToRestart`, or in `Submitted` after it was resumed
 as described below, keeps the status which was already written and gets the same event, since that
 status says that a restart is due or that the application is resumed, not that the next attempt is
-withheld.
+withheld. If the driver, or the master of a `SparkCluster` which has not started yet, cannot be
+read to check whether it was requested already, e.g. since the API server rejects the read, the
+resource is neither held nor started, and the `SuspendCheckFailed` event is published instead by
+default, until the check succeeds. A failure at the transport level, such as a timeout, or a
+throttled read is retried without the event. Once the check succeeds again, the next `SuspendHeld`
+event is published right away and supersedes it.
 
 ``` yaml
 apiVersion: spark.apache.org/v1
@@ -601,11 +606,11 @@ spec:
   `SchedulingFailure`, as for a newly created cluster. With
   `spark.kubernetes.operator.reconciler.trimStateTransitionHistoryEnabled`, the resumed cluster drops
   the state transition history of its previous run, so that suspending it again and again keeps the
-  status bounded. Setting it to `true` again before the master is requested moves the cluster back
-  to `Suspended`. A pod which is still terminating 5 minutes after its grace period ended, e.g. on
-  a lost node, no longer holds the Kueue `Workload`, so that it does not hold the quota forever. The
-  cluster still stays `Suspended` until such a pod is gone, since it keeps the name of the master or
-  worker to create, and the message of its `Suspended` state names such pods.
+  status bounded. Setting it to `true` again moves the cluster back to `Suspended`. A pod which is
+  still terminating 5 minutes after its grace period ended, e.g. on a lost node, no longer holds the
+  Kueue `Workload`, so that it does not hold the quota forever. The cluster still stays `Suspended`
+  until such a pod is gone, since it keeps the name of the master or worker to create, and the
+  message of its `Suspended` state names such pods.
 * The `Suspended` state says why the resource is suspended in `status.currentState.suspendReason`:
   `SpecSuspend` if it is held by `spec.suspend`, or `KueueEviction` if the eviction of its Kueue
   `Workload` released it, see [Kueue](#kueue). The operator relies on this field, not on the
@@ -769,15 +774,17 @@ relates it to the reconciliation.
   executor pods itself, e.g. `spark-role` or the ones of
   `spark.kubernetes.{driver,executor}.{label,annotation}.*`, are not checked, and Spark's value
   wins over an update of the same key.
-* `spec.suspend` takes precedence. A suspended resource does not get a `Workload`, and suspending
-  a queued resource deletes its `Workload` to release the quota. Suspending a running
-  `SparkApplication` deletes its `Workload` only after its driver and executor pods are gone, or
-  are still terminating `forceTerminationGracePeriodMillis` after their grace period ended, and
-  suspending a running `SparkCluster` only after its master and worker pods are gone, or are still
-  terminating 5 minutes after their grace period ended, since terminating pods occupy the quota.
-  The `Workload` is deleted even if the `kueue.x-k8s.io/queue-name` label was removed after the
-  admission. The resource is queued again when it is resumed with the `kueue.x-k8s.io/queue-name`
-  label.
+* `spec.suspend` takes precedence. A suspended resource does not get a `Workload`, and suspending a
+  queued resource deletes its `Workload` to release the quota. While its driver, or the master of a
+  `SparkCluster` which has not started yet, cannot be read to check whether it was requested, as
+  described in [Suspend](#suspend), the `Workload` is kept instead, and a pending one may still be
+  admitted. Suspending a running `SparkApplication` deletes its `Workload` only after its driver and
+  executor pods are gone, or are still terminating `forceTerminationGracePeriodMillis` after their
+  grace period ended, and suspending a running `SparkCluster` only after its master and worker pods
+  are gone, or are still terminating 5 minutes after their grace period ended, since terminating
+  pods occupy the quota. The `Workload` is deleted even if the `kueue.x-k8s.io/queue-name` label was
+  removed after the admission. The resource is queued again when it is resumed with the
+  `kueue.x-k8s.io/queue-name` label.
 * Like the webhooks of Kueue built-in integrations, which let only a suspended job change its queue,
   the Helm chart installs a `ValidatingAdmissionPolicy` with `operatorRbac.kueue.enabled`. It
   rejects an update that adds, changes or removes the `kueue.x-k8s.io/queue-name` label of a
@@ -805,8 +812,10 @@ relates it to the reconciliation.
   integration is disabled, since the operator keeps deleting their `Workload`s by name, which is
   denied even once a `Workload` is gone. Before disabling either, let the queued
   `SparkApplication`s finish or suspend them, and suspend the queued
-  `SparkCluster`s, so that the operator releases their `Workload`s itself. Then list the remaining
-  ones with `kubectl get workloads -A -l spark.operator/spark-app-name` and
+  `SparkCluster`s, so that the operator releases their `Workload`s itself. A suspended resource
+  whose driver, or whose master which has not started yet, cannot be read keeps its `Workload`
+  until it can, see [Suspend](#suspend). Then list the remaining ones with
+  `kubectl get workloads -A -l spark.operator/spark-app-name` and
   `kubectl get workloads -A -l spark.operator/spark-cluster-name`, and delete only those whose
   owner has no running pods, e.g. of a `Failed` `SparkCluster`.
 * Dynamic allocation, a `SparkCluster` with `minWorkers < maxWorkers`, and pod template files set

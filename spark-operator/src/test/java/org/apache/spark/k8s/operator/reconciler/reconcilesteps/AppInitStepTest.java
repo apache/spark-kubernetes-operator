@@ -571,11 +571,13 @@ class AppInitStepTest {
     Assertions.assertEquals(EventUtils.REASON_SUSPEND_HELD, event.reason());
   }
 
-  @Test
-  void suspendedAppWithUnverifiableDriverIsNotHeld() {
+  @ParameterizedTest
+  @ValueSource(ints = {503, 429})
+  void suspendedAppWithUnverifiableDriverIsNotHeld(int code) {
     // A failed verification is not an answer: the driver of this attempt may be live, so the app
     // must not be held with an event claiming that none was requested, nor for the whole suspend
-    // hold interval.
+    // hold interval. Like a transport level failure, a throttled read publishes no event, which
+    // would only add load to an overloaded API server.
     AppInitStep appInitStep = new AppInitStep();
     SparkAppContext mockContext = mock(SparkAppContext.class);
     SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
@@ -584,7 +586,7 @@ class AppInitStepTest {
     application.getSpec().setSuspend(true);
     when(mockContext.getResource()).thenReturn(application);
     when(mockContext.getCurrentAttemptDriverPod())
-        .thenThrow(new KubernetesClientException("unavailable", 503, null));
+        .thenThrow(new KubernetesClientException("unavailable", code, null));
     when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
 
     ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
@@ -596,6 +598,36 @@ class AppInitStepTest {
     Assertions.assertEquals(
         ApplicationStateSummary.Submitted,
         application.getStatus().getCurrentState().getCurrentStateSummary());
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {403, 500})
+  void suspendedAppWithPersistentlyUnverifiableDriverPublishesEvent(int code) {
+    // Unlike a transport level failure, a persistent one is reported, since a suspended app has no
+    // persisted status to show it. The event must not claim that no driver was requested.
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(applicationMetadata);
+    application.getSpec().setSuspend(true);
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getCurrentAttemptDriverPod())
+        .thenThrow(new KubernetesClientException("rejected", code, null));
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+
+    ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
+
+    Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
+    verify(mockContext, never()).getDriverPodSpec();
+    verifyNoInteractions(recorder);
+    EventRecord event = captureEvents(1).get(0);
+    Assertions.assertEquals(EventType.WARNING, event.type());
+    Assertions.assertEquals(EventUtils.REASON_SUSPEND_CHECK_FAILED, event.reason());
+    Assertions.assertEquals(
+        "Failed to check whether the driver of the suspended SparkApplication was requested, "
+            + "will retry. KubernetesClientException: rejected",
+        event.message());
   }
 
   @Test
