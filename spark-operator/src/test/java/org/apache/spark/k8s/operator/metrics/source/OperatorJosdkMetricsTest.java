@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Duration;
 import java.util.Map;
 
 import com.codahale.metrics.Metric;
@@ -41,6 +42,7 @@ import org.junit.jupiter.api.Test;
 
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.metrics.SummingHistogram;
+import org.apache.spark.util.ManualClock;
 
 class OperatorJosdkMetricsTest {
   private static final String DEFAULT_NAMESPACE = "default";
@@ -55,11 +57,13 @@ class OperatorJosdkMetricsTest {
           "test-controller-name");
   private static final String controllerName = "test-controller";
 
+  private ManualClock clock;
   private OperatorJosdkMetrics operatorMetrics;
 
   @BeforeEach
   void setup() {
-    operatorMetrics = new OperatorJosdkMetrics();
+    clock = new ManualClock();
+    operatorMetrics = new OperatorJosdkMetrics(clock);
   }
 
   @Test
@@ -68,9 +72,14 @@ class OperatorJosdkMetricsTest {
     operatorMetrics.timeControllerExecution(successExecution);
     Map<String, Metric> metrics = operatorMetrics.metricRegistry().getMetrics();
     assertEquals(4, metrics.size());
-    assertInstanceOf(
-        SummingHistogram.class, metrics.get("sparkapplication.test-controller.reconcile.both"));
-    assertTrue(metrics.containsKey("sparkapplication.testns.test-controller.reconcile.both"));
+    // The execution took 10 ms, which is recorded with sub-second precision in nanoseconds.
+    long durationNanos = Duration.ofMillis(10).toNanos();
+    assertEquals(
+        durationNanos,
+        recordedNanos(metrics, "sparkapplication.test-controller.reconcile.both.nanos"));
+    assertEquals(
+        durationNanos,
+        recordedNanos(metrics, "sparkapplication.testns.test-controller.reconcile.both.nanos"));
     assertTrue(metrics.containsKey("sparkapplication.test-controller.reconcile.success.both"));
     assertTrue(
         metrics.containsKey("sparkapplication.testns.test-controller.reconcile.success.both"));
@@ -81,12 +90,18 @@ class OperatorJosdkMetricsTest {
     } catch (Exception e) {
       assertEquals("Foo exception", e.getMessage());
       assertEquals(8, metrics.size());
-      assertTrue(metrics.containsKey("sparkapplication.test-controller.reconcile.failure"));
+      long failureNanos = Duration.ofMillis(5).toNanos();
+      assertEquals(
+          failureNanos,
+          recordedNanos(metrics, "sparkapplication.test-controller.reconcile.failure.nanos"));
       assertTrue(
           metrics.containsKey(
               "sparkapplication.test-controller.reconcile.failure.exception"
                   + ".nosuchfieldexception"));
-      assertTrue(metrics.containsKey("sparkapplication.testns.test-controller.reconcile.failure"));
+      assertEquals(
+          failureNanos,
+          recordedNanos(
+              metrics, "sparkapplication.testns.test-controller.reconcile.failure.nanos"));
       assertTrue(
           metrics.containsKey(
               "sparkapplication.testns.test-controller.reconcile.failure."
@@ -126,7 +141,11 @@ class OperatorJosdkMetricsTest {
     assertTrue(metrics.containsKey("sparkapplication.testns.added.resource.event"));
   }
 
-  private static final class TestingExecutionBase<T> implements Metrics.ControllerExecution<T> {
+  private static long recordedNanos(Map<String, Metric> metrics, String name) {
+    return assertInstanceOf(SummingHistogram.class, metrics.get(name)).getSum();
+  }
+
+  private final class TestingExecutionBase<T> implements Metrics.ControllerExecution<T> {
     @Override
     public String controllerName() {
       return controllerName;
@@ -153,13 +172,13 @@ class OperatorJosdkMetricsTest {
     }
 
     @Override
-    public T execute() throws Exception {
-      Thread.sleep(1000);
+    public T execute() {
+      clock.advance(10);
       return null;
     }
   }
 
-  private static final class FooTestingExecutionBase<T> implements Metrics.ControllerExecution<T> {
+  private final class FooTestingExecutionBase<T> implements Metrics.ControllerExecution<T> {
     @Override
     public String controllerName() {
       return controllerName;
@@ -187,6 +206,7 @@ class OperatorJosdkMetricsTest {
 
     @Override
     public T execute() throws Exception {
+      clock.advance(5);
       throw new NoSuchFieldException("Foo exception");
     }
   }

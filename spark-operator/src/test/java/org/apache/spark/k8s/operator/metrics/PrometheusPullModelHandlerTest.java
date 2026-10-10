@@ -97,6 +97,26 @@ class PrometheusPullModelHandlerTest {
   }
 
   @Test
+  void testFormatMetricsSnapshotIncludesControllerExecutionHistogramInSeconds() {
+    MetricRegistry registry = new MetricRegistry();
+    // OperatorJosdkMetrics records the controller executions in nanoseconds under a nanos name.
+    Histogram histogram =
+        registry.histogram(
+            "operator.sdk.sparkapplication.sparkappreconciler.reconcile.both.nanos",
+            SummingHistogram::new);
+    histogram.update(Duration.ofMillis(10).toNanos());
+    PrometheusPullModelHandler handler = new PrometheusPullModelHandler(new Properties(), registry);
+
+    String output = handler.formatMetricsSnapshot();
+    String baseName = "operator_sdk_sparkapplication_sparkappreconciler_reconcile_both_seconds";
+    assertTrue(output.contains("# TYPE " + baseName + " summary\n"), output);
+    assertTrue(output.contains(baseName + "{quantile=\"0.5\"} 0.01\n"), output);
+    assertTrue(output.contains(baseName + "_count 1\n"), output);
+    assertTrue(output.contains(baseName + "_sum 0.01\n"), output);
+    assertFalse(output.contains("nanos"), output);
+  }
+
+  @Test
   void testFormatMetricsSnapshotIncludesMeter() throws Exception {
     MetricRegistry registry = new MetricRegistry();
     Meter meter = registry.meter("foo_meter");

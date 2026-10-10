@@ -113,6 +113,15 @@ affect building the project, CI, tests or examples.
   `0.5` and `0.999` quantiles of the `operator_sdk_*` histograms are the median and the 99.9th
   percentile instead of the mean and the 99th percentile. A histogram or timer of a custom metrics
   source has no `_sum` unless it is a `SummingHistogram` or a `SummingTimer`.
+- Since 1.1.0, the histograms of the `operator.sdk` metrics source which time the controller
+  executions, i.e. the reconciliations and cleanups, record nanoseconds, and their names end with
+  `nanos`, e.g. `operator.sdk.sparkapplication.sparkappreconciler.reconcile.both.nanos` instead of
+  `operator.sdk.sparkapplication.sparkappreconciler.reconcile.both`, so `PrometheusPullModelHandler`
+  exports them in seconds with a `_seconds` suffix, e.g.
+  `operator_sdk_sparkapplication_sparkappreconciler_reconcile_both_seconds` instead of
+  `operator_sdk_sparkapplication_sparkappreconciler_reconcile_both`. 1.0 recorded whole seconds,
+  so an execution under one second, which most are, was recorded as `0`, and the quantiles and
+  `_sum` of these histograms were mostly `0`. Update queries and dashboards to the new names.
 - Since 1.1.0, a Boolean configuration property accepts `true` or `false` in any case, ignoring
   surrounding whitespace, like Apache Spark. Any other value, e.g. `0`, `1`, `yes` or `off`, is
   ignored, and the default value is used. 1.0 ignored a value like `False` or `TRUE` and used the
