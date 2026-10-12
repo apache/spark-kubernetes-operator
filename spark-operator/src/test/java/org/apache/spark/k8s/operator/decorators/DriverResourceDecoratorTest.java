@@ -118,6 +118,55 @@ class DriverResourceDecoratorTest {
   }
 
   /**
+   * A driver pod whose label map is null is decorated without an NPE: with no driver-pod labels to
+   * merge, the resource keeps exactly its own labels and still gets the owner reference.
+   */
+  @Test
+  void driverPodWithoutLabelsDoesNotFail() {
+    Pod driverPodWithoutLabels =
+        new PodBuilder()
+            .withKind("Pod")
+            .withApiVersion("v1")
+            .withNewMetadata()
+            .withName("spark-driver")
+            .withUid("driver-uid")
+            .endMetadata()
+            .build();
+    Service service = service(Map.of("resource-only-label", "resource-value"));
+
+    new DriverResourceDecorator(driverPodWithoutLabels).decorate(service);
+
+    assertEquals(
+        Map.of("resource-only-label", "resource-value"), service.getMetadata().getLabels());
+    assertEquals(1, service.getMetadata().getOwnerReferences().size());
+    assertEquals("spark-driver", service.getMetadata().getOwnerReferences().get(0).getName());
+  }
+
+  /**
+   * A managed-prefix ({@code spark.operator/}) label that only the resource carries, with no
+   * matching key on the driver pod, is left untouched. The decorator only ever propagates
+   * driver-pod labels onto the resource, so it never strips a resource's own managed label.
+   */
+  @Test
+  void resourceOnlyManagedPrefixLabelIsKept() {
+    Service service =
+        service(
+            Map.of(
+                // Managed by prefix, but absent from the driver pod, so it must be preserved.
+                "spark.operator/resource-only", "resource-value",
+                "resource-only-label", "resource-value"));
+
+    new DriverResourceDecorator(driverPod()).decorate(service);
+
+    Map<String, String> labels = service.getMetadata().getLabels();
+    assertEquals("resource-value", labels.get("spark.operator/resource-only"));
+    assertEquals("resource-value", labels.get("resource-only-label"));
+    // The driver-pod labels are still merged in alongside the preserved resource-only labels.
+    assertEquals("app1", labels.get(LABEL_SPARK_APPLICATION_NAME));
+    assertEquals("sub-1", labels.get("spark.operator/submission-id"));
+  }
+
+  /**
    * Managed identity labels (exact-match keys and anything under the {@code spark.operator} prefix)
    * must keep the driver-pod value even when the resource sets a different value, while a
    * non-managed label is still allowed to win.
