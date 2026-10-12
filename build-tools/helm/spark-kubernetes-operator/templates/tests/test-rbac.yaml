@@ -149,6 +149,11 @@ spec:
           kubectl auth can-i deletecollection services --namespace={{ .Release.Namespace }}
           kubectl auth can-i deletecollection configmaps --namespace={{ .Release.Namespace }}
           kubectl auth can-i deletecollection persistentvolumeclaims --namespace={{ .Release.Namespace }}
+          kubectl auth can-i patch  pods --subresource=resize --namespace={{ .Release.Namespace }}
+          # `kubectl auth can-i` cannot resolve `metrics.k8s.io` without a metrics server,
+          # so ask the API server directly.
+          [ "$(echo '{"apiVersion":"authorization.k8s.io/v1","kind":"SelfSubjectAccessReview","spec":{"resourceAttributes":{"group":"metrics.k8s.io","resource":"pods","verb":"get","namespace":"{{ .Release.Namespace }}"}}}' \
+            | kubectl create --validate=false -o jsonpath='{.status.allowed}' -f -)" = true ]
 
           # Spark workloads must not reach beyond their own namespace. `set -e`
           # ignores a failing `!` pipeline, so assert each denial explicitly.

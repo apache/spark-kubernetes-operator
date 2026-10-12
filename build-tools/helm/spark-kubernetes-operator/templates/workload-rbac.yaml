@@ -62,6 +62,18 @@ rules:
     verbs:
       - get
       - update
+  - apiGroups:
+      - ""
+    resources:
+      - pods/resize
+    verbs:
+      - patch
+  - apiGroups:
+      - "metrics.k8s.io"
+    resources:
+      - pods
+    verbs:
+      - get
 {{- end }}
 
 {{/*
