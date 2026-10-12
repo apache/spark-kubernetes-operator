@@ -19,8 +19,7 @@
 
 package org.apache.spark.k8s.operator.decorators;
 
-import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_APP_NAME;
-import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_APP_SELECTOR;
+import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_OPERATOR_PREFIX;
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_ROLE_NAME;
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_VERSION_NAME;
 import static org.apache.spark.k8s.operator.utils.ModelUtils.buildOwnerReferenceTo;
@@ -52,9 +51,24 @@ public class DriverResourceDecorator implements ResourceDecorator {
   private final Pod driverPod;
 
   /**
+   * Spark-owned driver label for the application ID, used as the service selector. Spark sets it;
+   * the operator only propagates it. Package-private so tests can exercise the managed-label keys.
+   */
+  static final String LABEL_SPARK_APP_SELECTOR = "spark-app-selector";
+
+  /**
+   * Spark-owned driver label for the application name. Spark sets it; the operator only propagates
+   * it. Package-private so tests can exercise the managed-label keys.
+   */
+  static final String LABEL_SPARK_APP_NAME = "spark-app-name";
+
+  /**
    * Operator- and Spark-managed identity labels whose driver-pod value must always propagate to
    * secondary resources unchanged. A resource's own label of the same key must never override them.
    * Any label key under the {@value #MANAGED_LABEL_PREFIX} prefix is protected the same way.
+   *
+   * <p>The Spark-owned keys mirror Spark's reserved preset labels; keep them in sync with
+   * {@code org.apache.spark.deploy.k8s.KubernetesDriverConf#labels} (its {@code presetLabels}).
    */
   private static final Set<String> MANAGED_LABEL_KEYS =
       Set.of(
@@ -64,7 +78,7 @@ public class DriverResourceDecorator implements ResourceDecorator {
           LABEL_SPARK_APP_NAME);
 
   /** Any label key starting with this prefix is treated as operator-managed and protected. */
-  private static final String MANAGED_LABEL_PREFIX = "spark.operator/";
+  private static final String MANAGED_LABEL_PREFIX = LABEL_SPARK_OPERATOR_PREFIX;
 
   /**
    * Decorates a Kubernetes resource by adding an owner reference to the driver pod. This ensures
@@ -96,15 +110,19 @@ public class DriverResourceDecorator implements ResourceDecorator {
     if (!ownerReferenceExists) {
       log.debug("Adding OwnerReference to driver for secondary resource");
       Map<String, String> resourceLabels = resource.getMetadata().getLabels();
+      Map<String, String> driverPodLabels = driverPod.getMetadata().getLabels();
       ObjectMetaBuilder builder =
           new ObjectMetaBuilder(resource.getMetadata())
               .addToOwnerReferences(buildOwnerReferenceTo(driverPod));
-      driverPod.getMetadata().getLabels().forEach((key, value) -> {
-        boolean resourceSetsKey = resourceLabels != null && resourceLabels.containsKey(key);
-        if (isManagedLabel(key) || !resourceSetsKey) {
-          builder.addToLabels(key, value);
-        }
-      });
+      if (driverPodLabels != null) {
+        driverPodLabels.forEach(
+            (key, value) -> {
+              boolean resourceSetsKey = resourceLabels != null && resourceLabels.containsKey(key);
+              if (isManagedLabel(key) || !resourceSetsKey) {
+                builder.addToLabels(key, value);
+              }
+            });
+      }
       resource.setMetadata(builder.build());
     }
     return resource;

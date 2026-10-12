@@ -22,6 +22,9 @@ package org.apache.spark.k8s.operator.decorators;
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_APPLICATION_NAME;
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_OPERATOR_NAME;
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_ROLE_NAME;
+import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_VERSION_NAME;
+import static org.apache.spark.k8s.operator.decorators.DriverResourceDecorator.LABEL_SPARK_APP_NAME;
+import static org.apache.spark.k8s.operator.decorators.DriverResourceDecorator.LABEL_SPARK_APP_SELECTOR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -49,9 +52,9 @@ class DriverResourceDecoratorTest {
         // Prefix-matched managed label that is not one of the exact-match keys.
         .addToLabels("spark.operator/submission-id", "sub-1")
         .addToLabels(LABEL_SPARK_ROLE_NAME, "driver")
-        .addToLabels("spark-app-selector", "spark-app-selector-1")
-        .addToLabels("spark-version", "4.2.0")
-        .addToLabels("spark-app-name", "app1-name")
+        .addToLabels(LABEL_SPARK_APP_SELECTOR, "spark-app-selector-1")
+        .addToLabels(LABEL_SPARK_VERSION_NAME, "4.2.0")
+        .addToLabels(LABEL_SPARK_APP_NAME, "app1-name")
         .addToLabels("driver-only-label", "driver-value")   // neutral driver only label
         .addToLabels("overlapping-label", "driver-value")
         .endMetadata()
@@ -90,9 +93,9 @@ class DriverResourceDecoratorTest {
             LABEL_SPARK_APPLICATION_NAME, "app1",
             "spark.operator/submission-id", "sub-1",
             LABEL_SPARK_ROLE_NAME, "driver",
-            "spark-app-selector", "spark-app-selector-1",
-            "spark-version", "4.2.0",
-            "spark-app-name", "app1-name",
+            LABEL_SPARK_APP_SELECTOR, "spark-app-selector-1",
+            LABEL_SPARK_VERSION_NAME, "4.2.0",
+            LABEL_SPARK_APP_NAME, "app1-name",
             "driver-only-label", "driver-value",
             "overlapping-label", "resource-value",
             "resource-only-label", "resource-value"),
@@ -103,7 +106,8 @@ class DriverResourceDecoratorTest {
   @Test
   void resourceWithoutLabelsInheritsDriverPodLabels() {
     Service service = service(Map.of());
-    // withNewMetadata() seeds an empty map, so clear it to exercise the null-labels path.
+    // service(...) calls addToLabels(Map.of()), which leaves an empty (non-null) label map, so
+    // null it out here to exercise the null-labels path. Keep this line.
     service.getMetadata().setLabels(null);
 
     new DriverResourceDecorator(driverPod()).decorate(service);
@@ -127,9 +131,9 @@ class DriverResourceDecoratorTest {
                 LABEL_SPARK_APPLICATION_NAME, "rogue-app",
                 "spark.operator/submission-id", "rogue-sub",
                 LABEL_SPARK_ROLE_NAME, "rogue-role",
-                "spark-app-selector", "rogue-selector",
-                "spark-version", "rogue-version",
-                "spark-app-name", "rogue-app-name",
+                LABEL_SPARK_APP_SELECTOR, "rogue-selector",
+                LABEL_SPARK_VERSION_NAME, "rogue-version",
+                LABEL_SPARK_APP_NAME, "rogue-app-name",
                 "overlapping-label", "resource-value"));
 
     new DriverResourceDecorator(driverPod()).decorate(service);
@@ -140,9 +144,9 @@ class DriverResourceDecoratorTest {
             LABEL_SPARK_APPLICATION_NAME, "app1",
             "spark.operator/submission-id", "sub-1",
             LABEL_SPARK_ROLE_NAME, "driver",
-            "spark-app-selector", "spark-app-selector-1",
-            "spark-version", "4.2.0",
-            "spark-app-name", "app1-name",
+            LABEL_SPARK_APP_SELECTOR, "spark-app-selector-1",
+            LABEL_SPARK_VERSION_NAME, "4.2.0",
+            LABEL_SPARK_APP_NAME, "app1-name",
             "driver-only-label", "driver-value",
             "overlapping-label", "resource-value"),
         service.getMetadata().getLabels());

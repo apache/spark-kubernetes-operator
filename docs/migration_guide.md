@@ -172,15 +172,21 @@ affect building the project, CI, tests or examples.
   labels in `spec.driverServiceIngressList` (`serviceMetadata`, `ingressMetadata`),
   `spec.driverHttpRouteList` (`serviceMetadata`, `httpRouteMetadata`), `spec.driverGrpcRouteList`
   (`serviceMetadata`, `grpcRouteMetadata`) and `spec.configMapSpecs`, as well as the other
-  Kubernetes resources of the driver, e.g. its service with `spark.kubernetes.driver.service.label.*`
-  and its on-demand PVCs with `spark.kubernetes.driver.volumes.persistentVolumeClaim.<name>.label.*`.
-  1.0 overwrote these labels with the driver-pod labels of the same key, including the ones injected
-  into the driver pod by admission webhooks. The operator- and Spark-managed identity labels, i.e. any `spark.operator/`
+  Kubernetes resources of the driver, e.g. its service with
+  `spark.kubernetes.driver.service.label.*` and its on-demand PVCs with
+  `spark.kubernetes.driver.volumes.persistentVolumeClaim.<name>.label.*`. 1.0 overwrote these labels
+  with the driver-pod labels of the same key, including the ones injected into the driver pod by
+  admission webhooks. The operator- and Spark-managed identity labels, i.e. any `spark.operator/`
   key, `spark-role`, `spark-version`, `spark-app-selector` and `spark-app-name`, still take the
   driver-pod value, since they identify the resources of an application, e.g. Spark deletes its
   services, PVCs and executor config maps by `spark-app-selector` and `spark-role`. To restore the
-  behavior before 1.1.0 for a given key, remove it from the secondary
-  resource so it inherits the driver-pod label. Note that Spark substitutes `{{APP_ID}}` only in
+  behavior before 1.1.0 for a given key, remove it from the secondary resource so it inherits the
+  driver-pod label. The operator still copies every other driver-pod label onto the secondary
+  resources, including labels that admission webhooks inject into the driver pod, e.g. Istio's
+  `security.istio.io/tlsMode` and `service.istio.io/canonical-name`; only a key the resource sets
+  itself is kept. To keep such an injected label off a secondary resource, set that key on the
+  resource, e.g. in `serviceMetadata`, so the resource's own value wins. Note that Spark
+  substitutes `{{APP_ID}}` only in
   driver pod labels (`spark.kubernetes.driver.label.*`), not in driver service labels
   (`spark.kubernetes.driver.service.label.*`) or PVC labels
   (`spark.kubernetes.driver.volumes.persistentVolumeClaim.<name>.label.*`). A raw `{{APP_ID}}` in
