@@ -51,3 +51,51 @@ spec:
         timeout: 120s
         content: |
           kubectl delete sparkapplication pi-java25 --ignore-not-found=true
+  - try:
+    # Check the executor memory every 10 seconds instead of every minute, so that the resize
+    # happens well before SparkPi ends.
+    - script:
+        content: |
+          kubectl patch --local -f ../../../examples/pi-java25-with-executor-resize-plugin.yaml \
+            --type merge -p '{"spec":{"sparkConf":{"spark.kubernetes.executor.resizeInterval":"10s"}}}' \
+            -o yaml | kubectl apply -f -
+    # ExecutorResizePlugin grows the executor memory in place. The executor container starts with
+    # a 1408Mi limit, and `null` guards against a pod whose status is not reported yet.
+    - assert:
+        timeout: 3m
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            namespace: default
+            labels:
+              spark-role: executor
+              spark.operator/spark-app-name: pi-java25-with-executor-resize-plugin
+          spec:
+            containers:
+            - name: spark-kubernetes-executor
+              (resources.limits.memory != '1408Mi' && resources.limits.memory != null): true
+          status:
+            containerStatuses:
+            - name: spark-kubernetes-executor
+              restartCount: 0
+              (resources.limits.memory != '1408Mi' && resources.limits.memory != null): true
+    catch:
+    - describe:
+        apiVersion: spark.apache.org/v1
+        kind: SparkApplication
+        namespace: default
+    - describe:
+        apiVersion: v1
+        kind: Pod
+        namespace: default
+        selector: spark.operator/spark-app-name=pi-java25-with-executor-resize-plugin
+    - podLogs:
+        selector: spark.operator/spark-app-name=pi-java25-with-executor-resize-plugin
+        namespace: default
+        tail: -1
+    finally:
+    - script:
+        timeout: 120s
+        content: |
+          kubectl delete sparkapplication pi-java25-with-executor-resize-plugin --ignore-not-found=true
