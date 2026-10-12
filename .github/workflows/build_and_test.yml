@@ -178,6 +178,8 @@ jobs:
           container-runtime: docker
           cpus: 3
           memory: 10240m
+          # `ExecutorResizePlugin` reads executor pod memory usage from the Metrics API
+          addons: ${{ matrix.test-group == 'pi-java25' && 'metrics-server' || '' }}
       - name: Download Operator Image
         uses: actions/download-artifact@v8
         with:
@@ -197,6 +199,10 @@ jobs:
         run: |
           kubectl get pods -A
           kubectl describe node
+      - name: Wait for Metrics API
+        if: matrix.test-group == 'pi-java25'
+        run: |
+          kubectl wait --for=condition=Available apiservice/v1beta1.metrics.k8s.io --timeout=5m
       - name: Install Kueue
         if: matrix.mode == 'kueue'
         run: |
