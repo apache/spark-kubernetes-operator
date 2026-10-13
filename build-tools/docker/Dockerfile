@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM gradle:9.8.0-jdk26-resolute AS builder
+FROM gradle:9.8.1-jdk27-resolute AS builder
 
 WORKDIR /app
 
