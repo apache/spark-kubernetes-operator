@@ -40,4 +40,18 @@ public class BaseState<T> implements Serializable {
   protected T currentStateSummary;
   protected String lastTransitionTime;
   protected String message;
+
+  /** Why the resource is suspended, only set on a Suspended state. */
+  protected SuspendReason suspendReason;
+
+  /**
+   * Constructs a new BaseState without a suspend reason.
+   *
+   * @param currentStateSummary The current state summary.
+   * @param lastTransitionTime The time of the last transition.
+   * @param message The message of the state.
+   */
+  public BaseState(T currentStateSummary, String lastTransitionTime, String message) {
+    this(currentStateSummary, lastTransitionTime, message, null);
+  }
 }

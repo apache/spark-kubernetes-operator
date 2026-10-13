@@ -28,17 +28,19 @@ import java.util.Map;
 
 import io.fabric8.kubernetes.api.model.PodSpec;
 import io.fabric8.kubernetes.api.model.PodSpecBuilder;
+import io.fabric8.kubernetes.api.model.PodTemplateSpec;
+import io.fabric8.kubernetes.api.model.PodTemplateSpecBuilder;
 import io.fabric8.kubernetes.api.model.Toleration;
 import org.junit.jupiter.api.Test;
 
-class KueuePodSetFlavorTest {
+class KueuePodSetInfoTest {
 
   @Test
   void applyToAddsNodeSelectorAndTolerationsToEmptyPodSpec() {
     PodSpec podSpec = new PodSpec();
     Toleration toleration = toleration("spot", "Equal", "true", "NoSchedule", null);
 
-    new KueuePodSetFlavor(Map.of("instance-type", "spot"), List.of(toleration)).applyTo(podSpec);
+    new KueuePodSetInfo(Map.of("instance-type", "spot"), List.of(toleration)).applyTo(podSpec);
 
     assertEquals(Map.of("instance-type", "spot"), podSpec.getNodeSelector());
     assertEquals(List.of(toleration), podSpec.getTolerations());
@@ -54,7 +56,7 @@ class KueuePodSetFlavorTest {
             .withTolerations(existing)
             .build();
 
-    new KueuePodSetFlavor(Map.of("instance-type", "spot", "pool", "p1"), List.of(added))
+    new KueuePodSetInfo(Map.of("instance-type", "spot", "pool", "p1"), List.of(added))
         .applyTo(podSpec);
 
     assertEquals(
@@ -69,7 +71,7 @@ class KueuePodSetFlavorTest {
     Toleration existing = toleration("spot", "Equal", "true", "NoExecute", 30L);
     PodSpec podSpec = new PodSpecBuilder().withTolerations(existing).build();
 
-    new KueuePodSetFlavor(
+    new KueuePodSetInfo(
             Map.of(),
             List.of(
                 toleration("spot", null, "true", "NoExecute", 60L),
@@ -83,21 +85,71 @@ class KueuePodSetFlavorTest {
   }
 
   @Test
+  void applyToAddsLabelsAndAnnotationsToEmptyPodTemplate() {
+    // The executor pod template of a SparkApplication may have neither metadata nor a pod spec
+    PodTemplateSpec template = new PodTemplateSpec();
+    Toleration toleration = toleration("provisioned", "Exists", null, "NoSchedule", null);
+
+    new KueuePodSetInfo(
+            Map.of("pool", "provisioned"),
+            List.of(toleration),
+            Map.of("team", "a"),
+            Map.of("autoscaling.x-k8s.io/consume-provisioning-request", "pr"))
+        .applyTo(template);
+
+    assertEquals(Map.of("team", "a"), template.getMetadata().getLabels());
+    assertEquals(
+        Map.of("autoscaling.x-k8s.io/consume-provisioning-request", "pr"),
+        template.getMetadata().getAnnotations());
+    assertEquals(Map.of("pool", "provisioned"), template.getSpec().getNodeSelector());
+    assertEquals(List.of(toleration), template.getSpec().getTolerations());
+  }
+
+  @Test
+  void applyToKeepsExistingLabelsAndAnnotations() {
+    PodTemplateSpec template =
+        new PodTemplateSpecBuilder()
+            .withNewMetadata()
+            .withLabels(Map.of("spark-role", "worker", "team", "a"))
+            .withAnnotations(Map.of("note", "kept"))
+            .endMetadata()
+            .withNewSpec()
+            .withNodeSelector(Map.of("zone", "a"))
+            .endSpec()
+            .build();
+
+    new KueuePodSetInfo(
+            Map.of("pool", "p1"),
+            List.of(),
+            Map.of("team", "a", "tier", "batch"),
+            Map.of("autoscaling.x-k8s.io/provisioning-class-name", "class"))
+        .applyTo(template);
+
+    assertEquals(
+        Map.of("spark-role", "worker", "team", "a", "tier", "batch"),
+        template.getMetadata().getLabels());
+    assertEquals(
+        Map.of("note", "kept", "autoscaling.x-k8s.io/provisioning-class-name", "class"),
+        template.getMetadata().getAnnotations());
+    assertEquals(Map.of("zone", "a", "pool", "p1"), template.getSpec().getNodeSelector());
+  }
+
+  @Test
   void isSameToleration() {
     assertTrue(
-        KueuePodSetFlavor.isSameToleration(
+        KueuePodSetInfo.isSameToleration(
             toleration("k", "", "v", "NoSchedule", null),
             toleration("k", "Equal", "v", "NoSchedule", 10L)));
     assertTrue(
-        KueuePodSetFlavor.isSameToleration(
+        KueuePodSetInfo.isSameToleration(
             toleration("k", "Exists", null, null, null),
             toleration("k", "Exists", null, null, null)));
     assertFalse(
-        KueuePodSetFlavor.isSameToleration(
+        KueuePodSetInfo.isSameToleration(
             toleration("k", "Exists", null, null, null),
             toleration("k", "Equal", null, null, null)));
     assertFalse(
-        KueuePodSetFlavor.isSameToleration(
+        KueuePodSetInfo.isSameToleration(
             toleration("k", "Equal", "v", "NoSchedule", null),
             toleration("k", "Equal", "v", "NoExecute", null)));
   }

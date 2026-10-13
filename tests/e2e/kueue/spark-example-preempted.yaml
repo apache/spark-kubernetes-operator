@@ -14,18 +14,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
+apiVersion: kueue.x-k8s.io/v1beta2
+kind: WorkloadPriorityClass
+metadata:
+  name: ($LOW_PRIORITY_CLASS)
+value: 100
+---
 apiVersion: spark.apache.org/v1
 kind: SparkApplication
 metadata:
-  name: ($SPARK_APPLICATION_NAME)
-  namespace: ($SPARK_APP_NAMESPACE)
+  name: spark-job-kueue-preempted-test
+  namespace: default
+  labels:
+    kueue.x-k8s.io/queue-name: ($LOCAL_QUEUE)
+    kueue.x-k8s.io/priority-class: ($LOW_PRIORITY_CLASS)
 spec:
-  mainClass: "org.apache.spark.examples.SparkPi"
+  # A streaming job which runs until it is deleted, so that it is still running when it is
+  # preempted, and when its next attempt is checked
+  mainClass: "org.apache.spark.examples.streaming.CustomReceiver"
+  driverArgs: ["localhost", "9999"]
   jars: "local:///opt/spark/examples/jars/spark-examples.jar"
   sparkConf:
     spark.executor.instances: "1"
-    spark.kubernetes.container.image: "apache/spark:{{SPARK_VERSION}}"
+    spark.kubernetes.container.image: "apache/spark:{{SPARK_VERSION}}-scala"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
   runtimeVersions:
     sparkVersion: "4.2.0"

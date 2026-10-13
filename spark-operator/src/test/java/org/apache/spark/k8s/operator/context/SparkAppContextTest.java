@@ -59,7 +59,7 @@ import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.SparkAppResourceSpec;
 import org.apache.spark.k8s.operator.SparkAppSubmissionWorker;
 import org.apache.spark.k8s.operator.SparkApplication;
-import org.apache.spark.k8s.operator.kueue.KueuePodSetFlavor;
+import org.apache.spark.k8s.operator.kueue.KueuePodSetInfo;
 
 class SparkAppContextTest {
   private final SparkApplication application = buildApplication();
@@ -214,7 +214,7 @@ class SparkAppContextTest {
   }
 
   @Test
-  void kueuePodSetFlavorsRebuildTheCachedResourceSpec() {
+  void kueuePodSetInfosRebuildTheCachedResourceSpec() {
     // The driver pod spec can be built before the Kueue admission, e.g. to find the driver pod of
     // the current attempt, so setting the flavors drops the cached one.
     KubernetesClient client = mock(KubernetesClient.class);
@@ -231,8 +231,8 @@ class SparkAppContextTest {
     verify(worker, times(1)).getResourceSpec(any(), any(), any());
 
     Toleration toleration = new Toleration("NoSchedule", "spot", "Exists", null, null);
-    context.setKueuePodSetFlavors(
-        Map.of("driver", new KueuePodSetFlavor(Map.of("pool", "cpu"), List.of(toleration))));
+    context.setKueuePodSetInfos(
+        Map.of("driver", new KueuePodSetInfo(Map.of("pool", "cpu"), List.of(toleration))));
     context.getDriverPodSpec();
 
     ArgumentCaptor<SparkApplication> captor = ArgumentCaptor.forClass(SparkApplication.class);

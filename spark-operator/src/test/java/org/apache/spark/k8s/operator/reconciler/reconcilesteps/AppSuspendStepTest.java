@@ -21,6 +21,7 @@ package org.apache.spark.k8s.operator.reconciler.reconcilesteps;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -34,8 +35,10 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import io.fabric8.kubernetes.api.model.ConditionBuilder;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
@@ -52,6 +55,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
@@ -61,12 +65,15 @@ import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.config.SparkOperatorConf;
 import org.apache.spark.k8s.operator.context.SparkAppContext;
 import org.apache.spark.k8s.operator.kueue.KueueWorkloadFactory;
+import org.apache.spark.k8s.operator.kueue.v1beta2.RequeueState;
 import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
+import org.apache.spark.k8s.operator.kueue.v1beta2.WorkloadStatus;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.spec.ResourceRetainPolicy;
 import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
+import org.apache.spark.k8s.operator.status.SuspendReason;
 import org.apache.spark.k8s.operator.utils.EventUtils;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 import org.apache.spark.k8s.operator.utils.TestUtils;
@@ -142,6 +149,7 @@ class AppSuspendStepTest {
     ApplicationState state = captureAppendedState();
     Assertions.assertEquals(ApplicationStateSummary.Suspended, state.getCurrentStateSummary());
     Assertions.assertEquals(Constants.APP_SUSPENDED_MESSAGE, state.getMessage());
+    Assertions.assertEquals(SuspendReason.SpecSuspend, state.getSuspendReason());
     // Nothing is released until Suspended is persisted, so that an application which is resumed
     // in the meantime is never left running without its driver, which would fail it.
     Assertions.assertNotNull(getDriver());
@@ -594,6 +602,309 @@ class AppSuspendStepTest {
   }
 
   @ParameterizedTest
+  @CsvSource({"Preempted, true", "Deactivated, false", "Deactivated, true"})
+  void evictedRunningAppEntersSuspendedBeforeReleasingResources(String reason, boolean active) {
+    // A deactivated Workload no longer counts against the quota, and a reactivated one is queued
+    // again, so both release the driver and executors like a preemption
+    SparkApplication app = buildKueueApp(ApplicationStateSummary.RunningHealthy, false);
+    stubContext(app);
+    createDriver(app);
+    createWorkload(app, evictedStatus(reason), active);
+
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndImmediateRequeue(),
+        new AppSuspendStep().reconcile(mockContext, recorder));
+
+    ApplicationState state = captureAppendedState();
+    Assertions.assertEquals(ApplicationStateSummary.Suspended, state.getCurrentStateSummary());
+    Assertions.assertEquals(
+        Constants.APP_EVICTED_MESSAGE + " " + reason + ": " + reason + " by the test",
+        state.getMessage());
+    Assertions.assertEquals(SuspendReason.KueueEviction, state.getSuspendReason());
+    // Like spec.suspend, nothing is released until Suspended is persisted, and nothing is reported
+    // but the Suspended state
+    Assertions.assertNotNull(getDriver());
+    Assertions.assertNotNull(getWorkload());
+    verifyNoInteractions(eventRecorder);
+  }
+
+  @ParameterizedTest
+  @EnumSource(
+      value = ApplicationStateSummary.class,
+      from = "DriverRequested",
+      to = "RunningWithBelowThresholdExecutors")
+  void podsReadyTimeoutSuspendsAppLikeAnyOtherEviction(ApplicationStateSummary summary) {
+    // Including an application which runs with fewer executors than spark.executor.instances, as
+    // its applicationTolerations allow, since its Workload requested the quota for all of them
+    SparkApplication app = buildKueueApp(summary, false);
+    stubContext(app);
+    createDriver(app);
+    createWorkload(app, evictedStatus("PodsReadyTimeout"), true);
+
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndImmediateRequeue(),
+        new AppSuspendStep().reconcile(mockContext, recorder));
+
+    Assertions.assertEquals(
+        ApplicationStateSummary.Suspended, captureAppendedState().getCurrentStateSummary());
+  }
+
+  @Test
+  void runningAppWithAdmittedWorkloadProceeds() {
+    SparkApplication app = buildKueueApp(ApplicationStateSummary.RunningHealthy, false);
+    stubContext(app);
+    createDriver(app);
+    createWorkload(
+        app,
+        WorkloadStatus.builder()
+            .conditions(
+                List.of(new ConditionBuilder().withType("Admitted").withStatus("True").build()))
+            .build(),
+        true);
+
+    Assertions.assertEquals(
+        ReconcileProgress.proceed(), new AppSuspendStep().reconcile(mockContext, recorder));
+
+    verifyNoInteractions(recorder, eventRecorder);
+    Assertions.assertNotNull(getWorkload());
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"Succeeded", "Failed"})
+  void attemptWhoseDriverEndedMeanwhileEndsAsUsualOnEviction(String phase) {
+    SparkApplication app = buildKueueApp(ApplicationStateSummary.RunningHealthy, false);
+    stubContext(app);
+    kubernetesClient
+        .resource(new PodBuilder(driver(app)).withNewStatus().withPhase(phase).endStatus().build())
+        .create();
+    createWorkload(app, evictedStatus("Preempted"), true);
+
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndImmediateRequeue(),
+        new AppSuspendStep().reconcile(mockContext, recorder));
+
+    // The attempt ends rather than being queued again and run from scratch
+    Assertions.assertEquals(
+        ApplicationStateSummary.valueOf(phase), captureAppendedState().getCurrentStateSummary());
+    Assertions.assertNotNull(getWorkload());
+  }
+
+  @Test
+  void suspendTakesPrecedenceOverEviction() {
+    SparkApplication app = buildKueueApp(ApplicationStateSummary.RunningHealthy, true);
+    stubContext(app);
+    createDriver(app);
+    createWorkload(app, evictedStatus("Preempted"), true);
+
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndImmediateRequeue(),
+        new AppSuspendStep().reconcile(mockContext, recorder));
+
+    ApplicationState state = captureAppendedState();
+    Assertions.assertEquals(Constants.APP_SUSPENDED_MESSAGE, state.getMessage());
+    Assertions.assertEquals(SuspendReason.SpecSuspend, state.getSuspendReason());
+
+    // Once everything is released, the application is held rather than queued again
+    app.setStatus(app.getStatus().appendNewState(state));
+    Assertions.assertEquals(
+        WAITING_FOR_PODS_PROGRESS, new AppSuspendStep().reconcile(mockContext, recorder));
+    Assertions.assertEquals(
+        SUSPEND_HOLD_PROGRESS, new AppSuspendStep().reconcile(mockContext, recorder));
+    Assertions.assertNull(getWorkload());
+    verify(recorder).appendNewStateAndPersist(any(), any());
+    verify(recorder, never()).persistStatus(any(), any());
+  }
+
+  @Test
+  void suspendingEvictedAppIsRecorded() {
+    SparkApplication app = buildEvictedApp(true);
+    stubContext(app);
+    createWorkload(app, evictedStatus("Preempted"), true);
+
+    // The application is no longer queued again once released, and resuming it later says so
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndImmediateRequeue(),
+        new AppSuspendStep().reconcile(mockContext, recorder));
+
+    ApplicationState state = captureAppendedState();
+    Assertions.assertEquals(ApplicationStateSummary.Suspended, state.getCurrentStateSummary());
+    Assertions.assertEquals(Constants.APP_SUSPENDED_MESSAGE, state.getMessage());
+    Assertions.assertEquals(SuspendReason.SpecSuspend, state.getSuspendReason());
+
+    // Once that state is persisted, the application is held rather than suspended again, and its
+    // Workload is released like on spec.suspend
+    app.setStatus(app.getStatus().appendNewState(state));
+    Assertions.assertEquals(
+        SUSPEND_HOLD_PROGRESS, new AppSuspendStep().reconcile(mockContext, recorder));
+    verify(recorder).appendNewStateAndPersist(any(), any());
+    Assertions.assertNull(getWorkload());
+  }
+
+  @Test
+  void evictionIsToldByTheSuspendReasonRatherThanByTheMessage() {
+    // A reworded message of an application suspended by an eviction before still says so
+    SparkApplication evicted = buildEvictedApp(false);
+    evicted.getStatus().getCurrentState().setMessage("Reworded in another version");
+    stubContext(evicted);
+    createWorkload(evicted, evictedStatus("Preempted"), true);
+    new AppSuspendStep().reconcile(mockContext, recorder);
+    Assertions.assertEquals(Constants.APP_REQUEUED_MESSAGE, capturePersistedState().getMessage());
+
+    // So does a Suspended state without a reason, even if its message looks like an eviction
+    SparkApplication unknown = buildEvictedApp(false);
+    unknown.getStatus().getCurrentState().setSuspendReason(null);
+    stubContext(unknown);
+    createWorkload(unknown, evictedStatus("Preempted"), true);
+    clearInvocations(recorder);
+    new AppSuspendStep().reconcile(mockContext, recorder);
+    Assertions.assertEquals(Constants.APP_RESUMED_MESSAGE, capturePersistedState().getMessage());
+  }
+
+  @Test
+  void evictedThenSuspendedAppIsResumedRatherThanQueuedAgain() {
+    SparkApplication app = buildEvictedApp(true);
+    stubContext(app);
+    createWorkload(app, evictedStatus("Preempted"), true);
+    new AppSuspendStep().reconcile(mockContext, recorder);
+    app.setStatus(app.getStatus().appendNewState(captureAppendedState()));
+
+    // Held by spec.suspend since the eviction, so clearing it is a resume, not a requeue
+    app.getSpec().setSuspend(false);
+    new AppSuspendStep().reconcile(mockContext, recorder);
+
+    Assertions.assertEquals(Constants.APP_RESUMED_MESSAGE, capturePersistedState().getMessage());
+  }
+
+  @Test
+  void evictedAppIsQueuedAgainOnceEverythingIsReleased() {
+    SparkApplication app = buildEvictedApp(false);
+    stubContext(app);
+    createDriver(app);
+    createWorkload(app, evictedStatus("Preempted"), true);
+
+    // The driver which is deleted is waited for, along with the Workload
+    Assertions.assertEquals(
+        WAITING_FOR_PODS_PROGRESS, new AppSuspendStep().reconcile(mockContext, recorder));
+    Assertions.assertNull(getDriver());
+    Assertions.assertNotNull(getWorkload());
+    verifyNoInteractions(recorder);
+
+    // Then it starts a new attempt like a resumed application, see ApplicationStatus#resume
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndImmediateRequeue(),
+        new AppSuspendStep().reconcile(mockContext, recorder));
+    Assertions.assertEquals(Constants.APP_REQUEUED_MESSAGE, capturePersistedState().getMessage());
+    // AppInitStep creates a new Workload of the same name and waits for its admission
+    Assertions.assertNull(getWorkload());
+  }
+
+  @Test
+  void deactivatedWorkloadIsKeptUntilItIsReactivated() {
+    SparkApplication app = buildEvictedApp(false);
+    stubContext(app);
+    createDriver(app);
+    createWorkload(app, evictedStatus("Deactivated"), false);
+
+    // The driver and executors are released, since Kueue no longer counts their quota
+    Assertions.assertEquals(
+        WAITING_FOR_PODS_PROGRESS, new AppSuspendStep().reconcile(mockContext, recorder));
+    Assertions.assertNull(getDriver());
+
+    // While the Workload is kept, since a new Workload of the application would come back active
+    Assertions.assertEquals(
+        SUSPEND_HOLD_PROGRESS, new AppSuspendStep().reconcile(mockContext, recorder));
+    Assertions.assertNotNull(getWorkload());
+    verifyNoInteractions(recorder);
+
+    // Its reactivation, which the Workload informer reconciles, queues the application again
+    Workload workload = getWorkload();
+    workload.getSpec().setActive(true);
+    kubernetesClient.resource(workload).update();
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndImmediateRequeue(),
+        new AppSuspendStep().reconcile(mockContext, recorder));
+
+    Assertions.assertEquals(Constants.APP_REQUEUED_MESSAGE, capturePersistedState().getMessage());
+    Assertions.assertNull(getWorkload());
+  }
+
+  @Test
+  void evictedWorkloadIsKeptUntilTheRequeueBackoffElapses() {
+    SparkApplication app = buildEvictedApp(false);
+    stubContext(app);
+    WorkloadStatus status = evictedStatus("PodsReadyTimeout");
+    status.setRequeueState(
+        RequeueState.builder()
+            .count(1)
+            .requeueAt(Instant.now().plusSeconds(60).toString())
+            .build());
+    createWorkload(app, status, true);
+
+    ReconcileProgress progress = new AppSuspendStep().reconcile(mockContext, recorder);
+
+    // Its deletion would drop the backoff, so it is released once the backoff elapsed
+    Duration requeueAfter = progress.getRequeueAfterDuration();
+    Assertions.assertTrue(progress.isRequeue());
+    Assertions.assertTrue(
+        requeueAfter.compareTo(Duration.ofSeconds(50)) > 0
+            && requeueAfter.compareTo(Duration.ofSeconds(60)) <= 0,
+        requeueAfter::toString);
+    Assertions.assertNotNull(getWorkload());
+    verifyNoInteractions(recorder);
+  }
+
+  @Test
+  void failedReleaseIsRetriedWhileDeactivatedWorkloadIsKept() {
+    SparkApplication app = buildEvictedApp(false);
+    createWorkload(app, evictedStatus("Deactivated"), false);
+    KubernetesClient client = spy(kubernetesClient);
+    doThrow(new KubernetesClientException("Service Unavailable", 503, null)).when(client).pods();
+    stubContext(app, client);
+
+    // Rather than after the hold interval of the deactivated Workload, which would keep the driver
+    // and executors running for up to 30 minutes outside of the quota
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndDefaultRequeue(),
+        new AppSuspendStep().reconcile(mockContext, recorder));
+
+    Assertions.assertNotNull(getWorkload());
+    verifyNoInteractions(recorder, eventRecorder);
+  }
+
+  @Test
+  void resumedAppReleasesDeactivatedWorkload() {
+    SparkApplication app = buildKueueApp(ApplicationStateSummary.Suspended, false);
+    stubContext(app);
+    // The Workload outlived the release on spec.suspend, e.g. after a failed delete
+    createWorkload(app, evictedStatus("Deactivated"), false);
+
+    // Only an eviction keeps the Workload, so the resume does not wait for its reactivation
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndImmediateRequeue(),
+        new AppSuspendStep().reconcile(mockContext, recorder));
+
+    Assertions.assertEquals(Constants.APP_RESUMED_MESSAGE, capturePersistedState().getMessage());
+    Assertions.assertNull(getWorkload());
+  }
+
+  @Test
+  void evictedAppWhoseQueueLabelIsRemovedEntersSuspended() {
+    SparkApplication app = buildKueueApp(ApplicationStateSummary.RunningHealthy, false);
+    stubContext(app);
+    createDriver(app);
+    createWorkload(app, evictedStatus("Preempted"), true);
+    // Like the release on spec.suspend, the Workload admitted before the label was removed counts
+    app.getMetadata().setLabels(Map.of());
+
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndImmediateRequeue(),
+        new AppSuspendStep().reconcile(mockContext, recorder));
+
+    Assertions.assertEquals(
+        ApplicationStateSummary.Suspended, captureAppendedState().getCurrentStateSummary());
+  }
+
+  @ParameterizedTest
   @EnumSource(
       value = ApplicationStateSummary.class,
       mode = EnumSource.Mode.EXCLUDE,
@@ -630,6 +941,8 @@ class AppSuspendStepTest {
     when(mockContext.getResource()).thenReturn(app);
     when(mockContext.getClient()).thenReturn(client);
     when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+    // Like the Workload informer, the cache follows the Workload in the API server
+    when(mockContext.getCachedKueueWorkload()).thenAnswer(i -> Optional.ofNullable(getWorkload()));
   }
 
   private ApplicationState captureAppendedState() {
@@ -637,6 +950,14 @@ class AppSuspendStepTest {
     verify(recorder).appendNewStateAndPersist(eq(mockContext), captor.capture());
     verify(recorder, never()).persistStatus(any(), any());
     return captor.getValue();
+  }
+
+  private ApplicationState capturePersistedState() {
+    ArgumentCaptor<ApplicationStatus> status = ArgumentCaptor.forClass(ApplicationStatus.class);
+    verify(recorder).persistStatus(eq(mockContext), status.capture());
+    ApplicationState state = status.getValue().getCurrentState();
+    Assertions.assertEquals(ApplicationStateSummary.Submitted, state.getCurrentStateSummary());
+    return state;
   }
 
   private EventRecord captureEvent() {
@@ -686,6 +1007,29 @@ class AppSuspendStepTest {
     kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(app)).create();
   }
 
+  private void createWorkload(SparkApplication app, WorkloadStatus status, boolean active) {
+    Workload desired = KueueWorkloadFactory.buildWorkload(app);
+    desired.getSpec().setActive(active);
+    kubernetesClient.resource(desired).create();
+    Workload workload = getWorkload();
+    workload.setStatus(status);
+    kubernetesClient.resource(workload).update();
+  }
+
+  private static WorkloadStatus evictedStatus(String reason) {
+    return WorkloadStatus.builder()
+        .conditions(
+            List.of(
+                new ConditionBuilder().withType("Admitted").withStatus("True").build(),
+                new ConditionBuilder()
+                    .withType("Evicted")
+                    .withStatus("True")
+                    .withReason(reason)
+                    .withMessage(reason + " by the test")
+                    .build()))
+        .build();
+  }
+
   private static Pod driver(SparkApplication app) {
     return pod(DRIVER, Utils.driverLabels(app));
   }
@@ -724,6 +1068,16 @@ class AppSuspendStepTest {
   private static SparkApplication buildKueueApp(ApplicationStateSummary summary, boolean suspend) {
     SparkApplication app = buildApp(summary, suspend);
     app.getMetadata().setLabels(Map.of(Constants.LABEL_QUEUE_NAME, "test-queue"));
+    return app;
+  }
+
+  /** Builds an application which entered Suspended on a Kueue eviction. */
+  private static SparkApplication buildEvictedApp(boolean suspend) {
+    SparkApplication app = buildKueueApp(ApplicationStateSummary.Suspended, suspend);
+    app.getStatus()
+        .getCurrentState()
+        .setMessage(Constants.APP_EVICTED_MESSAGE + " Preempted: Preempted by the test");
+    app.getStatus().getCurrentState().setSuspendReason(SuspendReason.KueueEviction);
     return app;
   }
 }

@@ -41,7 +41,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
-import java.util.NavigableMap;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -58,6 +57,7 @@ import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
 import org.apache.spark.k8s.operator.status.ClusterState;
 import org.apache.spark.k8s.operator.status.ClusterStateSummary;
+import org.apache.spark.k8s.operator.status.SuspendReason;
 import org.apache.spark.k8s.operator.utils.EventUtils;
 import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
@@ -105,7 +105,8 @@ public final class ClusterSuspendStep extends ClusterReconcileStep {
       return appendStateAndImmediateRequeue(
           context,
           statusRecorder,
-          new ClusterState(ClusterStateSummary.Suspended, CLUSTER_SUSPENDED_MESSAGE));
+          new ClusterState(
+              ClusterStateSummary.Suspended, CLUSTER_SUSPENDED_MESSAGE, SuspendReason.SpecSuspend));
     }
     if (summary == ClusterStateSummary.RunningHealthy) {
       return suspendOnKueueEviction(context, statusRecorder);
@@ -118,7 +119,10 @@ public final class ClusterSuspendStep extends ClusterReconcileStep {
         return appendStateAndImmediateRequeue(
             context,
             statusRecorder,
-            new ClusterState(ClusterStateSummary.Suspended, CLUSTER_SUSPENDED_MESSAGE));
+            new ClusterState(
+                ClusterStateSummary.Suspended,
+                CLUSTER_SUSPENDED_MESSAGE,
+                SuspendReason.SpecSuspend));
       }
       Optional<Duration> keepWorkload = evicted ? keepKueueWorkload(context) : Optional.empty();
       Optional<ReconcileProgress> waiting =
@@ -181,31 +185,24 @@ public final class ClusterSuspendStep extends ClusterReconcileStep {
     return appendStateAndImmediateRequeue(
         context,
         statusRecorder,
-        new ClusterState(ClusterStateSummary.Suspended, CLUSTER_EVICTED_MESSAGE + " " + cause));
+        new ClusterState(
+            ClusterStateSummary.Suspended,
+            CLUSTER_EVICTED_MESSAGE + " " + cause,
+            SuspendReason.KueueEviction));
   }
 
   /**
    * Checks whether the cluster is suspended by the eviction of its Kueue Workload rather than by
-   * spec.suspend. The Suspended state which names its stuck pods, if any, follows the one which
-   * says why it is suspended.
+   * spec.suspend, by the reason of its current Suspended state, which the Suspended state naming
+   * its stuck pods keeps from the one before. A Suspended state without a reason, e.g. one whose
+   * reason the API server pruned for a CRD which does not have it yet, is not taken for an
+   * eviction.
    *
    * @param cluster The suspended SparkCluster.
    * @return True if the cluster was suspended by an eviction and not held by spec.suspend since.
    */
   private static boolean isSuspendedByEviction(SparkCluster cluster) {
-    NavigableMap<Long, ClusterState> history =
-        (NavigableMap<Long, ClusterState>) cluster.getStatus().getStateTransitionHistory();
-    for (ClusterState state : history.descendingMap().values()) {
-      String message = state.getMessage();
-      if (state.getCurrentStateSummary() != ClusterStateSummary.Suspended
-          || CLUSTER_SUSPENDED_MESSAGE.equals(message)) {
-        return false;
-      }
-      if (message != null && message.startsWith(CLUSTER_EVICTED_MESSAGE)) {
-        return true;
-      }
-    }
-    return false;
+    return cluster.getStatus().getCurrentState().getSuspendReason() == SuspendReason.KueueEviction;
   }
 
   /**
@@ -347,7 +344,10 @@ public final class ClusterSuspendStep extends ClusterReconcileStep {
             appendStateAndRequeueAfter(
                 context,
                 statusRecorder,
-                new ClusterState(ClusterStateSummary.Suspended, message),
+                new ClusterState(
+                    ClusterStateSummary.Suspended,
+                    message,
+                    cluster.getStatus().getCurrentState().getSuspendReason()),
                 holdInterval));
       }
     } catch (KubernetesClientException e) {

@@ -82,6 +82,14 @@ affect building the project, CI, tests or examples.
   add `deletecollection` to it as well. To keep the driver service and the executor pods and
   configmaps, set `spark.kubernetes.driver.service.deleteOnTermination` and
   `spark.kubernetes.executor.deleteOnTermination` to `false`.
+- Since 1.1.0, the workload ClusterRole and Roles also grant `patch` on the `resize` subresource of
+  `pods`, and `get` on `pods` in the `metrics.k8s.io` API group. Spark drivers need them for
+  `org.apache.spark.scheduler.cluster.k8s.ExecutorResizePlugin` of Spark 4.2.0 or newer, which
+  reads the memory usage of the executor pods from the metrics API and raises their memory in
+  place. With 1.0, the plugin silently did nothing, since both requests were forbidden. If you
+  manage the workload Role or ClusterRole yourself, add them to it as well. To keep the rules of
+  1.0, set `workloadResources.clusterRole.create` and `workloadResources.role.create` to `false`,
+  and grant them with your own Role or ClusterRole.
 - Since 1.1.0, each option of `operatorDeployment.operatorPod.operatorContainer.jvmArgs` is passed
   to the operator JVM as its own argument. 1.0 passed the whole value as one argument, which the
   JVM took as a single `-Dfile.encoding` system property, so the other options had no effect. The

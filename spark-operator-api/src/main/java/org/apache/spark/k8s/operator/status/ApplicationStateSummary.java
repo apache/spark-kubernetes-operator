@@ -112,10 +112,10 @@ public enum ApplicationStateSummary implements BaseStateSummary {
   TerminatedWithoutReleaseResources,
 
   /**
-   * The application is suspended by spec.suspend after its driver was requested, so its driver
-   * and executors are released until it is resumed with a new attempt from Submitted. It is
-   * declared last, after the terminated states, so that the ordinal ranges of {@link
-   * #isStarting()} and {@link #isStopping()} exclude it.
+   * The application is suspended by spec.suspend, or by the eviction of its Kueue Workload, after
+   * its driver was requested, so its driver and executors are released until it is resumed with a
+   * new attempt from Submitted. It is declared last, after the terminated states, so that the
+   * ordinal ranges of {@link #isStarting()} and {@link #isStopping()} exclude it.
    */
   Suspended;
 

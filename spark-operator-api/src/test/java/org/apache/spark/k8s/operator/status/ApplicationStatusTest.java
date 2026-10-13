@@ -23,7 +23,9 @@ import static org.apache.spark.k8s.operator.status.ApplicationStateSummary.Submi
 import static org.apache.spark.k8s.operator.status.ApplicationStateSummary.Succeeded;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -926,5 +928,28 @@ class ApplicationStatusTest {
     assertNotNull(deserialized.getStateTransitionHistory());
     assertTrue(deserialized.getStateTransitionHistory().isEmpty());
     assertEquals(Submitted, deserialized.getCurrentState().getCurrentStateSummary());
+  }
+
+  @Test
+  void testSuspendReasonJsonRoundTrip() throws Exception {
+    ObjectMapper mapper = new ObjectMapper();
+    ApplicationState suspended =
+        new ApplicationState(
+            ApplicationStateSummary.Suspended, "test", SuspendReason.KueueEviction);
+
+    String json = mapper.writeValueAsString(suspended);
+    assertTrue(json.contains("\"suspendReason\":\"KueueEviction\""));
+    assertEquals(suspended, mapper.readValue(json, ApplicationState.class));
+
+    // The reason is set only on a Suspended state, and a status without one still reads
+    ApplicationState submitted = new ApplicationState();
+    assertNull(submitted.getSuspendReason());
+    assertFalse(mapper.writeValueAsString(submitted).contains("suspendReason"));
+    assertNull(
+        mapper
+            .readValue(
+                "{\"currentStateSummary\":\"Suspended\",\"message\":\"test\"}",
+                ApplicationState.class)
+            .getSuspendReason());
   }
 }

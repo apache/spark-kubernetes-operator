@@ -88,7 +88,6 @@ import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
 import org.apache.spark.k8s.operator.kueue.v1beta2.WorkloadStatus;
 import org.apache.spark.k8s.operator.metrics.healthcheck.SentinelManager;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppCleanUpStep;
-import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppKueueEvictionStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppReconcileStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppSuspendStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppValidateStep;
@@ -613,7 +612,8 @@ class SparkAppReconcilerTest {
       } else {
         boolean expected = DRIVER_REQUESTED_STATES.contains(summary);
         // After the observers, so that a driver which completed meanwhile is recorded rather than
-        // suspended and run again when the application is resumed
+        // suspended, by spec.suspend or by a Kueue eviction, and run again when the application is
+        // resumed. Before the driver is requested, AppInitStep handles both itself.
         assertEquals(
             expected, steps.get(steps.size() - 1) instanceof AppSuspendStep, summary.name());
         assertEquals(
@@ -621,22 +621,6 @@ class SparkAppReconcilerTest {
             steps.stream().filter(AppSuspendStep.class::isInstance).count(),
             summary.name());
       }
-    }
-  }
-
-  @Test
-  void kueueEvictionIsReportedFromTheDriverRequestUntilTheAttemptStops() {
-    for (ApplicationStateSummary summary : ApplicationStateSummary.values()) {
-      app.setStatus(new ApplicationStatus().appendNewState(new ApplicationState(summary, "")));
-      List<AppReconcileStep> steps = reconciler.getReconcileSteps(app);
-      boolean expected = DRIVER_REQUESTED_STATES.contains(summary);
-      // Right after the validation and the clean up, before a state transition ends the
-      // reconciliation. Before the driver is requested, AppInitStep handles the eviction itself.
-      assertEquals(expected, steps.get(2) instanceof AppKueueEvictionStep, summary.name());
-      assertEquals(
-          expected ? 1 : 0,
-          steps.stream().filter(AppKueueEvictionStep.class::isInstance).count(),
-          summary.name());
     }
   }
 }

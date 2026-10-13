@@ -49,7 +49,7 @@ import org.mockito.ArgumentCaptor;
 import org.apache.spark.k8s.operator.SparkAppResourceSpec;
 import org.apache.spark.k8s.operator.SparkAppSubmissionWorker;
 import org.apache.spark.k8s.operator.SparkApplication;
-import org.apache.spark.k8s.operator.kueue.KueuePodSetFlavor;
+import org.apache.spark.k8s.operator.kueue.KueuePodSetInfo;
 import org.apache.spark.k8s.operator.spec.BaseApplicationTemplateSpec;
 import org.apache.spark.k8s.operator.utils.ModelUtils;
 
@@ -95,6 +95,9 @@ class SparkAppResourceSpecFactoryTest {
             BaseApplicationTemplateSpec.builder()
                 .podTemplateSpec(
                     new PodTemplateSpecBuilder()
+                        .withNewMetadata()
+                        .withLabels(Map.of("team", "a"))
+                        .endMetadata()
                         .withNewSpec()
                         .withNodeSelector(Map.of("zone", "a"))
                         .withTolerations(userToleration)
@@ -132,17 +135,35 @@ class SparkAppResourceSpecFactoryTest {
         mockClient,
         mockWorker,
         Map.of(
-            "driver", new KueuePodSetFlavor(Map.of("pool", "cpu"), List.of(spot)),
-            "executor", new KueuePodSetFlavor(Map.of("pool", "gpu"), List.of(gpu))));
+            "driver",
+            new KueuePodSetInfo(
+                Map.of("pool", "cpu"),
+                List.of(spot),
+                Map.of("tier", "batch"),
+                Map.of("provisioning", "pr-driver")),
+            "executor",
+            new KueuePodSetInfo(
+                Map.of("pool", "gpu"),
+                List.of(gpu),
+                Map.of("tier", "batch"),
+                Map.of("provisioning", "pr-executor"))));
 
     // A driver without the pod template gets a new one
     Pod driverTemplate = templates.get(DRIVER_SPARK_TEMPLATE_FILE_PROP_KEY);
     assertEquals(Map.of("pool", "cpu"), driverTemplate.getSpec().getNodeSelector());
     assertEquals(List.of(spot), driverTemplate.getSpec().getTolerations());
+    assertEquals(Map.of("tier", "batch"), driverTemplate.getMetadata().getLabels());
+    assertEquals(
+        Map.of("provisioning", "pr-driver"), driverTemplate.getMetadata().getAnnotations());
     // The flavor is merged into the executor pod template of the spec
     Pod executorTemplate = templates.get(EXECUTOR_SPARK_TEMPLATE_FILE_PROP_KEY);
     assertEquals(Map.of("zone", "a", "pool", "gpu"), executorTemplate.getSpec().getNodeSelector());
     assertEquals(List.of(userToleration, gpu), executorTemplate.getSpec().getTolerations());
+    // Spark keeps the labels and annotations of the pod templates on the driver and executor pods
+    assertEquals(
+        Map.of("team", "a", "tier", "batch"), executorTemplate.getMetadata().getLabels());
+    assertEquals(
+        Map.of("provisioning", "pr-executor"), executorTemplate.getMetadata().getAnnotations());
     // The temp files are cleaned up, and the SparkApplication is not modified
     templateFiles.values().forEach(path -> assertFalse(Files.exists(Path.of(path)), path));
     assertEquals(originalSpec, ModelUtils.objectMapper.writeValueAsString(app.getSpec()));

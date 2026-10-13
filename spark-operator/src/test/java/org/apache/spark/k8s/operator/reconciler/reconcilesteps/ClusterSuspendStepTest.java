@@ -22,6 +22,7 @@ package org.apache.spark.k8s.operator.reconciler.reconcilesteps;
 import static java.net.HttpURLConnection.HTTP_CONFLICT;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -89,6 +90,7 @@ import org.apache.spark.k8s.operator.spec.WorkerInstanceConfig;
 import org.apache.spark.k8s.operator.status.ClusterState;
 import org.apache.spark.k8s.operator.status.ClusterStateSummary;
 import org.apache.spark.k8s.operator.status.ClusterStatus;
+import org.apache.spark.k8s.operator.status.SuspendReason;
 import org.apache.spark.k8s.operator.utils.EventUtils;
 import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
 import org.apache.spark.k8s.operator.utils.TestUtils;
@@ -148,6 +150,7 @@ class ClusterSuspendStepTest {
     ClusterState state = captureAppendedState();
     Assertions.assertEquals(ClusterStateSummary.Suspended, state.getCurrentStateSummary());
     Assertions.assertEquals(Constants.CLUSTER_SUSPENDED_MESSAGE, state.getMessage());
+    Assertions.assertEquals(SuspendReason.SpecSuspend, state.getSuspendReason());
     // Nothing is released until Suspended is persisted, so that a cluster which is resumed in the
     // meantime is never left in RunningHealthy without its master and workers.
     Assertions.assertNotNull(get(masterStatefulSetSpec));
@@ -211,6 +214,8 @@ class ClusterSuspendStepTest {
   @ValueSource(booleans = {true, false})
   void stuckPodsReleaseKueueWorkloadAndAreReportedOnce(boolean suspend) {
     SparkCluster cluster = buildKueueCluster(ClusterStateSummary.Suspended, suspend);
+    SuspendReason reason = suspend ? SuspendReason.SpecSuspend : SuspendReason.KueueEviction;
+    cluster.getStatus().getCurrentState().setSuspendReason(reason);
     KubernetesClient client = spy(kubernetesClient);
     // Pods stuck in terminating, e.g. on a lost node, do not hold the quota forever
     stubStuckPods(client);
@@ -231,6 +236,8 @@ class ClusterSuspendStepTest {
             Constants.CLUSTER_SUSPENDED_WITH_STUCK_PODS_MESSAGE,
             "cluster1-master-0, cluster1-worker-0"),
         state.getMessage());
+    // The state which names the stuck pods keeps the reason of the one before
+    Assertions.assertEquals(reason, state.getSuspendReason());
 
     // The same state is not appended again on every requeue
     cluster.setStatus(cluster.getStatus().appendNewState(state));
@@ -526,6 +533,7 @@ class ClusterSuspendStepTest {
     Assertions.assertEquals(
         Constants.CLUSTER_EVICTED_MESSAGE + " " + reason + ": " + reason + " by the test",
         state.getMessage());
+    Assertions.assertEquals(SuspendReason.KueueEviction, state.getSuspendReason());
     // Like spec.suspend, nothing is released until Suspended is persisted, and the Workload is
     // released only after the master and worker pods are gone
     Assertions.assertNotNull(get(masterStatefulSetSpec));
@@ -567,7 +575,8 @@ class ClusterSuspendStepTest {
                     ClusterStateSummary.Suspended,
                     String.format(
                         Constants.CLUSTER_SUSPENDED_WITH_STUCK_PODS_MESSAGE,
-                        "cluster1-master-0"))));
+                        "cluster1-master-0"),
+                    SuspendReason.KueueEviction)));
     stubContext(cluster);
 
     Assertions.assertEquals(
@@ -713,12 +722,35 @@ class ClusterSuspendStepTest {
     ClusterState state = captureAppendedState();
     Assertions.assertEquals(ClusterStateSummary.Suspended, state.getCurrentStateSummary());
     Assertions.assertEquals(Constants.CLUSTER_SUSPENDED_MESSAGE, state.getMessage());
+    Assertions.assertEquals(SuspendReason.SpecSuspend, state.getSuspendReason());
 
     // Once that state is persisted, the cluster is held rather than suspended again
     cluster.setStatus(cluster.getStatus().appendNewState(state));
     Assertions.assertEquals(
         SUSPEND_HOLD_PROGRESS, new ClusterSuspendStep().reconcile(mockContext, recorder));
     verify(recorder).appendNewStateAndPersist(any(), any());
+  }
+
+  @Test
+  void evictionIsToldByTheSuspendReasonRatherThanByTheMessage() {
+    // A reworded message of a cluster suspended by an eviction before still says so
+    SparkCluster evicted = buildEvictedCluster(false);
+    evicted.getStatus().getCurrentState().setMessage("Reworded in another version");
+    stubContext(evicted);
+    createWorkload(evicted, evictedStatus("Preempted"), true);
+    new ClusterSuspendStep().reconcile(mockContext, recorder);
+    Assertions.assertEquals(
+        Constants.CLUSTER_REQUEUED_MESSAGE, capturePersistedState().getMessage());
+
+    // So does a Suspended state without a reason, even if its message looks like an eviction
+    SparkCluster unknown = buildEvictedCluster(false);
+    unknown.getStatus().getCurrentState().setSuspendReason(null);
+    stubContext(unknown);
+    createWorkload(unknown, evictedStatus("Preempted"), true);
+    clearInvocations(recorder);
+    new ClusterSuspendStep().reconcile(mockContext, recorder);
+    Assertions.assertEquals(
+        Constants.CLUSTER_RESUMED_MESSAGE, capturePersistedState().getMessage());
   }
 
   @Test
@@ -938,6 +970,7 @@ class ClusterSuspendStepTest {
         .getStatus()
         .getCurrentState()
         .setMessage(Constants.CLUSTER_EVICTED_MESSAGE + " Preempted: Preempted by the test");
+    cluster.getStatus().getCurrentState().setSuspendReason(SuspendReason.KueueEviction);
     return cluster;
   }
 

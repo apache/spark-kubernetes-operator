@@ -62,4 +62,14 @@ public class ApplicationState extends BaseState<ApplicationStateSummary> impleme
   public ApplicationState(ApplicationStateSummary currentStateSummary, String message) {
     super(currentStateSummary, Instant.now().toString(), message);
   }
+
+  /**
+   * Constructs a new ApplicationState with the given state summary, message and suspend reason.
+   *
+   * @since 1.1.0
+   */
+  public ApplicationState(
+      ApplicationStateSummary currentStateSummary, String message, SuspendReason suspendReason) {
+    super(currentStateSummary, Instant.now().toString(), message, suspendReason);
+  }
 }

@@ -45,6 +45,9 @@ public class WorkloadStatus {
   private List<Condition> conditions = new ArrayList<>();
   private Admission admission;
   private RequeueState requeueState;
+  // Without a default, so that a status which the operator creates to record a condition does not
+  // write the admission checks, which Kueue owns.
+  private List<AdmissionCheckState> admissionChecks;
 
   /**
    * Checks if the workload has been admitted by Kueue.

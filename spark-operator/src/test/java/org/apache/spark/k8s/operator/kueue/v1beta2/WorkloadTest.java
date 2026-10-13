@@ -22,6 +22,7 @@ package org.apache.spark.k8s.operator.kueue.v1beta2;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -34,6 +35,7 @@ import io.fabric8.kubernetes.api.model.ConditionBuilder;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.PodTemplateSpecBuilder;
 import io.fabric8.kubernetes.api.model.Quantity;
+import io.fabric8.kubernetes.api.model.Toleration;
 import org.junit.jupiter.api.Test;
 
 import org.apache.spark.k8s.operator.Constants;
@@ -186,6 +188,49 @@ class WorkloadTest {
     assertFalse(json.has("quotaReserved"));
     assertFalse(json.has("finished"));
     assertFalse(json.has("podsReady"));
+  }
+
+  @Test
+  void testWorkloadStatusAdmissionChecksDeserialization() throws Exception {
+    // As Kueue and the controllers of the admission checks write them, with unmodeled fields
+    String json =
+        "{\"admissionChecks\":[{\"name\":\"provisioning\",\"state\":\"Ready\","
+            + "\"lastTransitionTime\":\"2026-10-07T00:00:00Z\",\"message\":\"Provisioned\","
+            + "\"podSetUpdates\":[{\"name\":\"executor\",\"labels\":{\"team\":\"a\"},"
+            + "\"annotations\":{\"autoscaling.x-k8s.io/consume-provisioning-request\":\"pr\"},"
+            + "\"nodeSelector\":{\"pool\":\"provisioned\"},"
+            + "\"tolerations\":[{\"key\":\"provisioned\",\"operator\":\"Exists\","
+            + "\"effect\":\"NoSchedule\"}]}]},"
+            + "{\"name\":\"another\",\"state\":\"Ready\",\"message\":\"\",\"retryCount\":1}]}";
+
+    WorkloadStatus status = OBJECT_MAPPER.readValue(json, WorkloadStatus.class);
+
+    assertEquals(2, status.getAdmissionChecks().size());
+    AdmissionCheckState check = status.getAdmissionChecks().get(0);
+    assertEquals("provisioning", check.getName());
+    assertEquals(
+        List.of(
+            PodSetUpdate.builder()
+                .name("executor")
+                .labels(Map.of("team", "a"))
+                .annotations(Map.of("autoscaling.x-k8s.io/consume-provisioning-request", "pr"))
+                .nodeSelector(Map.of("pool", "provisioned"))
+                .tolerations(
+                    List.of(new Toleration("NoSchedule", "provisioned", "Exists", null, null)))
+                .build()),
+        check.getPodSetUpdates());
+    assertEquals("another", status.getAdmissionChecks().get(1).getName());
+    assertEquals(List.of(), status.getAdmissionChecks().get(1).getPodSetUpdates());
+  }
+
+  @Test
+  void testWorkloadStatusWithoutAdmissionChecksOmitsThem() throws Exception {
+    WorkloadStatus status = OBJECT_MAPPER.readValue("{\"conditions\":[]}", WorkloadStatus.class);
+
+    assertNull(status.getAdmissionChecks());
+    // The operator records a condition on a Workload without status as well, which must not write
+    // the admission checks which Kueue owns
+    assertFalse(OBJECT_MAPPER.valueToTree(new WorkloadStatus()).has("admissionChecks"));
   }
 
   @Test

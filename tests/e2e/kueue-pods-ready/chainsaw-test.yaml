@@ -1,0 +1,331 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: spark-operator-kueue-pods-ready
+spec:
+  namespace: default
+  steps:
+  - name: spark-cluster-whose-pods-are-not-ready-is-evicted-by-kueue
+    # Each step uses its own queue objects, so that a step never waits for Kueue to finish
+    # deleting the objects of another step.
+    bindings:
+      - name: FLAVOR
+        value: spark-e2e-pods-ready-flavor
+      - name: CLUSTER_QUEUE
+        value: spark-e2e-pods-ready-cluster-queue
+      - name: LOCAL_QUEUE
+        value: spark-e2e-pods-ready-queue
+    try:
+    # The eviction below needs the waitForPodsReady timeout which the CI shortens to 2 minutes,
+    # rather than the default of 30 minutes.
+    - script:
+        timeout: 30s
+        content: |
+          kubectl get configmap kueue-manager-config -n kueue-system -o json \
+            | jq -r '.data["controller_manager_config.yaml"] | if contains("\nwaitForPodsReady:\n  timeout: 2m\n") then "SHORTENED" else "DEFAULT" end'
+        check:
+          (contains($stdout, 'SHORTENED')): true
+    - apply:
+        file: ../kueue/kueue-queues.yaml
+    # The quota fits both clusters (1 CPU for each master and worker)
+    - script:
+        timeout: 30s
+        env:
+          - name: CLUSTER_QUEUE
+            value: ($CLUSTER_QUEUE)
+        content: |
+          kubectl patch clusterqueue "$CLUSTER_QUEUE" --type json -p \
+            '[{"op": "replace", "path": "/spec/resourceGroups/0/flavors/0/resources/0/nominalQuota", "value": "4"},
+              {"op": "replace", "path": "/spec/resourceGroups/0/flavors/0/resources/1/nominalQuota", "value": "8Gi"}]'
+    - apply:
+        file: spark-cluster-example-pods-ready.yaml
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: kueue.x-k8s.io/v1beta2
+          kind: Workload
+          metadata:
+            name: sparkcluster-spark-cluster-kueue-pods-ready-test
+            namespace: default
+          status:
+            (conditions[?type == 'Admitted' && status == 'True'] | length(@)): 1
+    # The node labels and tolerations of the assigned ResourceFlavor are injected into the master
+    # and the worker pods.
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: apps/v1
+          kind: StatefulSet
+          metadata:
+            name: spark-cluster-kueue-pods-ready-test-master
+            namespace: default
+          spec:
+            template:
+              spec:
+                nodeSelector:
+                  kubernetes.io/os: linux
+                (tolerations[?key == 'spark.apache.org/kueue-e2e'] | length(@)): 1
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: apps/v1
+          kind: StatefulSet
+          metadata:
+            name: spark-cluster-kueue-pods-ready-test-worker
+            namespace: default
+          spec:
+            template:
+              spec:
+                nodeSelector:
+                  kubernetes.io/os: linux
+                (tolerations[?key == 'spark.apache.org/kueue-e2e'] | length(@)): 1
+    # Admitted after the cluster above, so that the waitForPodsReady timeout of Kueue, which the CI
+    # shortens to 2 minutes, has elapsed for both clusters once this one is evicted.
+    - apply:
+        file: spark-cluster-example-pods-not-ready.yaml
+    # RunningHealthy does not wait for the master and the worker, so the operator reports that they
+    # are ready once they are.
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: kueue.x-k8s.io/v1beta2
+          kind: Workload
+          metadata:
+            name: sparkcluster-spark-cluster-kueue-pods-ready-test
+            namespace: default
+          status:
+            (conditions[?type == 'PodsReady' && status == 'True' && reason == 'Started'] | length(@)): 1
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: kueue.x-k8s.io/v1beta2
+          kind: Workload
+          metadata:
+            name: sparkcluster-spark-cluster-kueue-pods-not-ready-test
+            namespace: default
+          status:
+            (conditions[?type == 'Evicted' && status == 'True' && reason == 'PodsReadyTimeout'] | length(@)): 1
+    # Like on a preemption, the operator releases the master and worker first and then the Workload
+    # once its requeue backoff, which the CI shortens to 10 seconds, elapses, and the cluster is
+    # queued again.
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: v1
+          kind: Event
+          metadata:
+            namespace: default
+          involvedObject:
+            kind: SparkCluster
+            name: spark-cluster-kueue-pods-not-ready-test
+          reason: Suspended
+          (contains(message || '', 'evicted by Kueue')): true
+          (contains(message || '', 'PodsReadyTimeout')): true
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: v1
+          kind: Event
+          metadata:
+            namespace: default
+          involvedObject:
+            kind: SparkCluster
+            name: spark-cluster-kueue-pods-not-ready-test
+          reason: Submitted
+          (contains(message || '', 'after its eviction')): true
+    # The cluster whose master and worker are ready is not evicted
+    - assert:
+        timeout: 30s
+        resource:
+          apiVersion: kueue.x-k8s.io/v1beta2
+          kind: Workload
+          metadata:
+            name: sparkcluster-spark-cluster-kueue-pods-ready-test
+            namespace: default
+          status:
+            (conditions[?type == 'Evicted' && status == 'True'] | length(@)): 0
+    # Nor was it evicted before, which the check above misses once the evicted Workload is replaced
+    # by a new one of the same name
+    - error:
+        timeout: 10s
+        resource:
+          apiVersion: v1
+          kind: Event
+          metadata:
+            namespace: default
+          involvedObject:
+            kind: SparkCluster
+            name: spark-cluster-kueue-pods-ready-test
+          reason: Suspended
+    catch:
+    - describe:
+        apiVersion: spark.apache.org/v1
+        kind: SparkCluster
+        namespace: default
+    - describe:
+        apiVersion: kueue.x-k8s.io/v1beta2
+        kind: Workload
+        namespace: default
+    - events:
+        namespace: default
+    finally:
+    - script:
+        timeout: 120s
+        env:
+          - name: FLAVOR
+            value: ($FLAVOR)
+          - name: CLUSTER_QUEUE
+            value: ($CLUSTER_QUEUE)
+          - name: LOCAL_QUEUE
+            value: ($LOCAL_QUEUE)
+        content: |
+          kubectl delete sparkcluster spark-cluster-kueue-pods-ready-test spark-cluster-kueue-pods-not-ready-test -n default --ignore-not-found=true
+          # Kueue finalizers may delay the deletion, which later steps do not depend on.
+          kubectl delete localqueue "$LOCAL_QUEUE" -n default --ignore-not-found=true --wait=false
+          kubectl delete clusterqueue "$CLUSTER_QUEUE" --ignore-not-found=true --wait=false
+          kubectl delete resourceflavor "$FLAVOR" --ignore-not-found=true --wait=false
+  - name: spark-application-whose-executors-are-not-ready-is-evicted-by-kueue
+    # Each step uses its own queue objects, so that a step never waits for Kueue to finish
+    # deleting the objects of another step.
+    bindings:
+      - name: FLAVOR
+        value: spark-e2e-app-pods-ready-flavor
+      - name: CLUSTER_QUEUE
+        value: spark-e2e-app-pods-ready-cluster-queue
+      - name: LOCAL_QUEUE
+        value: spark-e2e-app-pods-ready-queue
+    try:
+    # The eviction below needs the waitForPodsReady timeout which the CI shortens to 2 minutes,
+    # rather than the default of 30 minutes.
+    - script:
+        timeout: 30s
+        content: |
+          kubectl get configmap kueue-manager-config -n kueue-system -o json \
+            | jq -r '.data["controller_manager_config.yaml"] | if contains("\nwaitForPodsReady:\n  timeout: 2m\n") then "SHORTENED" else "DEFAULT" end'
+        check:
+          (contains($stdout, 'SHORTENED')): true
+    - apply:
+        file: ../kueue/kueue-queues.yaml
+    # The quota fits the application (1 CPU for the driver and 1 for the executor)
+    - script:
+        timeout: 30s
+        env:
+          - name: CLUSTER_QUEUE
+            value: ($CLUSTER_QUEUE)
+        content: |
+          kubectl patch clusterqueue "$CLUSTER_QUEUE" --type json -p \
+            '[{"op": "replace", "path": "/spec/resourceGroups/0/flavors/0/resources/0/nominalQuota", "value": "2"},
+              {"op": "replace", "path": "/spec/resourceGroups/0/flavors/0/resources/1/nominalQuota", "value": "8Gi"}]'
+    - apply:
+        file: spark-example-executors-not-ready.yaml
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: kueue.x-k8s.io/v1beta2
+          kind: Workload
+          metadata:
+            name: sparkapplication-spark-job-kueue-executors-not-ready-test
+            namespace: default
+          status:
+            (conditions[?type == 'Evicted' && status == 'True' && reason == 'PodsReadyTimeout'] | length(@)): 1
+    # Like a running SparkCluster, the operator releases the driver and executor first and then the
+    # Workload once its requeue backoff, which the CI shortens to 10 seconds, elapses, and the
+    # application is queued again with a new attempt.
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: v1
+          kind: Event
+          metadata:
+            namespace: default
+          involvedObject:
+            kind: SparkApplication
+            name: spark-job-kueue-executors-not-ready-test
+          reason: Suspended
+          (contains(message || '', 'evicted by Kueue')): true
+          (contains(message || '', 'PodsReadyTimeout')): true
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: v1
+          kind: Event
+          metadata:
+            namespace: default
+          involvedObject:
+            kind: SparkApplication
+            name: spark-job-kueue-executors-not-ready-test
+          reason: Submitted
+          (contains(message || '', 'after its eviction')): true
+    # The new attempt does not count as a restart, even with the default restartPolicy Never, and
+    # runs again on the quota which Kueue admits its new Workload into. It is evicted again once the
+    # waitForPodsReady timeout elapses, since its executor is never scheduled.
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: spark.apache.org/v1
+          kind: SparkApplication
+          metadata:
+            name: spark-job-kueue-executors-not-ready-test
+            namespace: default
+          status:
+            currentState:
+              currentStateSummary: RunningHealthy
+            currentAttemptSummary:
+              attemptInfo:
+                id: 1
+                restartCounter: 0
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: kueue.x-k8s.io/v1beta2
+          kind: Workload
+          metadata:
+            name: sparkapplication-spark-job-kueue-executors-not-ready-test
+            namespace: default
+          status:
+            (conditions[?type == 'Admitted' && status == 'True'] | length(@)): 1
+            (conditions[?type == 'Evicted' && status == 'True'] | length(@)): 0
+    catch:
+    - describe:
+        apiVersion: spark.apache.org/v1
+        kind: SparkApplication
+        namespace: default
+    - describe:
+        apiVersion: kueue.x-k8s.io/v1beta2
+        kind: Workload
+        namespace: default
+    - events:
+        namespace: default
+    finally:
+    - script:
+        timeout: 120s
+        env:
+          - name: FLAVOR
+            value: ($FLAVOR)
+          - name: CLUSTER_QUEUE
+            value: ($CLUSTER_QUEUE)
+          - name: LOCAL_QUEUE
+            value: ($LOCAL_QUEUE)
+        content: |
+          kubectl delete sparkapplication spark-job-kueue-executors-not-ready-test -n default --ignore-not-found=true
+          # Kueue finalizers may delay the deletion, which later steps do not depend on.
+          kubectl delete localqueue "$LOCAL_QUEUE" -n default --ignore-not-found=true --wait=false
+          kubectl delete clusterqueue "$CLUSTER_QUEUE" --ignore-not-found=true --wait=false
+          kubectl delete resourceflavor "$FLAVOR" --ignore-not-found=true --wait=false
