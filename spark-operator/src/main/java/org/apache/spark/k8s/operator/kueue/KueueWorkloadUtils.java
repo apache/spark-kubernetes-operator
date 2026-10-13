@@ -44,6 +44,7 @@ import java.util.TreeMap;
 import java.util.function.BooleanSupplier;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import io.fabric8.kubernetes.api.model.Condition;
 import io.fabric8.kubernetes.api.model.ConditionBuilder;
@@ -919,8 +920,10 @@ public final class KueueWorkloadUtils {
 
   /**
    * Records the Kueue `PodsReady` condition on the Workload of the resource of the given context
-   * once as many pods of each pod set as its count are ready, so that the `waitForPodsReady`
-   * timeout of Kueue does not evict it, and with `blockAdmission`, other workloads are admitted.
+   * once as many pods of each pod set as its count are ready, or for the executors of an
+   * application with dynamic allocation, as many as `spark.dynamicAllocation.minExecutors`, so
+   * that the `waitForPodsReady` timeout of Kueue does not evict it, and with `blockAdmission`,
+   * other workloads are admitted.
    * Unlike the built-in Kueue integrations, the condition is not set back to `False` when a pod is
    * lost later, e.g. an executor which Spark replaces, since an eviction would restart a running
    * cluster with its applications, or the attempt of a running application from scratch.
@@ -985,8 +988,8 @@ public final class KueueWorkloadUtils {
   }
 
   /**
-   * Checks whether the given Workload is admitted without the `PodsReady` condition, while as many
-   * pods of each of its pod sets as its count are ready.
+   * Checks whether the given Workload is admitted without the `PodsReady` condition, while enough
+   * pods of each of its pod sets are ready, see {@link #countRequiredReadyPods}.
    */
   private static boolean shouldRecordPodsReady(
       final BaseContext<?> context, final Workload workload) {
@@ -995,7 +998,24 @@ public final class KueueWorkloadUtils {
     }
     Map<String, Long> readyPods = context.countReadyPodsByRole();
     return workload.getSpec().getPodSets().stream()
-        .allMatch(podSet -> readyPods.getOrDefault(podSet.getName(), 0L) >= podSet.getCount());
+        .allMatch(
+            podSet ->
+                readyPods.getOrDefault(podSet.getName(), 0L)
+                    >= countRequiredReadyPods(workload, podSet));
+  }
+
+  /**
+   * Returns how many pods of the given pod set of the Workload must be ready for the `PodsReady`
+   * condition: its count, unless the Workload records another number for it, see {@link
+   * KueueWorkloadFactory#ANNOTATION_PODS_READY_PREFIX}.
+   */
+  static int countRequiredReadyPods(final Workload workload, final PodSet podSet) {
+    Map<String, String> annotations = workload.getMetadata().getAnnotations();
+    String required =
+        annotations == null
+            ? null
+            : annotations.get(KueueWorkloadFactory.ANNOTATION_PODS_READY_PREFIX + podSet.getName());
+    return required == null ? podSet.getCount() : Integer.parseInt(required);
   }
 
   private static Workload putCondition(
@@ -1034,17 +1054,23 @@ public final class KueueWorkloadUtils {
   }
 
   /**
-   * Hashes the pod sets of the desired Workload with sorted map keys. The hash is stored as an
-   * annotation at creation, so the comparison does not depend on the defaulting applied to the
-   * stored pod sets.
+   * Hashes the pod sets of the desired Workload with sorted map keys, together with the annotations
+   * which it is built with, e.g. how many pods of a pod set must be ready, so that a change of
+   * either recreates a pending Workload. The hash is stored as an annotation at creation, so the
+   * comparison does not depend on the defaulting applied to the stored pod sets.
    */
   static String hashPodSets(final Workload workload) {
     try {
+      ObjectWriter writer =
+          ModelUtils.objectMapper.writer().with(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS);
+      Map<String, String> annotations =
+          new HashMap<>(
+              Objects.requireNonNullElse(workload.getMetadata().getAnnotations(), Map.of()));
+      // Added to the desired Workload once it is computed
+      annotations.remove(ANNOTATION_POD_SETS_HASH);
       String json =
-          ModelUtils.objectMapper
-              .writer()
-              .with(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
-              .writeValueAsString(workload.getSpec().getPodSets());
+          writer.writeValueAsString(workload.getSpec().getPodSets())
+              + (annotations.isEmpty() ? "" : writer.writeValueAsString(annotations));
       byte[] digest =
           MessageDigest.getInstance("SHA-256").digest(json.getBytes(StandardCharsets.UTF_8));
       return HexFormat.of().formatHex(digest);

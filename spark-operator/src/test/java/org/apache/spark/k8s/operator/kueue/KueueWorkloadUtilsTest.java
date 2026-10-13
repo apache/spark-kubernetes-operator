@@ -549,6 +549,21 @@ class KueueWorkloadUtilsTest {
   }
 
   @Test
+  void hashPodSetsCoversTheExecutorsWhichPodsReadyRequires() {
+    Map<String, String> sparkConf = new HashMap<>();
+    sparkConf.put("spark.dynamicAllocation.enabled", "true");
+    sparkConf.put("spark.dynamicAllocation.maxExecutors", "4");
+    SparkApplication app = app(sparkConf);
+    app.getMetadata()
+        .setAnnotations(Map.of(Constants.ANNOTATION_KUEUE_RESERVE_MAX_EXECUTORS, "true"));
+    String hash = hashPodSets(app);
+
+    // The pod sets stay the same, while the executors which the PodsReady condition requires change
+    sparkConf.put("spark.dynamicAllocation.minExecutors", "1");
+    Assertions.assertNotEquals(hash, hashPodSets(app));
+  }
+
+  @Test
   void releaseWorkloadDeletesWorkload() {
     KueueWorkloadUtils.requestAdmission(kubernetesClient, workload("owner-uid-1", 1));
 
@@ -730,6 +745,30 @@ class KueueWorkloadUtilsTest {
     Assertions.assertNotNull(condition.getLastTransitionTime());
     // The conditions which Kueue recorded are kept
     Assertions.assertTrue(workload.getStatus().isAdmitted());
+  }
+
+  @Test
+  void podsReadyRequiresTheExecutorsWhichDynamicAllocationKeeps() {
+    // The Workload reserves 2 executors, while dynamic allocation keeps at least 1 of them
+    Workload desired = workloadWithDriver();
+    desired
+        .getMetadata()
+        .setAnnotations(
+            Map.of(KueueWorkloadFactory.ANNOTATION_PODS_READY_PREFIX + "executor", "1"));
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, desired);
+    admitWorkload();
+    SparkAppContext context = readyPodsContext(1, 0);
+
+    Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.recordPodsReady(context));
+    Assertions.assertEquals(0L, countConditions(getWorkload(), "PodsReady"));
+    stubReadyPods(context, 0, 1);
+    Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.recordPodsReady(context));
+    Assertions.assertEquals(0L, countConditions(getWorkload(), "PodsReady"));
+
+    // Dynamic allocation may never request the other executor
+    stubReadyPods(context, 1, 1);
+    Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.recordPodsReady(context));
+    Assertions.assertEquals("True", findCondition(getWorkload(), "PodsReady").getStatus());
   }
 
   @Test
