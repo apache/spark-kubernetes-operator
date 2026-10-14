@@ -172,7 +172,8 @@ flowchart TD
   For an application with dynamic allocation, whose executor pod set reserves
   `spark.dynamicAllocation.maxExecutors`, the `Workload` records
   `spark.dynamicAllocation.minExecutors` in its `spark.operator/kueue-pods-ready-executor`
-  annotation, and that many executors are enough.
+  annotation, and that many executors are enough. Kueue does not read the annotation, so a
+  pending `Workload` gets its change in place and keeps its position in the queue.
 * The `Workload` is released at the following points. Kueue would admit another workload into the
   quota which terminating pods still occupy, so the Operator deletes it only after the pods are
   gone, unless they are stuck terminating, and the resource keeps its state until then.

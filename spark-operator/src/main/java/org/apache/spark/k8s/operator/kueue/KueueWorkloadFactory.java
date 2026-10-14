@@ -73,11 +73,12 @@ public final class KueueWorkloadFactory {
   public static final String PODSET_WORKER = Constants.LABEL_SPARK_ROLE_WORKER_VALUE;
 
   /**
-   * Prefix of the annotation of a Workload, followed by the name of a pod set, which holds how many
-   * of its pods must be ready for the Kueue `PodsReady` condition instead of its count, e.g. the
-   * executors which dynamic allocation keeps, see {@link KueueWorkloadUtils#recordPodsReady}.
+   * Annotation of the Workload of an application with dynamic allocation, which holds how many
+   * executors must be ready for the Kueue `PodsReady` condition instead of the count of its
+   * executor pod set, see {@link KueueWorkloadUtils#recordPodsReady}.
    */
-  public static final String ANNOTATION_PODS_READY_PREFIX = "spark.operator/kueue-pods-ready-";
+  public static final String ANNOTATION_PODS_READY_EXECUTORS =
+      "spark.operator/kueue-pods-ready-executor";
 
   private static final String DEFAULT_CORES = "1";
   private static final String DEFAULT_MEMORY = "1g";
@@ -122,27 +123,28 @@ public final class KueueWorkloadFactory {
           Constants.EXECUTOR_SPARK_TEMPLATE_FILE_PROP_KEY,
           ModelUtils.overrideExecutorTemplateEnabled(spec));
     }
+    List<PodSet> podSets = new ArrayList<>();
+    podSets.add(buildDriverPodSet(app, sparkConf));
+    Map<String, String> annotations = new HashMap<>();
     // Dynamic allocation changes only the number of the executor pods
-    boolean dynamicAllocation =
-        !driverOnly && "true".equalsIgnoreCase(sparkConf.get("spark.dynamicAllocation.enabled"));
-    List<PodSet> podSets =
-        driverOnly
-            ? List.of(buildDriverPodSet(app, sparkConf))
-            : List.of(
-                buildDriverPodSet(app, sparkConf),
-                buildExecutorPodSet(app, sparkConf, dynamicAllocation));
+    if (!driverOnly) {
+      int executors;
+      if ("true".equalsIgnoreCase(sparkConf.get("spark.dynamicAllocation.enabled"))) {
+        int minExecutors = parseInt(sparkConf.get("spark.dynamicAllocation.minExecutors"), 0);
+        executors = getReservedMaxExecutors(app, sparkConf, minExecutors);
+        // Like Kueue's SparkApplication integration, the minimum which dynamic allocation keeps is
+        // what has to be ready, since it may never request the maximum which the Workload reserves.
+        annotations.put(ANNOTATION_PODS_READY_EXECUTORS, String.valueOf(minExecutors));
+      } else {
+        executors =
+            parseInt(sparkConf.get("spark.executor.instances"), DEFAULT_EXECUTOR_INSTANCES);
+      }
+      podSets.add(buildExecutorPodSet(app, sparkConf, executors));
+    }
     Workload workload =
         buildWorkload(app, Constants.LABEL_SPARK_APPLICATION_NAME, spec.isSuspend(), podSets);
-    if (dynamicAllocation) {
-      // Like Kueue's SparkApplication integration, the minimum which dynamic allocation keeps is
-      // what has to be ready, since it may never request the maximum which the Workload reserves.
-      workload
-          .getMetadata()
-          .setAnnotations(
-              Map.of(
-                  ANNOTATION_PODS_READY_PREFIX + PODSET_EXECUTOR,
-                  String.valueOf(
-                      parseInt(sparkConf.get("spark.dynamicAllocation.minExecutors"), 0))));
+    if (!annotations.isEmpty()) {
+      workload.getMetadata().setAnnotations(annotations);
     }
     return workload;
   }
@@ -321,15 +323,11 @@ public final class KueueWorkloadFactory {
   }
 
   static PodSet buildExecutorPodSet(
-      final SparkApplication app,
-      final Map<String, String> sparkConf,
-      final boolean dynamicAllocation) {
+      final SparkApplication app, final Map<String, String> sparkConf, final int count) {
     ApplicationSpec spec = app.getSpec();
     return buildPodSet(
         PODSET_EXECUTOR,
-        dynamicAllocation
-            ? getReservedMaxExecutors(app, sparkConf)
-            : parseInt(sparkConf.get("spark.executor.instances"), DEFAULT_EXECUTOR_INSTANCES),
+        count,
         spec.getExecutorSpec(),
         sparkConf,
         Constants.EXECUTOR_SPARK_CONTAINER_PROP_KEY,
@@ -342,7 +340,7 @@ public final class KueueWorkloadFactory {
    * Workload cannot grow or shrink.
    */
   private static int getReservedMaxExecutors(
-      final SparkApplication app, final Map<String, String> sparkConf) {
+      final SparkApplication app, final Map<String, String> sparkConf, final int minExecutors) {
     Map<String, String> annotations = app.getMetadata().getAnnotations();
     if (annotations == null
         || !"true".equalsIgnoreCase(
@@ -360,6 +358,23 @@ public final class KueueWorkloadFactory {
       throw new IllegalArgumentException(
           "spark.dynamicAllocation.maxExecutors must be set to reserve its Kueue quota, "
               + "since it is unlimited by default.");
+    }
+    // Like Spark's SchedulerBackendUtils, which fails the driver at startup otherwise, the initial
+    // executors must not exceed the maximum, so such an application does not wait for the admission
+    int initialExecutors =
+        Math.max(
+            Math.max(
+                minExecutors,
+                parseInt(sparkConf.get("spark.dynamicAllocation.initialExecutors"), minExecutors)),
+            parseInt(sparkConf.get("spark.executor.instances"), 0));
+    if (initialExecutors > maxExecutors) {
+      throw new IllegalArgumentException(
+          "spark.dynamicAllocation.maxExecutors ("
+              + maxExecutors
+              + ") must not be less than the initial executors ("
+              + initialExecutors
+              + "), the maximum of spark.dynamicAllocation.minExecutors, "
+              + "spark.dynamicAllocation.initialExecutors and spark.executor.instances.");
     }
     return maxExecutors;
   }

@@ -44,7 +44,6 @@ import java.util.TreeMap;
 import java.util.function.BooleanSupplier;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import io.fabric8.kubernetes.api.model.Condition;
 import io.fabric8.kubernetes.api.model.ConditionBuilder;
@@ -243,10 +242,47 @@ public final class KueueWorkloadUtils {
       spec.setPriority(desired.getSpec().getPriority());
       changed = true;
     }
+    if (updatePodsReadyExecutors(workload, desired)) {
+      changed = true;
+    }
     if (changed) {
       client.resource(workload).update();
     }
     return new AdmissionResponse(AdmissionResult.PENDING, workload);
+  }
+
+  /**
+   * Copies the annotation of the desired Workload which holds how many executors must be ready to
+   * the pending Workload if it differs. Kueue does not read it, so it is updated in place, and the
+   * Workload keeps its position in the queue.
+   *
+   * @param pending The pending Workload, which is modified in place.
+   * @param desired The Workload built for the resource.
+   * @return True if the pending Workload was modified.
+   */
+  private static boolean updatePodsReadyExecutors(final Workload pending, final Workload desired) {
+    String podsReadyExecutors = getPodsReadyExecutors(desired);
+    if (Objects.equals(podsReadyExecutors, getPodsReadyExecutors(pending))) {
+      return false;
+    }
+    log.info(
+        "Updating the ready executors which the pending Kueue Workload {} requires.",
+        pending.getMetadata().getName());
+    Map<String, String> annotations = new HashMap<>(pending.getMetadata().getAnnotations());
+    if (podsReadyExecutors == null) {
+      annotations.remove(KueueWorkloadFactory.ANNOTATION_PODS_READY_EXECUTORS);
+    } else {
+      annotations.put(KueueWorkloadFactory.ANNOTATION_PODS_READY_EXECUTORS, podsReadyExecutors);
+    }
+    pending.getMetadata().setAnnotations(annotations);
+    return true;
+  }
+
+  private static String getPodsReadyExecutors(final Workload workload) {
+    Map<String, String> annotations = workload.getMetadata().getAnnotations();
+    return annotations == null
+        ? null
+        : annotations.get(KueueWorkloadFactory.ANNOTATION_PODS_READY_EXECUTORS);
   }
 
   /**
@@ -1006,16 +1042,17 @@ public final class KueueWorkloadUtils {
 
   /**
    * Returns how many pods of the given pod set of the Workload must be ready for the `PodsReady`
-   * condition: its count, unless the Workload records another number for it, see {@link
-   * KueueWorkloadFactory#ANNOTATION_PODS_READY_PREFIX}.
+   * condition: its count, or for the executors of an application with dynamic allocation, the
+   * minimum which the Workload records, see {@link
+   * KueueWorkloadFactory#ANNOTATION_PODS_READY_EXECUTORS}.
    */
   static int countRequiredReadyPods(final Workload workload, final PodSet podSet) {
-    Map<String, String> annotations = workload.getMetadata().getAnnotations();
-    String required =
-        annotations == null
-            ? null
-            : annotations.get(KueueWorkloadFactory.ANNOTATION_PODS_READY_PREFIX + podSet.getName());
-    return required == null ? podSet.getCount() : Integer.parseInt(required);
+    String podsReadyExecutors = getPodsReadyExecutors(workload);
+    if (podsReadyExecutors == null
+        || !KueueWorkloadFactory.PODSET_EXECUTOR.equals(podSet.getName())) {
+      return podSet.getCount();
+    }
+    return Integer.parseInt(podsReadyExecutors);
   }
 
   private static Workload putCondition(
@@ -1054,23 +1091,17 @@ public final class KueueWorkloadUtils {
   }
 
   /**
-   * Hashes the pod sets of the desired Workload with sorted map keys, together with the annotations
-   * which it is built with, e.g. how many pods of a pod set must be ready, so that a change of
-   * either recreates a pending Workload. The hash is stored as an annotation at creation, so the
-   * comparison does not depend on the defaulting applied to the stored pod sets.
+   * Hashes the pod sets of the desired Workload with sorted map keys. The hash is stored as an
+   * annotation at creation, so the comparison does not depend on the defaulting applied to the
+   * stored pod sets.
    */
   static String hashPodSets(final Workload workload) {
     try {
-      ObjectWriter writer =
-          ModelUtils.objectMapper.writer().with(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS);
-      Map<String, String> annotations =
-          new HashMap<>(
-              Objects.requireNonNullElse(workload.getMetadata().getAnnotations(), Map.of()));
-      // Added to the desired Workload once it is computed
-      annotations.remove(ANNOTATION_POD_SETS_HASH);
       String json =
-          writer.writeValueAsString(workload.getSpec().getPodSets())
-              + (annotations.isEmpty() ? "" : writer.writeValueAsString(annotations));
+          ModelUtils.objectMapper
+              .writer()
+              .with(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
+              .writeValueAsString(workload.getSpec().getPodSets());
       byte[] digest =
           MessageDigest.getInstance("SHA-256").digest(json.getBytes(StandardCharsets.UTF_8));
       return HexFormat.of().formatHex(digest);

@@ -333,7 +333,7 @@ class KueueWorkloadFactoryTest {
             .build());
 
     ApplicationSpec spec = new ApplicationSpec();
-    // Like Spark, the initial executors are within the minimum and the maximum
+    // Spark requires the initial executors, here 5, to be within the minimum and the maximum
     spec.setSparkConf(
         Map.of(
             "spark.dynamicAllocation.enabled", "true",
@@ -385,6 +385,24 @@ class KueueWorkloadFactoryTest {
             "spark.dynamicAllocation.enabled", "true",
             "spark.dynamicAllocation.maxExecutors", "not-a-number"));
     assertThrows(NumberFormatException.class, () -> KueueWorkloadFactory.buildWorkload(app));
+
+    // Spark fails a driver whose initial executors exceed the maximum at startup, so such an
+    // application is rejected before it waits for the admission
+    for (String key :
+        List.of(
+            "spark.dynamicAllocation.minExecutors",
+            "spark.dynamicAllocation.initialExecutors",
+            "spark.executor.instances")) {
+      spec.setSparkConf(
+          Map.of(
+              "spark.dynamicAllocation.enabled", "true",
+              "spark.dynamicAllocation.maxExecutors", "2",
+              key, "5"));
+      IllegalArgumentException exceeded =
+          assertThrows(
+              IllegalArgumentException.class, () -> KueueWorkloadFactory.buildWorkload(app));
+      assertTrue(exceeded.getMessage().contains("initial executors (5)"), exceeded.getMessage());
+    }
 
     // The annotation is ignored without dynamic allocation
     spec.setSparkConf(Map.of("spark.executor.instances", "3"));

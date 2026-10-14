@@ -671,7 +671,7 @@ relates it to the reconciliation.
 | `spec.suspend`                                                            | Supported           | It takes precedence over the queueing, so that a suspended resource releases its `Workload`, see [Suspend](#suspend).                                                                                                                        |
 | Releasing the quota of an application attempt                             | Supported           | The `Workload` is deleted once the driver and executor pods of the attempt are gone, or gets the `Finished` condition when a `Succeeded`, `Failed` or `DriverEvicted` application [retains its resources](#delete-resources-on-termination). |
 | Requeuing backoff after an eviction                                       | Partially supported | The resource waits for the backoff which Kueue records, but its new `Workload` starts the requeue count over, so the backoff does not grow and a `backoffLimitCount` above 0 never deactivates it.                                           |
-| Dynamic allocation (`spark.dynamicAllocation.enabled`)                    | Partially supported | Only with the `spark.operator/kueue-reserve-max-executors: "true"` annotation, which reserves the quota of `spark.dynamicAllocation.maxExecutors` executors, see below. Otherwise, the `SparkApplication` fails with `SchedulingFailure`.    |
+| Dynamic allocation (`spark.dynamicAllocation.enabled`)                    | Partially supported | Only with the `spark.operator/kueue-reserve-max-executors: "true"` annotation, which reserves `spark.dynamicAllocation.maxExecutors` executors of the default resource profile, see below. Otherwise, it fails with `SchedulingFailure`.     |
 | `recoveryTimeout` of `waitForPodsReady`                                   | Not supported       | The `PodsReady` condition stays `True` when a pod is lost later, e.g. an executor which Spark replaces.                                                                                                                                      |
 | Maximum execution time (`kueue.x-k8s.io/max-exec-time-seconds`)           | Not supported       | Use the Spark native `spark.driver.timeout` instead, as in [pi-with-driver-timeout.yaml](../examples/pi-with-driver-timeout.yaml).                                                                                                           |
 | Partial admission                                                         | Not supported       | The pod sets of a `Workload` have no `minCount`, so Kueue admits all the requested pods or none.                                                                                                                                             |
@@ -817,13 +817,22 @@ relates it to the reconciliation.
   dynamic allocation fails with `SchedulingFailure` unless it is annotated with
   `spark.operator/kueue-reserve-max-executors: "true"`, which is ignored without dynamic
   allocation. As a stopgap, its `Workload` then reserves the quota of
-  `spark.dynamicAllocation.maxExecutors` executors, which must be set since it is unlimited by
-  default, for the whole attempt: Kueue admits it only once the maximum fits, and preemption, fair
-  sharing and a `ProvisioningRequest` admission check count the maximum even while fewer executors
-  run. Like the integration of Kueue for the Kubeflow Spark Operator, the `PodsReady` condition
-  waits only for the driver and `spark.dynamicAllocation.minExecutors` executors, so with the
-  default minimum of 0, a `PodsReadyTimeout` does not catch executors which cannot be scheduled.
-  An application whose executors are not pods, see below, needs no annotation.
+  `spark.dynamicAllocation.maxExecutors` executors for the whole attempt. An application whose
+  executors are not pods, see below, needs no annotation.
+  * `spark.dynamicAllocation.maxExecutors` must be set, since it is unlimited by default. Like
+    Spark requires, it must not be less than the initial executors, the maximum of
+    `spark.dynamicAllocation.minExecutors`, `spark.dynamicAllocation.initialExecutors` and
+    `spark.executor.instances`.
+  * Kueue admits the application only once the maximum fits, and preemption, fair sharing and a
+    `ProvisioningRequest` admission check count the maximum even while fewer executors run.
+  * The reservation bounds only the executors of the default resource profile. Spark applies
+    `spark.dynamicAllocation.maxExecutors` to each `ResourceProfile` separately, so with
+    stage-level scheduling, e.g. `RDD.withResources`, the executors of another profile run outside
+    the quota.
+  * Like the integration of Kueue for the Kubeflow Spark Operator, which also uses
+    `spark.dynamicAllocation.minExecutors` as the `PodsReady` threshold, the `PodsReady` condition
+    waits only for the driver and that many executors. So with the default minimum of 0, a
+    `PodsReadyTimeout` does not catch executors which cannot be scheduled.
 * A resource whose `Workload` is deactivated (`spec.active` set to `false`), e.g. by
   `kueuectl stop workload`, before its driver (or master) is requested waits until the `Workload`
   is reactivated, since Kueue neither counts nor admits a deactivated `Workload`, and the
