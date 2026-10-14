@@ -20,13 +20,17 @@
 package org.apache.spark.k8s.operator.metrics.source;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
 import java.util.Map;
+import java.util.Properties;
 
 import com.codahale.metrics.Metric;
+import com.codahale.metrics.MetricRegistry;
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
@@ -41,7 +45,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import org.apache.spark.k8s.operator.SparkApplication;
-import org.apache.spark.k8s.operator.metrics.SummingHistogram;
+import org.apache.spark.k8s.operator.metrics.PrometheusPullModelHandler;
+import org.apache.spark.k8s.operator.metrics.SummingTimer;
 import org.apache.spark.util.ManualClock;
 
 class OperatorJosdkMetricsTest {
@@ -75,38 +80,58 @@ class OperatorJosdkMetricsTest {
     // The execution took 10 ms, which is recorded with sub-second precision in nanoseconds.
     long durationNanos = Duration.ofMillis(10).toNanos();
     assertEquals(
-        durationNanos,
-        recordedNanos(metrics, "sparkapplication.test-controller.reconcile.both.nanos"));
+        durationNanos, recordedNanos(metrics, "sparkapplication.test-controller.reconcile.both"));
     assertEquals(
         durationNanos,
-        recordedNanos(metrics, "sparkapplication.testns.test-controller.reconcile.both.nanos"));
+        recordedNanos(metrics, "sparkapplication.testns.test-controller.reconcile.both"));
     assertTrue(metrics.containsKey("sparkapplication.test-controller.reconcile.success.both"));
     assertTrue(
         metrics.containsKey("sparkapplication.testns.test-controller.reconcile.success.both"));
 
     FooTestingExecutionBase<SparkApplication> failedExecution = new FooTestingExecutionBase<>();
-    try {
-      operatorMetrics.timeControllerExecution(failedExecution);
-    } catch (Exception e) {
-      assertEquals("Foo exception", e.getMessage());
-      assertEquals(8, metrics.size());
-      long failureNanos = Duration.ofMillis(5).toNanos();
-      assertEquals(
-          failureNanos,
-          recordedNanos(metrics, "sparkapplication.test-controller.reconcile.failure.nanos"));
-      assertTrue(
-          metrics.containsKey(
-              "sparkapplication.test-controller.reconcile.failure.exception"
-                  + ".nosuchfieldexception"));
-      assertEquals(
-          failureNanos,
-          recordedNanos(
-              metrics, "sparkapplication.testns.test-controller.reconcile.failure.nanos"));
-      assertTrue(
-          metrics.containsKey(
-              "sparkapplication.testns.test-controller.reconcile.failure."
-                  + "exception.nosuchfieldexception"));
+    Exception e =
+        assertThrows(
+            NoSuchFieldException.class,
+            () -> operatorMetrics.timeControllerExecution(failedExecution));
+    assertEquals("Foo exception", e.getMessage());
+    assertEquals(8, metrics.size());
+    long failureNanos = Duration.ofMillis(5).toNanos();
+    assertEquals(
+        failureNanos,
+        recordedNanos(metrics, "sparkapplication.test-controller.reconcile.failure"));
+    assertTrue(
+        metrics.containsKey(
+            "sparkapplication.test-controller.reconcile.failure.exception"
+                + ".nosuchfieldexception"));
+    assertEquals(
+        failureNanos,
+        recordedNanos(metrics, "sparkapplication.testns.test-controller.reconcile.failure"));
+    assertTrue(
+        metrics.containsKey(
+            "sparkapplication.testns.test-controller.reconcile.failure."
+                + "exception.nosuchfieldexception"));
+  }
+
+  @Test
+  void testTimeControllerExecutionIsExportedInSeconds() throws Exception {
+    // A namespace containing "nanos" must not affect the exported name or unit.
+    ResourceID nanosNamespaceResourceId = new ResourceID("spark-pi", "team-nanos");
+    operatorMetrics.timeControllerExecution(new TestingExecutionBase<>(nanosNamespaceResourceId));
+    TestingPrometheusPullModelHandler handler =
+        new TestingPrometheusPullModelHandler(operatorMetrics.metricRegistry());
+
+    String output = handler.snapshot();
+    for (String baseName :
+        new String[] {
+          "sparkapplication_test_controller_reconcile_both_duration_seconds",
+          "sparkapplication_team_nanos_test_controller_reconcile_both_duration_seconds"
+        }) {
+      assertTrue(output.contains("# TYPE " + baseName + " summary\n"), output);
+      assertTrue(output.contains(baseName + "{quantile=\"0.5\"} 0.01\n"), output);
+      assertTrue(output.contains(baseName + "_count 1\n"), output);
+      assertTrue(output.contains(baseName + "_sum 0.01\n"), output);
     }
+    assertFalse(output.contains("team_seconds"), output);
   }
 
   @Test
@@ -142,10 +167,31 @@ class OperatorJosdkMetricsTest {
   }
 
   private static long recordedNanos(Map<String, Metric> metrics, String name) {
-    return assertInstanceOf(SummingHistogram.class, metrics.get(name)).getSum();
+    return assertInstanceOf(SummingTimer.class, metrics.get(name)).getSum();
+  }
+
+  private static final class TestingPrometheusPullModelHandler
+      extends PrometheusPullModelHandler {
+    TestingPrometheusPullModelHandler(MetricRegistry registry) {
+      super(new Properties(), registry);
+    }
+
+    String snapshot() {
+      return formatMetricsSnapshot();
+    }
   }
 
   private final class TestingExecutionBase<T> implements Metrics.ControllerExecution<T> {
+    private final ResourceID executionResourceId;
+
+    TestingExecutionBase() {
+      this(resourceId);
+    }
+
+    TestingExecutionBase(ResourceID executionResourceId) {
+      this.executionResourceId = executionResourceId;
+    }
+
     @Override
     public String controllerName() {
       return controllerName;
@@ -158,7 +204,7 @@ class OperatorJosdkMetricsTest {
 
     @Override
     public ResourceID resourceID() {
-      return resourceId;
+      return executionResourceId;
     }
 
     @Override

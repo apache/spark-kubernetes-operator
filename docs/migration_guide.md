@@ -121,12 +121,11 @@ affect building the project, CI, tests or examples.
   `0.5` and `0.999` quantiles of the `operator_sdk_*` histograms are the median and the 99.9th
   percentile instead of the mean and the 99th percentile. A histogram or timer of a custom metrics
   source has no `_sum` unless it is a `SummingHistogram` or a `SummingTimer`.
-- Since 1.1.0, the histograms of the `operator.sdk` metrics source which time the controller
-  executions, i.e. the reconciliations and cleanups, record nanoseconds, and their names end with
-  `nanos`, e.g. `operator.sdk.sparkapplication.sparkappreconciler.reconcile.both.nanos` instead of
-  `operator.sdk.sparkapplication.sparkappreconciler.reconcile.both`, so `PrometheusPullModelHandler`
-  exports them in seconds with a `_seconds` suffix, e.g.
-  `operator_sdk_sparkapplication_sparkappreconciler_reconcile_both_seconds` instead of
+- Since 1.1.0, the `operator.sdk` metrics source times the controller executions, i.e. the
+  reconciliations and cleanups, with timers instead of histograms, which record nanoseconds and
+  are exported in seconds with a `_duration_seconds` suffix regardless of
+  `spark.kubernetes.operator.metrics.sanitizePrometheusMetricsNameEnabled`, e.g.
+  `operator_sdk_sparkapplication_sparkappreconciler_reconcile_both_duration_seconds` instead of
   `operator_sdk_sparkapplication_sparkappreconciler_reconcile_both`. 1.0 recorded whole seconds,
   so an execution under one second, which most are, was recorded as `0`, and the quantiles and
   `_sum` of these histograms were mostly `0`. Update queries and dashboards to the new names.
