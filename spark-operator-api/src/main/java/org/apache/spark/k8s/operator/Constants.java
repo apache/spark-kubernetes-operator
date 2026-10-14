@@ -50,6 +50,13 @@ public final class Constants {
   /** The label for the Kueue WorkloadPriorityClass name. */
   public static final String LABEL_WORKLOAD_PRIORITY_CLASS = "kueue.x-k8s.io/priority-class";
 
+  /**
+   * The annotation which lets Kueue queue a SparkApplication with dynamic allocation by reserving
+   * the quota of `spark.dynamicAllocation.maxExecutors` executors, if set to `true`.
+   */
+  public static final String ANNOTATION_KUEUE_RESERVE_MAX_EXECUTORS =
+      "spark.operator/kueue-reserve-max-executors";
+
   /** The API group for Kueue resources. */
   public static final String KUEUE_API_GROUP = "kueue.x-k8s.io";
 

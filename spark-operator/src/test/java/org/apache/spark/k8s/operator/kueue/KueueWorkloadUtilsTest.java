@@ -733,6 +733,30 @@ class KueueWorkloadUtilsTest {
   }
 
   @Test
+  void podsReadyRequiresTheExecutorsWhichDynamicAllocationKeeps() {
+    // The Workload reserves 2 executors, while dynamic allocation keeps at least 1 of them
+    Workload desired = workloadWithDriver();
+    desired
+        .getMetadata()
+        .setAnnotations(
+            Map.of(KueueWorkloadFactory.ANNOTATION_PODS_READY_EXECUTORS, "1"));
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, desired);
+    admitWorkload();
+    SparkAppContext context = readyPodsContext(1, 0);
+
+    Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.recordPodsReady(context));
+    Assertions.assertEquals(0L, countConditions(getWorkload(), "PodsReady"));
+    stubReadyPods(context, 0, 1);
+    Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.recordPodsReady(context));
+    Assertions.assertEquals(0L, countConditions(getWorkload(), "PodsReady"));
+
+    // Dynamic allocation may never request the other executor
+    stubReadyPods(context, 1, 1);
+    Assertions.assertEquals(Optional.empty(), KueueWorkloadUtils.recordPodsReady(context));
+    Assertions.assertEquals("True", findCondition(getWorkload(), "PodsReady").getStatus());
+  }
+
+  @Test
   void podsReadyIsRecordedOnAnEvictedWorkload() {
     KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithDriver());
     admit(evictedStatus("PodsReadyTimeout"));
@@ -1569,6 +1593,38 @@ class KueueWorkloadUtilsTest {
         "another-queue", updated.getMetadata().getLabels().get(Constants.LABEL_QUEUE_NAME));
     Assertions.assertEquals("high", updated.getSpec().getPriorityClassRef().getName());
     Assertions.assertEquals(1000, updated.getSpec().getPriority());
+  }
+
+  @Test
+  void pendingWorkloadUpdatesTheRequiredReadyPodsInPlace() {
+    String key = KueueWorkloadFactory.ANNOTATION_PODS_READY_EXECUTORS;
+    Workload desired = workloadWithDriver();
+    desired.getMetadata().setAnnotations(Map.of(key, "0"));
+    KueueWorkloadUtils.requestAdmission(kubernetesClient, desired);
+    String uid = getWorkload().getMetadata().getUid();
+
+    // Kueue does not read the annotation, so a change of `spark.dynamicAllocation.minExecutors`
+    // while waiting keeps the Workload and so its position in the queue
+    Workload changed = workloadWithDriver();
+    changed.getMetadata().setAnnotations(Map.of(key, "1"));
+    Assertions.assertEquals(
+        AdmissionResult.PENDING,
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, changed).result());
+    Assertions.assertEquals(uid, getWorkload().getMetadata().getUid());
+    Assertions.assertEquals("1", getWorkload().getMetadata().getAnnotations().get(key));
+
+    // Nor does its removal, e.g. without dynamic allocation for the same number of executors
+    Assertions.assertEquals(
+        AdmissionResult.PENDING,
+        KueueWorkloadUtils.requestAdmission(kubernetesClient, workloadWithDriver()).result());
+    Workload updated = getWorkload();
+    Assertions.assertEquals(uid, updated.getMetadata().getUid());
+    Assertions.assertFalse(updated.getMetadata().getAnnotations().containsKey(key));
+    Assertions.assertTrue(
+        updated
+            .getMetadata()
+            .getAnnotations()
+            .containsKey(KueueWorkloadUtils.ANNOTATION_POD_SETS_HASH));
   }
 
   @Test

@@ -24,7 +24,8 @@ spec:
   steps:
   - name: spark-application-without-queue-name-is-not-queued
     try:
-    # `KueueWorkloadFactory` rejects dynamic allocation, so an example using it could never
+    # `KueueWorkloadFactory` rejects dynamic allocation without the
+    # `spark.operator/kueue-reserve-max-executors` annotation, so an example using it could never
     # produce a Workload, and the Workload check below would always pass. A single static
     # executor keeps this eligible and fits next to the Kueue controller on the test node.
     - apply:
