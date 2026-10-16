@@ -347,10 +347,10 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: Set up JDK 26
+      - name: Set up JDK 27
         uses: actions/setup-java@v6
         with:
-          java-version: 26
+          java-version: 27
           distribution: 'temurin'
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb
