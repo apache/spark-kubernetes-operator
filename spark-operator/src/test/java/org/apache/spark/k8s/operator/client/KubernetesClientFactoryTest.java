@@ -22,6 +22,7 @@ package org.apache.spark.k8s.operator.client;
 import static java.net.HttpURLConnection.HTTP_UNAVAILABLE;
 import static org.apache.spark.k8s.operator.metrics.source.KubernetesMetricsInterceptor.HTTP_REQUEST_FAILED_GROUP;
 import static org.apache.spark.k8s.operator.metrics.source.KubernetesMetricsInterceptor.HTTP_REQUEST_GROUP;
+import static org.apache.spark.k8s.operator.utils.TestUtils.meterCount;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -74,9 +75,5 @@ class KubernetesClientFactoryTest {
       assertThat(meterCount(interceptor, HTTP_REQUEST_GROUP)).isEqualTo(4L);
       assertThat(meterCount(interceptor, HTTP_REQUEST_FAILED_GROUP)).isEqualTo(failed);
     }
-  }
-
-  private static long meterCount(KubernetesMetricsInterceptor interceptor, String name) {
-    return interceptor.metricRegistry().meter(name).getCount();
   }
 }

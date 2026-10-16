@@ -21,16 +21,19 @@ package org.apache.spark.k8s.operator.utils;
 
 import static org.apache.spark.k8s.operator.Constants.API_GROUP;
 import static org.apache.spark.k8s.operator.Constants.API_VERSION;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.io.File;
 import java.lang.reflect.Field;
 import java.util.Map;
 
+import com.codahale.metrics.Meter;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 
 import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.SparkApplication;
 import org.apache.spark.k8s.operator.config.ConfigOption;
+import org.apache.spark.k8s.operator.metrics.source.KubernetesMetricsInterceptor;
 
 public final class TestUtils {
 
@@ -64,6 +67,12 @@ public final class TestUtils {
 
   public static long calculateElapsedTimeInMills(long startTime) {
     return System.currentTimeMillis() - startTime;
+  }
+
+  public static long meterCount(KubernetesMetricsInterceptor interceptor, String name) {
+    Meter meter = interceptor.metricRegistry().getMeters().get(name);
+    assertNotNull(meter, name);
+    return meter.getCount();
   }
 
   @SuppressWarnings("PMD.AvoidAccessibilityAlteration")
