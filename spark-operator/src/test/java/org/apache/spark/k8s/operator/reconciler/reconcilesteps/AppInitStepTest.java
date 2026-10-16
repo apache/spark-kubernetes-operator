@@ -267,6 +267,97 @@ class AppInitStepTest {
   }
 
   @Test
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  void preResourceCollidingLabelsAreResolvedBeforeServerSideApply() {
+    // On a label collision the pre-resource handed to serverSideApply must already carry the
+    // resolved value, since forceConflicts would otherwise push the driver value over the
+    // resource's. The mock server cannot run server-side apply, so that object is captured from
+    // the client chain and asserted directly.
+    ConfigMap collidingPreResource =
+        new ConfigMapBuilder()
+            .withNewMetadata()
+            .withName("pre-configmap")
+            .withNamespace("default")
+            .addToLabels("overlapping-label", "resource-value")
+            .addToLabels("spark.operator/submission-id", "rogue-sub")
+            .endMetadata()
+            .withData(Map.of("foo1", "bar1"))
+            .build();
+
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mocksparkAppContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(applicationMetadata);
+    when(mocksparkAppContext.getResource()).thenReturn(application);
+    when(mocksparkAppContext.getDriverPreResourcesSpec())
+        .thenReturn(List.of(collidingPreResource));
+    when(mocksparkAppContext.getDriverPodSpec()).thenReturn(driverPodSpec);
+    when(mocksparkAppContext.getDriverResourcesSpec()).thenReturn(List.of());
+    when(recorder.appendNewStateAndPersist(any(), any())).thenReturn(true);
+    when(recorder.persistStatus(any(), any())).thenReturn(true);
+
+    KubernetesClient mockClient = mock(KubernetesClient.class);
+    when(mocksparkAppContext.getClient()).thenReturn(mockClient);
+
+    // The driver pod the decorator reads its labels from: it collides with the ConfigMap on
+    // overlapping-label (non-managed) and spark.operator/submission-id (managed), and adds a label
+    // the ConfigMap lacks.
+    Pod createdPod =
+        new PodBuilder(driverPodSpec)
+            .editOrNewMetadata()
+            .withUid("driver-uid")
+            .addToLabels("overlapping-label", "driver-value")
+            .addToLabels("spark.operator/submission-id", "sub-1")
+            .addToLabels("driver-only-label", "driver-value")
+            .endMetadata()
+            .build();
+    ConfigMap createdConfigMap =
+        new ConfigMapBuilder(collidingPreResource)
+            .editOrNewMetadata()
+            .withManagedFields(
+                new ManagedFieldsEntry(
+                    "v1", "FieldsV1", new FieldsV1(), "foo", "foo", "foo", "foo"))
+            .endMetadata()
+            .build();
+
+    NamespaceableResource<ConfigMap> mockCreatedConfigMap = mock(NamespaceableResource.class);
+    when(mockCreatedConfigMap.get()).thenReturn(createdConfigMap);
+    NamespaceableResource<Pod> mockCreatedPod = mock(NamespaceableResource.class);
+    when(mockCreatedPod.get()).thenReturn(createdPod);
+    when(mockClient.resource(collidingPreResource)).thenReturn(mockCreatedConfigMap);
+    when(mockClient.resource(driverPodSpec)).thenReturn(mockCreatedPod);
+
+    ServerSideApplicable mockServerSideApplicable = mock(ServerSideApplicable.class);
+    NamespaceListVisitFromServerGetDeleteRecreateWaitApplicable mockList =
+        mock(NamespaceListVisitFromServerGetDeleteRecreateWaitApplicable.class);
+    when(mockClient.resourceList(anyList())).thenReturn(mockList);
+    when(mockList.forceConflicts()).thenReturn(mockServerSideApplicable);
+
+    ReconcileProgress reconcileProgress = appInitStep.reconcile(mocksparkAppContext, recorder);
+
+    Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), reconcileProgress);
+    // The pre-resource is applied through forceConflicts().serverSideApply(), not a plain create.
+    verify(mockServerSideApplicable).serverSideApply();
+    ArgumentCaptor<List<ConfigMap>> argument = ArgumentCaptor.forClass(List.class);
+    verify(mockClient).resourceList(argument.capture());
+    Assertions.assertEquals(1, argument.getValue().size());
+    Map<String, String> appliedLabels = argument.getValue().get(0).getMetadata().getLabels();
+    // The colliding non-managed label keeps the resource's value, not the driver's.
+    Assertions.assertEquals("resource-value", appliedLabels.get("overlapping-label"));
+    // The managed spark.operator/* label takes the driver-pod value over the resource's own.
+    Assertions.assertEquals("sub-1", appliedLabels.get("spark.operator/submission-id"));
+    // A driver-only label the resource lacked is propagated.
+    Assertions.assertEquals("driver-value", appliedLabels.get("driver-only-label"));
+    // And the applied object carries the owner reference to the driver pod.
+    Assertions.assertEquals(
+        1, argument.getValue().get(0).getMetadata().getOwnerReferences().size());
+    Assertions.assertEquals(
+        "driver-uid",
+        argument.getValue().get(0).getMetadata().getOwnerReferences().get(0).getUid());
+  }
+
+  @Test
   void appInitStepShouldBeIdempotentWhenStatusUpdateFails() {
     AppInitStep appInitStep = new AppInitStep();
     SparkAppContext mocksparkAppContext = mock(SparkAppContext.class);
