@@ -164,24 +164,10 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
         getResourceClass(metadata);
     final String execName = execution.name();
 
-    long startTime = clock.nanoTime();
+    final long startTime = clock.nanoTime();
+    final T result;
     try {
-      T result = execution.execute();
-      final long durationNanos = clock.nanoTime() - startTime;
-      final String successType = execution.successTypeName(result);
-      if (resourceClass.isPresent()) {
-        String metricsPrefix = getMetricNamePrefix(resourceClass.get());
-        getTimer(metricsPrefix, name, execName, successType)
-            .update(durationNanos, TimeUnit.NANOSECONDS);
-        getCounter(metricsPrefix, name, execName, SUCCESS, successType).inc();
-        if (namespaceOptional.isPresent()) {
-          getTimer(metricsPrefix, namespaceOptional.get(), name, execName, successType)
-              .update(durationNanos, TimeUnit.NANOSECONDS);
-          getCounter(metricsPrefix, namespaceOptional.get(), name, execName, SUCCESS, successType)
-              .inc();
-        }
-      }
-      return result;
+      result = execution.execute();
     } catch (Exception e) {
       final long durationNanos = clock.nanoTime() - startTime;
       log.error(
@@ -189,12 +175,9 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
       final String exception = e.getClass().getSimpleName();
       if (resourceClass.isPresent()) {
         String metricsPrefix = getMetricNamePrefix(resourceClass.get());
-        getTimer(metricsPrefix, name, execName, FAILURE)
-            .update(durationNanos, TimeUnit.NANOSECONDS);
+        recordDuration(metricsPrefix, namespaceOptional, durationNanos, name, execName, FAILURE);
         getCounter(metricsPrefix, name, execName, FAILURE, EXCEPTION, exception).inc();
         if (namespaceOptional.isPresent()) {
-          getTimer(metricsPrefix, namespaceOptional.get(), name, execName, FAILURE)
-              .update(durationNanos, TimeUnit.NANOSECONDS);
           getCounter(
                   metricsPrefix,
                   namespaceOptional.get(),
@@ -207,6 +190,32 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
         }
       }
       throw e;
+    }
+    final long durationNanos = clock.nanoTime() - startTime;
+    final String successType = execution.successTypeName(result);
+    if (resourceClass.isPresent()) {
+      String metricsPrefix = getMetricNamePrefix(resourceClass.get());
+      recordDuration(metricsPrefix, namespaceOptional, durationNanos, name, execName, successType);
+      getCounter(metricsPrefix, name, execName, SUCCESS, successType).inc();
+      if (namespaceOptional.isPresent()) {
+        getCounter(metricsPrefix, namespaceOptional.get(), name, execName, SUCCESS, successType)
+            .inc();
+      }
+    }
+    return result;
+  }
+
+  private void recordDuration(
+      String metricsPrefix,
+      Optional<String> namespaceOptional,
+      long durationNanos,
+      String name,
+      String execName,
+      String type) {
+    getTimer(metricsPrefix, name, execName, type).update(durationNanos, TimeUnit.NANOSECONDS);
+    if (namespaceOptional.isPresent()) {
+      getTimer(metricsPrefix, namespaceOptional.get(), name, execName, type)
+          .update(durationNanos, TimeUnit.NANOSECONDS);
     }
   }
 

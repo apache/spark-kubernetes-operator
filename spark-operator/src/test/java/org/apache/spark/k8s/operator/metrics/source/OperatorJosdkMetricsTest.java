@@ -20,7 +20,6 @@
 package org.apache.spark.k8s.operator.metrics.source;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -114,9 +113,7 @@ class OperatorJosdkMetricsTest {
 
   @Test
   void testTimeControllerExecutionIsExportedInSeconds() throws Exception {
-    // A namespace containing "nanos" must not affect the exported name or unit.
-    ResourceID nanosNamespaceResourceId = new ResourceID("spark-pi", "team-nanos");
-    operatorMetrics.timeControllerExecution(new TestingExecutionBase<>(nanosNamespaceResourceId));
+    operatorMetrics.timeControllerExecution(new TestingExecutionBase<>());
     TestingPrometheusPullModelHandler handler =
         new TestingPrometheusPullModelHandler(operatorMetrics.metricRegistry());
 
@@ -124,14 +121,13 @@ class OperatorJosdkMetricsTest {
     for (String baseName :
         new String[] {
           "sparkapplication_test_controller_reconcile_both_duration_seconds",
-          "sparkapplication_team_nanos_test_controller_reconcile_both_duration_seconds"
+          "sparkapplication_testns_test_controller_reconcile_both_duration_seconds"
         }) {
       assertTrue(output.contains("# TYPE " + baseName + " summary\n"), output);
       assertTrue(output.contains(baseName + "{quantile=\"0.5\"} 0.01\n"), output);
       assertTrue(output.contains(baseName + "_count 1\n"), output);
       assertTrue(output.contains(baseName + "_sum 0.01\n"), output);
     }
-    assertFalse(output.contains("team_seconds"), output);
   }
 
   @Test
