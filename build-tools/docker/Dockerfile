@@ -22,7 +22,7 @@ COPY . .
 
 RUN --mount=type=cache,target=/home/gradle/.gradle/caches gradle --no-daemon clean build -x check
 
-FROM azul/zulu-openjdk-alpine:26 AS jlink
+FROM eclipse-temurin:26-jdk-alpine AS jlink
 
 COPY --from=builder /app/spark-operator/build/libs/spark-kubernetes-operator-*-all.jar /tmp/app.jar
 

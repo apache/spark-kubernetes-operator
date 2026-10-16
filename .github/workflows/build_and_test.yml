@@ -41,7 +41,7 @@ jobs:
         uses: actions/setup-java@v6
         with:
           java-version: ${{ matrix.java-version }}
-          distribution: 'zulu'
+          distribution: 'temurin'
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb
         with:
@@ -351,7 +351,7 @@ jobs:
         uses: actions/setup-java@v6
         with:
           java-version: 26
-          distribution: 'zulu'
+          distribution: 'temurin'
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb
         with:
