@@ -33,7 +33,7 @@ jobs:
       max-parallel: 20
       matrix:
         os: [ 'ubuntu-26.04', 'ubuntu-26.04-arm' ]
-        java-version: [ 21, 25, 26, 27 ]
+        java-version: [ 21, 25, 27 ]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -48,7 +48,7 @@ jobs:
           cache-provider: basic
       - name: Run unit tests
         run: |
-          if [[ "${{ matrix.java-version }}" == "25" || "${{ matrix.java-version }}" == "26" ]]; then
+          if [[ "${{ matrix.java-version }}" == "25" ]]; then
             export JDK_JAVA_OPTIONS="-XX:+UseCompactObjectHeaders"
           fi
           ./gradlew test -PtestJavaVersion=${{ matrix.java-version }}
