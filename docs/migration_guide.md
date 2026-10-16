@@ -139,6 +139,11 @@ affect building the project, CI, tests or examples.
   services outside the cluster. To restore the behavior before 1.1.0, set
   `spark.kubernetes.operator.events.enabled` to `false`. See
   [Kubernetes Events](configuration.md#kubernetes-events) for details.
+- Since 1.1.0, `spark.redaction.regex` defaults to
+  `(?i)secret|password|token|access[.]?key|credential`, the default of Apache Spark 4.3.0, so the
+  operator also redacts the configuration properties whose keys or values contain `credential` in
+  its logs. To restore the behavior before 1.1.0, set it to
+  `(?i)secret|password|token|access[.]?key`.
 
 ### SparkApplication
 
