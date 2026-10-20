@@ -17,19 +17,18 @@
 # under the License.
 #
 
-# Intentionally has a general name.
-# because the test status check created in GitHub Actions
-# currently randomly picks any associated workflow.
-# So, the name was changed to make sense in that context too.
-# See also https://github.community/t/specify-check-suite-when-creating-a-checkrun/118380/10
-name: On pull request update
+name: Notify test workflow
 on:
-  pull_request_target:
-    types: [opened, reopened, synchronize]
+  workflow_run:
+    workflows: ["On pull request update"]
+    types: [requested]
+
+permissions: {}
 
 jobs:
   notify:
     name: Notify test workflow
+    if: github.event.workflow_run.event == 'pull_request'
     runs-on: ubuntu-26.04
     permissions:
       actions: read
@@ -47,22 +46,22 @@ jobs:
             // If a different person creates a commit to another forked repo,
             // it wouldn't be able to detect.
             const params = {
-              owner: context.payload.pull_request.head.repo.owner.login,
-              repo: context.payload.pull_request.head.repo.name,
+              owner: context.payload.workflow_run.head_repository.owner.login,
+              repo: context.payload.workflow_run.head_repository.name,
               id: 'build_main.yml',
-              branch: context.payload.pull_request.head.ref,
+              branch: context.payload.workflow_run.head_branch,
             }
             const check_run_params = {
-              owner: context.payload.pull_request.head.repo.owner.login,
-              repo: context.payload.pull_request.head.repo.name,
-              ref: context.payload.pull_request.head.ref,
+              owner: context.payload.workflow_run.head_repository.owner.login,
+              repo: context.payload.workflow_run.head_repository.name,
+              ref: context.payload.workflow_run.head_branch,
             }
 
-            console.log('Ref: ' + context.payload.pull_request.head.ref)
-            console.log('SHA: ' + context.payload.pull_request.head.sha)
+            console.log('Ref: ' + context.payload.workflow_run.head_branch)
+            console.log('SHA: ' + context.payload.workflow_run.head_sha)
 
             const name = 'Build'
-            const head_sha = context.payload.pull_request.head.sha
+            const head_sha = context.payload.workflow_run.head_sha
             let status = 'queued'
 
             // Wait 3 seconds to make sure the fork repository triggered a workflow.
@@ -137,7 +136,7 @@ jobs:
               const run_id = matched_run.id
 
               const actions_url = 'https://github.com/'
-                + context.payload.pull_request.head.repo.full_name
+                + context.payload.workflow_run.head_repository.full_name
                 + '/actions/runs/'
                 + run_id
               console.log('Actions URL: ' + actions_url)
@@ -166,7 +165,7 @@ jobs:
               let summary_url = actions_url
               if (check_run_head) {
                 summary_url = 'https://github.com/'
-                  + context.payload.pull_request.head.repo.full_name
+                  + context.payload.workflow_run.head_repository.full_name
                   + '/runs/'
                   + check_run_head.id
                 console.log('Check run URL: ' + summary_url)
@@ -188,8 +187,8 @@ jobs:
                     + 'If the failures are related to this pull request, '
                     + 'please investigate them and push follow-up changes.',
                   text: JSON.stringify({
-                    owner: context.payload.pull_request.head.repo.owner.login,
-                    repo: context.payload.pull_request.head.repo.name,
+                    owner: context.payload.workflow_run.head_repository.owner.login,
+                    repo: context.payload.workflow_run.head_repository.name,
                     run_id: run_id
                   })
                 },
