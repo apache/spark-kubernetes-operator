@@ -32,6 +32,7 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -101,6 +102,7 @@ import org.apache.spark.k8s.operator.status.ApplicationStatus;
 import org.apache.spark.k8s.operator.utils.EventUtils;
 import org.apache.spark.k8s.operator.utils.ModelUtils;
 import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
+import org.apache.spark.k8s.operator.utils.SecondaryResourceBackoffException;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 import org.apache.spark.k8s.operator.utils.Utils;
 
@@ -367,7 +369,7 @@ class SparkAppReconcilerTest {
     private Pod buildTestPod() {
         return new PodBuilder()
                 .withNewMetadata()
-                .withName("test-pod")
+                .withName("backoff-conflict-pod")
                 .withNamespace("default")
                 .endMetadata()
                 .build();
@@ -389,16 +391,16 @@ class SparkAppReconcilerTest {
             when(mockResource.get()).thenReturn(null);
             when(mockResource.create()).thenThrow(conflict).thenReturn(pod);
 
-            long start = System.currentTimeMillis();
-            Optional<Pod> result = ReconcilerUtils.getOrCreateSecondaryResource(mockClient, pod);
-            long elapsed = System.currentTimeMillis() - start;
-
-            assertTrue(result.isPresent());
-            verify(mockResource, times(2)).create();
-            assertTrue(elapsed >= 5000L,
-                    "Expected backoff delay of at least "
-                            + "5000ms, but was: "
-                            + elapsed + "ms");
+            // The 5000ms initial backoff exceeds the default blocking threshold, so the retry is
+            // parked via a requeue instead of blocking the reconciler thread with Thread.sleep.
+            SecondaryResourceBackoffException ex =
+                    assertThrows(
+                            SecondaryResourceBackoffException.class,
+                            () -> ReconcilerUtils.getOrCreateSecondaryResource(mockClient, pod));
+            assertTrue(ex.getRequeueAfter().toMillis() >= 5000L,
+                    "Expected requeue delay of at least 5000ms, but was: "
+                            + ex.getRequeueAfter().toMillis() + "ms");
+            verify(mockResource, times(1)).create();
         } finally {
             restoreBackoffDefaults(
                     savedMaxAttempts,
