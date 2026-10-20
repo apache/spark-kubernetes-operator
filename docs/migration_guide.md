@@ -177,6 +177,23 @@ affect building the project, CI, tests or examples.
   deleted, and its status may have grown too large to update. If such an application still cannot
   be deleted, remove its finalizer by hand, e.g.
   `kubectl patch sparkapp <name> --type=merge -p '{"metadata":{"finalizers":null}}'`.
+- Since 1.1.0, only the driver container of the driver pod decides whether the application has
+  started, succeeded or failed. Like Apache Spark, it is the container of the driver pod template
+  which `spark.kubernetes.driver.podTemplateContainerName` names, or else its first container, or
+  `spark-kubernetes-driver` without a pod template. 1.0 considered all containers unless the
+  property was set, so an application moved to `Succeeded` or `Failed` as soon as a sidecar
+  container, e.g. a log collector or `istio-proxy`, exited, and its driver pod was deleted while
+  the driver was still running, unless `resourceRetainPolicy` retained it. Likewise, an
+  application with a sidecar container moves to `DriverStarted` when the driver container is ready
+  instead of any container, so a driver container whose image cannot be pulled ends in
+  `DriverStartTimedOut`, which `restartPolicy: OnInfrastructureFailure` restarts, instead of
+  `DriverReadyTimedOut`. If the driver container is not found, e.g. since the first container of
+  the pod template file of `spark.kubernetes.driver.podTemplateFile` has another name, all
+  containers are considered as in 1.0, so set `spark.kubernetes.driver.podTemplateContainerName`
+  for such a pod template file.
+- Since 1.1.0, a sidecar container of the driver pod, i.e. an init container with
+  `restartPolicy: Always`, no longer fails the application when it exits with a non-zero code,
+  since Kubernetes restarts it and does not fail the pod for it.
 
 ### SparkCluster
 
@@ -229,3 +246,8 @@ is recreated, e.g. by suspending and resuming it with [`spec.suspend`](spark_cus
   instead.
 - Since 1.1.0, `ApplicationStateSummary` and `ClusterStateSummary` have the `Suspended` constant,
   so an exhaustive `switch` over either needs a case for it.
+- Since 1.1.0, `ModelUtils.findDriverMainContainerStatus` returns only the status of the driver
+  container, which it finds like Apache Spark, even if
+  `spark.kubernetes.driver.podTemplateContainerName` is not set. 1.0 returned the statuses of all
+  containers in that case, and none if the property named no container. If the driver container is
+  not found, it returns the statuses of all containers.

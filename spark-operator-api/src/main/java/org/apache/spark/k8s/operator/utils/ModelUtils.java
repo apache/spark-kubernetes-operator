@@ -23,17 +23,18 @@ import static org.apache.spark.k8s.operator.Constants.DRIVER_SPARK_CONTAINER_PRO
 import static org.apache.spark.k8s.operator.spec.DeploymentMode.ClientMode;
 
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerStatus;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.OwnerReference;
 import io.fabric8.kubernetes.api.model.OwnerReferenceBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
+import io.fabric8.kubernetes.api.model.PodSpec;
 import io.fabric8.kubernetes.api.model.PodTemplateSpec;
 
 import org.apache.spark.k8s.operator.SparkApplication;
@@ -47,6 +48,8 @@ import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 public final class ModelUtils {
 
   public static final ObjectMapper objectMapper = new ObjectMapper();
+
+  private static final String DEFAULT_DRIVER_CONTAINER_NAME = "spark-kubernetes-driver";
 
   private ModelUtils() {}
 
@@ -69,9 +72,15 @@ public final class ModelUtils {
   }
 
   /**
-   * Finds the Spark main container(s) in the driver pod based on the application specification. If
-   * `spark.kubernetes.driver.podTemplateContainerName` is not set, all containers are considered as
-   * main containers.
+   * Finds the Spark main container(s) in the driver pod based on the application specification.
+   * Like Spark, the main container is the container of the driver pod template which
+   * `spark.kubernetes.driver.podTemplateContainerName` names, or else its first container, and it
+   * is named `spark-kubernetes-driver` unless it has a name, e.g. if the template has no container.
+   * Without the pod template in the application specification, it is the container which the
+   * property names, or `spark-kubernetes-driver`. So the other containers, e.g. sidecars, are not
+   * main containers. If the main container is not found, e.g. since the first container of the pod
+   * template file of `spark.kubernetes.driver.podTemplateFile` has another name, all containers are
+   * considered as main containers.
    *
    * @param appSpec The ApplicationSpec of the Spark application.
    * @param containerStatusList A list of ContainerStatus objects from the driver pod.
@@ -83,15 +92,36 @@ public final class ModelUtils {
     if (appSpec == null) {
       return containerStatusList;
     }
-    Map<String, String> sparkConf = appSpec.getSparkConf();
-    String key = sparkConf.get(DRIVER_SPARK_CONTAINER_PROP_KEY);
-    if (key == null || key.isEmpty()) {
-      return containerStatusList;
+    String mainContainerName = getDriverMainContainerName(appSpec);
+    List<ContainerStatus> mainContainerStatusList =
+        containerStatusList.stream()
+            .filter(c -> mainContainerName.equalsIgnoreCase(c.getName()))
+            .collect(Collectors.toList());
+    return mainContainerStatusList.isEmpty() ? containerStatusList : mainContainerStatusList;
+  }
+
+  /**
+   * Returns the name of the driver container, which Spark selects from the pod template like
+   * KubernetesUtils.selectSparkContainer and names like BasicDriverFeatureStep.
+   */
+  private static String getDriverMainContainerName(final ApplicationSpec appSpec) {
+    String containerName = appSpec.getSparkConf().get(DRIVER_SPARK_CONTAINER_PROP_KEY);
+    if (!overrideDriverTemplateEnabled(appSpec)) {
+      return containerName == null || containerName.isEmpty()
+          ? DEFAULT_DRIVER_CONTAINER_NAME
+          : containerName;
     }
-    String mainContainerName = sparkConf.get(DRIVER_SPARK_CONTAINER_PROP_KEY);
-    return containerStatusList.stream()
-        .filter(c -> mainContainerName.equalsIgnoreCase(c.getName()))
-        .collect(Collectors.toList());
+    PodSpec podSpec = appSpec.getDriverSpec().getPodTemplateSpec().getSpec();
+    if (podSpec == null || podSpec.getContainers() == null || podSpec.getContainers().isEmpty()) {
+      return DEFAULT_DRIVER_CONTAINER_NAME;
+    }
+    List<Container> containers = podSpec.getContainers();
+    if (containerName != null
+        && containers.stream().anyMatch(c -> containerName.equals(c.getName()))) {
+      return containerName;
+    }
+    String firstContainerName = containers.get(0).getName();
+    return firstContainerName == null ? DEFAULT_DRIVER_CONTAINER_NAME : firstContainerName;
   }
 
   /**

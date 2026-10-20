@@ -100,6 +100,63 @@ class ModelUtilsTest {
   }
 
   @Test
+  void testFindDriverMainContainerStatusWithoutPodTemplate() {
+    ContainerStatus sidecarStatus = new ContainerStatusBuilder().withName("istio-proxy").build();
+    ContainerStatus driverStatus =
+        new ContainerStatusBuilder().withName("spark-kubernetes-driver").build();
+    Assertions.assertEquals(
+        List.of(driverStatus),
+        ModelUtils.findDriverMainContainerStatus(
+            new ApplicationSpec(), List.of(sidecarStatus, driverStatus)));
+  }
+
+  @Test
+  void testFindDriverMainContainerStatusWithPodTemplate() {
+    ContainerStatus containerStatus1 =
+        new ContainerStatusBuilder().withName("foo-container-1").build();
+    ContainerStatus containerStatus2 =
+        new ContainerStatusBuilder().withName("foo-container-2").build();
+    List<ContainerStatus> containerStatusList = List.of(containerStatus2, containerStatus1);
+    ApplicationSpec spec = new ApplicationSpec();
+    spec.setDriverSpec(new BaseApplicationTemplateSpec(buildSamplePodTemplateSpec()));
+    Assertions.assertEquals(
+        List.of(containerStatus1),
+        ModelUtils.findDriverMainContainerStatus(spec, containerStatusList));
+
+    spec.getSparkConf().put("spark.kubernetes.driver.podTemplateContainerName", "foo-container-2");
+    Assertions.assertEquals(
+        List.of(containerStatus2),
+        ModelUtils.findDriverMainContainerStatus(spec, containerStatusList));
+
+    spec.getSparkConf().put("spark.kubernetes.driver.podTemplateContainerName", "bar-container");
+    Assertions.assertEquals(
+        List.of(containerStatus1),
+        ModelUtils.findDriverMainContainerStatus(spec, containerStatusList));
+  }
+
+  @Test
+  void testFindDriverMainContainerStatusWithUnnamedContainerInPodTemplate() {
+    ApplicationSpec spec = new ApplicationSpec();
+    spec.setDriverSpec(
+        new BaseApplicationTemplateSpec(
+            new PodTemplateSpecBuilder()
+                .withNewSpec()
+                .addNewContainer()
+                .endContainer()
+                .addNewContainer()
+                .withName("sidecar")
+                .endContainer()
+                .endSpec()
+                .build()));
+    ContainerStatus sidecarStatus = new ContainerStatusBuilder().withName("sidecar").build();
+    ContainerStatus driverStatus =
+        new ContainerStatusBuilder().withName("spark-kubernetes-driver").build();
+    Assertions.assertEquals(
+        List.of(driverStatus),
+        ModelUtils.findDriverMainContainerStatus(spec, List.of(sidecarStatus, driverStatus)));
+  }
+
+  @Test
   void testOverrideDriverTemplateEnabled() {
     ApplicationSpec applicationSpec = new ApplicationSpec();
     assertFalse(ModelUtils.overrideDriverTemplateEnabled(applicationSpec));
