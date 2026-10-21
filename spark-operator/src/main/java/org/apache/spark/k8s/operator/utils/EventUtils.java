@@ -73,6 +73,12 @@ public final class EventUtils {
    */
   public static final String REASON_SUSPEND_RELEASE_FAILED = "SuspendReleaseFailed";
 
+  /**
+   * Reason for an event describing a failure to check whether the driver or master of a resource
+   * suspended by {@code spec.suspend} was requested, which is retried.
+   */
+  public static final String REASON_SUSPEND_CHECK_FAILED = "SuspendCheckFailed";
+
   /** Reason for an event describing that a resource waits for Kueue to admit its Workload. */
   public static final String REASON_KUEUE_ADMISSION_PENDING = "KueueAdmissionPending";
 
