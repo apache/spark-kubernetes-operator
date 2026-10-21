@@ -92,6 +92,7 @@ class ModelUtilsTest {
     ApplicationSpec specWithSparkContainerNameProp = new ApplicationSpec();
     Map<String, String> sparkProps = new HashMap<>();
     sparkProps.put("spark.kubernetes.driver.podTemplateContainerName", "foo-container-2");
+    sparkProps.put("spark.kubernetes.driver.podTemplateFile", "s3a://bucket/driver.yaml");
     specWithSparkContainerNameProp.setSparkConf(sparkProps);
     sparkContainerStatusList =
         ModelUtils.findDriverMainContainerStatus(
@@ -108,6 +109,12 @@ class ModelUtilsTest {
         List.of(driverStatus),
         ModelUtils.findDriverMainContainerStatus(
             new ApplicationSpec(), List.of(sidecarStatus, driverStatus)));
+
+    ApplicationSpec spec = new ApplicationSpec();
+    spec.getSparkConf().put("spark.kubernetes.driver.podTemplateContainerName", "driver");
+    Assertions.assertEquals(
+        List.of(driverStatus),
+        ModelUtils.findDriverMainContainerStatus(spec, List.of(sidecarStatus, driverStatus)));
   }
 
   @Test

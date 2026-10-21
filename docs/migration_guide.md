@@ -187,10 +187,12 @@ affect building the project, CI, tests or examples.
   application with a sidecar container moves to `DriverStarted` when the driver container is ready
   instead of any container, so a driver container whose image cannot be pulled ends in
   `DriverStartTimedOut`, which `restartPolicy: OnInfrastructureFailure` restarts, instead of
-  `DriverReadyTimedOut`. If the driver container is not found, e.g. since the first container of
-  the pod template file of `spark.kubernetes.driver.podTemplateFile` has another name, all
-  containers are considered as in 1.0, so set `spark.kubernetes.driver.podTemplateContainerName`
-  for such a pod template file.
+  `DriverReadyTimedOut`. An application whose sidecar container exits before the driver pod is
+  ready ends in `DriverReadyTimedOut` after `driverReadyTimeoutMillis`, instead of `Succeeded` or
+  `Failed` right away, since the pod does not become ready. If the driver container is not found,
+  e.g. since the first container of the pod template file of
+  `spark.kubernetes.driver.podTemplateFile` has another name, all containers are considered as in
+  1.0, so set `spark.kubernetes.driver.podTemplateContainerName` for such a pod template file.
 - Since 1.1.0, a sidecar container of the driver pod, i.e. an init container with
   `restartPolicy: Always`, no longer fails the application when it exits with a non-zero code,
   since Kubernetes restarts it and does not fail the pod for it.
@@ -249,5 +251,6 @@ is recreated, e.g. by suspending and resuming it with [`spec.suspend`](spark_cus
 - Since 1.1.0, `ModelUtils.findDriverMainContainerStatus` returns only the status of the driver
   container, which it finds like Apache Spark, even if
   `spark.kubernetes.driver.podTemplateContainerName` is not set. 1.0 returned the statuses of all
-  containers in that case, and none if the property named no container. If the driver container is
-  not found, it returns the statuses of all containers.
+  containers in that case, and none if the property named no container. Like Apache Spark, it also
+  ignores the property without a pod template. If the driver container is not found, it returns
+  the statuses of all containers.

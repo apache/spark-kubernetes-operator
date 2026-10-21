@@ -230,6 +230,19 @@ class AppDriverReadyObserverTest {
 
   @ParameterizedTest
   @ValueSource(ints = {0, 1})
+  void terminatedSidecarWithUnusedPodTemplateContainerNameIsNotDriverTermination(int exitCode) {
+    ApplicationSpec spec = new ApplicationSpec();
+    spec.getSparkConf().put(DRIVER_SPARK_CONTAINER_PROP_KEY, "driver");
+    assertTrue(
+        observe(
+                runningPodWithContainers(
+                    terminatedContainer("sidecar", exitCode), driverContainer(0)),
+                spec)
+            .isEmpty());
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {0, 1})
   void terminatedSidecarOfPodTemplateIsNotDriverTermination(int exitCode) {
     ApplicationSpec spec = specWithDriverPodTemplate("main", "sidecar");
     assertTrue(

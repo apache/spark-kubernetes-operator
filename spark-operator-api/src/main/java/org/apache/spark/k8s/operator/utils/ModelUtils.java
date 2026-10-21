@@ -20,6 +20,7 @@
 package org.apache.spark.k8s.operator.utils;
 
 import static org.apache.spark.k8s.operator.Constants.DRIVER_SPARK_CONTAINER_PROP_KEY;
+import static org.apache.spark.k8s.operator.Constants.DRIVER_SPARK_TEMPLATE_FILE_PROP_KEY;
 import static org.apache.spark.k8s.operator.spec.DeploymentMode.ClientMode;
 
 import java.util.List;
@@ -77,10 +78,10 @@ public final class ModelUtils {
    * `spark.kubernetes.driver.podTemplateContainerName` names, or else its first container, and it
    * is named `spark-kubernetes-driver` unless it has a name, e.g. if the template has no container.
    * Without the pod template in the application specification, it is the container which the
-   * property names, or `spark-kubernetes-driver`. So the other containers, e.g. sidecars, are not
-   * main containers. If the main container is not found, e.g. since the first container of the pod
-   * template file of `spark.kubernetes.driver.podTemplateFile` has another name, all containers are
-   * considered as main containers.
+   * property names in the pod template file of `spark.kubernetes.driver.podTemplateFile`, or else
+   * `spark-kubernetes-driver`. So the other containers, e.g. sidecars, are not main containers. If
+   * the main container is not found, e.g. since the first container of the pod template file has
+   * another name, all containers are considered as main containers.
    *
    * @param appSpec The ApplicationSpec of the Spark application.
    * @param containerStatusList A list of ContainerStatus objects from the driver pod.
@@ -107,7 +108,10 @@ public final class ModelUtils {
   private static String getDriverMainContainerName(final ApplicationSpec appSpec) {
     String containerName = appSpec.getSparkConf().get(DRIVER_SPARK_CONTAINER_PROP_KEY);
     if (!overrideDriverTemplateEnabled(appSpec)) {
-      return containerName == null || containerName.isEmpty()
+      // Like Spark, the property applies only to a pod template file.
+      return containerName == null
+              || containerName.isEmpty()
+              || !appSpec.getSparkConf().containsKey(DRIVER_SPARK_TEMPLATE_FILE_PROP_KEY)
           ? DEFAULT_DRIVER_CONTAINER_NAME
           : containerName;
     }
