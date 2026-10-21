@@ -32,17 +32,22 @@ public final class Constants {
   /** The API version for Spark K8s Operator CRD resources. */
   public static final String API_VERSION = "v1";
 
+  /** The shared prefix for all operator-defined labels. */
+  public static final String LABEL_SPARK_OPERATOR_PREFIX = "spark.operator/";
+
   /** The label for the Spark Application name. */
-  public static final String LABEL_SPARK_APPLICATION_NAME = "spark.operator/spark-app-name";
+  public static final String LABEL_SPARK_APPLICATION_NAME =
+      LABEL_SPARK_OPERATOR_PREFIX + "spark-app-name";
 
   /** The label for the Spark Cluster name. */
-  public static final String LABEL_SPARK_CLUSTER_NAME = "spark.operator/spark-cluster-name";
+  public static final String LABEL_SPARK_CLUSTER_NAME =
+      LABEL_SPARK_OPERATOR_PREFIX + "spark-cluster-name";
 
   /** The label for the Spark Operator name. */
-  public static final String LABEL_SPARK_OPERATOR_NAME = "spark.operator/name";
+  public static final String LABEL_SPARK_OPERATOR_NAME = LABEL_SPARK_OPERATOR_PREFIX + "name";
 
   /** The label for a sentinel resource. */
-  public static final String LABEL_SENTINEL_RESOURCE = "spark.operator/sentinel";
+  public static final String LABEL_SENTINEL_RESOURCE = LABEL_SPARK_OPERATOR_PREFIX + "sentinel";
 
   /** The label for the Kueue queue name. */
   public static final String LABEL_QUEUE_NAME = "kueue.x-k8s.io/queue-name";
