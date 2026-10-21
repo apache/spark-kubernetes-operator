@@ -172,6 +172,11 @@ affect building the project, CI, tests or examples.
   `driverStartTimeoutMillis` was disabled. Since `DriverStartTimedOut` is an infrastructure failure
   while the others are not, `restartPolicy: OnInfrastructureFailure` no longer restarts such an
   application. Use `OnFailure` to restart it.
+- Since 1.1.0, a `ClientMode` application fails once, and then terminates or restarts like any
+  other failed application. 1.0 failed it again on every reconciliation, so it could not be
+  deleted, and its status may have grown too large to update. If such an application still cannot
+  be deleted, remove its finalizer by hand, e.g.
+  `kubectl patch sparkapp <name> --type=merge -p '{"metadata":{"finalizers":null}}'`.
 
 ### SparkCluster
 
