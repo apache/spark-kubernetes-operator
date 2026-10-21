@@ -150,9 +150,13 @@ jobs:
               let retryCount = 0;
               let check_run_head;
               while (retryCount < 3) {
-                const check_runs = await github.request(check_run_endpoint, check_run_params);
-                check_run_head = check_runs.data.check_runs.find(
-                  r => r.name === "Run / License Check" && r.head_sha == head_sha);
+                try {
+                  const check_runs = await github.request(check_run_endpoint, check_run_params);
+                  check_run_head = check_runs.data.check_runs.find(
+                    r => r.name === "Run / License Check" && r.head_sha == head_sha);
+                } catch (error) {
+                  console.error(error)
+                }
                 if (check_run_head) {
                   break;
                 }
@@ -195,3 +199,23 @@ jobs:
                 details_url: actions_url,
               })
             }
+      - name: "Report failure"
+        if: failure()
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'Build',
+              head_sha: context.payload.workflow_run.head_sha,
+              status: 'completed',
+              conclusion: 'action_required',
+              output: {
+                title: 'Workflow run detection failed',
+                summary: 'Unable to detect the workflow run for testing the changes in your PR. '
+                  + '[See the failed run](https://github.com/' + context.repo.owner + '/'
+                  + context.repo.repo + '/actions/runs/' + context.runId + ')'
+              }
+            })
