@@ -59,7 +59,7 @@ public abstract sealed class BaseAppDriverObserver
    * Check whether the driver pod (and thus the application) has actually terminated This would be
    * determined by status of containers - and only by the containers with name matches given filter
    * e.g. you can use "s -> 'true'" to evaluate all containers Driver is considered as 'failed', if
-   * any init container failed, or any of the matched container(s) has
+   * any init container other than sidecar containers failed, or any of the matched container(s) has
    *
    * <ul>
    *   <li>1. failed (isTerminated, non-zero)
@@ -106,7 +106,9 @@ public abstract sealed class BaseAppDriverObserver
 
     List<ContainerStatus> initContainerStatusList = status.getInitContainerStatuses();
     if (initContainerStatusList != null
-        && initContainerStatusList.stream().anyMatch(PodUtils::isContainerFailed)) {
+        && initContainerStatusList.stream()
+            .filter(c -> !isSidecarContainer(driverPod, c))
+            .anyMatch(PodUtils::isContainerFailed)) {
       ApplicationState applicationState =
           new ApplicationState(Failed, DRIVER_FAILED_INIT_CONTAINERS_MESSAGE);
       applicationState.setLastObservedDriverStatus(status);
@@ -138,5 +140,20 @@ public abstract sealed class BaseAppDriverObserver
       return Optional.of(state);
     }
     return Optional.empty();
+  }
+
+  /**
+   * Returns true if the given init container is a sidecar container, i.e. it restarts always. Like
+   * the pod phase of Kubernetes, the termination of a sidecar container does not fail the driver.
+   */
+  private static boolean isSidecarContainer(
+      final Pod driverPod, final ContainerStatus containerStatus) {
+    return driverPod.getSpec() != null
+        && driverPod.getSpec().getInitContainers() != null
+        && driverPod.getSpec().getInitContainers().stream()
+            .anyMatch(
+                c ->
+                    containerStatus.getName().equals(c.getName())
+                        && "Always".equals(c.getRestartPolicy()));
   }
 }
