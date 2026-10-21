@@ -221,8 +221,8 @@ metadata:
 spec:
   runtimeVersions:
     sparkVersion: "dummy"
-{{- end }}
 ---
+{{- end }}
 {{- end }}
 {{- if $workloadResources.sparkClusterSentinel.create }}
 {{- range $sentinelNs := .Values.workloadResources.sparkClusterSentinel.sentinelNamespaces.data }}
@@ -244,6 +244,6 @@ spec:
       initWorkers: 0
       minWorkers: 0
       maxWorkers: 0
-{{- end }}
 ---
+{{- end }}
 {{- end }}

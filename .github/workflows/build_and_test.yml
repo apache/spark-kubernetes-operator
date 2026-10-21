@@ -402,3 +402,11 @@ jobs:
           if echo "$notes" | grep -q 'is deprecated'; then
             echo "Deprecation warning printed without a legacy key"; exit 1
           fi
+      - name: Validate helm chart renders a sentinel per namespace
+        run: |
+          helm template spark build-tools/helm/spark-kubernetes-operator \
+            --set workloadResources.sparkApplicationSentinel.create=true \
+            --set 'workloadResources.sparkApplicationSentinel.sentinelNamespaces.data={ns1,ns2}' \
+            --set workloadResources.sparkClusterSentinel.create=true \
+            --set 'workloadResources.sparkClusterSentinel.sentinelNamespaces.data={ns1,ns2}' \
+            | yq ea -e '[select(.metadata.labels["spark.operator/sentinel"] == "true")] | length == 4'

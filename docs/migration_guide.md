@@ -106,6 +106,13 @@ affect building the project, CI, tests or examples.
   ignored. If you added such files to the chart, prepend their content to
   `operatorConfiguration.log4j2.properties` and `operatorConfiguration.spark-operator.properties`
   respectively to restore the behavior before 1.1.0.
+- Since 1.1.0, the chart creates a sentinel in every namespace of
+  `workloadResources.sparkApplicationSentinel.sentinelNamespaces.data` and
+  `workloadResources.sparkClusterSentinel.sentinelNamespaces.data`. 1.0 rendered the sentinels of
+  each list into one YAML document, so only the one in the last namespace was created.
+  `helm upgrade` creates the others, and fails if one of these namespaces does not exist. The
+  operator health probe also checks the new sentinels in the namespaces which the operator
+  watches. To restore the behavior before 1.1.0, list only the last namespace.
 
 ### Operator
 
