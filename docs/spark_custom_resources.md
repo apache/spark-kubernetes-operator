@@ -591,7 +591,9 @@ spec:
   HorizontalPodAutoscaler and PodDisruptionBudget of its workers if any. Its Services and
   NetworkPolicy are kept. Any application running on the cluster is terminated with it, since there
   is no graceful decommission. A failure to delete them, other than one which may clear on its own,
-  publishes the `SuspendReleaseFailed` [event](configuration.md#kubernetes-events) by default.
+  publishes the `SuspendReleaseFailed` [event](configuration.md#kubernetes-events) by default. The
+  HorizontalPodAutoscaler and PodDisruptionBudget hold no quota, so they are deleted after the
+  Kueue `Workload`, if any, is released, and a failure to delete them does not hold the quota.
 * Setting it back to `false` moves the cluster to `Submitted` once its master and worker pods are
   gone and its Kueue `Workload`, if any, is released, and the master and workers are requested
   again from scratch, like a newly created cluster. Only pods labeled with the `master` or `worker`
