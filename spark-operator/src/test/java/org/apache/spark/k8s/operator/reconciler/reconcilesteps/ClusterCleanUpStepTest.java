@@ -64,6 +64,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 
 import org.apache.spark.k8s.operator.Constants;
@@ -162,12 +163,19 @@ class ClusterCleanUpStepTest {
         ClusterStateSummary.ResourceReleased, captureAppendedState().getCurrentStateSummary());
   }
 
-  @Test
-  void failedReleaseOfResourceWithoutQuotaDoesNotHoldKueueWorkload() {
+  @ParameterizedTest
+  @ValueSource(strings = {"network", "autoscaling", "policy"})
+  void failedReleaseOfResourceWithoutQuotaDoesNotHoldKueueWorkload(String apiGroup) {
     SparkCluster cluster = buildCluster(ClusterStateSummary.SchedulingFailure);
     KubernetesClient client = spy(kubernetesClient);
-    // e.g. an operator which may not access NetworkPolicies, which failed the cluster as well
-    doThrow(new KubernetesClientException("forbidden", 403, null)).when(client).network();
+    // e.g. an operator which may not access NetworkPolicies, HorizontalPodAutoscalers or
+    // PodDisruptionBudgets, which failed the cluster as well
+    KubernetesClientException forbidden = new KubernetesClientException("forbidden", 403, null);
+    switch (apiGroup) {
+      case "autoscaling" -> doThrow(forbidden).when(client).autoscaling();
+      case "policy" -> doThrow(forbidden).when(client).policy();
+      default -> doThrow(forbidden).when(client).network();
+    }
     stubContext(cluster, client);
     when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
     kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(cluster)).create();
@@ -176,8 +184,8 @@ class ClusterCleanUpStepTest {
         ReconcileProgress.completeAndDefaultRequeue(),
         new ClusterCleanUpStep().reconcile(mockContext, recorder));
 
-    // The NetworkPolicy holds no quota, so the Workload is released even though it is not deleted,
-    // while the cluster stays in SchedulingFailure and reports the failure
+    // The resource holds no quota, so the Workload is released even though it is not deleted, while
+    // the cluster stays in SchedulingFailure and reports the failure
     Assertions.assertNull(getWorkload());
     verifyNoInteractions(recorder);
     ArgumentCaptor<EventRecord> event = ArgumentCaptor.forClass(EventRecord.class);

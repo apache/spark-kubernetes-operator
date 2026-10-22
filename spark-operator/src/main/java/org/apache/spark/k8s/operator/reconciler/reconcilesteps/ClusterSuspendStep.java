@@ -267,6 +267,7 @@ public final class ClusterSuspendStep extends ClusterReconcileStep {
     KubernetesClient client = context.getClient();
     try {
       List<Pod> pods = deleteMasterAndWorkers(client, cluster);
+      deleteWorkerAutoscalerAndDisruptionBudget(client, cluster);
       Optional<ReconcileProgress> waiting = waitForPods(pods);
       if (waiting.isPresent()) {
         log.debug("Waiting for the pods of the suspended cluster to be deleted.");
@@ -317,10 +318,9 @@ public final class ClusterSuspendStep extends ClusterReconcileStep {
   }
 
   /**
-   * Deletes the master and worker StatefulSets of the given cluster, and the
-   * HorizontalPodAutoscaler and the PodDisruptionBudget of its workers, by name, and lists its
-   * master and worker pods, see {@link #releaseResources}. {@link ClusterCleanUpStep} releases a
-   * cluster which failed to request its resources the same way.
+   * Deletes the master and worker StatefulSets of the given cluster by name, and lists its master
+   * and worker pods, see {@link #releaseResources}. {@link ClusterCleanUpStep} releases a cluster
+   * which failed to request its resources the same way.
    *
    * @param client The KubernetesClient.
    * @param cluster The SparkCluster.
@@ -343,6 +343,30 @@ public final class ClusterSuspendStep extends ClusterReconcileStep {
         .inNamespace(namespace)
         .withName(getMasterStatefulSetName(name))
         .delete();
+    return ReconcilerUtils.podsOf(
+            client,
+            namespace,
+            LABEL_SPARK_CLUSTER_NAME,
+            name,
+            LABEL_SPARK_ROLE_MASTER_VALUE,
+            LABEL_SPARK_ROLE_WORKER_VALUE)
+        .list()
+        .getItems();
+  }
+
+  /**
+   * Deletes the HorizontalPodAutoscaler and the PodDisruptionBudget of the workers of the given
+   * cluster by name, see {@link #releaseResources}. They hold no quota, so {@link
+   * ClusterCleanUpStep} deletes them only after it releases the Kueue Workload.
+   *
+   * @param client The KubernetesClient.
+   * @param cluster The SparkCluster.
+   * @throws KubernetesClientException if a deletion fails.
+   */
+  static void deleteWorkerAutoscalerAndDisruptionBudget(
+      final KubernetesClient client, final SparkCluster cluster) {
+    String namespace = cluster.getMetadata().getNamespace();
+    String name = cluster.getMetadata().getName();
     client
         .autoscaling()
         .v2()
@@ -357,15 +381,6 @@ public final class ClusterSuspendStep extends ClusterReconcileStep {
         .inNamespace(namespace)
         .withName(getWorkerPodDisruptionBudgetName(name))
         .delete();
-    return ReconcilerUtils.podsOf(
-            client,
-            namespace,
-            LABEL_SPARK_CLUSTER_NAME,
-            name,
-            LABEL_SPARK_ROLE_MASTER_VALUE,
-            LABEL_SPARK_ROLE_WORKER_VALUE)
-        .list()
-        .getItems();
   }
 
   /**

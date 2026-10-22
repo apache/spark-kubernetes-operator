@@ -944,6 +944,6 @@ the cluster as well, and the cluster moves to `ResourceReleased`, which is not r
 further. So delete and recreate the cluster to request its resources again. A failure to delete
 them or the `Workload`, other than one which may clear on its own, publishes the
 `ClusterReleaseFailed` [event](configuration.md#kubernetes-events) by default, and the cluster stays
-in `SchedulingFailure` until the deletion succeeds. The Services and the NetworkPolicy hold no
-quota, so they are deleted after the `Workload` is released, and a failure to delete them does not
-hold the quota.
+in `SchedulingFailure` until the deletion succeeds. The Services, the NetworkPolicy, the
+HorizontalPodAutoscaler and the PodDisruptionBudget hold no quota, so they are deleted after the
+`Workload` is released, and a failure to delete them does not hold the quota.

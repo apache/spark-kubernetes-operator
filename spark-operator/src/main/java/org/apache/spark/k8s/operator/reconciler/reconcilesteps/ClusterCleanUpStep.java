@@ -63,12 +63,13 @@ public final class ClusterCleanUpStep extends ClusterReconcileStep {
    * <p>The Workload is released only after the master and worker pods are gone, or are still
    * terminating past their timeout, see {@link ClusterSuspendStep#waitForPods}. A pod stuck in
    * terminating does not hold the cluster beyond that, since no pod of its name is created again.
-   * The Services and the NetworkPolicy hold no quota, so they are deleted only after the Workload
-   * is released, like the resources of an application in {@link AppCleanUpStep}. Otherwise a
-   * failure to delete them, e.g. by an operator which may not access them and so failed to apply
-   * them, would hold the quota forever. Everything here is idempotent, so a release that failed is
-   * simply retried. A failure which is not expected to clear on its own is reported, since
-   * SchedulingFailure reports the failure to request the resources, not the one to release them.
+   * The Services, the NetworkPolicy, and the HorizontalPodAutoscaler and the PodDisruptionBudget of
+   * the workers hold no quota, so they are deleted only after the Workload is released, like the
+   * resources of an application in {@link AppCleanUpStep}. Otherwise a failure to delete them, e.g.
+   * by an operator which may not access them and so failed to apply them, would hold the quota
+   * forever. Everything here is idempotent, so a release that failed is simply retried. A failure
+   * which is not expected to clear on its own is reported, since SchedulingFailure reports the
+   * failure to request the resources, not the one to release them.
    *
    * @param context The SparkClusterContext for the cluster.
    * @param statusRecorder The SparkClusterStatusRecorder for recording status updates.
@@ -94,6 +95,7 @@ public final class ClusterCleanUpStep extends ClusterReconcileStep {
       }
       // A Workload admitted before the queue label was removed is released as well.
       KueueWorkloadUtils.deleteWorkloadOf(client, cluster);
+      ClusterSuspendStep.deleteWorkerAutoscalerAndDisruptionBudget(client, cluster);
       client.services().inNamespace(namespace).withName(getMasterServiceName(name)).delete();
       client.services().inNamespace(namespace).withName(getWorkerServiceName(name)).delete();
       client
