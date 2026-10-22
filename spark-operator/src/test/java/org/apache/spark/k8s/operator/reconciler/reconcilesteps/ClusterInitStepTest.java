@@ -20,6 +20,8 @@
 package org.apache.spark.k8s.operator.reconciler.reconcilesteps;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.inOrder;
@@ -31,13 +33,19 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import io.fabric8.kubernetes.api.model.ConditionBuilder;
+import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.KubernetesResourceList;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
+import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.api.model.PodBuilder;
+import io.fabric8.kubernetes.api.model.PodList;
+import io.fabric8.kubernetes.api.model.PodListBuilder;
 import io.fabric8.kubernetes.api.model.PodSpec;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServiceBuilder;
@@ -51,8 +59,10 @@ import io.fabric8.kubernetes.api.model.policy.v1.PodDisruptionBudget;
 import io.fabric8.kubernetes.api.model.scheduling.v1.PriorityClassList;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
+import io.fabric8.kubernetes.client.dsl.FilterWatchListDeletable;
 import io.fabric8.kubernetes.client.dsl.MixedOperation;
 import io.fabric8.kubernetes.client.dsl.NonNamespaceOperation;
+import io.fabric8.kubernetes.client.dsl.PodResource;
 import io.fabric8.kubernetes.client.dsl.Resource;
 import io.fabric8.kubernetes.client.dsl.RollableScalableResource;
 import io.fabric8.kubernetes.client.dsl.ServerSideApplicable;
@@ -71,6 +81,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
+import org.mockito.stubbing.Answer;
 
 import org.apache.spark.k8s.operator.Constants;
 import org.apache.spark.k8s.operator.SparkCluster;
@@ -86,7 +97,9 @@ import org.apache.spark.k8s.operator.kueue.v1beta2.ResourceFlavor;
 import org.apache.spark.k8s.operator.kueue.v1beta2.ResourceFlavorSpec;
 import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
 import org.apache.spark.k8s.operator.kueue.v1beta2.WorkloadStatus;
+import org.apache.spark.k8s.operator.metrics.healthcheck.SentinelManager;
 import org.apache.spark.k8s.operator.reconciler.ReconcileProgress;
+import org.apache.spark.k8s.operator.reconciler.SparkClusterReconciler;
 import org.apache.spark.k8s.operator.spec.ClusterSpec;
 import org.apache.spark.k8s.operator.spec.ClusterTolerations;
 import org.apache.spark.k8s.operator.spec.MasterSpec;
@@ -308,6 +321,224 @@ class ClusterInitStepTest {
         eventMessage.getValue());
     // SchedulingFailure already says why, so no other event is needed
     verifyNoInteractions(eventRecorder);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void rejectedRequestReleasesResourcesRequestedBeforeIt() throws Exception {
+    SparkCluster cluster = buildKueueCluster();
+    cluster.getMetadata().setLabels(Map.of());
+    KubernetesClient mockClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    when(mockClient.resource(isA(StatefulSet.class)).get()).thenReturn(null);
+    // e.g. a ResourceQuota on the number of StatefulSets rejects the worker after the master
+    RollableScalableResource<StatefulSet> rejected =
+        mock(RollableScalableResource.class, RETURNS_DEEP_STUBS);
+    when(rejected.forceConflicts().serverSideApply())
+        .thenThrow(new KubernetesClientException("exceeded quota", 403, null));
+    when(mockClient
+            .apps()
+            .statefulSets()
+            .resource(
+                argThat((StatefulSet s) -> "cluster1-worker".equals(s.getMetadata().getName()))))
+        .thenReturn(rejected);
+    var statefulSets =
+        inDefaultNamespace(mockClient.apps().statefulSets(), RollableScalableResource.class);
+    var services = inDefaultNamespace(mockClient.services(), ServiceResource.class);
+    var networkPolicies =
+        inDefaultNamespace(mockClient.network().networkPolicies(), Resource.class);
+    inDefaultNamespace(mockClient.autoscaling().v2().horizontalPodAutoscalers(), Resource.class);
+    inDefaultNamespace(mockClient.policy().v1().podDisruptionBudget(), Resource.class);
+    stubWorkloadRead(mockClient, null);
+    stubPodLists(mockClient, new PodList());
+    SparkClusterReconciler reconciler = reconcilerOf(cluster);
+    Context<SparkCluster> josdkContext = josdkContextOf(mockClient);
+
+    reconciler.reconcile(cluster, josdkContext);
+    Assertions.assertEquals(
+        ClusterStateSummary.SchedulingFailure,
+        cluster.getStatus().getCurrentState().getCurrentStateSummary());
+
+    // The master and the Services requested before the rejection are released rather than kept
+    // until the cluster is deleted, and the cluster terminates
+    reconciler.reconcile(cluster, josdkContext);
+    verify(statefulSets.withName("cluster1-master")).delete();
+    verify(statefulSets.withName("cluster1-worker")).delete();
+    verify(services.withName("cluster1-master-svc")).delete();
+    verify(services.withName("cluster1-worker-svc")).delete();
+    verify(networkPolicies.withName("cluster1-worker")).delete();
+    Assertions.assertEquals(
+        ClusterStateSummary.ResourceReleased,
+        cluster.getStatus().getCurrentState().getCurrentStateSummary());
+    Assertions.assertTrue(
+        reconciler.reconcile(cluster, josdkContext).getScheduleDelay().isEmpty());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void rejectedRequestReleasesKueueWorkloadOncePodsAreGone() throws Exception {
+    SparkCluster cluster = buildKueueCluster();
+    KubernetesClient mockClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    // Mockito cannot deep-stub the generic list, so it is stubbed without any priority class
+    when(mockClient.scheduling().v1().priorityClasses().list())
+        .thenReturn(new PriorityClassList());
+    when(mockClient.resource(isA(StatefulSet.class)).get()).thenReturn(null);
+    when(mockClient.resource(isA(Workload.class)).get()).thenReturn(admittedWorkload(cluster));
+    // e.g. an admission policy rejects the PodDisruptionBudget after the master and workers
+    Resource<PodDisruptionBudget> rejected = mock(Resource.class, RETURNS_DEEP_STUBS);
+    when(rejected.forceConflicts().serverSideApply())
+        .thenThrow(new KubernetesClientException("denied by policy", 403, null));
+    when(mockClient.policy().v1().podDisruptionBudget().resource(any(PodDisruptionBudget.class)))
+        .thenReturn(rejected);
+    var statefulSets =
+        inDefaultNamespace(mockClient.apps().statefulSets(), RollableScalableResource.class);
+    inDefaultNamespace(mockClient.services(), ServiceResource.class);
+    inDefaultNamespace(mockClient.network().networkPolicies(), Resource.class);
+    inDefaultNamespace(mockClient.autoscaling().v2().horizontalPodAutoscalers(), Resource.class);
+    inDefaultNamespace(mockClient.policy().v1().podDisruptionBudget(), Resource.class);
+    Resource<Workload> workload = stubWorkloadRead(mockClient, admittedWorkload(cluster));
+    // The master and worker pods remain until they are deleted with their StatefulSets
+    stubPodLists(
+        mockClient,
+        new PodListBuilder()
+            .addToItems(
+                pod("cluster1-master-0", Constants.LABEL_SPARK_ROLE_MASTER_VALUE),
+                pod("cluster1-worker-0", Constants.LABEL_SPARK_ROLE_WORKER_VALUE))
+            .build(),
+        new PodList());
+    SparkClusterReconciler reconciler = reconcilerOf(cluster);
+    Context<SparkCluster> josdkContext = josdkContextOf(mockClient);
+
+    reconciler.reconcile(cluster, josdkContext);
+    Assertions.assertEquals(
+        ClusterStateSummary.SchedulingFailure,
+        cluster.getStatus().getCurrentState().getCurrentStateSummary());
+
+    // The admitted Workload is kept while the pods still occupy its quota
+    reconciler.reconcile(cluster, josdkContext);
+    verify(statefulSets.withName("cluster1-master")).delete();
+    verify(statefulSets.withName("cluster1-worker")).delete();
+    verify(workload, never()).delete();
+    Assertions.assertEquals(
+        ClusterStateSummary.SchedulingFailure,
+        cluster.getStatus().getCurrentState().getCurrentStateSummary());
+
+    // and released once they are gone, rather than holding the quota until the cluster is deleted
+    reconciler.reconcile(cluster, josdkContext);
+    reconciler.reconcile(cluster, josdkContext);
+    verify(workload).delete();
+    Assertions.assertEquals(
+        ClusterStateSummary.ResourceReleased,
+        cluster.getStatus().getCurrentState().getCurrentStateSummary());
+  }
+
+  @Test
+  void unsupportedSpecOfQueuedClusterReleasesPendingKueueWorkload() throws Exception {
+    SparkCluster cluster = buildKueueCluster();
+    SparkClusterReconciler reconciler = reconcilerOf(cluster);
+    Context<SparkCluster> josdkContext = josdkContextOf(kubernetesClient);
+
+    reconciler.reconcile(cluster, josdkContext);
+    Assertions.assertNotNull(getWorkload());
+
+    // The Workload cannot be built for minWorkers < maxWorkers, which Kueue does not support yet
+    cluster.getSpec().getClusterTolerations().getInstanceConfig().setMaxWorkers(2);
+    reconciler.reconcile(cluster, josdkContext);
+    Assertions.assertEquals(
+        ClusterStateSummary.SchedulingFailure,
+        cluster.getStatus().getCurrentState().getCurrentStateSummary());
+
+    // The Workload queued for the earlier spec is not admitted later into quota which nothing uses
+    reconciler.reconcile(cluster, josdkContext);
+    reconciler.reconcile(cluster, josdkContext);
+    Assertions.assertNull(getWorkload());
+    Assertions.assertEquals(
+        ClusterStateSummary.ResourceReleased,
+        cluster.getStatus().getCurrentState().getCurrentStateSummary());
+  }
+
+  /**
+   * Builds a reconciler which reconciles the given cluster like the operator, so that the steps
+   * after a failed request run as well. The status is applied to the cluster as it is persisted.
+   */
+  @SuppressWarnings("unchecked")
+  private static SparkClusterReconciler reconcilerOf(SparkCluster cluster) {
+    SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
+    Answer<Boolean> persist =
+        invocation -> {
+          cluster.setStatus(invocation.getArgument(1));
+          return true;
+        };
+    when(recorder.persistStatus(any(), any())).thenAnswer(persist);
+    when(recorder.persistStatus(any(), any(), any())).thenAnswer(persist);
+    when(recorder.appendNewStateAndPersist(any(), any()))
+        .thenAnswer(
+            invocation -> {
+              cluster.setStatus(cluster.getStatus().appendNewState(invocation.getArgument(1)));
+              return true;
+            });
+    return new SparkClusterReconciler(
+        new SparkClusterSubmissionWorker(), recorder, mock(SentinelManager.class));
+  }
+
+  @SuppressWarnings("unchecked")
+  private Context<SparkCluster> josdkContextOf(KubernetesClient client) {
+    Context<SparkCluster> josdkContext = mock(Context.class);
+    when(josdkContext.getClient()).thenReturn(client);
+    when(josdkContext.eventRecorder()).thenReturn(eventRecorder);
+    return josdkContext;
+  }
+
+  /**
+   * Stubs the given operation of a deep-stubbed client in the default namespace, whose generic
+   * types Mockito cannot resolve, with one resource of the given class per name, so that their
+   * deletions can be verified.
+   */
+  @SuppressWarnings("unchecked")
+  private static <T extends HasMetadata, L, R extends Resource<T>>
+      NonNamespaceOperation<T, L, R> inDefaultNamespace(
+          MixedOperation<T, L, R> operation, Class<?> resourceClass) {
+    NonNamespaceOperation<T, L, R> namespaced = mock(NonNamespaceOperation.class);
+    Map<String, R> resources = new HashMap<>();
+    when(namespaced.withName(anyString()))
+        .thenAnswer(
+            invocation ->
+                resources.computeIfAbsent(
+                    invocation.getArgument(0), name -> (R) mock(resourceClass)));
+    when(operation.inNamespace("default")).thenReturn(namespaced);
+    return namespaced;
+  }
+
+  /** Stubs the LIST of the master and worker pods of cluster1 to return the given lists in turn. */
+  @SuppressWarnings("unchecked")
+  private static void stubPodLists(KubernetesClient client, PodList first, PodList... rest) {
+    MixedOperation<Pod, PodList, PodResource> pods = mock(MixedOperation.class);
+    NonNamespaceOperation<Pod, PodList, PodResource> namespacedPods =
+        mock(NonNamespaceOperation.class);
+    FilterWatchListDeletable<Pod, PodList, PodResource> labeledPods =
+        mock(FilterWatchListDeletable.class);
+    FilterWatchListDeletable<Pod, PodList, PodResource> rolePods =
+        mock(FilterWatchListDeletable.class);
+    when(client.pods()).thenReturn(pods);
+    when(pods.inNamespace("default")).thenReturn(namespacedPods);
+    when(namespacedPods.withLabel(Constants.LABEL_SPARK_CLUSTER_NAME, "cluster1"))
+        .thenReturn(labeledPods);
+    when(labeledPods.withLabelIn(
+            Constants.LABEL_SPARK_ROLE_NAME,
+            Constants.LABEL_SPARK_ROLE_MASTER_VALUE,
+            Constants.LABEL_SPARK_ROLE_WORKER_VALUE))
+        .thenReturn(rolePods);
+    when(rolePods.list()).thenReturn(first, rest);
+  }
+
+  private static Pod pod(String name, String role) {
+    return new PodBuilder()
+        .withNewMetadata()
+        .withName(name)
+        .withNamespace("default")
+        .addToLabels(Constants.LABEL_SPARK_CLUSTER_NAME, "cluster1")
+        .addToLabels(Constants.LABEL_SPARK_ROLE_NAME, role)
+        .endMetadata()
+        .build();
   }
 
   @Test

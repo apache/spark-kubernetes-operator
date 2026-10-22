@@ -190,6 +190,8 @@ public final class ClusterInitStep extends ClusterReconcileStep {
 
   /**
    * Fails the cluster with SchedulingFailure for the given failure of requesting its resources.
+   * The resources requested before the failure, and its Kueue Workload, are released in
+   * SchedulingFailure, see {@link ClusterCleanUpStep}.
    *
    * @param context The SparkClusterContext for the cluster.
    * @param statusRecorder The SparkClusterStatusRecorder for recording status updates.

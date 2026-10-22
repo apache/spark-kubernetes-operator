@@ -228,9 +228,17 @@ is recreated, e.g. by suspending and resuming it with [`spec.suspend`](spark_cus
   server never answered, stays `Submitted` and is retried at the next reconciliation, instead of
   failing with `SchedulingFailure` and then `Failed`. A request which the API server rejected
   still fails the cluster.
-- Since 1.1.0, the message of the `Failed` state after `SchedulingFailure` is
-  `Cluster failed, since requesting its resources failed. See the preceding SchedulingFailure state for the cause.`
-  instead of `Cannot process cluster status.`.
+- Since 1.1.0, a cluster which fails with `SchedulingFailure`, e.g. since a `ResourceQuota` or an
+  admission webhook rejects one of its resources, deletes the resources which it may have requested
+  before the failure, i.e. the master and worker StatefulSets and Services, the NetworkPolicy, and
+  the HorizontalPodAutoscaler and PodDisruptionBudget of the workers. Then it moves to
+  `ResourceReleased` with the message
+  `Cluster failed, since requesting its resources failed, and they are released. See the preceding SchedulingFailure state for the cause.`
+  1.0 moved it to `Failed` with the message `Cannot process cluster status.` instead, and kept
+  them until the `SparkCluster` was deleted, e.g. a master which was requested before its workers
+  were rejected kept running. A tool which waits for `Failed` has to wait for `ResourceReleased`
+  instead. A `Failed` cluster which 1.0 left behind is not released, so delete it to release its
+  resources.
 
 ### Docker Image
 

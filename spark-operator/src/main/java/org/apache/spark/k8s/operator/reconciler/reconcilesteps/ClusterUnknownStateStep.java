@@ -29,7 +29,9 @@ import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
 /** Abnormal state handler for clusters. */
 public final class ClusterUnknownStateStep extends ClusterReconcileStep {
   /**
-   * Reconciles the cluster when it is in an unknown state, marking it as failed.
+   * Reconciles the cluster when it is in an unknown state, marking it as failed. A Failed cluster,
+   * e.g. one which an earlier version failed after SchedulingFailure without releasing its
+   * resources, is left as it is.
    *
    * @param context The SparkClusterContext for the cluster.
    * @param statusRecorder The SparkClusterStatusRecorder for recording status updates.
@@ -45,13 +47,8 @@ public final class ClusterUnknownStateStep extends ClusterReconcileStep {
     if (currentStateSummary == ClusterStateSummary.Failed) {
       return ReconcileProgress.completeAndNoRequeue();
     }
-    // SchedulingFailure already reports the cause, so Failed points back to it rather than reading
-    // as another, unexplained failure.
-    String message =
-        currentStateSummary == ClusterStateSummary.SchedulingFailure
-            ? Constants.CLUSTER_FAILED_AFTER_SCHEDULING_FAILURE_MESSAGE
-            : Constants.UNKNOWN_CLUSTER_STATE_MESSAGE;
-    ClusterState state = new ClusterState(ClusterStateSummary.Failed, message);
+    ClusterState state =
+        new ClusterState(ClusterStateSummary.Failed, Constants.UNKNOWN_CLUSTER_STATE_MESSAGE);
     statusRecorder.persistStatus(context, context.getResource().getStatus().appendNewState(state));
     return ReconcileProgress.completeAndImmediateRequeue();
   }
