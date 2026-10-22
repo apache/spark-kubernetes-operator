@@ -22,6 +22,7 @@ package org.apache.spark.k8s.operator.reconciler.reconcilesteps;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -159,6 +160,29 @@ class ClusterCleanUpStepTest {
     Assertions.assertNull(getWorkload());
     Assertions.assertEquals(
         ClusterStateSummary.ResourceReleased, captureAppendedState().getCurrentStateSummary());
+  }
+
+  @Test
+  void failedReleaseOfResourceWithoutQuotaDoesNotHoldKueueWorkload() {
+    SparkCluster cluster = buildCluster(ClusterStateSummary.SchedulingFailure);
+    KubernetesClient client = spy(kubernetesClient);
+    // e.g. an operator which may not access NetworkPolicies, which failed the cluster as well
+    doThrow(new KubernetesClientException("forbidden", 403, null)).when(client).network();
+    stubContext(cluster, client);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+    kubernetesClient.resource(KueueWorkloadFactory.buildWorkload(cluster)).create();
+
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndDefaultRequeue(),
+        new ClusterCleanUpStep().reconcile(mockContext, recorder));
+
+    // The NetworkPolicy holds no quota, so the Workload is released even though it is not deleted,
+    // while the cluster stays in SchedulingFailure and reports the failure
+    Assertions.assertNull(getWorkload());
+    verifyNoInteractions(recorder);
+    ArgumentCaptor<EventRecord> event = ArgumentCaptor.forClass(EventRecord.class);
+    verify(eventRecorder).record(event.capture());
+    Assertions.assertEquals(EventUtils.REASON_CLUSTER_RELEASE_FAILED, event.getValue().reason());
   }
 
   @ParameterizedTest
