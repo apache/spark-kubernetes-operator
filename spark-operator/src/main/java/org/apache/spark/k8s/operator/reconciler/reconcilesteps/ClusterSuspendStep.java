@@ -264,62 +264,13 @@ public final class ClusterSuspendStep extends ClusterReconcileStep {
       SparkClusterStatusRecorder statusRecorder,
       boolean releaseWorkload) {
     SparkCluster cluster = context.getResource();
-    String namespace = cluster.getMetadata().getNamespace();
-    String name = cluster.getMetadata().getName();
     KubernetesClient client = context.getClient();
     try {
-      client
-          .apps()
-          .statefulSets()
-          .inNamespace(namespace)
-          .withName(getWorkerStatefulSetName(name))
-          .delete();
-      client
-          .apps()
-          .statefulSets()
-          .inNamespace(namespace)
-          .withName(getMasterStatefulSetName(name))
-          .delete();
-      client
-          .autoscaling()
-          .v2()
-          .horizontalPodAutoscalers()
-          .inNamespace(namespace)
-          .withName(getWorkerHorizontalPodAutoscalerName(name))
-          .delete();
-      client
-          .policy()
-          .v1()
-          .podDisruptionBudget()
-          .inNamespace(namespace)
-          .withName(getWorkerPodDisruptionBudgetName(name))
-          .delete();
-      List<Pod> pods =
-          ReconcilerUtils.podsOf(
-                  client,
-                  namespace,
-                  LABEL_SPARK_CLUSTER_NAME,
-                  name,
-                  LABEL_SPARK_ROLE_MASTER_VALUE,
-                  LABEL_SPARK_ROLE_WORKER_VALUE)
-              .list()
-              .getItems();
-      Instant now = Instant.now();
-      Instant podReleaseDeadline =
-          pods.stream()
-              .map(ClusterSuspendStep::getPodReleaseDeadline)
-              .max(Comparator.naturalOrder())
-              .orElse(now);
-      if (now.isBefore(podReleaseDeadline)) {
-        // The deletion of each pod is observed by the pod informer, which reconciles again, while
-        // the timeout of a pod which may send no more events is observed by the requeue.
+      List<Pod> pods = deleteMasterAndWorkers(client, cluster);
+      Optional<ReconcileProgress> waiting = waitForPods(pods);
+      if (waiting.isPresent()) {
         log.debug("Waiting for the pods of the suspended cluster to be deleted.");
-        ReconcileProgress defaultRequeue = completeAndDefaultRequeue();
-        Duration remaining = Duration.between(now, podReleaseDeadline);
-        return Optional.of(
-            remaining.compareTo(defaultRequeue.getRequeueAfterDuration()) < 0
-                ? completeAndRequeueAfter(remaining)
-                : defaultRequeue);
+        return waiting;
       }
       if (releaseWorkload) {
         // A Workload admitted before the queue label was removed is released as well.
@@ -366,7 +317,87 @@ public final class ClusterSuspendStep extends ClusterReconcileStep {
   }
 
   /**
-   * Returns when a master or worker pod stops holding the Kueue Workload of a suspended cluster.
+   * Deletes the master and worker StatefulSets of the given cluster, and the
+   * HorizontalPodAutoscaler and the PodDisruptionBudget of its workers, by name, and lists its
+   * master and worker pods, see {@link #releaseResources}. {@link ClusterCleanUpStep} releases a
+   * cluster which failed to request its resources the same way.
+   *
+   * @param client The KubernetesClient.
+   * @param cluster The SparkCluster.
+   * @return The master and worker pods which remain, including the ones being deleted.
+   * @throws KubernetesClientException if a deletion or the listing fails.
+   */
+  static List<Pod> deleteMasterAndWorkers(
+      final KubernetesClient client, final SparkCluster cluster) {
+    String namespace = cluster.getMetadata().getNamespace();
+    String name = cluster.getMetadata().getName();
+    client
+        .apps()
+        .statefulSets()
+        .inNamespace(namespace)
+        .withName(getWorkerStatefulSetName(name))
+        .delete();
+    client
+        .apps()
+        .statefulSets()
+        .inNamespace(namespace)
+        .withName(getMasterStatefulSetName(name))
+        .delete();
+    client
+        .autoscaling()
+        .v2()
+        .horizontalPodAutoscalers()
+        .inNamespace(namespace)
+        .withName(getWorkerHorizontalPodAutoscalerName(name))
+        .delete();
+    client
+        .policy()
+        .v1()
+        .podDisruptionBudget()
+        .inNamespace(namespace)
+        .withName(getWorkerPodDisruptionBudgetName(name))
+        .delete();
+    return ReconcilerUtils.podsOf(
+            client,
+            namespace,
+            LABEL_SPARK_CLUSTER_NAME,
+            name,
+            LABEL_SPARK_ROLE_MASTER_VALUE,
+            LABEL_SPARK_ROLE_WORKER_VALUE)
+        .list()
+        .getItems();
+  }
+
+  /**
+   * Returns the progress to wait with while any of the given pods may still hold the Kueue
+   * Workload of its cluster, i.e. until {@link #POD_RELEASE_TIMEOUT} after its grace period ended,
+   * see {@link #releaseResources}.
+   *
+   * @param pods The master and worker pods which remain.
+   * @return The progress to wait with, or empty once none of the pods holds the Workload.
+   */
+  static Optional<ReconcileProgress> waitForPods(final List<Pod> pods) {
+    Instant now = Instant.now();
+    Instant podReleaseDeadline =
+        pods.stream()
+            .map(ClusterSuspendStep::getPodReleaseDeadline)
+            .max(Comparator.naturalOrder())
+            .orElse(now);
+    if (!now.isBefore(podReleaseDeadline)) {
+      return Optional.empty();
+    }
+    // The deletion of each pod is observed by the pod informer, which reconciles again, while the
+    // timeout of a pod which may send no more events is observed by the requeue.
+    ReconcileProgress defaultRequeue = completeAndDefaultRequeue();
+    Duration remaining = Duration.between(now, podReleaseDeadline);
+    return Optional.of(
+        remaining.compareTo(defaultRequeue.getRequeueAfterDuration()) < 0
+            ? completeAndRequeueAfter(remaining)
+            : defaultRequeue);
+  }
+
+  /**
+   * Returns when a master or worker pod stops holding the Kueue Workload of its cluster.
    *
    * @param pod The master or worker pod.
    * @return {@link #POD_RELEASE_TIMEOUT} after its deletionTimestamp, when its grace period

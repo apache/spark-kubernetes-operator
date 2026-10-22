@@ -736,7 +736,7 @@ relates it to the reconciliation.
   templates. A missing request defaults to the limit, or else to 1 CPU and `SPARK_DAEMON_MEMORY`
   plus overhead. A worker uses `SPARK_WORKER_CORES` for the CPU and adds `SPARK_WORKER_MEMORY` to
   the memory when they are set. A `SparkCluster` keeps the quota until it is deleted, suspended or
-  evicted.
+  evicted, or until it fails to request its master and workers, see [Spark Cluster](#spark-cluster).
   Set a cpu and memory request or limit on the `worker` container, or `SPARK_WORKER_CORES` and
   `SPARK_WORKER_MEMORY`: a worker with none of them advertises the whole node to its executors,
   well above the default the `Workload` requests.
@@ -746,8 +746,9 @@ relates it to the reconciliation.
   stay on the pods even if the `kueue.x-k8s.io/queue-name` label is removed after the driver (or
   master) was created, since the `Workload` keeps the quota until it is released with the
   resources. A node label that conflicts with the node selector of the pods fails the resource
-  with `SchedulingFailure`, and deletes the `Workload` unless its driver or master is running
-  already, whose pods still hold the quota it reserved. Only fixing the node selector or the flavor
+  with `SchedulingFailure`, and deletes the `Workload` right away unless its driver or master is
+  running already, whose pods still hold the quota it reserved until they are released. Only
+  fixing the node selector or the flavor
   resolves it: a restarted attempt requests the quota again and hits the same conflict, so an
   application which restarts on `SchedulingFailure` should bound the attempts with
   [`maxRestartOnSchedulingFailure`](#granular-restart-control). `ResourceFlavor`s are
@@ -801,15 +802,16 @@ relates it to the reconciliation.
 * Once the integration is disabled or the access of the operator to `Workload`s is revoked, e.g.
   by disabling `operatorRbac.kueue.enabled`, the operator no longer deletes them, and a `Workload`
   left behind keeps its quota until its owner is deleted. While the integration stays enabled
-  without the access, a suspended `SparkApplication` or `SparkCluster` does not resume, and a
-  stopping `SparkApplication` neither terminates nor restarts, until the access is restored or the
-  integration is disabled, since the operator keeps deleting their `Workload`s by name, which is
-  denied even once a `Workload` is gone. Before disabling either, let the queued
+  without the access, a suspended `SparkApplication` or `SparkCluster` does not resume, a stopping
+  `SparkApplication` neither terminates nor restarts, and a `SparkCluster` in `SchedulingFailure`
+  does not terminate, until the access is restored or the integration is disabled, since the
+  operator keeps deleting their `Workload`s by name, which is denied even once a `Workload` is
+  gone. Before disabling either, let the queued
   `SparkApplication`s finish or suspend them, and suspend the queued
   `SparkCluster`s, so that the operator releases their `Workload`s itself. Then list the remaining
   ones with `kubectl get workloads -A -l spark.operator/spark-app-name` and
   `kubectl get workloads -A -l spark.operator/spark-cluster-name`, and delete only those whose
-  owner has no running pods, e.g. of a `Failed` `SparkCluster`.
+  owner has no running pods.
 * A `SparkCluster` with `minWorkers < maxWorkers` and pod template files set through
   `spark.kubernetes.{driver,executor}.podTemplateFile` are not supported yet. Such a resource fails
   with `SchedulingFailure` instead of being queued.
@@ -929,4 +931,17 @@ that Spark may overwrite certain fields.
 
 The master and worker pods use `terminationGracePeriodSeconds: 0` by default to delete a
 `SparkCluster` faster, unless their pod templates set it. A longer grace period delays stopping
-a [suspended](#suspend) cluster and releasing its [Kueue](#kueue) quota accordingly.
+a [suspended](#suspend) or failed cluster and releasing its [Kueue](#kueue) quota accordingly.
+
+A `SparkCluster` whose resources cannot be requested, e.g. since a `ResourceQuota` or an admission
+webhook rejects one of them, fails with `SchedulingFailure`, whose message gives the cause, while a
+request which may yet succeed, such as a timeout, a throttled request or an internal server error,
+is retried. Then the operator deletes by name whatever it may have requested for the cluster: the
+master and worker StatefulSets and Services, the NetworkPolicy, and the HorizontalPodAutoscaler and
+PodDisruptionBudget of the workers. Once the master and worker pods are gone, or are still
+terminating 5 minutes after their grace period ended, it releases the [Kueue](#kueue) `Workload` of
+the cluster as well, and the cluster moves to `ResourceReleased`, which is not reconciled any
+further. So delete and recreate the cluster to request its resources again. A failure to delete
+them or the `Workload`, other than one which may clear on its own, publishes the
+`ClusterReleaseFailed` [event](configuration.md#kubernetes-events) by default, and the cluster stays
+in `SchedulingFailure` until the deletion succeeds.
