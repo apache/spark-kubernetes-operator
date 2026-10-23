@@ -1009,7 +1009,7 @@ spec:
             name: sparkapplication-spark-job-kueue-admission-check-test
             namespace: default
           status:
-            (conditions[?type == 'QuotaReserved' && status == 'True'] | length(@)): 1
+            (length(conditions[?type == 'QuotaReserved' && status == 'True'] || `[]`)): 1
             admissionChecks:
             - name: ($ADMISSION_CHECK)
               state: Pending
@@ -1022,7 +1022,7 @@ spec:
             name: sparkcluster-spark-cluster-kueue-admission-check-test
             namespace: default
           status:
-            (conditions[?type == 'QuotaReserved' && status == 'True'] | length(@)): 1
+            (length(conditions[?type == 'QuotaReserved' && status == 'True'] || `[]`)): 1
             admissionChecks:
             - name: ($ADMISSION_CHECK)
               state: Pending
