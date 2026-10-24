@@ -160,3 +160,41 @@ shadowJar {
   }
 }
 
+// Fails if a runtime dependency has classes in the shadow jar but is not listed in LICENSE-binary.
+// Components relocated inside other jars, e.g. hadoop-client-runtime, still need a manual review.
+tasks.register('checkLicenseBinary') {
+  description = 'Checks that LICENSE-binary lists the dependencies bundled in the shadow jar'
+  group = 'verification'
+  def licenseBinary = rootProject.file('LICENSE-binary')
+  def shadowJarFile = tasks.named('shadowJar').flatMap { it.archiveFile }
+  def runtimeArtifacts = configurations.runtimeClasspath.incoming.artifacts.resolvedArtifacts
+  inputs.file(licenseBinary)
+  inputs.file(shadowJarFile)
+  doLast {
+    def listed = licenseBinary.readLines().collect { it.split(' ')[0] } as Set
+    def bundled = new java.util.zip.ZipFile(shadowJarFile.get().asFile).withCloseable { jar ->
+      jar.entries().collect { it.name } as Set
+    }
+    def missing = runtimeArtifacts.get()
+        .findAll { it.id.componentIdentifier instanceof ModuleComponentIdentifier }
+        .findAll { artifact ->
+          new java.util.zip.ZipFile(artifact.file).withCloseable { jar ->
+            jar.entries().any {
+              it.name.endsWith('.class') && !it.name.endsWith('module-info.class') &&
+                  bundled.contains(it.name)
+            }
+          }
+        }
+        .collect { it.id.componentIdentifier }
+        .collect { "${it.group}:${it.module}".toString() }
+        .findAll { !listed.contains(it) }
+        .unique()
+        .sort()
+    if (missing) {
+      throw new GradleException("LICENSE-binary does not list the bundled dependencies: ${missing}")
+    }
+  }
+}
+
+check.dependsOn 'checkLicenseBinary'
+
