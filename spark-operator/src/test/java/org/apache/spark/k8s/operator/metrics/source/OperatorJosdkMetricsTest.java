@@ -178,16 +178,6 @@ class OperatorJosdkMetricsTest {
   }
 
   private final class TestingExecutionBase<T> implements Metrics.ControllerExecution<T> {
-    private final ResourceID executionResourceId;
-
-    TestingExecutionBase() {
-      this(resourceId);
-    }
-
-    TestingExecutionBase(ResourceID executionResourceId) {
-      this.executionResourceId = executionResourceId;
-    }
-
     @Override
     public String controllerName() {
       return controllerName;
@@ -200,7 +190,7 @@ class OperatorJosdkMetricsTest {
 
     @Override
     public ResourceID resourceID() {
-      return executionResourceId;
+      return resourceId;
     }
 
     @Override
