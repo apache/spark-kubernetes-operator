@@ -265,6 +265,13 @@ has a retry left for it, even if it does not retry it, e.g. on a request timeout
 a client which never retries, i.e. a Kubernetes event write or the recording of the Kueue
 `PodsReady` condition, is not counted there when it gets no response.
 
+`kubernetes.client.http.response.latency.nanos` is measured from when a request is handed to the
+HTTP client, so it also includes waiting for a connection. It does not include the time to read
+the response body. A request re-sent by another interceptor, e.g. after a `401`, is recorded
+twice, and the two values add up to the time from sending it until the re-sent response arrives.
+A request retried with backoff, e.g. after a `429` or a `5xx`, is recorded once per attempt, and
+the backoff is not included. WebSocket upgrades, e.g. of a watch, are not recorded.
+
 ### Latency for State Transition
 
 Spark Operator also measures the latency between each state transition for apps, in the format of
