@@ -27,7 +27,8 @@ spec:
   # enough to watch its state transitions.
   driverArgs: [ "10000" ]
   sparkConf:
-    # Kueue requests the quota upfront, so dynamic allocation is not supported.
+    # Kueue requests the quota upfront, so dynamic allocation needs the
+    # `spark.operator/kueue-reserve-max-executors: "true"` annotation, which reserves the maximum.
     spark.executor.instances: "1"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
     spark.kubernetes.container.image: "apache/spark:{{SPARK_VERSION}}-scala"

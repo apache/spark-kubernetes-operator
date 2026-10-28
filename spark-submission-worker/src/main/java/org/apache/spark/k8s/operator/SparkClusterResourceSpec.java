@@ -132,7 +132,7 @@ public class SparkClusterResourceSpec {
       String name, String namespace, String version, ObjectMeta metadata, ServiceSpec serviceSpec) {
     return new ServiceBuilder()
         .withNewMetadataLike(metadata)
-        .withName(name + "-master-svc")
+        .withName(getMasterServiceName(name))
         .addToLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_MASTER_VALUE)
         .addToLabels(LABEL_SPARK_VERSION_NAME, version)
         .withNamespace(namespace)
@@ -175,7 +175,7 @@ public class SparkClusterResourceSpec {
       String name, String namespace, String version, ObjectMeta metadata, ServiceSpec serviceSpec) {
     return new ServiceBuilder()
         .withNewMetadataLike(metadata)
-        .withName(name + "-worker-svc")
+        .withName(getWorkerServiceName(name))
         .addToLabels(LABEL_SPARK_ROLE_NAME, LABEL_SPARK_ROLE_WORKER_VALUE)
         .addToLabels(LABEL_SPARK_VERSION_NAME, version)
         .withNamespace(namespace)
@@ -381,6 +381,36 @@ public class SparkClusterResourceSpec {
   }
 
   /**
+   * Returns the name of the Service of the Spark master, which does not depend on the spec.
+   *
+   * @param clusterName The name of the cluster.
+   * @return The name of the master Service.
+   */
+  public static String getMasterServiceName(String clusterName) {
+    return clusterName + "-master-svc";
+  }
+
+  /**
+   * Returns the name of the Service of the Spark workers, which does not depend on the spec.
+   *
+   * @param clusterName The name of the cluster.
+   * @return The name of the worker Service.
+   */
+  public static String getWorkerServiceName(String clusterName) {
+    return clusterName + "-worker-svc";
+  }
+
+  /**
+   * Returns the name of the NetworkPolicy of the Spark workers, which does not depend on the spec.
+   *
+   * @param clusterName The name of the cluster.
+   * @return The name of the worker NetworkPolicy.
+   */
+  public static String getWorkerNetworkPolicyName(String clusterName) {
+    return clusterName + "-worker";
+  }
+
+  /**
    * Returns the name of the HorizontalPodAutoscaler of the Spark workers, which does not depend on
    * whether the current spec asks for one.
    *
@@ -520,7 +550,7 @@ public class SparkClusterResourceSpec {
   private NetworkPolicy buildWorkerNetworkPolicy(String clusterName, String namespace) {
     return new NetworkPolicyBuilder()
         .withNewMetadata()
-        .withName(clusterName + "-worker")
+        .withName(getWorkerNetworkPolicyName(clusterName))
         .withNamespace(namespace)
         .addToLabels(LABEL_SPARK_CLUSTER_NAME, clusterName)
         .endMetadata()

@@ -40,7 +40,7 @@ there, never inline in a module.
 **Requirements**
 
 - **JDK 21 or newer** — the Gradle toolchain auto-provisions JDK 27 and targets Java 21 bytecode;
-  CI runs unit tests on Java 21 / 25 / 26 / 27.
+  CI runs unit tests on Java 21 / 25 / 27.
 - **Docker** — required for `./gradlew buildDockerImage`.
 - **Kubernetes cluster** (e.g. minikube), **Helm 3**, and **kubectl** — to deploy and run the
   operator.
@@ -114,7 +114,7 @@ chainsaw test --test-dir ./tests/e2e/state-transition --parallel 1
 
 `./gradlew build` runs the full quality gate locally — Checkstyle, PMD, SpotBugs, Spotless, and
 JaCoCo. Run it before pushing; CI runs the quality gate once and the unit tests on
-Java 21 / 25 / 26 / 27 (x86 and arm) via `-PtestJavaVersion`.
+Java 21 / 25 / 27 (x86 and arm) via `-PtestJavaVersion`.
 
 ## Code Style
 

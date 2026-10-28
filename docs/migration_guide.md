@@ -106,6 +106,13 @@ affect building the project, CI, tests or examples.
   ignored. If you added such files to the chart, prepend their content to
   `operatorConfiguration.log4j2.properties` and `operatorConfiguration.spark-operator.properties`
   respectively to restore the behavior before 1.1.0.
+- Since 1.1.0, the chart creates a sentinel in every namespace of
+  `workloadResources.sparkApplicationSentinel.sentinelNamespaces.data` and
+  `workloadResources.sparkClusterSentinel.sentinelNamespaces.data`. 1.0 rendered the sentinels of
+  each list into one YAML document, so only the one in the last namespace was created.
+  `helm upgrade` creates the others, and fails if one of these namespaces does not exist. The
+  operator health probe also checks the new sentinels in the namespaces which the operator
+  watches. To restore the behavior before 1.1.0, list only the last namespace.
 
 ### Operator
 
@@ -153,6 +160,11 @@ affect building the project, CI, tests or examples.
   services outside the cluster. To restore the behavior before 1.1.0, set
   `spark.kubernetes.operator.events.enabled` to `false`. See
   [Kubernetes Events](configuration.md#kubernetes-events) for details.
+- Since 1.1.0, `spark.redaction.regex` defaults to
+  `(?i)secret|password|token|access[.]?key|credential`, the default of Apache Spark 4.3.0, so the
+  operator also redacts the configuration properties whose keys or values contain `credential` in
+  its logs. To restore the behavior before 1.1.0, set it to
+  `(?i)secret|password|token|access[.]?key`.
 
 ### SparkApplication
 
@@ -181,6 +193,30 @@ affect building the project, CI, tests or examples.
   `driverStartTimeoutMillis` was disabled. Since `DriverStartTimedOut` is an infrastructure failure
   while the others are not, `restartPolicy: OnInfrastructureFailure` no longer restarts such an
   application. Use `OnFailure` to restart it.
+- Since 1.1.0, a `ClientMode` application fails once, and then terminates or restarts like any
+  other failed application. 1.0 failed it again on every reconciliation, so it could not be
+  deleted, and its status may have grown too large to update. If such an application still cannot
+  be deleted, remove its finalizer by hand, e.g.
+  `kubectl patch sparkapp <name> --type=merge -p '{"metadata":{"finalizers":null}}'`.
+- Since 1.1.0, only the driver container of the driver pod decides whether the application has
+  started, succeeded or failed. Like Apache Spark, it is the container of the driver pod template
+  which `spark.kubernetes.driver.podTemplateContainerName` names, or else its first container, or
+  `spark-kubernetes-driver` without a pod template. 1.0 considered all containers unless the
+  property was set, so an application moved to `Succeeded` or `Failed` as soon as a sidecar
+  container, e.g. a log collector or `istio-proxy`, exited, and its driver pod was deleted while
+  the driver was still running, unless `resourceRetainPolicy` retained it. Likewise, an
+  application with a sidecar container moves to `DriverStarted` when the driver container is ready
+  instead of any container, so a driver container whose image cannot be pulled ends in
+  `DriverStartTimedOut`, which `restartPolicy: OnInfrastructureFailure` restarts, instead of
+  `DriverReadyTimedOut`. An application whose sidecar container exits before the driver pod is
+  ready ends in `DriverReadyTimedOut` after `driverReadyTimeoutMillis`, instead of `Succeeded` or
+  `Failed` right away, since the pod does not become ready. If the driver container is not found,
+  e.g. since the first container of the pod template file of
+  `spark.kubernetes.driver.podTemplateFile` has another name, all containers are considered as in
+  1.0, so set `spark.kubernetes.driver.podTemplateContainerName` for such a pod template file.
+- Since 1.1.0, a sidecar container of the driver pod, i.e. an init container with
+  `restartPolicy: Always`, no longer fails the application when it exits with a non-zero code,
+  since Kubernetes restarts it and does not fail the pod for it.
 
 ### SparkCluster
 
@@ -206,9 +242,17 @@ is recreated, e.g. by suspending and resuming it with [`spec.suspend`](spark_cus
   server never answered, stays `Submitted` and is retried at the next reconciliation, instead of
   failing with `SchedulingFailure` and then `Failed`. A request which the API server rejected
   still fails the cluster.
-- Since 1.1.0, the message of the `Failed` state after `SchedulingFailure` is
-  `Cluster failed, since requesting its resources failed. See the preceding SchedulingFailure state for the cause.`
-  instead of `Cannot process cluster status.`.
+- Since 1.1.0, a cluster which fails with `SchedulingFailure`, e.g. since a `ResourceQuota` or an
+  admission webhook rejects one of its resources, deletes the resources which it may have requested
+  before the failure, i.e. the master and worker StatefulSets and Services, the NetworkPolicy, and
+  the HorizontalPodAutoscaler and PodDisruptionBudget of the workers. Then it moves to
+  `ResourceReleased` with the message
+  `Cluster failed, since requesting its resources failed, and they are released. See the preceding SchedulingFailure state for the cause.`
+  1.0 moved it to `Failed` with the message `Cannot process cluster status.` instead, and kept
+  them until the `SparkCluster` was deleted, e.g. a master which was requested before its workers
+  were rejected kept running. A tool which waits for `Failed` has to wait for `ResourceReleased`
+  instead. A `Failed` cluster which 1.0 left behind is not released, so delete it to release its
+  resources.
 
 ### Docker Image
 
@@ -233,3 +277,9 @@ is recreated, e.g. by suspending and resuming it with [`spec.suspend`](spark_cus
   instead.
 - Since 1.1.0, `ApplicationStateSummary` and `ClusterStateSummary` have the `Suspended` constant,
   so an exhaustive `switch` over either needs a case for it.
+- Since 1.1.0, `ModelUtils.findDriverMainContainerStatus` returns only the status of the driver
+  container, which it finds like Apache Spark, even if
+  `spark.kubernetes.driver.podTemplateContainerName` is not set. 1.0 returned the statuses of all
+  containers in that case, and none if the property named no container. Like Apache Spark, it also
+  ignores the property without a pod template. If the driver container is not found, it returns
+  the statuses of all containers.

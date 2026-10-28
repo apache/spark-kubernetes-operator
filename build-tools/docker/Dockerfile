@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM gradle:9.8.0-jdk26-resolute AS builder
+FROM gradle:9.8.1-jdk27-resolute AS builder
 
 WORKDIR /app
 
@@ -22,7 +22,7 @@ COPY . .
 
 RUN --mount=type=cache,target=/home/gradle/.gradle/caches gradle --no-daemon clean build -x check
 
-FROM azul/zulu-openjdk-alpine:26 AS jlink
+FROM eclipse-temurin:27-jdk-alpine AS jlink
 
 COPY --from=builder /app/spark-operator/build/libs/spark-kubernetes-operator-*-all.jar /tmp/app.jar
 

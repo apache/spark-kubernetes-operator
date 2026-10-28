@@ -33,7 +33,7 @@ jobs:
       max-parallel: 20
       matrix:
         os: [ 'ubuntu-26.04', 'ubuntu-26.04-arm' ]
-        java-version: [ 21, 25, 26, 27 ]
+        java-version: [ 21, 25, 27 ]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -41,14 +41,14 @@ jobs:
         uses: actions/setup-java@v6
         with:
           java-version: ${{ matrix.java-version }}
-          distribution: 'zulu'
+          distribution: 'temurin'
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6
         with:
           cache-provider: basic
       - name: Run unit tests
         run: |
-          if [[ "${{ matrix.java-version }}" == "25" || "${{ matrix.java-version }}" == "26" ]]; then
+          if [[ "${{ matrix.java-version }}" == "25" ]]; then
             export JDK_JAVA_OPTIONS="-XX:+UseCompactObjectHeaders"
           fi
           ./gradlew test -PtestJavaVersion=${{ matrix.java-version }}
@@ -168,7 +168,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
       - name: Set up Minikube
-        uses: medyagh/setup-minikube@v0.0.21
+        uses: medyagh/setup-minikube@e9e035a86bbc3caea26a450bd4dbf9d0c453682e
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -300,7 +300,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
       - name: Set up Minikube
-        uses: medyagh/setup-minikube@v0.0.21
+        uses: medyagh/setup-minikube@e9e035a86bbc3caea26a450bd4dbf9d0c453682e
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -347,13 +347,13 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: Set up JDK 26
+      - name: Set up JDK 27
         uses: actions/setup-java@v6
         with:
-          java-version: 26
-          distribution: 'zulu'
+          java-version: 27
+          distribution: 'temurin'
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6
         with:
           cache-provider: basic
       - name: Linters
@@ -402,3 +402,11 @@ jobs:
           if echo "$notes" | grep -q 'is deprecated'; then
             echo "Deprecation warning printed without a legacy key"; exit 1
           fi
+      - name: Validate helm chart renders a sentinel per namespace
+        run: |
+          helm template spark build-tools/helm/spark-kubernetes-operator \
+            --set workloadResources.sparkApplicationSentinel.create=true \
+            --set 'workloadResources.sparkApplicationSentinel.sentinelNamespaces.data={ns1,ns2}' \
+            --set workloadResources.sparkClusterSentinel.create=true \
+            --set 'workloadResources.sparkClusterSentinel.sentinelNamespaces.data={ns1,ns2}' \
+            | yq ea -e '[select(.metadata.labels["spark.operator/sentinel"] == "true")] | length == 4'

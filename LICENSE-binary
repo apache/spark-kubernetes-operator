@@ -224,7 +224,6 @@ com.google.guava:failureaccess
 com.google.guava:guava
 com.google.j2objc:j2objc-annotations
 com.nimbusds:nimbus-jose-jwt
-com.squareup:javapoet
 com.twitter:chill-java
 com.twitter:chill_2.13
 commons-cli:commons-cli
@@ -302,7 +301,6 @@ org.apache.curator:curator-client
 org.apache.curator:curator-framework
 org.apache.curator:curator-recipes
 org.apache.hadoop.thirdparty:hadoop-shaded-guava
-org.apache.hadoop.thirdparty:hadoop-shaded-protobuf_3_25
 org.apache.hadoop:hadoop-annotations
 org.apache.hadoop:hadoop-auth
 org.apache.hadoop:hadoop-client-api
@@ -344,30 +342,32 @@ org.eclipse.jetty:jetty-security
 org.eclipse.jetty:jetty-server
 org.eclipse.jetty:jetty-session
 org.eclipse.jetty:jetty-util
-org.glassfish.jersey.containers:jersey-container-servlet
-org.glassfish.jersey.containers:jersey-container-servlet-core
-org.glassfish.jersey.core:jersey-client
-org.glassfish.jersey.core:jersey-common
-org.glassfish.jersey.core:jersey-server
+org.eclipse.jetty:jetty-webapp
+org.eclipse.jetty:jetty-xml
 org.jctools:jctools-core
 org.json4s:json4s-ast_2.13
 org.json4s:json4s-core_2.13
 org.json4s:json4s-jackson-core_2.13
 org.json4s:json4s-jackson_2.13
 org.json4s:json4s-scalap_2.13
+org.jspecify:jspecify
 org.objenesis:objenesis
 org.scala-lang.modules:scala-parallel-collections_2.13
 org.scala-lang.modules:scala-xml_2.13
 org.scala-lang:scala-library
 org.snakeyaml:snakeyaml-engine
 org.yaml:snakeyaml
-oro:oro
 
 
 ------------------------------------------------------------------------------------
 This product bundles various third-party components under other open source licenses.
 This section summarizes those components and their licenses. See licenses-binary/
 for text of these licenses.
+
+
+Apache Software License 1.1
+---------------------------
+oro:oro
 
 
 BSD 2-Clause
@@ -377,14 +377,27 @@ org.codehaus.woodstox:stax2-api
 
 BSD 3-Clause
 ------------
+com.google.protobuf:protobuf-java
 com.google.re2j:re2j
 com.thoughtworks.paranamer:paranamer
 dnsjava:dnsjava
+org.apache.hadoop.thirdparty:hadoop-shaded-protobuf_3_25 (relocated com.google.protobuf:protobuf-java)
+org.jline:jline (resource files only, bundled in org.apache.hadoop:hadoop-client-runtime)
+org.ow2.asm:asm (relocated in org.apache.xbean:xbean-asm9-shaded and org.glassfish.jersey.core:jersey-server)
+org.ow2.asm:asm-tree (relocated in org.apache.xbean:xbean-asm9-shaded)
 
 
 MIT License
 -----------
+ch.randelshofer:fastdoubleparser (shaded in com.fasterxml.jackson.core:jackson-core, see LICENSE-fastdoubleparser.txt for its third-party portions)
 org.slf4j:slf4j-api
+
+com/fasterxml/jackson/core/io/schubfach (Schubfach https://github.com/c4f7fcce9cb06515/Schubfach, bundled in com.fasterxml.jackson.core:jackson-core)
+
+
+Mozilla Public License (MPL) 2.0
+--------------------------------
+mozilla/public-suffix-list.txt (Public Suffix List https://publicsuffix.org/, bundled in org.apache.httpcomponents:httpclient)
 
 
 Common Development and Distribution License (CDDL) 1.1
@@ -404,3 +417,9 @@ jakarta.servlet:jakarta.servlet-api https://projects.eclipse.org/projects/ee4j.s
 jakarta.ws.rs:jakarta.ws.rs-api https://github.com/eclipse-ee4j/jaxrs-api
 org.glassfish.hk2:hk2-api
 org.glassfish.hk2:osgi-resource-locator
+org.glassfish.jersey.containers:jersey-container-servlet https://projects.eclipse.org/projects/ee4j.jersey
+org.glassfish.jersey.containers:jersey-container-servlet-core https://projects.eclipse.org/projects/ee4j.jersey
+org.glassfish.jersey.core:jersey-client https://projects.eclipse.org/projects/ee4j.jersey
+org.glassfish.jersey.core:jersey-common https://projects.eclipse.org/projects/ee4j.jersey
+org.glassfish.jersey.core:jersey-server https://projects.eclipse.org/projects/ee4j.jersey
+org.glassfish.jersey.inject:jersey-hk2 https://projects.eclipse.org/projects/ee4j.jersey

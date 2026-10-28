@@ -242,10 +242,47 @@ public final class KueueWorkloadUtils {
       spec.setPriority(desired.getSpec().getPriority());
       changed = true;
     }
+    if (updatePodsReadyExecutors(workload, desired)) {
+      changed = true;
+    }
     if (changed) {
       client.resource(workload).update();
     }
     return new AdmissionResponse(AdmissionResult.PENDING, workload);
+  }
+
+  /**
+   * Copies the annotation of the desired Workload which holds how many executors must be ready to
+   * the pending Workload if it differs. Kueue does not read it, so it is updated in place, and the
+   * Workload keeps its position in the queue.
+   *
+   * @param pending The pending Workload, which is modified in place.
+   * @param desired The Workload built for the resource.
+   * @return True if the pending Workload was modified.
+   */
+  private static boolean updatePodsReadyExecutors(final Workload pending, final Workload desired) {
+    String podsReadyExecutors = getPodsReadyExecutors(desired);
+    if (Objects.equals(podsReadyExecutors, getPodsReadyExecutors(pending))) {
+      return false;
+    }
+    log.info(
+        "Updating the ready executors which the pending Kueue Workload {} requires.",
+        pending.getMetadata().getName());
+    Map<String, String> annotations = new HashMap<>(pending.getMetadata().getAnnotations());
+    if (podsReadyExecutors == null) {
+      annotations.remove(KueueWorkloadFactory.ANNOTATION_PODS_READY_EXECUTORS);
+    } else {
+      annotations.put(KueueWorkloadFactory.ANNOTATION_PODS_READY_EXECUTORS, podsReadyExecutors);
+    }
+    pending.getMetadata().setAnnotations(annotations);
+    return true;
+  }
+
+  private static String getPodsReadyExecutors(final Workload workload) {
+    Map<String, String> annotations = workload.getMetadata().getAnnotations();
+    return annotations == null
+        ? null
+        : annotations.get(KueueWorkloadFactory.ANNOTATION_PODS_READY_EXECUTORS);
   }
 
   /**
@@ -919,8 +956,10 @@ public final class KueueWorkloadUtils {
 
   /**
    * Records the Kueue `PodsReady` condition on the Workload of the resource of the given context
-   * once as many pods of each pod set as its count are ready, so that the `waitForPodsReady`
-   * timeout of Kueue does not evict it, and with `blockAdmission`, other workloads are admitted.
+   * once as many pods of each pod set as its count are ready, or for the executors of an
+   * application with dynamic allocation, as many as `spark.dynamicAllocation.minExecutors`, so
+   * that the `waitForPodsReady` timeout of Kueue does not evict it, and with `blockAdmission`,
+   * other workloads are admitted.
    * Unlike the built-in Kueue integrations, the condition is not set back to `False` when a pod is
    * lost later, e.g. an executor which Spark replaces, since an eviction would restart a running
    * cluster with its applications, or the attempt of a running application from scratch.
@@ -985,8 +1024,8 @@ public final class KueueWorkloadUtils {
   }
 
   /**
-   * Checks whether the given Workload is admitted without the `PodsReady` condition, while as many
-   * pods of each of its pod sets as its count are ready.
+   * Checks whether the given Workload is admitted without the `PodsReady` condition, while enough
+   * pods of each of its pod sets are ready, see {@link #countRequiredReadyPods}.
    */
   private static boolean shouldRecordPodsReady(
       final BaseContext<?> context, final Workload workload) {
@@ -995,7 +1034,25 @@ public final class KueueWorkloadUtils {
     }
     Map<String, Long> readyPods = context.countReadyPodsByRole();
     return workload.getSpec().getPodSets().stream()
-        .allMatch(podSet -> readyPods.getOrDefault(podSet.getName(), 0L) >= podSet.getCount());
+        .allMatch(
+            podSet ->
+                readyPods.getOrDefault(podSet.getName(), 0L)
+                    >= countRequiredReadyPods(workload, podSet));
+  }
+
+  /**
+   * Returns how many pods of the given pod set of the Workload must be ready for the `PodsReady`
+   * condition: its count, or for the executors of an application with dynamic allocation, the
+   * minimum which the Workload records, see {@link
+   * KueueWorkloadFactory#ANNOTATION_PODS_READY_EXECUTORS}.
+   */
+  static int countRequiredReadyPods(final Workload workload, final PodSet podSet) {
+    String podsReadyExecutors = getPodsReadyExecutors(workload);
+    if (podsReadyExecutors == null
+        || !KueueWorkloadFactory.PODSET_EXECUTOR.equals(podSet.getName())) {
+      return podSet.getCount();
+    }
+    return Integer.parseInt(podsReadyExecutors);
   }
 
   private static Workload putCondition(
