@@ -203,6 +203,15 @@ affect building the project, CI, tests or examples.
 - Since 1.1.0, a sidecar container of the driver pod, i.e. an init container with
   `restartPolicy: Always`, no longer fails the application when it exits with a non-zero code,
   since Kubernetes restarts it and does not fail the pod for it.
+- Since 1.1.0, the operator builds the driver pod with Apache Spark 4.3.0 instead of 4.2.0,
+  whatever `spec.runtimeVersions.sparkVersion` is, so the driver container always takes its
+  `allowPrivilegeEscalation` from `spark.kubernetes.driver.securityContext.allowPrivilegeEscalation`,
+  which is `false` by default. 1.0 kept a `true` set by the driver pod template. To restore the
+  behavior before 1.1.0, set the property to `true` in `spec.sparkConf`.
+- Since 1.1.0, for the same reason, the `SPARK_USER` environment variable of the driver container
+  is `spec.proxyUser` if it is set. 1.0 always used the user of the operator process, e.g. `spark`.
+  To restore the behavior before 1.1.0, set `spark.kubernetes.driverEnv.SPARK_USER` to that user in
+  `spec.sparkConf`.
 
 ### SparkCluster
 

@@ -319,6 +319,7 @@ org.apache.logging.log4j:log4j-layout-template-json
 org.apache.logging.log4j:log4j-slf4j2-impl
 org.apache.spark:spark-common-utils-java_2.13
 org.apache.spark:spark-common-utils_2.13
+org.apache.spark:spark-config_2.13
 org.apache.spark:spark-core_2.13
 org.apache.spark:spark-kubernetes_2.13
 org.apache.spark:spark-kvstore_2.13
@@ -326,6 +327,8 @@ org.apache.spark:spark-launcher_2.13
 org.apache.spark:spark-network-common_2.13
 org.apache.spark:spark-network-shuffle_2.13
 org.apache.spark:spark-tags_2.13
+org.apache.spark:spark-udf-worker-core_2.13
+org.apache.spark:spark-udf-worker-proto_2.13
 org.apache.spark:spark-unsafe_2.13
 org.apache.xbean:xbean-asm9-shaded
 org.apache.yetus:audience-annotations
@@ -382,6 +385,7 @@ com.google.re2j:re2j
 com.thoughtworks.paranamer:paranamer
 dnsjava:dnsjava
 org.apache.hadoop.thirdparty:hadoop-shaded-protobuf_3_25 (relocated com.google.protobuf:protobuf-java)
+org.apache.spark:spark-config_2.13 (relocated com.google.protobuf:protobuf-java)
 org.jline:jline (resource files only, bundled in org.apache.hadoop:hadoop-client-runtime)
 org.ow2.asm:asm (relocated in org.apache.xbean:xbean-asm9-shaded and org.glassfish.jersey.core:jersey-server)
 org.ow2.asm:asm-tree (relocated in org.apache.xbean:xbean-asm9-shaded)
