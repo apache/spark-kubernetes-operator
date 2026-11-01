@@ -45,6 +45,12 @@ affect building the project, CI, tests or examples.
   kubectl replace -f spark-kubernetes-operator/crds/
   ```
 
+- Since 1.1.0, the `v1` CRD of `SparkApplication` no longer has `sessionPersistence.idleTimeout` in
+  the `rules` of `spec.driverHttpRouteList[].httpRouteSpec` and
+  `spec.driverGrpcRouteList[].grpcRouteSpec`, since the Gateway API model of Kubernetes Client
+  7.9.0 (Gateway API 1.6.0) dropped it. Once the CRD is replaced, the API server drops the field
+  from the resources, so remove it from them. There is no way to restore it.
+
 ### Helm Chart
 
 - Since 1.1.0, `helm upgrade --reuse-values` from chart `1.8.0` fails, since it renders the new
