@@ -23,7 +23,6 @@ import static io.javaoperatorsdk.operator.api.reconciler.Constants.CONTROLLER_NA
 
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 import com.codahale.metrics.MetricRegistry;
 import io.fabric8.kubernetes.api.model.HasMetadata;
@@ -145,8 +144,9 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
 
   /**
    * Times the execution of a controller operation and records success or failure metrics. The
-   * duration is measured with the monotonic clock in nanoseconds and recorded in timers, which
-   * {@link org.apache.spark.k8s.operator.metrics.PrometheusPullModelHandler} exports in seconds.
+   * duration is measured with the monotonic clock in nanoseconds and recorded in histograms,
+   * which {@link org.apache.spark.k8s.operator.metrics.PrometheusPullModelHandler} exports in
+   * seconds with the default text-based format.
    *
    * @param execution The ControllerExecution to time.
    * @param <T> The return type of the execution.
@@ -212,10 +212,10 @@ public class OperatorJosdkMetrics extends BaseOperatorSource implements Source, 
       String name,
       String execName,
       String type) {
-    getTimer(metricsPrefix, name, execName, type).update(durationNanos, TimeUnit.NANOSECONDS);
+    getNanosHistogram(metricsPrefix, name, execName, type).update(durationNanos);
     if (namespaceOptional.isPresent()) {
-      getTimer(metricsPrefix, namespaceOptional.get(), name, execName, type)
-          .update(durationNanos, TimeUnit.NANOSECONDS);
+      getNanosHistogram(metricsPrefix, namespaceOptional.get(), name, execName, type)
+          .update(durationNanos);
     }
   }
 

@@ -20,6 +20,7 @@
 package org.apache.spark.k8s.operator.metrics.source;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -44,8 +45,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import org.apache.spark.k8s.operator.SparkApplication;
+import org.apache.spark.k8s.operator.metrics.NanosHistogram;
 import org.apache.spark.k8s.operator.metrics.PrometheusPullModelHandler;
-import org.apache.spark.k8s.operator.metrics.SummingTimer;
 import org.apache.spark.util.ManualClock;
 
 class OperatorJosdkMetricsTest {
@@ -66,7 +67,8 @@ class OperatorJosdkMetricsTest {
 
   @BeforeEach
   void setup() {
-    clock = new ManualClock();
+    // Not at 0, so that a duration which ignores the start time is caught.
+    clock = new ManualClock(1000);
     operatorMetrics = new OperatorJosdkMetrics(clock);
   }
 
@@ -113,21 +115,26 @@ class OperatorJosdkMetricsTest {
 
   @Test
   void testTimeControllerExecutionIsExportedInSeconds() throws Exception {
-    operatorMetrics.timeControllerExecution(new TestingExecutionBase<>());
-    TestingPrometheusPullModelHandler handler =
-        new TestingPrometheusPullModelHandler(operatorMetrics.metricRegistry());
+    // Registered like MetricsSystem#registerSource does, before the histograms are created.
+    MetricRegistry registry = new MetricRegistry();
+    registry.register(operatorMetrics.sourceName(), operatorMetrics.metricRegistry());
+    // A namespace containing "nanos" must not affect the exported name or unit.
+    ResourceID nanosNamespaceResourceId = new ResourceID("spark-pi", "team-nanos");
+    operatorMetrics.timeControllerExecution(new TestingExecutionBase<>(nanosNamespaceResourceId));
+    TestingPrometheusPullModelHandler handler = new TestingPrometheusPullModelHandler(registry);
 
     String output = handler.snapshot();
     for (String baseName :
         new String[] {
-          "sparkapplication_test_controller_reconcile_both_duration_seconds",
-          "sparkapplication_testns_test_controller_reconcile_both_duration_seconds"
+          "operator_sdk_sparkapplication_test_controller_reconcile_both",
+          "operator_sdk_sparkapplication_team_nanos_test_controller_reconcile_both"
         }) {
       assertTrue(output.contains("# TYPE " + baseName + " summary\n"), output);
       assertTrue(output.contains(baseName + "{quantile=\"0.5\"} 0.01\n"), output);
       assertTrue(output.contains(baseName + "_count 1\n"), output);
       assertTrue(output.contains(baseName + "_sum 0.01\n"), output);
     }
+    assertFalse(output.contains("team_seconds"), output);
   }
 
   @Test
@@ -163,7 +170,7 @@ class OperatorJosdkMetricsTest {
   }
 
   private static long recordedNanos(Map<String, Metric> metrics, String name) {
-    return assertInstanceOf(SummingTimer.class, metrics.get(name)).getSum();
+    return assertInstanceOf(NanosHistogram.class, metrics.get(name)).getSum();
   }
 
   private static final class TestingPrometheusPullModelHandler
@@ -178,6 +185,16 @@ class OperatorJosdkMetricsTest {
   }
 
   private final class TestingExecutionBase<T> implements Metrics.ControllerExecution<T> {
+    private final ResourceID executionResourceId;
+
+    TestingExecutionBase() {
+      this(resourceId);
+    }
+
+    TestingExecutionBase(ResourceID executionResourceId) {
+      this.executionResourceId = executionResourceId;
+    }
+
     @Override
     public String controllerName() {
       return controllerName;
@@ -190,7 +207,7 @@ class OperatorJosdkMetricsTest {
 
     @Override
     public ResourceID resourceID() {
-      return resourceId;
+      return executionResourceId;
     }
 
     @Override

@@ -125,23 +125,20 @@ affect building the project, CI, tests or examples.
   `kubernetes_client_http_response_latency_seconds_sum`, is the sum of all recorded values. 1.0
   exported the mean of roughly the last 5 minutes multiplied by the count instead, which can
   decrease between scrapes, so `rate()` of it and the average derived from it were wrong. Also, the
-  `0.5` and `0.999` quantiles of the operator histograms and timers are the median and the 99.9th
+  `0.5` and `0.999` quantiles of the `operator_sdk_*` histograms are the median and the 99.9th
   percentile instead of the mean and the 99th percentile. A histogram or timer of a custom metrics
   source has no `_sum` unless it is a `SummingHistogram` or a `SummingTimer`.
-- Since 1.1.0, the `operator.sdk` metrics source times the controller executions, i.e. the
-  reconciliations and cleanups, with timers instead of histograms, so the source has no histograms
-  anymore. The timers record nanoseconds. 1.0 recorded whole seconds, so an execution under one
-  second, which most are, was recorded as `0`, and the quantiles and `_sum` of these histograms
-  were mostly `0`. With the default text-based Prometheus format, the timers are exported in
-  seconds with a `_duration_seconds` suffix regardless of
-  `spark.kubernetes.operator.metrics.sanitizePrometheusMetricsNameEnabled`, e.g.
-  `operator_sdk_sparkapplication_sparkappreconciler_reconcile_both_duration_seconds` instead of
-  `operator_sdk_sparkapplication_sparkappreconciler_reconcile_both`, plus `_m1_rate`, `_m5_rate`
-  and `_m15_rate` gauges per timer. With
-  `spark.kubernetes.operator.metrics.prometheusTextBasedFormatEnabled=false`, Spark's
-  `PrometheusServlet` exports them as `{type="timers"}` in raw nanoseconds, and other Spark sinks,
-  e.g. JMX, Console or CSV, apply their own duration unit. Update queries and dashboards
-  accordingly.
+- Since 1.1.0, the histograms of the `operator.sdk` metrics source, which time the controller
+  executions, i.e. the reconciliations and cleanups, record nanoseconds. 1.0 cut the durations
+  down to whole seconds, so an execution under one second, which most are, was recorded as `0`,
+  and the quantiles and `_sum` of these histograms were mostly `0`. The default text-based
+  Prometheus format still exports them in seconds and under the same names, e.g.
+  `operator_sdk_sparkapplication_sparkappreconciler_reconcile_resource`, so only their values
+  change, except that a namespace containing `nanos`, e.g. `team-nanos`, is no longer renamed to
+  `team_seconds` in their names. However, Spark's `PrometheusServlet`, which exports them with
+  `spark.kubernetes.operator.metrics.prometheusTextBasedFormatEnabled=false`, and the other Spark
+  sinks, e.g. JMX, Console or CSV, report their values in nanoseconds instead of seconds. Update
+  the queries and dashboards using these sinks accordingly.
 - Since 1.1.0, a Boolean configuration property accepts `true` or `false` in any case, ignoring
   surrounding whitespace, like Apache Spark. Any other value, e.g. `0`, `1`, `yes` or `off`, is
   ignored, and the default value is used. 1.0 ignored a value like `False` or `TRUE` and used the
