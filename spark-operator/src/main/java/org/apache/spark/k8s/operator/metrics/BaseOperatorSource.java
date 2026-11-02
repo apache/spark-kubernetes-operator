@@ -46,12 +46,29 @@ public class BaseOperatorSource {
    * @return A Histogram instance.
    */
   protected Histogram getHistogram(String metricNamePrefix, String... names) {
+    return getOrCreateHistogram(SummingHistogram::new, metricNamePrefix, names);
+  }
+
+  /**
+   * Retrieves or creates a Histogram metric of durations in nanoseconds, see {@link
+   * NanosHistogram}.
+   *
+   * @param metricNamePrefix The prefix for the metric name.
+   * @param names Additional names to form the full metric name.
+   * @return A Histogram instance.
+   */
+  protected Histogram getNanosHistogram(String metricNamePrefix, String... names) {
+    return getOrCreateHistogram(NanosHistogram::new, metricNamePrefix, names);
+  }
+
+  private Histogram getOrCreateHistogram(
+      MetricRegistry.MetricSupplier<Histogram> supplier, String metricNamePrefix, String... names) {
     Histogram histogram;
     String metricName = MetricRegistry.name(metricNamePrefix, names).toLowerCase();
     if (histograms.containsKey(metricName)) {
       histogram = histograms.get(metricName);
     } else {
-      histogram = metricRegistry.histogram(metricName, SummingHistogram::new);
+      histogram = metricRegistry.histogram(metricName, supplier);
       histograms.put(metricName, histogram);
     }
     return histogram;
