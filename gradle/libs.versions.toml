@@ -30,7 +30,7 @@ slf4j = "2.0.19"
 
 # Test
 junit = "6.1.3"
-jacoco = "0.8.14"
+jacoco = "0.8.16"
 mockito = "5.24.0"
 awaitility = "4.3.0"
 
