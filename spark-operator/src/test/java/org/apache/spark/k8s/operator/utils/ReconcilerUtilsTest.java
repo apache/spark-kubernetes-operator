@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -57,9 +58,13 @@ import org.junit.jupiter.params.provider.ValueSource;
 class ReconcilerUtilsTest {
 
   private Pod buildPod() {
+    return buildPod("test-pod");
+  }
+
+  private Pod buildPod(String name) {
     return new PodBuilder()
         .withNewMetadata()
-        .withName("test-pod")
+        .withName(name)
         .withNamespace("default")
         .endMetadata()
         .build();
@@ -340,6 +345,109 @@ class ReconcilerUtilsTest {
 
     assertTrue(result.isPresent());
     assertTrue(elapsedMillis >= 1000L, "should have slept for the server-requested 1s");
+  }
+
+  @Test
+  void throwsBackoffExceptionInsteadOfSleepingAboveTheBlockingThreshold() {
+    Pod pod = buildPod("backoff-threshold-pod");
+    KubernetesClient mockClient = mock(KubernetesClient.class);
+    NamespaceableResource<Pod> mockResource = mockClientReturning(mockClient, pod);
+    when(mockResource.get()).thenReturn(null);
+    // 5s Retry-After exceeds the default 3s blocking threshold, so this must not sleep.
+    KubernetesClientException tooManyRequests =
+        new KubernetesClientException(
+            "Too Many Requests",
+            429,
+            new StatusBuilder()
+                .withCode(429)
+                .withNewDetails()
+                .withRetryAfterSeconds(5)
+                .endDetails()
+                .build());
+    when(mockResource.create()).thenThrow(tooManyRequests);
+
+    long start = System.nanoTime();
+    SecondaryResourceBackoffException ex =
+        assertThrows(
+            SecondaryResourceBackoffException.class,
+            () -> ReconcilerUtils.getOrCreateSecondaryResource(mockClient, pod));
+    long elapsedMillis = (System.nanoTime() - start) / 1_000_000;
+
+    assertTrue(elapsedMillis < 1000L, "should park instead of sleeping for the 5s Retry-After");
+    assertEquals(pod, ex.getResource());
+    assertEquals(tooManyRequests, ex.getCause());
+    assertEquals(2L, ex.getAttemptCount());
+    assertTrue(ex.getRequeueAfter().toMillis() >= 5000L);
+  }
+
+  @Test
+  void parkedAttemptCountEscalatesAcrossReconcilesInsteadOfResetting() {
+    Pod pod = buildPod("backoff-escalation-pod");
+    KubernetesClient mockClient = mock(KubernetesClient.class);
+    NamespaceableResource<Pod> mockResource = mockClientReturning(mockClient, pod);
+    when(mockResource.get()).thenReturn(null);
+    // Every attempt is throttled the same way, so only the tracked attempt count changes
+    // between the two separate calls below, which stand in for two separate reconciles.
+    KubernetesClientException tooManyRequests =
+        new KubernetesClientException(
+            "Too Many Requests",
+            429,
+            new StatusBuilder()
+                .withCode(429)
+                .withNewDetails()
+                .withRetryAfterSeconds(5)
+                .endDetails()
+                .build());
+    when(mockResource.create()).thenThrow(tooManyRequests);
+
+    SecondaryResourceBackoffException first =
+        assertThrows(
+            SecondaryResourceBackoffException.class,
+            () -> ReconcilerUtils.getOrCreateSecondaryResource(mockClient, pod));
+    SecondaryResourceBackoffException second =
+        assertThrows(
+            SecondaryResourceBackoffException.class,
+            () -> ReconcilerUtils.getOrCreateSecondaryResource(mockClient, pod));
+
+    assertEquals(2L, first.getAttemptCount());
+    assertEquals(3L, second.getAttemptCount());
+    verify(mockResource, times(2)).create();
+  }
+
+  @Test
+  void parkedAttemptCountDoesNotCarryOverAfterASubsequentSuccess() {
+    Pod pod = buildPod("backoff-reset-pod");
+    KubernetesClient mockClient = mock(KubernetesClient.class);
+    NamespaceableResource<Pod> mockResource = mockClientReturning(mockClient, pod);
+    when(mockResource.get()).thenReturn(null);
+    KubernetesClientException tooManyRequests =
+        new KubernetesClientException(
+            "Too Many Requests",
+            429,
+            new StatusBuilder()
+                .withCode(429)
+                .withNewDetails()
+                .withRetryAfterSeconds(5)
+                .endDetails()
+                .build());
+    // 1st call: parks. 2nd call: succeeds, which must clear the tracked attempt count.
+    // 3rd call: throttled again, and should start over at attempt 1 rather than resume at 3.
+    when(mockResource.create())
+        .thenThrow(tooManyRequests)
+        .thenReturn(pod)
+        .thenThrow(tooManyRequests);
+
+    assertThrows(
+        SecondaryResourceBackoffException.class,
+        () -> ReconcilerUtils.getOrCreateSecondaryResource(mockClient, pod));
+    Optional<Pod> secondResult = ReconcilerUtils.getOrCreateSecondaryResource(mockClient, pod);
+    assertTrue(secondResult.isPresent());
+    SecondaryResourceBackoffException third =
+        assertThrows(
+            SecondaryResourceBackoffException.class,
+            () -> ReconcilerUtils.getOrCreateSecondaryResource(mockClient, pod));
+
+    assertEquals(2L, third.getAttemptCount());
   }
 
   @Test

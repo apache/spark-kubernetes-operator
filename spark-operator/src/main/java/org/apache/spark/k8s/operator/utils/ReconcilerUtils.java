@@ -27,6 +27,7 @@ import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.net.HttpURLConnection.HTTP_UNAVAILABLE;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.API_SECONDARY_RESOURCE_CREATE_MAX_ATTEMPTS;
+import static org.apache.spark.k8s.operator.config.SparkOperatorConf.API_SECONDARY_RESOURCE_CREATE_MAX_BLOCKING_DELAY_MILLIS;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.RECONCILER_FOREGROUND_REQUEST_TIMEOUT_SECONDS;
 import static org.apache.spark.k8s.operator.utils.ModelUtils.buildOwnerReferenceTo;
 import static org.apache.spark.k8s.operator.utils.SparkExceptionUtils.isConflictForExistingResource;
@@ -34,6 +35,7 @@ import static org.apache.spark.k8s.operator.utils.SparkExceptionUtils.isConflict
 import java.security.cert.CertPathBuilderException;
 import java.security.cert.CertPathValidatorException;
 import java.security.cert.CertificateException;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -135,6 +137,9 @@ public final class ReconcilerUtils {
    * @return An Optional containing the created or existing resource.
    * @throws KubernetesClientException if the API server refused the read, or if the resource
    *     could not be created.
+   * @throws SecondaryResourceBackoffException if a retry needs a longer wait than the reconciler
+   *     should block its thread for; the caller must requeue instead of treating this as a
+   *     failure.
    */
   public static <T extends HasMetadata> Optional<T> getOrCreateSecondaryResource(
       final KubernetesClient client, final T resource) {
@@ -143,10 +148,11 @@ public final class ReconcilerUtils {
       // Adding retry logic to overcome known k8s issue:
       // https://github.com/kubernetes/kubernetes/issues/67761
       long maxAttempts = API_SECONDARY_RESOURCE_CREATE_MAX_ATTEMPTS.getValue();
-      long attemptCount = 1;
+      long attemptCount = SecondaryResourceRetryTracker.startAttemptCount(resource);
       while (true) {
         try {
           current = Optional.ofNullable(client.resource(resource).create());
+          SecondaryResourceRetryTracker.clear(resource);
           break;
         } catch (KubernetesClientException e) {
           if (log.isErrorEnabled()) {
@@ -160,6 +166,7 @@ public final class ReconcilerUtils {
             if (isConflictForExistingResource(e)) {
               current = getResource(client, resource);
               if (current.isPresent()) {
+                SecondaryResourceRetryTracker.clear(resource);
                 return current;
               }
             }
@@ -169,20 +176,34 @@ public final class ReconcilerUtils {
             // GET to avoid a duplicate create for transport failures, timeouts and transient 5xx
             current = getResource(client, resource);
             if (current.isPresent()) {
+              SecondaryResourceRetryTracker.clear(resource);
               return current;
             }
           } else {
+            SecondaryResourceRetryTracker.clear(resource);
             throw e;
           }
           if (++attemptCount > maxAttempts) {
+            SecondaryResourceRetryTracker.clear(resource);
             log.error("Max Retries exceeded while trying to create resource");
             throw e;
           }
           if (shouldBackoffBeforeRetry(e)) {
-            BackoffUtils.backoffSleep(e, attemptCount, maxAttempts);
+            long delayMillis =
+                BackoffUtils.computeDelayMillis(BackoffUtils.getRetryAfterMillis(e), attemptCount);
+            long maxBlockingDelayMillis =
+                API_SECONDARY_RESOURCE_CREATE_MAX_BLOCKING_DELAY_MILLIS.getValue();
+            if (delayMillis > maxBlockingDelayMillis) {
+              SecondaryResourceRetryTracker.recordAttemptCount(resource, attemptCount);
+              throw new SecondaryResourceBackoffException(
+                  resource, Duration.ofMillis(delayMillis), attemptCount, maxAttempts, e);
+            }
+            BackoffUtils.backoffSleep(delayMillis, e, attemptCount, maxAttempts);
           }
         }
       }
+    } else {
+      SecondaryResourceRetryTracker.clear(resource);
     }
     return current;
   }

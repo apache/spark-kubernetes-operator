@@ -53,6 +53,7 @@ import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
+import io.fabric8.kubernetes.api.model.StatusBuilder;
 import io.fabric8.kubernetes.api.model.Toleration;
 import io.fabric8.kubernetes.api.model.scheduling.v1.PriorityClassList;
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -363,6 +364,48 @@ class AppInitStepTest {
     Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
     Assertions.assertEquals(
         ApplicationStateSummary.DriverRequested,
+        application.getStatus().getCurrentState().getCurrentStateSummary());
+  }
+
+  @Test
+  void driverCreationBackoffAboveThresholdIsParkedNotFailed() {
+    // A Retry-After this long exceeds the default blocking threshold (see
+    // SparkOperatorConf.API_SECONDARY_RESOURCE_CREATE_MAX_BLOCKING_DELAY_MILLIS), so the
+    // reconciler must requeue instead of blocking the thread and instead of failing the
+    // application with the terminal SchedulingFailure.
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(applicationMetadata);
+    KubernetesClient failingClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    KubernetesClientException tooManyRequests =
+        new KubernetesClientException(
+            "Too Many Requests",
+            429,
+            new StatusBuilder()
+                .withCode(429)
+                .withNewDetails()
+                .withRetryAfterSeconds(5)
+                .endDetails()
+                .build());
+    when(failingClient.resource(any(Pod.class)).get()).thenReturn(null);
+    when(failingClient.resource(any(Pod.class)).create()).thenThrow(tooManyRequests);
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getClient()).thenReturn(failingClient);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+    when(mockContext.getDriverPreResourcesSpec()).thenReturn(List.of());
+    when(mockContext.getDriverPodSpec()).thenReturn(driverPodSpec);
+
+    ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
+
+    Assertions.assertTrue(progress.isRequeue());
+    Assertions.assertTrue(progress.getRequeueAfterDuration().toMillis() >= 5000L);
+    verify(mockContext, never()).getDriverResourcesSpec();
+    verifyNoInteractions(recorder);
+    verifyNoInteractions(eventRecorder);
+    Assertions.assertEquals(
+        ApplicationStateSummary.Submitted,
         application.getStatus().getCurrentState().getCurrentStateSummary());
   }
 

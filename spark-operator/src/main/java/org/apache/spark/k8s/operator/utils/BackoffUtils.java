@@ -36,30 +36,24 @@ public final class BackoffUtils {
   private BackoffUtils() {}
 
   /**
-   * Sleeps before retrying resource creation. Honors the server-provided retryAfterSeconds
-   * (surfaced from the HTTP {@code Retry-After} header by the Kubernetes API server) when
-   * present, otherwise falls back to jitter exponential backoff. Jitter is added in both cases so
-   * that concurrent reconciles throttled by the same server-requested delay don't all retry at
-   * the exact same instant.
-   *
-   * @see <a href="https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/">
-   *     Exponential Backoff and Jitter</a>
+   * Sleeps before retrying resource creation. The delay must already have been computed via
+   * {@link #computeDelayMillis(Long, long)} by the caller, which decides whether to block on it
+   * at all, see {@link SecondaryResourceBackoffException}.
    */
   public static void backoffSleep(
-      KubernetesClientException e, long attemptCount, long maxAttempts) {
+      long delayMillis, KubernetesClientException e, long attemptCount, long maxAttempts) {
     Long retryAfterMillis = getRetryAfterMillis(e);
-    long actualDelay = computeDelayMillis(retryAfterMillis, attemptCount);
     log.info(
         "Retrying resource creation with {}. Requested: {}, delay: {}ms, responseCode: {}, "
             + "attempt: {}/{}",
         retryAfterMillis != null ? "server-requested Retry-After" : "exponential backoff",
         retryAfterMillis != null ? retryAfterMillis + "ms" : "n/a",
-        actualDelay,
+        delayMillis,
         e.getCode(),
         attemptCount,
         maxAttempts);
     try {
-      Thread.sleep(actualDelay);
+      Thread.sleep(delayMillis);
     } catch (InterruptedException ex) {
       log.info("Backoff sleep interrupted, waking up early to retry resource creation");
       Thread.currentThread().interrupt();
@@ -73,6 +67,9 @@ public final class BackoffUtils {
    * unbounded amount of time, and with the configured jitter added so that concurrent reconciles
    * throttled by the same Retry-After value (e.g. API Priority and Fairness) don't all retry at
    * the exact same instant. Otherwise falls back to jitter exponential backoff.
+   *
+   * @see <a href="https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/">
+   *     Exponential Backoff and Jitter</a>
    */
   static long computeDelayMillis(Long retryAfterMillis, long attemptCount) {
     long maxBackoffMs = API_SECONDARY_RESOURCE_CREATE_MAX_BACKOFF_MILLIS.getValue();

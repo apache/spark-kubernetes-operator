@@ -928,6 +928,23 @@ public final class SparkOperatorConf {
           .defaultValue(500L)
           .build();
 
+  /**
+   * Maximum backoff delay (in milliseconds) the reconciler still blocks a thread for with
+   * Thread.sleep when creating secondary resources. A delay above this is requeued instead,
+   * since parking it would cost more in reconcile-queue latency than the wait it would save.
+   */
+  public static final ConfigOption<Long> API_SECONDARY_RESOURCE_CREATE_MAX_BLOCKING_DELAY_MILLIS =
+      ConfigOption.<Long>builder()
+          .key("spark.kubernetes.operator.api.secondaryResourceCreateMaxBlockingDelayMillis")
+          .enableDynamicOverride(false)
+          .description(
+              "Maximum backoff delay (in milliseconds) the reconciler still blocks a thread "
+                  + "for with Thread.sleep when creating secondary resources for Spark "
+                  + "application. A delay above this is requeued instead of blocked on.")
+          .typeParameterClass(Long.class)
+          .defaultValue(3000L)
+          .build();
+
   private SparkOperatorConf() {}
 
   /**
