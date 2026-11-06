@@ -265,6 +265,166 @@ Please be advised that this is a best-effort failure identification. You may sti
 debug actual failure from the driver pods. Spark Operator would stage the last observed
 driver pod status with the stopping state for audit purposes.
 
+## Executor States
+
+For an application with Dynamic Allocation (`spark.dynamicAllocation.enabled` set to `true`),
+Spark Operator records the executors of the current attempt in its status, as below. An
+application without Dynamic Allocation, whose executors its spec fixes, records only
+`status.activeExecutors` and `status.readyExecutors`, so that a scheduler charges and tracks the
+executors of every application the same way.
+
+When `spark.kubernetes.operator.reconciler.executorStateEnabled` is on (it is off by default, see
+below), Spark Operator records the state of each executor of the current attempt in
+`status.executorState`, by executor pod name. Spark Dynamic Allocation adds and removes executors
+from the driver, without changing the `SparkApplication` spec, so a client such as a batch scheduler
+can follow the executors of an application through these operator-declared states:
+
+```yaml
+status:
+  activeExecutors: 2
+  executorState:
+    pi-5f1d8e3a9b2c4f60-exec-1: RUNNING
+    pi-5f1d8e3a9b2c4f60-exec-2: PENDING
+  maxExecutorId: 2
+  readyExecutors: 1
+```
+
+An executor is `PENDING`, `RUNNING`, `COMPLETED` or `FAILED` while its pod is in the phase
+`Pending`, `Running`, `Succeeded` or `Failed`, and `UNKNOWN` in any other phase. An executor is kept
+after its pod is gone. When its pod is deleted, the operator records the phase which the pod had
+last, so an executor whose pod completed or failed as it was deleted, e.g. when Dynamic Allocation
+removed it, is `COMPLETED` or `FAILED`, even if the pod is gone by the time the application is
+reconciled, rather than `UNKNOWN`. Otherwise, e.g. for a pod which was force-deleted before it
+stopped, or after an operator restart, an executor whose pod is gone becomes `UNKNOWN` while the
+driver is running, `COMPLETED` after the application succeeded, and `FAILED` otherwise, unless it
+had completed or failed already. The executors of the current attempt are the executor pods whose
+`spark-app-selector` label is the `spark.app.id` of the attempt. An application which sets
+`spark.app.id` in its `sparkConf` has the same id in every attempt, so it may also record executors
+left over from a previous attempt. The map starts empty with each attempt and when the application
+is suspended. To keep the status within the size limit of a Kubernetes object, it holds at most
+`spark.kubernetes.operator.reconciler.maxTrackedExecutorPerApp` executors (default 1000): beyond it,
+the executors which are gone (`COMPLETED`, `FAILED` or `UNKNOWN`) are evicted first, oldest first,
+so that a long-running application keeps recording its new executors. Only if its pending and
+running executors exceed the limit by themselves, the newest of them are not recorded, and the
+operator logs a warning.
+
+The executor states are inferred when the application is reconciled, which a change of any of
+its executor pods triggers. The reconciliations of each application are rate limited by
+`spark.kubernetes.operator.reconciler.rateLimiter.maxLoopForPeriod` (default 5) per
+`spark.kubernetes.operator.reconciler.rateLimiter.refreshPeriodSeconds` (default 15), so once an
+application uses up its reconciliations, e.g. while Dynamic Allocation adds or removes many
+executors, `status.executorState` lags behind its executor pods until the next period, by up to
+`refreshPeriodSeconds`. An executor whose pod is created and deleted within that lag is still
+recorded if its pod completed or failed, but not if it was deleted while pending, e.g. when Dynamic
+Allocation no longer needed it. To keep the executor states closer to the executor pods, allow more reconciliations per period,
+e.g. in the Helm chart values:
+
+```yaml
+operatorConfiguration:
+  spark-operator.properties: |+
+    spark.kubernetes.operator.reconciler.rateLimiter.maxLoopForPeriod=30
+    spark.kubernetes.operator.reconciler.rateLimiter.refreshPeriodSeconds=15
+```
+
+Both properties are read at start-up, so the operator has to be restarted to apply them. A
+non-positive `maxLoopForPeriod` disables the rate limiter.
+
+Whether or not it records the executor states, the operator records three numbers of the current
+attempt, which a client such as a batch scheduler can use to size and track the executors of an
+application, the first two also for an application without Dynamic Allocation:
+
+- `status.activeExecutors` is the number of its executor pods which are pending, including those
+  held by a scheduling gate, or running, including those being deleted. It is counted from the
+  executor pods, not from `status.executorState`, so it stays exact when an application has more
+  pending and running executors than `maxTrackedExecutorPerApp`.
+- `status.readyExecutors` is the number of its executor pods which are running and ready, and not
+  being deleted. Unlike `activeExecutors`, it leaves out pending executors and those being removed,
+  so a scheduler can compare it with the minimum number of executors to tell whether the
+  application has started, e.g. for a readiness timeout. It is also counted from the
+  executor pods.
+- `status.maxExecutorId` is the highest executor ID so far, from the `spark-exec-id` label of the
+  executor pods, or the trailing digits of their name. Spark never reuses an executor ID within an
+  attempt, so it grows with every executor added and does not decrease when executors are removed.
+
+All three are unset until the attempt has an executor pod, are kept until the attempt ends, and
+start over with the next attempt and when the application is suspended, like `status.executorState`.
+They are computed from the same executor pods in the same reconciliation, so they add no requests to
+the API server, and the status is written only when one of them or an executor state changed.
+
+`status.activeExecutors` and `status.readyExecutors` are recorded unless
+`spark.kubernetes.operator.reconciler.executorCountsEnabled` is turned off (it is on by default).
+Turning it off stops the status writes which the counts cause, e.g. if they load the API server and
+etcd more than a cluster can take, and clears the counts recorded before. `status.maxExecutorId` and
+`status.executorState` are not affected. Like `executorStateEnabled`, it can be overridden through
+dynamic configuration, or set in the Helm chart values:
+
+```yaml
+operatorConfiguration:
+  spark-operator.properties: |+
+    spark.kubernetes.operator.reconciler.executorCountsEnabled=false
+```
+
+An executor state also changes when an executor completes or fails, while the counts and
+`maxExecutorId` change only when an executor is added, becomes ready or is removed, and every
+executor state adds to each write. A scheduler which reads the counts does not need the executor
+states, so they are off by default, which writes the status of applications less often and smaller,
+e.g. when many applications scale at once. To record them:
+
+```yaml
+operatorConfiguration:
+  spark-operator.properties: |+
+    spark.kubernetes.operator.reconciler.executorStateEnabled=true
+```
+
+When they are turned off again, `status.executorState` is cleared, while `status.activeExecutors`,
+`status.readyExecutors` and `status.maxExecutorId` are recorded as before.
+
+### Tuning and API server load
+
+Each status write of a SparkApplication is a `PUT` of the whole object, which the API server also
+sends as a watch event to every watcher of SparkApplications, such as this operator and any
+scheduler which reads these fields. The
+load which these fields add is therefore about the number of writes, times the size of the object,
+times one plus the number of watchers:
+
+- **Writes.** The status is written only when a recorded field changed. An application without
+  Dynamic Allocation is written to for the same executor changes, which for its fixed executors
+  happen mostly when it starts and when it ends. Several executor changes within one reconciliation
+  are written at once. An executor causes up to three status writes over its life, when it is added,
+  when it becomes ready and when it is removed, and fewer when they fall into the same
+  reconciliation. The executor states add a write only when an executor completes or fails apart
+  from its removal. The reconcile rate limiter caps the writes of an application at
+  `maxLoopForPeriod` per `refreshPeriodSeconds` (5 per 15 seconds by default, about one every 3
+  seconds).
+- **Object size.** Without the executor states, the object keeps a constant size of a few KB. With
+  them, every entry of `status.executorState` adds about 45 to 80 bytes, depending on the length of
+  the executor pod names, to every write of the application: at `maxTrackedExecutorPerApp` (1000 by
+  default), that is about 45 to 80 KB more in each write.
+
+For example, before `readyExecutors` was recorded, 20 applications with Dynamic Allocation started
+at once, with 1 to 3 executors each and a 4 second `spark.dynamicAllocation.executorIdleTimeout`,
+wrote their status about 14 times each with the executor states off, about 7 KB per write, and about
+19 times each with them on. The API server sent about 2.5 times the request bytes as watch events.
+
+To keep the load low:
+
+- Keep `executorStateEnabled` off unless a consumer needs the state of each executor. A scheduler
+  which sizes and tracks applications needs only `activeExecutors`, `readyExecutors` and
+  `maxExecutorId`.
+- When the executor states are on, lower `maxTrackedExecutorPerApp` to the number of executors a
+  consumer needs, since the map is part of every write. `activeExecutors` stays exact beyond it.
+- As a last resort, turn `executorCountsEnabled` off to stop the writes which the executor counts
+  cause. A client which reads them then no longer sees them.
+- `maxLoopForPeriod` and `refreshPeriodSeconds` bound the writes of each application, together with
+  every other reconciliation of it. Allowing more reconciliations per period keeps the fields closer
+  to the executor pods, as described above, but also raises the most writes which many applications
+  scaling at once can make. Keep the default for bursts of submissions, or lower it if the write
+  rate of the API server is the constraint.
+- Before turning the executor states on in a large cluster, measure the status writes of
+  SparkApplications (`apiserver_request_total` with `resource="sparkapplications"` and
+  `subresource="status"`), their size (`apiserver_request_body_size_bytes`) and the watch traffic
+  (`apiserver_watch_events_sizes`).
+
 ## Configure the Tolerations for SparkApplication
 
 ### Restart

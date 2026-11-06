@@ -1,0 +1,284 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: spark-operator-executor-state
+spec:
+  namespace: default
+  steps:
+  - name: application-without-dynamic-allocation-records-only-executor-counts
+    bindings:
+      - name: SPARK_APPLICATION_NAME
+        value: spark-executor-state-static-test
+    try:
+    - apply:
+        bindings:
+          - name: SPARK_APP_NAMESPACE
+            value: default
+        file: ../fixtures/spark-application/spark-example.yaml
+    - assert:
+        bindings:
+          - name: SPARK_APP_NAMESPACE
+            value: default
+        timeout: 60s
+        file: ../assertions/spark-application/spark-state-transition.yaml
+    # Its executors are fixed by its spec, so it records only the executor counts
+    - script:
+        env:
+          - name: SPARK_APPLICATION_NAME
+            value: ($SPARK_APPLICATION_NAME)
+        timeout: 30s
+        content: |
+          kubectl get sparkapplication "$SPARK_APPLICATION_NAME" -o json \
+            | jq -c '.status | [has("executorState"), has("activeExecutors"), has("readyExecutors"), has("maxExecutorId")]'
+        check:
+          ($stdout): '[false,true,true,false]'
+    catch:
+    - describe:
+        apiVersion: spark.apache.org/v1
+        kind: SparkApplication
+        namespace: default
+    finally:
+    - script:
+        env:
+          - name: SPARK_APPLICATION_NAME
+            value: ($SPARK_APPLICATION_NAME)
+        timeout: 30s
+        content: |
+          kubectl delete sparkapplication "$SPARK_APPLICATION_NAME" --ignore-not-found=true
+  - name: by-default-only-the-count-and-the-id-are-recorded
+    bindings:
+      - name: SPARK_APPLICATION_NAME
+        value: spark-executor-state-default-test
+    try:
+    - apply:
+        file: spark-als-dynamic-allocation.yaml
+    # Dynamic Allocation adds executors above minExecutors while the application runs.
+    - assert:
+        timeout: 3m
+        resource:
+          apiVersion: spark.apache.org/v1
+          kind: SparkApplication
+          metadata:
+            name: ($SPARK_APPLICATION_NAME)
+            namespace: default
+          status:
+            (maxExecutorId >= `2`): true
+    # The active count drops to 0 once the executor pods are deleted, and the highest executor ID is
+    # kept, while no executor state is recorded.
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: spark.apache.org/v1
+          kind: SparkApplication
+          metadata:
+            name: ($SPARK_APPLICATION_NAME)
+            namespace: default
+          status:
+            currentState:
+              currentStateSummary: ResourceReleased
+            (executorState == null): true
+            activeExecutors: 0
+            readyExecutors: 0
+            (maxExecutorId >= `2`): true
+    catch:
+    - describe:
+        apiVersion: spark.apache.org/v1
+        kind: SparkApplication
+        namespace: default
+    - podLogs:
+        namespace: default
+        selector: app.kubernetes.io/component=operator-deployment,app.kubernetes.io/name=spark-kubernetes-operator
+        tail: 200
+    finally:
+    - script:
+        env:
+          - name: SPARK_APPLICATION_NAME
+            value: ($SPARK_APPLICATION_NAME)
+        timeout: 30s
+        content: |
+          kubectl delete sparkapplication "$SPARK_APPLICATION_NAME" --ignore-not-found=true
+  - name: enabled-executor-states-of-a-succeeded-application-are-stopped
+    bindings:
+      - name: SPARK_APPLICATION_NAME
+        value: spark-executor-state-succeeded-test
+    try:
+    # The executor states are off by default
+    - script:
+        timeout: 30s
+        content: |
+          kubectl patch configmap spark-kubernetes-operator-dynamic-configuration --type merge \
+            -p '{"data":{"spark.kubernetes.operator.reconciler.executorStateEnabled":"true"}}'
+    # The operator logs nothing when it applies the override, so give it time to
+    - sleep:
+        duration: 30s
+    - apply:
+        file: spark-als-dynamic-allocation.yaml
+    # Dynamic Allocation adds executors above minExecutors while the application runs.
+    - assert:
+        timeout: 3m
+        resource:
+          apiVersion: spark.apache.org/v1
+          kind: SparkApplication
+          metadata:
+            name: ($SPARK_APPLICATION_NAME)
+            namespace: default
+          status:
+            (maxExecutorId >= `2`): true
+    # The executor pods are deleted when the application ends, and every recorded executor,
+    # including those Dynamic Allocation removed while it ran, ends completed or failed rather than
+    # pending, running or unknown, while the active count drops to 0 and the highest executor ID is
+    # kept. An executor which was still starting when the application ended is killed, so it may
+    # fail.
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: spark.apache.org/v1
+          kind: SparkApplication
+          metadata:
+            name: ($SPARK_APPLICATION_NAME)
+            namespace: default
+          status:
+            currentState:
+              currentStateSummary: ResourceReleased
+            (length(values(executorState || `{}`)[?@ == 'COMPLETED']) > `0`): true
+            (length(values(executorState || `{}`)[?@ != 'COMPLETED' && @ != 'FAILED'])): 0
+            activeExecutors: 0
+            readyExecutors: 0
+            (maxExecutorId >= `2`): true
+    catch:
+    - describe:
+        apiVersion: v1
+        kind: ConfigMap
+        name: spark-kubernetes-operator-dynamic-configuration
+        namespace: default
+    - describe:
+        apiVersion: spark.apache.org/v1
+        kind: SparkApplication
+        namespace: default
+    - podLogs:
+        namespace: default
+        selector: app.kubernetes.io/component=operator-deployment,app.kubernetes.io/name=spark-kubernetes-operator
+        tail: 200
+    finally:
+    - script:
+        env:
+          - name: SPARK_APPLICATION_NAME
+            value: ($SPARK_APPLICATION_NAME)
+        timeout: 30s
+        content: |
+          kubectl delete sparkapplication "$SPARK_APPLICATION_NAME" --ignore-not-found=true
+          kubectl patch configmap spark-kubernetes-operator-dynamic-configuration --type json \
+            -p '[{"op": "remove", "path": "/data/spark.kubernetes.operator.reconciler.executorStateEnabled"}]' || true
+  - name: enabled-executor-state-of-a-removed-executor-is-kept
+    bindings:
+      - name: SPARK_APPLICATION_NAME
+        value: spark-executor-state-scale-down-test
+    try:
+    # The executor states are off by default
+    - script:
+        timeout: 30s
+        content: |
+          kubectl patch configmap spark-kubernetes-operator-dynamic-configuration --type merge \
+            -p '{"data":{"spark.kubernetes.operator.reconciler.executorStateEnabled":"true"}}'
+    # The operator logs nothing when it applies the override, so give it time to
+    - sleep:
+        duration: 30s
+    - apply:
+        file: spark-connect-dynamic-allocation.yaml
+    # Both initial executors run before they are idle for executorIdleTimeout
+    - assert:
+        timeout: 3m
+        resource:
+          apiVersion: spark.apache.org/v1
+          kind: SparkApplication
+          metadata:
+            name: ($SPARK_APPLICATION_NAME)
+            namespace: default
+          status:
+            (length(values(executorState || `{}`)[?@ == 'RUNNING'])): 2
+            activeExecutors: 2
+            (maxExecutorId >= `2`): true
+    # Dynamic allocation removes one idle executor, down to its minimum of 1. The removed executor
+    # is kept with a terminal state, the active count drops, and the highest executor ID does not.
+    - assert:
+        timeout: 3m
+        resource:
+          apiVersion: spark.apache.org/v1
+          kind: SparkApplication
+          metadata:
+            name: ($SPARK_APPLICATION_NAME)
+            namespace: default
+          status:
+            (length(values(executorState || `{}`)[?@ == 'RUNNING'])): 1
+            (length(values(executorState || `{}`)[?@ == 'COMPLETED' || @ == 'FAILED' || @ == 'UNKNOWN']) >= `1`): true
+            activeExecutors: 1
+            (maxExecutorId >= `2`): true
+    # The running executor pods of the application are the running executors of its status, by pod
+    # name, and their count is the active count.
+    - script:
+        env:
+          - name: SPARK_APPLICATION_NAME
+            value: ($SPARK_APPLICATION_NAME)
+        timeout: 60s
+        content: |
+          for _ in $(seq 1 25); do
+            pods="$(kubectl get pods -l "spark.operator/spark-app-name=$SPARK_APPLICATION_NAME,spark-role=executor" \
+              --field-selector=status.phase=Running -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | sort | tr '\n' ' ')"
+            app="$(kubectl get sparkapplication "$SPARK_APPLICATION_NAME" -o json)"
+            running="$(printf '%s' "$app" | jq -r '.status.executorState // {} | to_entries | map(select(.value == "RUNNING") | .key) | sort | join(" ")')"
+            active="$(printf '%s' "$app" | jq -r '.status.activeExecutors')"
+            count="$(printf '%s' "$pods" | wc -w | tr -d ' ')"
+            if [ -n "$running" ] && [ "${pods% }" = "$running" ] && [ "$count" = "$active" ]; then
+              echo "MATCHED: $running"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "running executor pods: $pods"
+          printf '%s' "$app" | jq '.status | {executorState, activeExecutors, maxExecutorId}'
+          exit 1
+        check:
+          ($error == null): true
+          (contains($stdout, 'MATCHED')): true
+    catch:
+    - describe:
+        apiVersion: v1
+        kind: ConfigMap
+        name: spark-kubernetes-operator-dynamic-configuration
+        namespace: default
+    - describe:
+        apiVersion: spark.apache.org/v1
+        kind: SparkApplication
+        namespace: default
+    - podLogs:
+        namespace: default
+        selector: app.kubernetes.io/component=operator-deployment,app.kubernetes.io/name=spark-kubernetes-operator
+        tail: 200
+    finally:
+    - script:
+        env:
+          - name: SPARK_APPLICATION_NAME
+            value: ($SPARK_APPLICATION_NAME)
+        timeout: 30s
+        content: |
+          kubectl delete sparkapplication "$SPARK_APPLICATION_NAME" --ignore-not-found=true
+          kubectl patch configmap spark-kubernetes-operator-dynamic-configuration --type json \
+            -p '[{"op": "remove", "path": "/data/spark.kubernetes.operator.reconciler.executorStateEnabled"}]' || true

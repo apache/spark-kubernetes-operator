@@ -24,6 +24,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.SortedMap;
 import java.util.TreeMap;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -31,6 +32,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.ToString;
 
 import org.apache.spark.k8s.operator.Constants;
@@ -51,12 +53,61 @@ public class ApplicationStatus
     extends BaseStatus<ApplicationStateSummary, ApplicationState, ApplicationAttemptSummary> {
 
   /**
+   * The state of each executor of the current attempt, by executor pod name, recorded only for an
+   * application with Dynamic Allocation. Spark Dynamic Allocation adds and removes executors
+   * without changing the spec, so a client such as a batch scheduler can follow them through these
+   * operator-declared states. An entry is kept after its pod is gone,
+   * and the map starts empty with each attempt and when the application is suspended.
+   *
+   * @since 1.1.0
+   */
+  @Getter
+  @JsonInclude(JsonInclude.Include.NON_EMPTY)
+  final SortedMap<String, ExecutorState> executorState;
+
+  /**
+   * The number of active executors of the current attempt: its executor pods which are pending,
+   * including those held by a scheduling gate, or running, including those being deleted. It is
+   * counted from the executor pods, not from {@link #executorState}, so it stays exact when the
+   * executor states are bounded. A client can size or charge an application's executors from it.
+   * It is unset until the attempt has an executor pod.
+   *
+   * @since 1.1.0
+   */
+  @Getter final Integer activeExecutors;
+
+  /**
+   * The number of ready executors of the current attempt: its executor pods which are running and
+   * ready, and not being deleted. Like {@link #activeExecutors}, it is counted from the executor
+   * pods. A client can compare it with the minimum number of executors to tell whether the
+   * application has started. It is unset until the attempt has an executor pod.
+   *
+   * @since 1.1.0
+   */
+  @Getter final Integer readyExecutors;
+
+  /**
+   * The highest executor ID of the current attempt so far. Spark assigns increasing executor IDs
+   * within an attempt and never reuses them, so it grows with every executor added and never
+   * decreases within the attempt, e.g. for a client to tell scale-ups apart. It is
+   * recorded only for an application with Dynamic Allocation, and is unset until the attempt has an
+   * executor pod.
+   *
+   * @since 1.1.0
+   */
+  @Getter final Long maxExecutorId;
+
+  /**
    * Constructs a new, empty ApplicationStatus.
    *
    * @since 0.1.0
    */
   public ApplicationStatus() {
     super(new ApplicationState(), new ApplicationAttemptSummary());
+    this.executorState = new TreeMap<>();
+    this.activeExecutors = null;
+    this.readyExecutors = null;
+    this.maxExecutorId = null;
   }
 
   /**
@@ -68,13 +119,111 @@ public class ApplicationStatus
    * @param currentAttemptSummary Summary of the current application attempt.
    * @since 0.1.0
    */
+  public ApplicationStatus(
+      ApplicationState currentState,
+      Map<Long, ApplicationState> stateTransitionHistory,
+      ApplicationAttemptSummary previousAttemptSummary,
+      ApplicationAttemptSummary currentAttemptSummary) {
+    this(currentState, stateTransitionHistory, previousAttemptSummary, currentAttemptSummary, null);
+  }
+
+  /**
+   * Constructs a new ApplicationStatus with the given state, history and executor states.
+   *
+   * @param currentState The current state of the application.
+   * @param stateTransitionHistory The history of state transitions.
+   * @param previousAttemptSummary Summary of the previous application attempt.
+   * @param currentAttemptSummary Summary of the current application attempt.
+   * @param executorState The state of each executor of the current attempt by pod name, or null.
+   * @since 1.1.0
+   */
+  public ApplicationStatus(
+      ApplicationState currentState,
+      Map<Long, ApplicationState> stateTransitionHistory,
+      ApplicationAttemptSummary previousAttemptSummary,
+      ApplicationAttemptSummary currentAttemptSummary,
+      Map<String, ExecutorState> executorState) {
+    this(
+        currentState,
+        stateTransitionHistory,
+        previousAttemptSummary,
+        currentAttemptSummary,
+        executorState,
+        null,
+        null,
+        null);
+  }
+
+  /**
+   * Constructs a new ApplicationStatus with the given state, history and executors.
+   *
+   * @param currentState The current state of the application.
+   * @param stateTransitionHistory The history of state transitions.
+   * @param previousAttemptSummary Summary of the previous application attempt.
+   * @param currentAttemptSummary Summary of the current application attempt.
+   * @param executorState The state of each executor of the current attempt by pod name, or null.
+   * @param activeExecutors The number of active executors of the current attempt, or null.
+   * @param readyExecutors The number of ready executors of the current attempt, or null.
+   * @param maxExecutorId The highest executor ID of the current attempt so far, or null.
+   * @since 1.1.0
+   */
   @JsonCreator
   public ApplicationStatus(
       @JsonProperty("currentState") ApplicationState currentState,
       @JsonProperty("stateTransitionHistory") Map<Long, ApplicationState> stateTransitionHistory,
       @JsonProperty("previousAttemptSummary") ApplicationAttemptSummary previousAttemptSummary,
-      @JsonProperty("currentAttemptSummary") ApplicationAttemptSummary currentAttemptSummary) {
+      @JsonProperty("currentAttemptSummary") ApplicationAttemptSummary currentAttemptSummary,
+      @JsonProperty("executorState") Map<String, ExecutorState> executorState,
+      @JsonProperty("activeExecutors") Integer activeExecutors,
+      @JsonProperty("readyExecutors") Integer readyExecutors,
+      @JsonProperty("maxExecutorId") Long maxExecutorId) {
     super(currentState, stateTransitionHistory, previousAttemptSummary, currentAttemptSummary);
+    this.executorState = executorState == null ? new TreeMap<>() : new TreeMap<>(executorState);
+    this.activeExecutors = activeExecutors;
+    this.readyExecutors = readyExecutors;
+    this.maxExecutorId = maxExecutorId;
+  }
+
+  /**
+   * Returns a copy of this status with the given executor states, and everything else unchanged.
+   *
+   * @param newExecutorState The state of each executor of the current attempt by pod name.
+   * @return A new ApplicationStatus object with the given executor states.
+   * @since 1.1.0
+   */
+  public ApplicationStatus withExecutorState(Map<String, ExecutorState> newExecutorState) {
+    return new ApplicationStatus(
+        currentState,
+        stateTransitionHistory,
+        previousAttemptSummary,
+        currentAttemptSummary,
+        newExecutorState,
+        activeExecutors,
+        readyExecutors,
+        maxExecutorId);
+  }
+
+  /**
+   * Returns a copy of this status with the given active and ready executor counts and highest
+   * executor ID, and everything else unchanged.
+   *
+   * @param newActiveExecutors The number of active executors of the current attempt, or null.
+   * @param newReadyExecutors The number of ready executors of the current attempt, or null.
+   * @param newMaxExecutorId The highest executor ID of the current attempt so far, or null.
+   * @return A new ApplicationStatus object with the given executor counts and ID.
+   * @since 1.1.0
+   */
+  public ApplicationStatus withExecutorCounts(
+      Integer newActiveExecutors, Integer newReadyExecutors, Long newMaxExecutorId) {
+    return new ApplicationStatus(
+        currentState,
+        stateTransitionHistory,
+        previousAttemptSummary,
+        currentAttemptSummary,
+        executorState,
+        newActiveExecutors,
+        newReadyExecutors,
+        newMaxExecutorId);
   }
 
   /**
@@ -85,11 +234,17 @@ public class ApplicationStatus
    * @since 0.1.0
    */
   public ApplicationStatus appendNewState(ApplicationState state) {
+    // A suspended application releases its executors, so their states start over, as on resume.
+    boolean suspended = ApplicationStateSummary.Suspended == state.getCurrentStateSummary();
     return new ApplicationStatus(
         state,
         createUpdatedHistoryWithNewState(state),
         previousAttemptSummary,
-        currentAttemptSummary);
+        currentAttemptSummary,
+        suspended ? null : executorState,
+        suspended ? null : activeExecutors,
+        suspended ? null : readyExecutors,
+        suspended ? null : maxExecutorId);
   }
 
   /**
@@ -146,7 +301,11 @@ public class ApplicationStatus
           state,
           createUpdatedHistoryWithNewState(state),
           previousAttemptSummary,
-          currentAttemptSummary);
+          currentAttemptSummary,
+          executorState,
+          activeExecutors,
+          readyExecutors,
+          maxExecutorId);
     }
 
     boolean resetRestartCounter = false;
@@ -202,7 +361,11 @@ public class ApplicationStatus
           state,
           createUpdatedHistoryWithNewState(state),
           previousAttemptSummary,
-          currentAttemptSummary);
+          currentAttemptSummary,
+          executorState,
+          activeExecutors,
+          readyExecutors,
+          maxExecutorId);
     }
 
     return startNextAttempt(
@@ -259,6 +422,7 @@ public class ApplicationStatus
       ApplicationState state,
       ApplicationAttemptInfo nextAttemptInfo,
       boolean trimStateTransitionHistory) {
+    // The next attempt has a new driver and new executors, so its executor states start empty.
     ApplicationAttemptSummary nextAttemptSummary = new ApplicationAttemptSummary(nextAttemptInfo);
     if (trimStateTransitionHistory) {
       // when truncating, put all previous history entries into previous attempt summary

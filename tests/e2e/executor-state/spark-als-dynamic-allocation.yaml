@@ -1,0 +1,74 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+
+apiVersion: spark.apache.org/v1
+kind: SparkApplication
+metadata:
+  name: ($SPARK_APPLICATION_NAME)
+  namespace: default
+spec:
+  # Every iteration runs more tasks than one executor takes, so Dynamic Allocation adds executors
+  # above minExecutors, and removes them once they are idle between iterations.
+  mainClass: "org.apache.spark.examples.SparkALS"
+  jars: "local:///opt/spark/examples/jars/spark-examples.jar"
+  # M (movies) U (users) F (features) ITERATIONS SLICES
+  driverArgs: ["1000", "1000", "10", "8", "60"]
+  sparkConf:
+    spark.kubernetes.container.image: "apache/spark:{{SPARK_VERSION}}-scala"
+    spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
+    # Small requests, so that the driver and the executors fit on the CI node
+    spark.driver.memory: "512m"
+    spark.executor.memory: "512m"
+    spark.kubernetes.driver.request.cores: "100m"
+    spark.kubernetes.executor.request.cores: "100m"
+    spark.dynamicAllocation.enabled: "true"
+    spark.dynamicAllocation.shuffleTracking.enabled: "true"
+    spark.dynamicAllocation.minExecutors: "1"
+    spark.dynamicAllocation.maxExecutors: "3"
+    spark.dynamicAllocation.schedulerBacklogTimeout: "1s"
+    spark.dynamicAllocation.executorIdleTimeout: "4s"
+  driverSpec:
+    podTemplateSpec:
+      spec:
+        containers:
+          - name: spark-kubernetes-driver
+            securityContext:
+              capabilities:
+                drop: ["ALL"]
+              runAsGroup: 185
+              runAsUser: 185
+              runAsNonRoot: true
+              allowPrivilegeEscalation: false
+              seccompProfile:
+                type: RuntimeDefault
+  executorSpec:
+    podTemplateSpec:
+      spec:
+        containers:
+          - name: spark-kubernetes-executor
+            securityContext:
+              capabilities:
+                drop: ["ALL"]
+              runAsGroup: 185
+              runAsUser: 185
+              runAsNonRoot: true
+              allowPrivilegeEscalation: false
+              seccompProfile:
+                type: RuntimeDefault
+  runtimeVersions:
+    sparkVersion: "4.2.0"

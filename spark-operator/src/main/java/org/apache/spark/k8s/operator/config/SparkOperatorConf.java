@@ -222,6 +222,73 @@ public final class SparkOperatorConf {
           .build();
 
   /**
+   * Whether the operator records the number of active and ready executors of an application in
+   * {@code status.activeExecutors} and {@code status.readyExecutors}. Turning it off stops the
+   * status writes which the counts cause, and clears the counts recorded before.
+   */
+  public static final ConfigOption<Boolean> EXECUTOR_COUNTS_ENABLED =
+      ConfigOption.<Boolean>builder()
+          .key("spark.kubernetes.operator.reconciler.executorCountsEnabled")
+          .enableDynamicOverride(true)
+          .description(
+              "Whether the operator records the number of active and ready executor pods of a "
+                  + "Spark application in its status.activeExecutors and status.readyExecutors, "
+                  + "which a client such as a batch scheduler can use to size an application "
+                  + "and to tell whether its executors have started. Turning it off stops the "
+                  + "status writes which the counts cause, e.g. to reduce the load on the API "
+                  + "server and etcd, and clears the counts recorded before. "
+                  + "status.maxExecutorId and status.executorState are not affected.")
+          .typeParameterClass(Boolean.class)
+          .defaultValue(true)
+          .build();
+
+  /**
+   * Whether the operator records the state of each executor in {@code status.executorState}. The
+   * active executor count and the highest executor ID are recorded either way, and change less
+   * often, so the executor states are off by default to reduce the status writes of an
+   * application.
+   */
+  public static final ConfigOption<Boolean> EXECUTOR_STATE_ENABLED =
+      ConfigOption.<Boolean>builder()
+          .key("spark.kubernetes.operator.reconciler.executorStateEnabled")
+          .enableDynamicOverride(true)
+          .description(
+              "Whether the operator records the state of each executor of a Spark "
+                  + "application with Dynamic Allocation in its status.executorState. Its "
+                  + "status.activeExecutors, status.readyExecutors and status.maxExecutorId, "
+                  + "which a scheduler needs, are recorded either way, the counts "
+                  + "unless executorCountsEnabled is off. An "
+                  + "application without Dynamic Allocation records only its "
+                  + "status.activeExecutors and status.readyExecutors. The counts and the "
+                  + "ID change only when an executor is added, becomes ready or is removed, "
+                  + "while an executor state also changes when an executor completes or fails, "
+                  + "and every executor state adds to each write, so the executor states are off "
+                  + "by default to write the status of an application less often and smaller.")
+          .typeParameterClass(Boolean.class)
+          .defaultValue(false)
+          .build();
+
+  /**
+   * The maximum number of executors which the operator records in the {@code status.executorState}
+   * of a Spark application. Beyond it, the executors which are gone are evicted first, oldest
+   * first, so that a long-running application keeps recording its new executors. A non-positive
+   * value records every executor.
+   */
+  public static final ConfigOption<Integer> MAX_TRACKED_EXECUTOR_PER_APP =
+      ConfigOption.<Integer>builder()
+          .key("spark.kubernetes.operator.reconciler.maxTrackedExecutorPerApp")
+          .enableDynamicOverride(true)
+          .description(
+              "The maximum number of executors which the operator records in the "
+                  + "status.executorState of a Spark application, to keep the status within the "
+                  + "size limit of a Kubernetes object. Beyond it, the executors which are gone "
+                  + "are evicted first, oldest first, and then the newest pending or running "
+                  + "executors, with a warning. A non-positive value records every executor.")
+          .typeParameterClass(Integer.class)
+          .defaultValue(1000)
+          .build();
+
+  /**
    * Grace period (in seconds) the operator waits for the pod informer cache to catch up
    * after the driver pod is observed missing, before doing a live API verification. Brief
    * cache lag during pod creation/update event propagation is normal; only sustained absence

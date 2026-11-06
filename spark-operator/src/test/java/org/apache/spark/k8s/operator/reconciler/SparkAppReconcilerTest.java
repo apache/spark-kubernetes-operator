@@ -88,6 +88,7 @@ import org.apache.spark.k8s.operator.kueue.v1beta2.Workload;
 import org.apache.spark.k8s.operator.kueue.v1beta2.WorkloadStatus;
 import org.apache.spark.k8s.operator.metrics.healthcheck.SentinelManager;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppCleanUpStep;
+import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppExecutorStateStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppReconcileStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppSuspendStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppValidateStep;
@@ -670,7 +671,11 @@ class SparkAppReconcilerTest {
       if (summary == ApplicationStateSummary.Suspended) {
         // Not handled as an unknown state, which would fail the application
         assertEquals(
-            List.of(AppValidateStep.class, AppCleanUpStep.class, AppSuspendStep.class),
+            List.of(
+                AppValidateStep.class,
+                AppExecutorStateStep.class,
+                AppCleanUpStep.class,
+                AppSuspendStep.class),
             steps.stream().map(Object::getClass).toList());
       } else {
         boolean expected = DRIVER_REQUESTED_STATES.contains(summary);

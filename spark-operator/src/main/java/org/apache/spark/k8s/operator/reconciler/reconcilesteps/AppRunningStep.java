@@ -33,6 +33,7 @@ import org.apache.spark.k8s.operator.status.ApplicationState;
 import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
+import org.apache.spark.k8s.operator.utils.Utils;
 
 /** Observe whether app acquires enough executors as configured in spec. */
 public final class AppRunningStep extends AppReconcileStep {
@@ -120,11 +121,6 @@ public final class AppRunningStep extends AppReconcileStep {
    * @return true if dynamic allocation is enabled, false otherwise
    */
   private boolean isDynamicAllocationEnabled(SparkAppContext context) {
-    return "true".equalsIgnoreCase(
-        context
-            .getResource()
-            .getSpec()
-            .getSparkConf()
-            .getOrDefault("spark.dynamicAllocation.enabled", "false"));
+    return Utils.isDynamicAllocationEnabled(context.getResource());
   }
 }
