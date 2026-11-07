@@ -29,4 +29,4 @@ spec:
     spark.kubernetes.driver.annotation.yunikorn.apache.org/app-id: "{{APP_ID}}"
     spark.kubernetes.executor.annotation.yunikorn.apache.org/app-id: "{{APP_ID}}"
   runtimeVersions:
-    sparkVersion: "4.2.0"
+    sparkVersion: "4.3.0"

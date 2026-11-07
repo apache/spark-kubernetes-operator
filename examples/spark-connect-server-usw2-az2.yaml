@@ -34,4 +34,4 @@ spec:
         nodeSelector:
           topology.k8s.aws/zone-id: usw2-az2
   runtimeVersions:
-    sparkVersion: "4.2.0"
+    sparkVersion: "4.3.0"
