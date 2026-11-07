@@ -51,12 +51,12 @@ spec:
     spark.dynamicAllocation.enabled: "true"
     spark.dynamicAllocation.maxExecutors: "3"
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
-    spark.kubernetes.container.image: "apache/spark:4.2.0-scala"
+    spark.kubernetes.container.image: "apache/spark:4.3.0-scala"
   applicationTolerations:
     resourceRetainPolicy: OnFailure
     ttlAfterStopMillis: 10000
   runtimeVersions:
-    sparkVersion: "4.2.0"
+    sparkVersion: "4.3.0"
 ```
 
 After application is submitted, Operator will add status information to your application based on
@@ -557,7 +557,7 @@ spec:
   mainClass: "org.apache.spark.examples.SparkPi"
   jars: "local:///opt/spark/examples/jars/spark-examples.jar"
   runtimeVersions:
-    sparkVersion: "4.2.0"
+    sparkVersion: "4.3.0"
 ```
 
 * Setting it to `true` on a `SparkApplication` whose driver is requested, i.e. from
@@ -650,7 +650,7 @@ spec:
   sparkConf:
     spark.executor.instances: "1"
   runtimeVersions:
-    sparkVersion: "4.2.0"
+    sparkVersion: "4.3.0"
 ```
 
 The following table summarizes which Kueue features are supported. The items after it describe the

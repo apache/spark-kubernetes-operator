@@ -30,7 +30,7 @@ metadata:
     kueue.x-k8s.io/priority-class: ($LOW_PRIORITY_CLASS)
 spec:
   runtimeVersions:
-    sparkVersion: "4.2.0"
+    sparkVersion: "4.3.0"
   clusterTolerations:
     instanceConfig:
       initWorkers: 1
