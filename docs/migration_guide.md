@@ -225,6 +225,9 @@ The changes of the master and worker resources below apply when the operator cre
 a `SparkCluster` created after the upgrade. A running `SparkCluster` keeps its resources until it
 is recreated, e.g. by suspending and resuming it with [`spec.suspend`](spark_custom_resources.md#suspend).
 
+- Since 1.1.0, the master and worker containers use the `apache/spark:4.3.0` image instead of
+  `apache/spark:4.2.0` when `spark.kubernetes.container.image` is not set in `spec.sparkConf`. To
+  restore the behavior before 1.1.0, set it to `apache/spark:4.2.0`.
 - Since 1.1.0, the workers start the external shuffle service by default, so that dynamic
   allocation works out of the box. To restore the behavior before 1.1.0, set
   `spark.shuffle.service.enabled` to `false` in `spec.sparkConf`.

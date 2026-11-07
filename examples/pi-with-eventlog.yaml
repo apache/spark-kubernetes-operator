@@ -34,4 +34,4 @@ spec:
     spark.hadoop.fs.s3a.secret.key: "test"
     spark.driver.memory: "2g"
   runtimeVersions:
-    sparkVersion: "4.2.0"
+    sparkVersion: "4.3.0"

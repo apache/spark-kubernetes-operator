@@ -29,4 +29,4 @@ spec:
     spark.kubernetes.executor.volumes.persistentVolumeClaim.spark-local-dir-1.options.sizeLimit: "1Gi"
     spark.kubernetes.executor.volumes.persistentVolumeClaim.spark-local-dir-1.options.storageClass: "local-path"
   runtimeVersions:
-    sparkVersion: "4.2.0"
+    sparkVersion: "4.3.0"
