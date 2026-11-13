@@ -54,6 +54,7 @@ import org.apache.spark.k8s.operator.status.ApplicationStateSummary;
 import org.apache.spark.k8s.operator.status.ApplicationStatus;
 import org.apache.spark.k8s.operator.utils.EventUtils;
 import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
+import org.apache.spark.k8s.operator.utils.SecondaryResourceBackoffException;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
 
 /** Request all driver and its resources when starting an attempt. */
@@ -127,33 +128,13 @@ public final class AppInitStep extends AppReconcileStep {
       if (kueueHold.isPresent()) {
         return kueueHold.get();
       }
-      List<HasMetadata> preResourcesSpec = context.getDriverPreResourcesSpec();
-      for (HasMetadata resource : preResourcesSpec) {
-        Optional<HasMetadata> createdResource =
-            ReconcilerUtils.getOrCreateSecondaryResource(context.getClient(), resource);
-        if (createdResource.isEmpty()) {
-          return appendStateAndImmediateRequeue(
-              context, statusRecorder, creationFailureState(resource));
-        }
+      Optional<ReconcileProgress> creationFailure =
+          requestDriverAndResources(context, statusRecorder);
+      if (creationFailure.isPresent()) {
+        return creationFailure.get();
       }
-      Optional<Pod> driverPod =
-          ReconcilerUtils.getOrCreateSecondaryResource(
-              context.getClient(), context.getDriverPodSpec());
-      if (driverPod.isPresent()) {
-        DriverResourceDecorator decorator = new DriverResourceDecorator(driverPod.get());
-        preResourcesSpec.forEach(decorator::decorate);
-        context.getClient().resourceList(preResourcesSpec).forceConflicts().serverSideApply();
-        List<HasMetadata> driverResources = context.getDriverResourcesSpec();
-        driverResources.forEach(decorator::decorate);
-        for (HasMetadata resource : driverResources) {
-          Optional<HasMetadata> createdResource =
-              ReconcilerUtils.getOrCreateSecondaryResource(context.getClient(), resource);
-          if (createdResource.isEmpty()) {
-            return appendStateAndImmediateRequeue(
-                context, statusRecorder, creationFailureState(resource));
-          }
-        }
-      }
+    } catch (SecondaryResourceBackoffException e) {
+      return requeueAfterBackoff(e);
     } catch (Exception e) {
       if (log.isErrorEnabled()) {
         log.error("Failed to request driver resource.", e);
@@ -184,6 +165,52 @@ public final class AppInitStep extends AppReconcileStep {
                 new ApplicationState(
                     ApplicationStateSummary.DriverRequested, Constants.DRIVER_REQUESTED_MESSAGE));
     return attemptStatusUpdate(context, statusRecorder, updatedStatus, completeAndDefaultRequeue());
+  }
+
+  /**
+   * Requests the driver pre-resources, the driver pod, and the driver resources, in order,
+   * decorating the driver resources with the driver pod's identity once it is requested. A
+   * resource whose creation fails after exhausting the retries of {@link
+   * ReconcilerUtils#getOrCreateSecondaryResource} moves the application to SchedulingFailure.
+   *
+   * @param context The SparkAppContext for the application.
+   * @param statusRecorder The SparkAppStatusRecorder for recording status updates.
+   * @return The progress to return on a creation failure, or empty to proceed.
+   * @throws SecondaryResourceBackoffException if a retry needs a longer wait than the reconciler
+   *     should block its thread for.
+   */
+  private Optional<ReconcileProgress> requestDriverAndResources(
+      SparkAppContext context, SparkAppStatusRecorder statusRecorder) {
+    List<HasMetadata> preResourcesSpec = context.getDriverPreResourcesSpec();
+    for (HasMetadata resource : preResourcesSpec) {
+      Optional<HasMetadata> createdResource =
+          ReconcilerUtils.getOrCreateSecondaryResource(context.getClient(), resource);
+      if (createdResource.isEmpty()) {
+        return Optional.of(
+            appendStateAndImmediateRequeue(
+                context, statusRecorder, creationFailureState(resource)));
+      }
+    }
+    Optional<Pod> driverPod =
+        ReconcilerUtils.getOrCreateSecondaryResource(
+            context.getClient(), context.getDriverPodSpec());
+    if (driverPod.isPresent()) {
+      DriverResourceDecorator decorator = new DriverResourceDecorator(driverPod.get());
+      preResourcesSpec.forEach(decorator::decorate);
+      context.getClient().resourceList(preResourcesSpec).forceConflicts().serverSideApply();
+      List<HasMetadata> driverResources = context.getDriverResourcesSpec();
+      driverResources.forEach(decorator::decorate);
+      for (HasMetadata resource : driverResources) {
+        Optional<HasMetadata> createdResource =
+            ReconcilerUtils.getOrCreateSecondaryResource(context.getClient(), resource);
+        if (createdResource.isEmpty()) {
+          return Optional.of(
+              appendStateAndImmediateRequeue(
+                  context, statusRecorder, creationFailureState(resource)));
+        }
+      }
+    }
+    return Optional.empty();
   }
 
   /**
@@ -309,6 +336,22 @@ public final class AppInitStep extends AppReconcileStep {
         .getItems()
         .stream()
         .anyMatch(pod -> SparkAppContext.isLiveDriverPod(app, pod));
+  }
+
+  /**
+   * Requeues after a backoff too long to block the reconciler thread for, see {@link
+   * SecondaryResourceBackoffException}. This is not a failure, so no state is appended and the
+   * application stays Initializing.
+   *
+   * @param e The exception carrying the requeue delay.
+   * @return The progress to requeue the reconcile after the delay.
+   */
+  private ReconcileProgress requeueAfterBackoff(SecondaryResourceBackoffException e) {
+    log.info(
+        "Parking retry of resource creation instead of blocking the reconciler thread, "
+            + "requeueing in {}.",
+        e.getRequeueAfter());
+    return ReconcileProgress.completeAndRequeueAfter(e.getRequeueAfter());
   }
 
   /**
