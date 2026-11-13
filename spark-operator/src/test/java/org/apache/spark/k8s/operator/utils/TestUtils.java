@@ -21,11 +21,15 @@ package org.apache.spark.k8s.operator.utils;
 
 import static org.apache.spark.k8s.operator.Constants.API_GROUP;
 import static org.apache.spark.k8s.operator.Constants.API_VERSION;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.io.File;
 import java.lang.reflect.Field;
 import java.util.Map;
 
+import com.codahale.metrics.Histogram;
+import com.codahale.metrics.Meter;
+import com.codahale.metrics.MetricRegistry;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 
 import org.apache.spark.k8s.operator.Constants;
@@ -64,6 +68,18 @@ public final class TestUtils {
 
   public static long calculateElapsedTimeInMills(long startTime) {
     return System.currentTimeMillis() - startTime;
+  }
+
+  public static long meterCount(MetricRegistry registry, String name) {
+    Meter meter = registry.getMeters().get(name);
+    assertNotNull(meter, name);
+    return meter.getCount();
+  }
+
+  public static Histogram histogram(MetricRegistry registry, String name) {
+    Histogram histogram = registry.getHistograms().get(name);
+    assertNotNull(histogram, name);
+    return histogram;
   }
 
   @SuppressWarnings("PMD.AvoidAccessibilityAlteration")
