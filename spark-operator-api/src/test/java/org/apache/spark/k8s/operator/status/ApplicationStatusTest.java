@@ -43,6 +43,8 @@ import org.apache.spark.k8s.operator.spec.RestartConfig;
 import org.apache.spark.k8s.operator.spec.RestartPolicy;
 
 class ApplicationStatusTest {
+  private static final Map<String, ExecutorState> EXECUTORS =
+      Map.of("app-exec-1", ExecutorState.RUNNING, "app-exec-2", ExecutorState.PENDING);
 
   @Test
   void testInitStatus() {
@@ -951,5 +953,169 @@ class ApplicationStatusTest {
                 "{\"currentStateSummary\":\"Suspended\",\"message\":\"test\"}",
                 ApplicationState.class)
             .getSuspendReason());
+  }
+
+  private static ApplicationStatus runningWithExecutors() {
+    return new ApplicationStatus()
+        .appendNewState(new ApplicationState(ApplicationStateSummary.RunningHealthy, ""))
+        .withExecutorState(EXECUTORS);
+  }
+
+  @Test
+  void testExecutorStateIsEmptyByDefault() {
+    assertTrue(new ApplicationStatus().getExecutorState().isEmpty());
+  }
+
+  @Test
+  void testWithExecutorStateKeepsTheRestOfTheStatus() {
+    ApplicationStatus status =
+        new ApplicationStatus()
+            .appendNewState(new ApplicationState(ApplicationStateSummary.RunningHealthy, ""));
+    ApplicationStatus withExecutors = status.withExecutorState(EXECUTORS);
+    assertEquals(EXECUTORS, withExecutors.getExecutorState());
+    assertEquals(status.getCurrentState(), withExecutors.getCurrentState());
+    assertEquals(status.getStateTransitionHistory(), withExecutors.getStateTransitionHistory());
+    assertEquals(status.getCurrentAttemptSummary(), withExecutors.getCurrentAttemptSummary());
+    assertEquals(status, withExecutors.withExecutorState(Map.of()));
+  }
+
+  @Test
+  void testExecutorStateIsKeptUntilTheAttemptEnds() {
+    ApplicationStatus succeeded = runningWithExecutors().appendNewState(
+        new ApplicationState(Succeeded, ""));
+    assertEquals(EXECUTORS, succeeded.getExecutorState());
+
+    RestartConfig noRetryConfig = new RestartConfig();
+    noRetryConfig.setRestartPolicy(RestartPolicy.Never);
+    ApplicationStatus released = succeeded.terminateOrRestart(noRetryConfig, "", false);
+    assertEquals(ApplicationStateSummary.ResourceReleased,
+        released.getCurrentState().getCurrentStateSummary());
+    assertEquals(EXECUTORS, released.getExecutorState());
+  }
+
+  @Test
+  void testExecutorStateStartsEmptyWithTheNextAttempt() {
+    RestartConfig alwaysRetryConfig = new RestartConfig();
+    alwaysRetryConfig.setRestartPolicy(RestartPolicy.Always);
+    alwaysRetryConfig.setMaxRestartAttempts(1L);
+    ApplicationStatus failed = runningWithExecutors().appendNewState(
+        new ApplicationState(ApplicationStateSummary.Failed, ""));
+    for (boolean trimStateTransitionHistory : new boolean[] {false, true}) {
+      ApplicationStatus restarted =
+          failed.terminateOrRestart(alwaysRetryConfig, "", trimStateTransitionHistory);
+      assertEquals(ApplicationStateSummary.ScheduledToRestart,
+          restarted.getCurrentState().getCurrentStateSummary());
+      assertTrue(restarted.getExecutorState().isEmpty());
+    }
+  }
+
+  @Test
+  void testExecutorStateStartsEmptyWhenSuspended() {
+    ApplicationStatus suspended = runningWithExecutors().appendNewState(
+        new ApplicationState(ApplicationStateSummary.Suspended, ""));
+    assertTrue(suspended.getExecutorState().isEmpty());
+    assertTrue(suspended.resume("", true).getExecutorState().isEmpty());
+  }
+
+  @Test
+  void testExecutorStateJsonRoundTrip() throws Exception {
+    ObjectMapper mapper = new ObjectMapper();
+    assertFalse(mapper.writeValueAsString(new ApplicationStatus()).contains("executorState"));
+
+    ApplicationStatus status = runningWithExecutors();
+    String json = mapper.writeValueAsString(status);
+    assertTrue(json.contains(
+        "\"executorState\":{\"app-exec-1\":\"RUNNING\",\"app-exec-2\":\"PENDING\"}"));
+    assertEquals(EXECUTORS, mapper.readValue(json, ApplicationStatus.class).getExecutorState());
+  }
+
+  @Test
+  void testActiveExecutorsAndMaxExecutorIdAreUnsetByDefault() {
+    assertNull(new ApplicationStatus().getActiveExecutors());
+    assertNull(new ApplicationStatus().getReadyExecutors());
+    assertNull(new ApplicationStatus().getMaxExecutorId());
+    assertNull(runningWithExecutors().getActiveExecutors());
+  }
+
+  @Test
+  void testWithExecutorCountsKeepsTheRestOfTheStatus() {
+    ApplicationStatus status = runningWithExecutors();
+    ApplicationStatus withCount = status.withExecutorCounts(2, 1, 7L);
+    assertEquals(2, withCount.getActiveExecutors());
+    assertEquals(1, withCount.getReadyExecutors());
+    assertEquals(7L, withCount.getMaxExecutorId());
+    assertEquals(EXECUTORS, withCount.getExecutorState());
+    assertEquals(status.getCurrentState(), withCount.getCurrentState());
+    assertEquals(status.getStateTransitionHistory(), withCount.getStateTransitionHistory());
+    assertEquals(status, withCount.withExecutorCounts(null, null, null));
+    // Recording the executor states keeps the count and the id
+    ApplicationStatus withStates = withCount.withExecutorState(Map.of());
+    assertEquals(2, withStates.getActiveExecutors());
+    assertEquals(1, withStates.getReadyExecutors());
+    assertEquals(7L, withStates.getMaxExecutorId());
+  }
+
+  @Test
+  void testActiveExecutorsAreKeptUntilTheAttemptEnds() {
+    ApplicationStatus succeeded =
+        runningWithExecutors()
+            .withExecutorCounts(2, 1, 7L)
+            .appendNewState(new ApplicationState(Succeeded, ""));
+    assertEquals(2, succeeded.getActiveExecutors());
+    assertEquals(1, succeeded.getReadyExecutors());
+    assertEquals(7L, succeeded.getMaxExecutorId());
+
+    RestartConfig noRetryConfig = new RestartConfig();
+    noRetryConfig.setRestartPolicy(RestartPolicy.Never);
+    ApplicationStatus released = succeeded.terminateOrRestart(noRetryConfig, "", false);
+    assertEquals(2, released.getActiveExecutors());
+    assertEquals(1, released.getReadyExecutors());
+    assertEquals(7L, released.getMaxExecutorId());
+  }
+
+  @Test
+  void testActiveExecutorsStartOverWithTheNextAttemptAndOnSuspension() {
+    ApplicationStatus running = runningWithExecutors().withExecutorCounts(2, 1, 7L);
+    ApplicationStatus suspended =
+        running.appendNewState(new ApplicationState(ApplicationStateSummary.Suspended, ""));
+    assertNull(suspended.getActiveExecutors());
+    assertNull(suspended.getReadyExecutors());
+    assertNull(suspended.getMaxExecutorId());
+
+    RestartConfig alwaysRetryConfig = new RestartConfig();
+    alwaysRetryConfig.setRestartPolicy(RestartPolicy.Always);
+    alwaysRetryConfig.setMaxRestartAttempts(1L);
+    ApplicationStatus failed =
+        running.appendNewState(new ApplicationState(ApplicationStateSummary.Failed, ""));
+    for (boolean trimStateTransitionHistory : new boolean[] {false, true}) {
+      ApplicationStatus restarted =
+          failed.terminateOrRestart(alwaysRetryConfig, "", trimStateTransitionHistory);
+      assertEquals(
+          ApplicationStateSummary.ScheduledToRestart,
+          restarted.getCurrentState().getCurrentStateSummary());
+      assertNull(restarted.getActiveExecutors());
+      assertNull(restarted.getReadyExecutors());
+      assertNull(restarted.getMaxExecutorId());
+    }
+  }
+
+  @Test
+  void testActiveExecutorsJsonRoundTrip() throws Exception {
+    ObjectMapper mapper = new ObjectMapper();
+    String json = mapper.writeValueAsString(runningWithExecutors().withExecutorCounts(2, 1, 7L));
+    assertTrue(json.contains("\"activeExecutors\":2"));
+    assertTrue(json.contains("\"readyExecutors\":1"));
+    assertTrue(json.contains("\"maxExecutorId\":7"));
+    ApplicationStatus read = mapper.readValue(json, ApplicationStatus.class);
+    assertEquals(2, read.getActiveExecutors());
+    assertEquals(1, read.getReadyExecutors());
+    assertEquals(7L, read.getMaxExecutorId());
+
+    // Unset values are left out, and a status without them still reads
+    String unset = mapper.writeValueAsString(runningWithExecutors());
+    assertFalse(unset.contains("activeExecutors"));
+    assertFalse(unset.contains("readyExecutors"));
+    assertFalse(unset.contains("maxExecutorId"));
+    assertNull(mapper.readValue("{}", ApplicationStatus.class).getActiveExecutors());
   }
 }

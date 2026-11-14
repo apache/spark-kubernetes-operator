@@ -152,6 +152,10 @@ jobs:
           - kubernetes-version: "1.37.0"
             mode: static
             test-group: pi-java25
+          # Dynamic configuration only: the executor states are enabled with an override
+          - kubernetes-version: "1.37.0"
+            mode: dynamic
+            test-group: executor-state
           - kubernetes-version: "1.37.0"
             mode: events
             test-group: suspend-events

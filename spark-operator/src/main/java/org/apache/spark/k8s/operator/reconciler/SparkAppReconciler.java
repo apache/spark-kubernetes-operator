@@ -20,6 +20,7 @@
 package org.apache.spark.k8s.operator.reconciler;
 
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_APPLICATION_NAME;
+import static org.apache.spark.k8s.operator.config.SparkOperatorConf.EXECUTOR_STATE_ENABLED;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.KUEUE_ENABLED;
 import static org.apache.spark.k8s.operator.reconciler.ReconcileProgress.completeAndDefaultRequeue;
 import static org.apache.spark.k8s.operator.utils.Utils.basicLabelSecondaryToPrimaryMapper;
@@ -38,6 +39,7 @@ import io.javaoperatorsdk.operator.api.reconciler.ErrorStatusUpdateControl;
 import io.javaoperatorsdk.operator.api.reconciler.EventSourceContext;
 import io.javaoperatorsdk.operator.api.reconciler.Reconciler;
 import io.javaoperatorsdk.operator.api.reconciler.UpdateControl;
+import io.javaoperatorsdk.operator.processing.event.ResourceID;
 import io.javaoperatorsdk.operator.processing.event.source.EventSource;
 import io.javaoperatorsdk.operator.processing.event.source.informer.InformerEventSource;
 import lombok.RequiredArgsConstructor;
@@ -54,6 +56,7 @@ import org.apache.spark.k8s.operator.reconciler.observers.AppDriverRunningObserv
 import org.apache.spark.k8s.operator.reconciler.observers.AppDriverStartObserver;
 import org.apache.spark.k8s.operator.reconciler.observers.AppDriverTimeoutObserver;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppCleanUpStep;
+import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppExecutorStateStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppInitStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppReconcileStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppResourceObserveStep;
@@ -61,6 +64,7 @@ import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppRunningStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppSuspendStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppUnknownStateStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppValidateStep;
+import org.apache.spark.k8s.operator.utils.DeletedExecutorPods;
 import org.apache.spark.k8s.operator.utils.EventUtils;
 import org.apache.spark.k8s.operator.utils.LoggingUtils;
 import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
@@ -78,6 +82,9 @@ public class SparkAppReconciler implements Reconciler<SparkApplication>, Cleaner
   private final SparkAppSubmissionWorker submissionWorker;
   private final SparkAppStatusRecorder sparkAppStatusRecorder;
   private final SentinelManager<SparkApplication> sentinelManager;
+
+  /** The final states of the deleted executor pods, recorded from the pod informer. */
+  private final DeletedExecutorPods deletedExecutorPods = new DeletedExecutorPods();
 
   /**
    * Reconciles the state of a SparkApplication resource.
@@ -169,6 +176,15 @@ public class SparkAppReconciler implements Reconciler<SparkApplication>, Cleaner
                 .withSecondaryToPrimaryMapper(
                     basicLabelSecondaryToPrimaryMapper(LABEL_SPARK_APPLICATION_NAME))
                 .withLabelSelector(commonResourceLabelsStr())
+                // A deleted executor pod is gone from the cache by the time the application is
+                // reconciled, so its last state, which the delete event carries, is remembered.
+                .withOnDeleteFilter(
+                    (pod, deletedFinalStateUnknown) -> {
+                      if (EXECUTOR_STATE_ENABLED.getValue()) {
+                        deletedExecutorPods.record(pod);
+                      }
+                      return true;
+                    })
                 .build(),
             context);
     List<EventSource<?, SparkApplication>> eventSources = new ArrayList<>();
@@ -202,6 +218,7 @@ public class SparkAppReconciler implements Reconciler<SparkApplication>, Cleaner
   protected List<AppReconcileStep> getReconcileSteps(final SparkApplication app) {
     List<AppReconcileStep> steps = new ArrayList<>();
     steps.add(new AppValidateStep());
+    steps.add(new AppExecutorStateStep(deletedExecutorPods));
     steps.add(new AppCleanUpStep());
     switch (app.getStatus().getCurrentState().getCurrentStateSummary()) {
       case Submitted, ScheduledToRestart -> steps.add(new AppInitStep());
@@ -270,6 +287,7 @@ public class SparkAppReconciler implements Reconciler<SparkApplication>, Cleaner
       trackedMDC.reset();
     }
     sparkAppStatusRecorder.removeCachedStatus(sparkApplication);
+    deletedExecutorPods.clear(ResourceID.fromResource(sparkApplication));
     return DeleteControl.defaultDelete();
   }
 }

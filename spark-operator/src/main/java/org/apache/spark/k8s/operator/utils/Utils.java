@@ -128,6 +128,12 @@ public final class Utils {
    * @param app The SparkApplication object.
    * @return A Map of labels for the SparkApplication.
    */
+  public static boolean isDynamicAllocationEnabled(final SparkApplication app) {
+    return "true"
+        .equalsIgnoreCase(
+            app.getSpec().getSparkConf().getOrDefault("spark.dynamicAllocation.enabled", "false"));
+  }
+
   public static Map<String, String> sparkAppResourceLabels(final SparkApplication app) {
     return sparkAppResourceLabels(app.getMetadata().getName());
   }
