@@ -238,12 +238,17 @@ public class PrometheusPullModelHandler extends PrometheusServlet implements Htt
    * @return A formatted string for the histogram, or null if the histogram is invalid.
    */
   protected String formatHistogram(String name, Histogram histogram) {
-    if (histogram != null && histogram.getSnapshot() != null) {
+    if (histogram == null) {
+      return null;
+    }
+    Snapshot snap = histogram.getSnapshot();
+    if (snap != null) {
       String baseName = sanitize(name);
-      Snapshot snap = histogram.getSnapshot();
       long count = histogram.getCount();
-      boolean isNanosHistogram = baseName.contains("nanos");
-      if (isNanosHistogram) {
+      // A NanosHistogram records nanoseconds whatever its name is, so its name is kept.
+      boolean isNanosHistogram = histogram instanceof NanosHistogram;
+      if (!isNanosHistogram && baseName.contains("nanos")) {
+        isNanosHistogram = true;
         baseName = nanosMetricsNameToSeconds(baseName);
       }
       DoubleUnaryOperator toUnit =
