@@ -19,7 +19,6 @@
 
 package org.apache.spark.k8s.operator.reconciler;
 
-import static org.apache.spark.k8s.operator.Constants.CLUSTER_FAILED_AFTER_SCHEDULING_FAILURE_MESSAGE;
 import static org.apache.spark.k8s.operator.Constants.LABEL_SPARK_CLUSTER_NAME;
 import static org.apache.spark.k8s.operator.utils.TestUtils.setConfigKey;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -33,8 +32,10 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
@@ -243,6 +244,21 @@ class SparkClusterReconcilerTest {
         "ClusterUnknownStateStep", steps.get(2).getClass().getSimpleName());
   }
 
+  @Test
+  void testGetReconcileStepsForSchedulingFailureCluster() {
+    // SchedulingFailure state should include ClusterCleanUpStep to release the resources
+    cluster.setStatus(cluster.getStatus().appendNewState(
+        new ClusterState(ClusterStateSummary.SchedulingFailure, "")));
+    List<ClusterReconcileStep> steps = reconciler.getReconcileSteps(cluster);
+    assertEquals(3, steps.size());
+    assertEquals(
+        "ClusterValidateStep", steps.get(0).getClass().getSimpleName());
+    assertEquals(
+        "ClusterTerminatedStep", steps.get(1).getClass().getSimpleName());
+    assertEquals(
+        "ClusterCleanUpStep", steps.get(2).getClass().getSimpleName());
+  }
+
   @SuppressWarnings("PMD.UnusedLocalVariable")
   @Test
   void testReconcileFailedClusterDoesNotLoop() throws Exception {
@@ -253,28 +269,21 @@ class SparkClusterReconcilerTest {
               when(mock.getResource()).thenReturn(cluster);
               when(mock.getClient()).thenReturn(mockClient);
             })) {
-      cluster.setStatus(cluster.getStatus().appendNewState(
-          new ClusterState(ClusterStateSummary.SchedulingFailure, "")));
-
-      // SchedulingFailure moves to Failed once.
-      reconciler.reconcile(cluster, mockContext);
-      assertEquals(
-          ClusterStateSummary.Failed,
-          cluster.getStatus().getCurrentState().getCurrentStateSummary());
-      // Failed points back to SchedulingFailure, which reports the cause.
-      assertEquals(
-          CLUSTER_FAILED_AFTER_SCHEDULING_FAILURE_MESSAGE,
-          cluster.getStatus().getCurrentState().getMessage());
+      // An earlier version moved SchedulingFailure to Failed without releasing the resources.
+      cluster.setStatus(cluster.getStatus()
+          .appendNewState(new ClusterState(ClusterStateSummary.SchedulingFailure, ""))
+          .appendNewState(new ClusterState(ClusterStateSummary.Failed, "")));
       int historySize = cluster.getStatus().getStateTransitionHistory().size();
-      verify(mockRecorder, times(1)).persistStatus(any(), any());
 
-      // A Failed cluster neither appends a new state nor requeues immediately.
+      // A Failed cluster neither appends a new state nor requeues immediately, and what it holds
+      // is left as it is until it is deleted.
       for (int i = 0; i < 3; i++) {
         var control = reconciler.reconcile(cluster, mockContext);
         assertTrue(control.getScheduleDelay().isEmpty());
       }
       assertEquals(historySize, cluster.getStatus().getStateTransitionHistory().size());
-      verify(mockRecorder, times(1)).persistStatus(any(), any());
+      verify(mockRecorder, never()).persistStatus(any(), any());
+      verifyNoInteractions(mockClient);
     }
   }
 

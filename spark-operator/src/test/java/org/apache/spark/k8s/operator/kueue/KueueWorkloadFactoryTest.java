@@ -276,9 +276,12 @@ class KueueWorkloadFactoryTest {
     ApplicationSpec spec = new ApplicationSpec();
     app.setSpec(spec);
 
-    // The executors run in the workers of a SparkCluster, or within the driver
+    // The executors run in the workers of a SparkCluster, or within the driver, so that dynamic
+    // allocation does not change the Workload either
     for (String master : List.of("spark://prod-master-svc:7077", "local[*]")) {
       spec.setSparkConf(Map.of("spark.master", master));
+      assertEquals(1, KueueWorkloadFactory.buildWorkload(app).getSpec().getPodSets().size());
+      spec.setSparkConf(Map.of("spark.master", master, "spark.dynamicAllocation.enabled", "true"));
       assertEquals(1, KueueWorkloadFactory.buildWorkload(app).getSpec().getPodSets().size());
     }
     // Like the master URL which the submission worker builds with the prefix
@@ -330,15 +333,83 @@ class KueueWorkloadFactoryTest {
             .build());
 
     ApplicationSpec spec = new ApplicationSpec();
+    // Spark requires the initial executors, here 5, to be within the minimum and the maximum
     spec.setSparkConf(
         Map.of(
             "spark.dynamicAllocation.enabled", "true",
             "spark.dynamicAllocation.minExecutors", "2",
-            "spark.dynamicAllocation.maxExecutors", "10"));
+            "spark.dynamicAllocation.maxExecutors", "10",
+            "spark.executor.instances", "5"));
     app.setSpec(spec);
 
+    // Not supported unless the application is annotated to reserve the maximum
+    UnsupportedOperationException unsupported =
+        assertThrows(
+            UnsupportedOperationException.class, () -> KueueWorkloadFactory.buildWorkload(app));
+    assertTrue(
+        unsupported.getMessage().contains(Constants.ANNOTATION_KUEUE_RESERVE_MAX_EXECUTORS),
+        unsupported.getMessage());
+    app.getMetadata()
+        .setAnnotations(Map.of(Constants.ANNOTATION_KUEUE_RESERVE_MAX_EXECUTORS, "false"));
     assertThrows(
         UnsupportedOperationException.class, () -> KueueWorkloadFactory.buildWorkload(app));
+
+    app.getMetadata()
+        .setAnnotations(Map.of(Constants.ANNOTATION_KUEUE_RESERVE_MAX_EXECUTORS, "true"));
+    Workload workload = KueueWorkloadFactory.buildWorkload(app);
+    PodSet executorPodSet = workload.getSpec().getPodSets().get(1);
+    assertEquals(10, executorPodSet.getCount());
+    // Kueue admits the maximum or nothing, rather than a partial admission
+    assertNull(executorPodSet.getMinCount());
+    assertEquals(2, KueueWorkloadUtils.countRequiredReadyPods(workload, executorPodSet));
+
+    // Like Spark, dynamic allocation keeps no executor by default
+    spec.setSparkConf(
+        Map.of(
+            "spark.dynamicAllocation.enabled", "true",
+            "spark.dynamicAllocation.maxExecutors", "10"));
+    workload = KueueWorkloadFactory.buildWorkload(app);
+    executorPodSet = workload.getSpec().getPodSets().get(1);
+    assertEquals(0, KueueWorkloadUtils.countRequiredReadyPods(workload, executorPodSet));
+
+    // The maximum is unlimited by default
+    spec.setSparkConf(Map.of("spark.dynamicAllocation.enabled", "true"));
+    IllegalArgumentException unlimited =
+        assertThrows(
+            IllegalArgumentException.class, () -> KueueWorkloadFactory.buildWorkload(app));
+    assertTrue(
+        unlimited.getMessage().contains("spark.dynamicAllocation.maxExecutors"),
+        unlimited.getMessage());
+    spec.setSparkConf(
+        Map.of(
+            "spark.dynamicAllocation.enabled", "true",
+            "spark.dynamicAllocation.maxExecutors", "not-a-number"));
+    assertThrows(NumberFormatException.class, () -> KueueWorkloadFactory.buildWorkload(app));
+
+    // Spark fails a driver whose initial executors exceed the maximum at startup, so such an
+    // application is rejected before it waits for the admission
+    for (String key :
+        List.of(
+            "spark.dynamicAllocation.minExecutors",
+            "spark.dynamicAllocation.initialExecutors",
+            "spark.executor.instances")) {
+      spec.setSparkConf(
+          Map.of(
+              "spark.dynamicAllocation.enabled", "true",
+              "spark.dynamicAllocation.maxExecutors", "2",
+              key, "5"));
+      IllegalArgumentException exceeded =
+          assertThrows(
+              IllegalArgumentException.class, () -> KueueWorkloadFactory.buildWorkload(app));
+      assertTrue(exceeded.getMessage().contains("initial executors (5)"), exceeded.getMessage());
+    }
+
+    // The annotation is ignored without dynamic allocation
+    spec.setSparkConf(Map.of("spark.executor.instances", "3"));
+    workload = KueueWorkloadFactory.buildWorkload(app);
+    executorPodSet = workload.getSpec().getPodSets().get(1);
+    assertEquals(3, executorPodSet.getCount());
+    assertEquals(3, KueueWorkloadUtils.countRequiredReadyPods(workload, executorPodSet));
   }
 
   @Test

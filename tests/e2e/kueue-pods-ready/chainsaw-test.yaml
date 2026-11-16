@@ -223,7 +223,9 @@ spec:
           (contains($stdout, 'SHORTENED')): true
     - apply:
         file: ../kueue/kueue-queues.yaml
-    # The quota fits the application (1 CPU for the driver and 1 for the executor)
+    # The quota fits both applications (1 CPU for the driver and 1 for the executor of the one whose
+    # executor is not ready, and 100m for the driver and each of the 2 executors which the one with
+    # dynamic allocation reserves)
     - script:
         timeout: 30s
         env:
@@ -231,10 +233,48 @@ spec:
             value: ($CLUSTER_QUEUE)
         content: |
           kubectl patch clusterqueue "$CLUSTER_QUEUE" --type json -p \
-            '[{"op": "replace", "path": "/spec/resourceGroups/0/flavors/0/resources/0/nominalQuota", "value": "2"},
+            '[{"op": "replace", "path": "/spec/resourceGroups/0/flavors/0/resources/0/nominalQuota", "value": "3"},
               {"op": "replace", "path": "/spec/resourceGroups/0/flavors/0/resources/1/nominalQuota", "value": "8Gi"}]'
+    # Admitted before the application below, so that the waitForPodsReady timeout has elapsed for
+    # both applications once that one is evicted
+    - apply:
+        file: spark-connect-example-dynamic-allocation.yaml
+    # Its Workload reserves the maximum of dynamic allocation, while its PodsReady condition needs
+    # only the minimum
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: kueue.x-k8s.io/v1beta2
+          kind: Workload
+          metadata:
+            name: sparkapplication-spark-connect-kueue-dynamic-allocation-test
+            namespace: default
+            annotations:
+              spark.operator/kueue-pods-ready-executor: "1"
+          status:
+            (conditions[?type == 'Admitted' && status == 'True'] | length(@)): 1
+            (admission.podSetAssignments[?name == 'executor'] | [0].count): 2
     - apply:
         file: spark-example-executors-not-ready.yaml
+    # Dynamic allocation never requests the second executor, since the Spark Connect server has no
+    # query to run, so the operator reports the pods ready with the minimum of them
+    - assert:
+        timeout: 5m
+        resource:
+          apiVersion: kueue.x-k8s.io/v1beta2
+          kind: Workload
+          metadata:
+            name: sparkapplication-spark-connect-kueue-dynamic-allocation-test
+            namespace: default
+          status:
+            (conditions[?type == 'PodsReady' && status == 'True' && reason == 'Started'] | length(@)): 1
+    - script:
+        timeout: 30s
+        content: |
+          executors=$(kubectl get pods -n default -o name \
+            -l spark.operator/spark-app-name=spark-connect-kueue-dynamic-allocation-test,spark-role=executor | wc -l | tr -d ' ')
+          echo "executor pods: $executors"
+          test "$executors" -eq 1
     - assert:
         timeout: 5m
         resource:
@@ -302,6 +342,30 @@ spec:
           status:
             (conditions[?type == 'Admitted' && status == 'True'] | length(@)): 1
             (conditions[?type == 'Evicted' && status == 'True'] | length(@)): 0
+    # The application with dynamic allocation is not evicted
+    - assert:
+        timeout: 30s
+        resource:
+          apiVersion: kueue.x-k8s.io/v1beta2
+          kind: Workload
+          metadata:
+            name: sparkapplication-spark-connect-kueue-dynamic-allocation-test
+            namespace: default
+          status:
+            (conditions[?type == 'Evicted' && status == 'True'] | length(@)): 0
+    # Nor was it evicted before, which the check above misses once the evicted Workload is replaced
+    # by a new one of the same name
+    - error:
+        timeout: 10s
+        resource:
+          apiVersion: v1
+          kind: Event
+          metadata:
+            namespace: default
+          involvedObject:
+            kind: SparkApplication
+            name: spark-connect-kueue-dynamic-allocation-test
+          reason: Suspended
     catch:
     - describe:
         apiVersion: spark.apache.org/v1
@@ -324,7 +388,7 @@ spec:
           - name: LOCAL_QUEUE
             value: ($LOCAL_QUEUE)
         content: |
-          kubectl delete sparkapplication spark-job-kueue-executors-not-ready-test -n default --ignore-not-found=true
+          kubectl delete sparkapplication spark-job-kueue-executors-not-ready-test spark-connect-kueue-dynamic-allocation-test -n default --ignore-not-found=true
           # Kueue finalizers may delay the deletion, which later steps do not depend on.
           kubectl delete localqueue "$LOCAL_QUEUE" -n default --ignore-not-found=true --wait=false
           kubectl delete clusterqueue "$CLUSTER_QUEUE" --ignore-not-found=true --wait=false

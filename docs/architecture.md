@@ -169,6 +169,11 @@ flowchart TD
   `ClusterSuspendStep` while the cluster is `RunningHealthy`, which a cluster enters without
   waiting for its pods. It is recorded only once and never set back to `False`, since an eviction
   for a lost executor or worker, which Spark replaces, would run the resource again from scratch.
+  For an application with dynamic allocation, whose executor pod set reserves
+  `spark.dynamicAllocation.maxExecutors`, the `Workload` records
+  `spark.dynamicAllocation.minExecutors` in its `spark.operator/kueue-pods-ready-executor`
+  annotation, and that many executors are enough. Kueue does not read the annotation, so a
+  pending `Workload` gets its change in place and keeps its position in the queue.
 * The `Workload` is released at the following points. Kueue would admit another workload into the
   quota which terminating pods still occupy, so the Operator deletes it only after the pods are
   gone, unless they are stuck terminating, and the resource keeps its state until then.
@@ -187,6 +192,9 @@ flowchart TD
     reactivated. The resource then moves to `Submitted` and is queued again with a new `Workload`,
     once `spec.suspend` is cleared if it is set. The `suspendReason` of the `Suspended` state,
     `SpecSuspend` or `KueueEviction`, tells the two causes apart.
+  * When a `SparkCluster` fails with `SchedulingFailure`, `ClusterCleanUpStep` releases the master
+    and workers which were requested before the failure, and then the `Workload`, before the
+    cluster moves to `ResourceReleased`.
   * When a `SparkCluster` is deleted, its `Workload` is garbage collected through its
     `ownerReference`, like the other resources of the cluster.
 * The Operator writes none of the `Workload` status which Kueue owns, such as the admission or the
@@ -315,7 +323,7 @@ stateDiagram-v2
     Submitted --> RunningHealthy
     Submitted --> SchedulingFailure
 
-    SchedulingFailure --> Failed
+    SchedulingFailure --> ResourceReleased : Resources released
 
     RunningHealthy --> Suspended : spec.suspend=true or Kueue eviction
     Suspended --> Submitted : spec.suspend=false or after Kueue eviction
@@ -323,7 +331,7 @@ stateDiagram-v2
 
     RunningHealthy --> [*]
     Suspended --> [*]
-    Failed --> [*]
+    ResourceReleased --> [*]
 ```
 
 * Spark clusters are expected to be always running after submitted, until they are suspended by
@@ -334,8 +342,13 @@ stateDiagram-v2
 * Likewise, a cluster stays in `Submitted` while it waits for the Kueue admission, or while it is
   held by `spec.suspend` before it ever ran. See
   [Kueue Admission and Workload Lifecycle](#kueue-admission-and-workload-lifecycle).
-* Apart from `spec.suspend` and a Kueue eviction, a cluster leaves `RunningHealthy`, `Suspended` or
-  `Failed` only when its custom resource is deleted. At that point, the K8s resources created for the cluster are
+* Apart from `spec.suspend` and a Kueue eviction, a cluster leaves `RunningHealthy` or `Suspended`
+  only when its custom resource is deleted. At that point, the K8s resources created for the cluster are
   garbage collected through their `ownerReference` to the `SparkCluster` custom resource.
-* A `Failed` cluster is not reconciled any further.
-* `ResourceReleased` exists in the API enum but is currently not used for clusters.
+* A cluster whose resources cannot be requested records the cause in `SchedulingFailure`, in which
+  `ClusterCleanUpStep` deletes by name what may have been requested, and releases the Kueue
+  `Workload` once the master and worker pods are gone. Then it moves to `ResourceReleased`, which
+  is not reconciled any further.
+* A cluster no longer enters `Failed`, which an earlier version entered after `SchedulingFailure`
+  without releasing the resources. Such a `Failed` cluster is not reconciled any further, so delete
+  it to release them.

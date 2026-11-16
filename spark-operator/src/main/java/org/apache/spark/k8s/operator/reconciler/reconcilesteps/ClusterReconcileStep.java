@@ -29,8 +29,8 @@ import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
 
 /** Basic reconcile step for cluster. */
 public abstract sealed class ClusterReconcileStep
-    permits ClusterInitStep, ClusterSuspendStep, ClusterTerminatedStep, ClusterUnknownStateStep,
-        ClusterValidateStep {
+    permits ClusterCleanUpStep, ClusterInitStep, ClusterSuspendStep, ClusterTerminatedStep,
+        ClusterUnknownStateStep, ClusterValidateStep {
   /**
    * Reconciles a specific step for a Spark cluster.
    *

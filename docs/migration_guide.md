@@ -45,6 +45,12 @@ affect building the project, CI, tests or examples.
   kubectl replace -f spark-kubernetes-operator/crds/
   ```
 
+- Since 1.1.0, the `v1` CRD of `SparkApplication` no longer has `sessionPersistence.idleTimeout` in
+  the `rules` of `spec.driverHttpRouteList[].httpRouteSpec` and
+  `spec.driverGrpcRouteList[].grpcRouteSpec`, since the Gateway API model of Kubernetes Client
+  7.9.0 (Gateway API 1.6.0) dropped it. Once the CRD is replaced, the API server drops the field
+  from the resources, so remove it from them. There is no way to restore it.
+
 ### Helm Chart
 
 - Since 1.1.0, `helm upgrade --reuse-values` from chart `1.8.0` fails, since it renders the new
@@ -82,6 +88,14 @@ affect building the project, CI, tests or examples.
   add `deletecollection` to it as well. To keep the driver service and the executor pods and
   configmaps, set `spark.kubernetes.driver.service.deleteOnTermination` and
   `spark.kubernetes.executor.deleteOnTermination` to `false`.
+- Since 1.1.0, the workload ClusterRole and Roles also grant `patch` on the `resize` subresource of
+  `pods`, and `get` on `pods` in the `metrics.k8s.io` API group. Spark drivers need them for
+  `org.apache.spark.scheduler.cluster.k8s.ExecutorResizePlugin` of Spark 4.2.0 or newer, which
+  reads the memory usage of the executor pods from the metrics API and raises their memory in
+  place. With 1.0, the plugin silently did nothing, since both requests were forbidden. If you
+  manage the workload Role or ClusterRole yourself, add them to it as well. To keep the rules of
+  1.0, set `workloadResources.clusterRole.create` and `workloadResources.role.create` to `false`,
+  and grant them with your own Role or ClusterRole.
 - Since 1.1.0, each option of `operatorDeployment.operatorPod.operatorContainer.jvmArgs` is passed
   to the operator JVM as its own argument. 1.0 passed the whole value as one argument, which the
   JVM took as a single `-Dfile.encoding` system property, so the other options had no effect. The
@@ -98,6 +112,13 @@ affect building the project, CI, tests or examples.
   ignored. If you added such files to the chart, prepend their content to
   `operatorConfiguration.log4j2.properties` and `operatorConfiguration.spark-operator.properties`
   respectively to restore the behavior before 1.1.0.
+- Since 1.1.0, the chart creates a sentinel in every namespace of
+  `workloadResources.sparkApplicationSentinel.sentinelNamespaces.data` and
+  `workloadResources.sparkClusterSentinel.sentinelNamespaces.data`. 1.0 rendered the sentinels of
+  each list into one YAML document, so only the one in the last namespace was created.
+  `helm upgrade` creates the others, and fails if one of these namespaces does not exist. The
+  operator health probe also checks the new sentinels in the namespaces which the operator
+  watches. To restore the behavior before 1.1.0, list only the last namespace.
 
 ### Operator
 
@@ -131,6 +152,11 @@ affect building the project, CI, tests or examples.
   services outside the cluster. To restore the behavior before 1.1.0, set
   `spark.kubernetes.operator.events.enabled` to `false`. See
   [Kubernetes Events](configuration.md#kubernetes-events) for details.
+- Since 1.1.0, `spark.redaction.regex` defaults to
+  `(?i)secret|password|token|access[.]?key|credential`, the default of Apache Spark 4.3.0, so the
+  operator also redacts the configuration properties whose keys or values contain `credential` in
+  its logs. To restore the behavior before 1.1.0, set it to
+  `(?i)secret|password|token|access[.]?key`.
 
 ### SparkApplication
 
@@ -159,6 +185,39 @@ affect building the project, CI, tests or examples.
   `driverStartTimeoutMillis` was disabled. Since `DriverStartTimedOut` is an infrastructure failure
   while the others are not, `restartPolicy: OnInfrastructureFailure` no longer restarts such an
   application. Use `OnFailure` to restart it.
+- Since 1.1.0, a `ClientMode` application fails once, and then terminates or restarts like any
+  other failed application. 1.0 failed it again on every reconciliation, so it could not be
+  deleted, and its status may have grown too large to update. If such an application still cannot
+  be deleted, remove its finalizer by hand, e.g.
+  `kubectl patch sparkapp <name> --type=merge -p '{"metadata":{"finalizers":null}}'`.
+- Since 1.1.0, only the driver container of the driver pod decides whether the application has
+  started, succeeded or failed. Like Apache Spark, it is the container of the driver pod template
+  which `spark.kubernetes.driver.podTemplateContainerName` names, or else its first container, or
+  `spark-kubernetes-driver` without a pod template. 1.0 considered all containers unless the
+  property was set, so an application moved to `Succeeded` or `Failed` as soon as a sidecar
+  container, e.g. a log collector or `istio-proxy`, exited, and its driver pod was deleted while
+  the driver was still running, unless `resourceRetainPolicy` retained it. Likewise, an
+  application with a sidecar container moves to `DriverStarted` when the driver container is ready
+  instead of any container, so a driver container whose image cannot be pulled ends in
+  `DriverStartTimedOut`, which `restartPolicy: OnInfrastructureFailure` restarts, instead of
+  `DriverReadyTimedOut`. An application whose sidecar container exits before the driver pod is
+  ready ends in `DriverReadyTimedOut` after `driverReadyTimeoutMillis`, instead of `Succeeded` or
+  `Failed` right away, since the pod does not become ready. If the driver container is not found,
+  e.g. since the first container of the pod template file of
+  `spark.kubernetes.driver.podTemplateFile` has another name, all containers are considered as in
+  1.0, so set `spark.kubernetes.driver.podTemplateContainerName` for such a pod template file.
+- Since 1.1.0, a sidecar container of the driver pod, i.e. an init container with
+  `restartPolicy: Always`, no longer fails the application when it exits with a non-zero code,
+  since Kubernetes restarts it and does not fail the pod for it.
+- Since 1.1.0, the operator builds the driver pod with Apache Spark 4.3.0 instead of 4.2.0,
+  whatever `spec.runtimeVersions.sparkVersion` is, so the driver container always takes its
+  `allowPrivilegeEscalation` from `spark.kubernetes.driver.securityContext.allowPrivilegeEscalation`,
+  which is `false` by default. 1.0 kept a `true` set by the driver pod template. To restore the
+  behavior before 1.1.0, set the property to `true` in `spec.sparkConf`.
+- Since 1.1.0, for the same reason, the `SPARK_USER` environment variable of the driver container
+  is `spec.proxyUser` if it is set. 1.0 always used the user of the operator process, e.g. `spark`.
+  To restore the behavior before 1.1.0, set `spark.kubernetes.driverEnv.SPARK_USER` to that user in
+  `spec.sparkConf`.
 
 ### SparkCluster
 
@@ -166,6 +225,9 @@ The changes of the master and worker resources below apply when the operator cre
 a `SparkCluster` created after the upgrade. A running `SparkCluster` keeps its resources until it
 is recreated, e.g. by suspending and resuming it with [`spec.suspend`](spark_custom_resources.md#suspend).
 
+- Since 1.1.0, the master and worker containers use the `apache/spark:4.3.0` image instead of
+  `apache/spark:4.2.0` when `spark.kubernetes.container.image` is not set in `spec.sparkConf`. To
+  restore the behavior before 1.1.0, set it to `apache/spark:4.2.0`.
 - Since 1.1.0, the workers start the external shuffle service by default, so that dynamic
   allocation works out of the box. To restore the behavior before 1.1.0, set
   `spark.shuffle.service.enabled` to `false` in `spec.sparkConf`.
@@ -184,9 +246,17 @@ is recreated, e.g. by suspending and resuming it with [`spec.suspend`](spark_cus
   server never answered, stays `Submitted` and is retried at the next reconciliation, instead of
   failing with `SchedulingFailure` and then `Failed`. A request which the API server rejected
   still fails the cluster.
-- Since 1.1.0, the message of the `Failed` state after `SchedulingFailure` is
-  `Cluster failed, since requesting its resources failed. See the preceding SchedulingFailure state for the cause.`
-  instead of `Cannot process cluster status.`.
+- Since 1.1.0, a cluster which fails with `SchedulingFailure`, e.g. since a `ResourceQuota` or an
+  admission webhook rejects one of its resources, deletes the resources which it may have requested
+  before the failure, i.e. the master and worker StatefulSets and Services, the NetworkPolicy, and
+  the HorizontalPodAutoscaler and PodDisruptionBudget of the workers. Then it moves to
+  `ResourceReleased` with the message
+  `Cluster failed, since requesting its resources failed, and they are released. See the preceding SchedulingFailure state for the cause.`
+  1.0 moved it to `Failed` with the message `Cannot process cluster status.` instead, and kept
+  them until the `SparkCluster` was deleted, e.g. a master which was requested before its workers
+  were rejected kept running. A tool which waits for `Failed` has to wait for `ResourceReleased`
+  instead. A `Failed` cluster which 1.0 left behind is not released, so delete it to release its
+  resources.
 
 ### Docker Image
 
@@ -211,3 +281,9 @@ is recreated, e.g. by suspending and resuming it with [`spec.suspend`](spark_cus
   instead.
 - Since 1.1.0, `ApplicationStateSummary` and `ClusterStateSummary` have the `Suspended` constant,
   so an exhaustive `switch` over either needs a case for it.
+- Since 1.1.0, `ModelUtils.findDriverMainContainerStatus` returns only the status of the driver
+  container, which it finds like Apache Spark, even if
+  `spark.kubernetes.driver.podTemplateContainerName` is not set. 1.0 returned the statuses of all
+  containers in that case, and none if the property named no container. Like Apache Spark, it also
+  ignores the property without a pod template. If the driver container is not found, it returns
+  the statuses of all containers.

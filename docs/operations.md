@@ -26,7 +26,7 @@ under the License.
   - k8s version >= 1.35 is recommended. Operator attempts to be as API compatible as possible, but
       patch support will not be performed on k8s versions that reached EOL.
 - Spark versions 4.0 or above.
-- Kueue version >= 0.20.0 is recommended when the Kueue integration is enabled.
+- Kueue version >= 0.20.0 is required when the Kueue integration is enabled.
 
 ## Optional Prerequisites
 
@@ -97,7 +97,7 @@ following table:
 |------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------|
 | image.repository                                                 | The image repository of spark-kubernetes-operator.                                                                                                                             | apache/spark-kubernetes-operator                                                                        |
 | image.pullPolicy                                                 | The image pull policy of spark-kubernetes-operator.                                                                                                                            | IfNotPresent                                                                                            |
-| image.tag                                                        | The image tag of spark-kubernetes-operator.                                                                                                                                    | 1.1.0-SNAPSHOT                                                                                          |
+| image.tag                                                        | The image tag of spark-kubernetes-operator.                                                                                                                                    | 1.2.0-SNAPSHOT                                                                                          |
 | image.digest                                                     | The image digest of spark-kubernetes-operator. If set then it takes precedence and the image tag will be ignored.                                                              |                                                                                                         |
 | imagePullSecrets                                                 | The image pull secrets of spark-kubernetes-operator.                                                                                                                           |                                                                                                         |
 | nameOverride                                                     | Override the chart name used in the names and labels of the created resources.                                                                                                 |                                                                                                         |
@@ -257,9 +257,9 @@ Check installation.
 
 ```bash
 $ helm list -A
-NAME      NAMESPACE REVISION UPDATED                              STATUS   CHART                               APP VERSION
-us-west-1 us-west-1 1        2026-05-06 10:00:00.000000 -0700 PDT deployed spark-kubernetes-operator-1.9.0-dev 1.1.0-SNAPSHOT
-us-west-2 us-west-2 1        2026-05-06 10:00:03.000000 -0700 PDT deployed spark-kubernetes-operator-1.9.0-dev 1.1.0-SNAPSHOT
+NAME      NAMESPACE REVISION UPDATED                              STATUS   CHART                                APP VERSION
+us-west-1 us-west-1 1        2026-05-06 10:00:00.000000 -0700 PDT deployed spark-kubernetes-operator-1.10.0-dev 1.2.0-SNAPSHOT
+us-west-2 us-west-2 1        2026-05-06 10:00:03.000000 -0700 PDT deployed spark-kubernetes-operator-1.10.0-dev 1.2.0-SNAPSHOT
 ```
 
 Launch `pi.yaml` at `us-west-1` and `us-west-2` namespaces.

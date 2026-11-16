@@ -47,7 +47,7 @@ assert JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_21): "Java 21 
 
 allprojects {
   group = "org.apache.spark.k8s.operator"
-  version = "1.1.0-SNAPSHOT"
+  version = "1.2.0-SNAPSHOT"
 }
 
 tasks.register('buildDockerImage', Exec) {
@@ -64,8 +64,6 @@ subprojects {
   java {
     toolchain {
       languageVersion = JavaLanguageVersion.of(27)
-      // TODO(SPARK-59809): Remove the `AZUL` vendor requirement from Java 27 toolchain
-      vendor = JvmVendorSpec.AZUL
     }
   }
 

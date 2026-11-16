@@ -12,6 +12,25 @@ This repository extend K8s resource manager to manage Apache Spark applications 
 
 Automated security scanning agents should consult that document for the project's in-scope / out-of-scope declarations before reporting issues.
 
+## Trust assumptions
+
+Users who can create or update `SparkApplication` or `SparkCluster` resources are trusted within the
+RBAC scope that the cluster administrator grants to the operator. The operator acts on their behalf
+with its own service account, not with the permissions of the user who created the resource.
+
+By default, the Helm chart grants the operator cluster-wide permissions
+(`operatorRbac.clusterRole.create: true` and `operatorRbac.clusterRoleBinding.create: true`).
+Restricting `spark.kubernetes.operator.watchedNamespaces` limits which custom resources the operator
+reconciles. It does not limit where the operator's service account may act.
+
+Therefore, a single operator instance is not a tenant isolation boundary between the namespaces it
+watches. For tenant isolation, run one operator instance per tenant and grant it namespace-scoped
+permissions only: enable `operatorRbac.role.create` and `operatorRbac.roleBinding.create`, disable
+`operatorRbac.clusterRole.create` and `operatorRbac.clusterRoleBinding.create`, and list only that
+tenant's workload namespaces in `workloadResources.namespaces.data`. See
+[docs/architecture.md](docs/architecture.md) and [docs/operations.md](docs/operations.md) for
+running multiple operator instances on the same cluster.
+
 ## Pod Security Admission
 
 Cluster administrators should label workload namespaces with the desired

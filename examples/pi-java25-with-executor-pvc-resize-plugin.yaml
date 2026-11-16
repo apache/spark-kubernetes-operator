@@ -22,7 +22,7 @@ spec:
   jars: "local:///opt/spark/examples/jars/spark-examples.jar"
   sparkConf:
     spark.kubernetes.authenticate.driver.serviceAccountName: "spark"
-    spark.kubernetes.container.image: "apache/spark:4.2.0-scala-java25"
+    spark.kubernetes.container.image: "apache/spark:4.3.0-scala-java25"
     spark.kubernetes.executor.pvc.resizeInterval: "5min"
     spark.kubernetes.executor.pvc.resizeThreshold: "0.5"
     spark.kubernetes.executor.pvc.resizeFactor: "1.0"
@@ -35,4 +35,4 @@ spec:
     resourceRetainPolicy: OnFailure
     ttlAfterStopMillis: 10000
   runtimeVersions:
-    sparkVersion: "4.2.0"
+    sparkVersion: "4.3.0"

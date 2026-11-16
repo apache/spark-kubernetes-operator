@@ -40,11 +40,9 @@ class UtilsTest {
     assertEquals(
         org.apache.spark.internal.config.package$.MODULE$.SECRET_REDACTION_PATTERN().key(),
         SparkOperatorConf.REDACTION_REGEX.getKey());
+    // The default pattern of Apache Spark 4.3.0
     assertEquals(
-        org.apache.spark.internal.config.package$
-            .MODULE$
-            .SECRET_REDACTION_PATTERN()
-            .defaultValueString(),
+        "(?i)secret|password|token|access[.]?key|credential",
         SparkOperatorConf.REDACTION_REGEX.getDefaultValue());
   }
 
@@ -61,12 +59,14 @@ class UtilsTest {
             "spark.ssl.keyStorePassword", "sensitive-keystore-value",
             "my.service.token", "sensitive-service-value",
             "custom.api.secret", "sensitive-api-value",
+            "my.service.credential", "sensitive-credential-value",
             "spark.kubernetes.operator.name", "spark-kubernetes-operator");
     Map<String, String> redacted = Utils.redactSensitiveInfo(props);
     assertEquals(REDACTED_TEXT, redacted.get("spark.hadoop.fs.s3a.access.key"));
     assertEquals(REDACTED_TEXT, redacted.get("spark.ssl.keyStorePassword"));
     assertEquals(REDACTED_TEXT, redacted.get("my.service.token"));
     assertEquals(REDACTED_TEXT, redacted.get("custom.api.secret"));
+    assertEquals(REDACTED_TEXT, redacted.get("my.service.credential"));
     assertEquals("spark-kubernetes-operator", redacted.get("spark.kubernetes.operator.name"));
     assertEquals(props.keySet(), redacted.keySet());
   }

@@ -50,6 +50,13 @@ public final class Constants {
   /** The label for the Kueue WorkloadPriorityClass name. */
   public static final String LABEL_WORKLOAD_PRIORITY_CLASS = "kueue.x-k8s.io/priority-class";
 
+  /**
+   * The annotation which lets Kueue queue a SparkApplication with dynamic allocation by reserving
+   * the quota of `spark.dynamicAllocation.maxExecutors` executors, if set to `true`.
+   */
+  public static final String ANNOTATION_KUEUE_RESERVE_MAX_EXECUTORS =
+      "spark.operator/kueue-reserve-max-executors";
+
   /** The API group for Kueue resources. */
   public static final String KUEUE_API_GROUP = "kueue.x-k8s.io";
 
@@ -304,12 +311,12 @@ public final class Constants {
       "Cluster is submitted again after its eviction by Kueue.";
 
   /**
-   * Message indicating that the cluster failed after SchedulingFailure, whose message tells the
-   * cause.
+   * Message indicating that the resources of the cluster are released after SchedulingFailure,
+   * whose message tells the cause.
    */
-  public static final String CLUSTER_FAILED_AFTER_SCHEDULING_FAILURE_MESSAGE =
-      "Cluster failed, since requesting its resources failed. See the preceding "
-          + "SchedulingFailure state for the cause.";
+  public static final String CLUSTER_RELEASED_AFTER_SCHEDULING_FAILURE_MESSAGE =
+      "Cluster failed, since requesting its resources failed, and they are released. See the "
+          + "preceding SchedulingFailure state for the cause.";
 
   /** Message indicating that the cluster status cannot be processed. */
   public static final String UNKNOWN_CLUSTER_STATE_MESSAGE = "Cannot process cluster status.";

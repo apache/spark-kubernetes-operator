@@ -64,6 +64,12 @@ public final class EventUtils {
    */
   public static final String REASON_CLUSTER_REQUEST_FAILED = "ClusterRequestFailed";
 
+  /**
+   * Reason for an event describing a failure to release the resources of a SparkCluster which
+   * failed with SchedulingFailure, which is retried.
+   */
+  public static final String REASON_CLUSTER_RELEASE_FAILED = "ClusterReleaseFailed";
+
   /** Reason for an event describing that a resource is held by {@code spec.suspend}. */
   public static final String REASON_SUSPEND_HELD = "SuspendHeld";
 

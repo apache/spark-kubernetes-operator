@@ -59,10 +59,12 @@ public final class AppValidateStep extends AppReconcileStep {
       log.warn("Spark application found with empty status. Resetting to initial state.");
       return attemptStatusUpdate(context, statusRecorder, new ApplicationStatus(), proceed());
     }
-    if (isClientMode(app)) {
-      return failWith(context, statusRecorder, "Client mode is not supported yet.");
-    }
+    // Only before the driver of an attempt is requested. Otherwise, an application which failed the
+    // validation would be failed again on every reconciliation, and never cleaned up or deleted.
     if (app.getStatus().getCurrentState().getCurrentStateSummary().isInitializing()) {
+      if (isClientMode(app)) {
+        return failWith(context, statusRecorder, "Client mode is not supported yet.");
+      }
       String routeFailure = validateGatewayRoutes(app.getSpec());
       if (routeFailure != null) {
         return failWith(context, statusRecorder, routeFailure);

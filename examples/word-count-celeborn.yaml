@@ -34,4 +34,4 @@ spec:
     spark.sql.adaptive.localShuffleReader.enabled: "false"
     spark.serializer: "org.apache.spark.serializer.KryoSerializer"
   runtimeVersions:
-    sparkVersion: "4.2.0"
+    sparkVersion: "4.3.0"

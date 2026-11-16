@@ -22,7 +22,7 @@ metadata:
   namespace: ($SPARK_APP_NAMESPACE)
 spec:
   runtimeVersions:
-    sparkVersion: "4.2.0"
+    sparkVersion: "4.3.0"
   clusterTolerations:
     instanceConfig:
       initWorkers: 1

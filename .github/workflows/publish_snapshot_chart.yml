@@ -34,9 +34,9 @@ jobs:
       uses: actions/setup-java@v6
       with:
         java-version: 25
-        distribution: 'zulu'
+        distribution: 'temurin'
     - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb
+      uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6
       with:
         cache-provider: basic
     - name: Build Operator
@@ -56,7 +56,7 @@ jobs:
         helm repo index tmp/$DIR --url https://nightlies.apache.org/spark/$DIR
         helm show chart tmp/$DIR/spark-kubernetes-operator-*.tgz
     - name: Upload
-      uses: burnett01/rsync-deployments@155b6d6c1219ab2224c20c58d423a3f1b850395f
+      uses: burnett01/rsync-deployments@2cbb5ed94b73d111d07a40b071b1c7d3c0272435
       with:
         switches: -avzr
         path: build-tools/helm/tmp/*

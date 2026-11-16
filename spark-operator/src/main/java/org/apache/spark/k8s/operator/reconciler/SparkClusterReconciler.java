@@ -192,8 +192,9 @@ public class SparkClusterReconciler implements Reconciler<SparkCluster>, Cleaner
       case Submitted -> steps.add(new ClusterInitStep());
       // Spark Cluster is supposed to run infinitely, until it is suspended by spec.suspend.
       case RunningHealthy, Suspended -> steps.add(new ClusterSuspendStep());
-      case SchedulingFailure, Failed, ResourceReleased ->
-          steps.add(new ClusterUnknownStateStep());
+      // A cluster which failed to request its resources releases them and terminates.
+      case SchedulingFailure -> steps.add(new ClusterCleanUpStep());
+      case Failed, ResourceReleased -> steps.add(new ClusterUnknownStateStep());
     }
     return steps;
   }

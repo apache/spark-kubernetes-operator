@@ -23,7 +23,7 @@ metadata:
 spec:
   suspend: true
   runtimeVersions:
-    sparkVersion: "4.2.0"
+    sparkVersion: "4.3.0"
   clusterTolerations:
     instanceConfig:
       initWorkers: 1

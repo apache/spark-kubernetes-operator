@@ -24,7 +24,7 @@ metadata:
     kueue.x-k8s.io/queue-name: ($LOCAL_QUEUE)
 spec:
   runtimeVersions:
-    sparkVersion: "4.2.0"
+    sparkVersion: "4.3.0"
   clusterTolerations:
     instanceConfig:
       initWorkers: 1

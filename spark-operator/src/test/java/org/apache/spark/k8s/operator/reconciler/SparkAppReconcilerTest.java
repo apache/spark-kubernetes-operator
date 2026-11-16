@@ -93,6 +93,7 @@ import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppSuspendStep;
 import org.apache.spark.k8s.operator.reconciler.reconcilesteps.AppValidateStep;
 import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 import org.apache.spark.k8s.operator.spec.ApplicationTolerations;
+import org.apache.spark.k8s.operator.spec.DeploymentMode;
 import org.apache.spark.k8s.operator.spec.RestartConfig;
 import org.apache.spark.k8s.operator.spec.RestartPolicy;
 import org.apache.spark.k8s.operator.status.ApplicationState;
@@ -333,6 +334,68 @@ class SparkAppReconcilerTest {
       assertEquals(
           ApplicationStateSummary.ScheduledToRestart,
           app.getStatus().getCurrentState().getCurrentStateSummary());
+    }
+  }
+
+  @SuppressWarnings("PMD.UnusedLocalVariable")
+  @Test
+  void testReconcileClientModeAppDoesNotLoop() throws Exception {
+    app.getSpec().setDeploymentMode(DeploymentMode.ClientMode);
+    try (MockedConstruction<SparkAppContext> mockAppContext =
+        mockConstruction(
+            SparkAppContext.class,
+            (mock, context) -> {
+              when(mock.getResource()).thenReturn(app);
+              when(mock.getClient()).thenReturn(mockClient);
+            })) {
+      // Submitted moves to Failed once.
+      reconciler.reconcile(app, mockContext);
+      assertEquals(
+          ApplicationStateSummary.Failed,
+          app.getStatus().getCurrentState().getCurrentStateSummary());
+
+      // A Failed application terminates as usual instead of failing again.
+      reconciler.reconcile(app, mockContext);
+      assertEquals(
+          List.of(
+              ApplicationStateSummary.Submitted,
+              ApplicationStateSummary.Failed,
+              ApplicationStateSummary.ResourceReleased),
+          app.getStatus().getStateTransitionHistory().values().stream()
+              .map(ApplicationState::getCurrentStateSummary)
+              .toList());
+      verify(mockRecorder, times(2)).persistStatus(any(), any());
+
+      // A terminated application neither persists a new status nor requeues.
+      var control = reconciler.reconcile(app, mockContext);
+      assertTrue(control.getScheduleDelay().isEmpty());
+      verify(mockRecorder, times(2)).persistStatus(any(), any());
+    }
+  }
+
+  @SuppressWarnings("PMD.UnusedLocalVariable")
+  @Test
+  void testCleanupClientModeApp() {
+    app.getSpec().setDeploymentMode(DeploymentMode.ClientMode);
+    try (MockedConstruction<SparkAppContext> mockAppContext =
+        mockConstruction(
+            SparkAppContext.class,
+            (mock, context) -> {
+              when(mock.getResource()).thenReturn(app);
+              when(mock.getClient()).thenReturn(mockClient);
+            })) {
+      // delete app which failed the validation
+      app.setStatus(
+          app.getStatus().appendNewState(new ApplicationState(ApplicationStateSummary.Failed, "")));
+      DeleteControl deleteControl = reconciler.cleanup(app, mockContext);
+      assertFalse(deleteControl.isRemoveFinalizer());
+      assertEquals(
+          ApplicationStateSummary.ResourceReleased,
+          app.getStatus().getCurrentState().getCurrentStateSummary());
+
+      // proceed delete for terminated app
+      deleteControl = reconciler.cleanup(app, mockContext);
+      assertTrue(deleteControl.isRemoveFinalizer());
     }
   }
 

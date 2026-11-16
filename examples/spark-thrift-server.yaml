@@ -24,7 +24,7 @@ spec:
     spark.kubernetes.executor.podNamePrefix: "spark-thrift-server"
     spark.scheduler.mode: "FAIR"
   runtimeVersions:
-    sparkVersion: "4.2.0"
+    sparkVersion: "4.3.0"
   applicationTolerations:
     restartConfig:
       restartPolicy: Always

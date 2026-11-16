@@ -28,4 +28,4 @@ spec:
     # spark.kubernetes.executor.pod.featureSteps: "org.apache.spark.deploy.k8s.features.VolcanoFeatureStep"
     spark.kubernetes.scheduler.name: "volcano"
   runtimeVersions:
-    sparkVersion: "4.2.0"
+    sparkVersion: "4.3.0"

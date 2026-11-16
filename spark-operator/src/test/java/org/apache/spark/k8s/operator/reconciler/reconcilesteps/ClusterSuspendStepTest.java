@@ -24,6 +24,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -427,6 +428,41 @@ class ClusterSuspendStepTest {
     verifyNoInteractions(recorder);
     // A failure which may clear on its own is not reported
     verify(mockContext, never()).getEventRecorder();
+  }
+
+  @ParameterizedTest
+  @CsvSource({"false, autoscaling", "false, policy", "true, autoscaling", "true, policy"})
+  void failedReleaseOfResourceWithoutQuotaDoesNotHoldKueueWorkload(
+      boolean evicted, String apiGroup) {
+    SparkCluster cluster =
+        evicted
+            ? buildEvictedCluster(false)
+            : buildKueueCluster(ClusterStateSummary.Suspended, true);
+    KubernetesClient client = spy(kubernetesClient);
+    // e.g. an operator which may not access HorizontalPodAutoscalers or PodDisruptionBudgets, since
+    // none of its clusters asks for them
+    KubernetesClientException forbidden = new KubernetesClientException("forbidden", 403, null);
+    if ("autoscaling".equals(apiGroup)) {
+      doThrow(forbidden).when(client).autoscaling();
+    } else {
+      doThrow(forbidden).when(client).policy();
+    }
+    stubContext(cluster, client);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+    createWorkload(cluster, evicted ? evictedStatus("Preempted") : admittedStatus());
+
+    Assertions.assertEquals(
+        ReconcileProgress.completeAndDefaultRequeue(),
+        new ClusterSuspendStep().reconcile(mockContext, recorder));
+
+    // The resource holds no quota, so the Workload is released even though it is not deleted, e.g.
+    // for the workload which preempted the cluster, while the cluster stays Suspended and reports
+    // the failure
+    Assertions.assertNull(getWorkload());
+    verifyNoInteractions(recorder);
+    ArgumentCaptor<EventRecord> event = ArgumentCaptor.forClass(EventRecord.class);
+    verify(eventRecorder).record(event.capture());
+    Assertions.assertEquals(EventUtils.REASON_SUSPEND_RELEASE_FAILED, event.getValue().reason());
   }
 
   @ParameterizedTest

@@ -24,4 +24,4 @@ spec:
     spark.kubernetes.executor.podNamePrefix: "spark-connect-server"
     spark.scheduler.mode: "FAIR"
   runtimeVersions:
-    sparkVersion: "4.2.0"
+    sparkVersion: "4.3.0"

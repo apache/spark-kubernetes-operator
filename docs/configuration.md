@@ -96,7 +96,7 @@ replacing its `message`. A repeat carrying the same `message` may be paced by
 | Type | Reason |
 |---|---|
 | `Warning` | `SparkApplication`: `SchedulingFailure`, `Failed`, `DriverEvicted`, `DriverStartTimedOut`, `DriverReadyTimedOut`, `ExecutorsStartTimedOut`, `RunningWithBelowThresholdExecutors`, `TerminatedWithoutReleaseResources` |
-| `Warning` | `SparkCluster`: `SchedulingFailure`, `Failed` |
+| `Warning` | `SparkCluster`: `SchedulingFailure` |
 | `Normal` | All other states, e.g. `ScheduledToRestart`, `DriverRequested`, `DriverStarted`, `DriverReady`, `InitializedBelowThresholdExecutors`, `RunningHealthy`, `RunningWithPartialCapacity`, `Succeeded`, `ResourceReleased` and `Suspended` |
 
 The initial `Submitted` status of a new resource is not persisted to the API server on its own, so
@@ -113,6 +113,7 @@ In addition, the operator publishes the following `Warning` events.
 | `StatusUpdateFailed` | A status patch is rejected. Transport-level errors are skipped. |
 | `KueueAdmissionRequestFailed` | Creating, reading or deleting a stale Kueue `Workload` fails, or the driver or master cannot be read before the admission is requested. Transport-level errors are skipped and retried every 5 seconds, while a persistent failure is retried with the default interval. |
 | `ClusterRequestFailed` | Applying the Services, StatefulSets, NetworkPolicy, HorizontalPodAutoscaler or PodDisruptionBudget of a `SparkCluster` fails in a way which may yet succeed, such as a throttled request or an internal server error from an admission webhook, so it is retried with the default interval instead of failing the cluster. Transport-level errors are skipped. |
+| `ClusterReleaseFailed` | Deleting the StatefulSets, Services, NetworkPolicy, HorizontalPodAutoscaler or PodDisruptionBudget, or the Kueue `Workload` of a `SparkCluster` which failed with `SchedulingFailure` fails, or its pods cannot be listed. A failure which may clear on its own, such as a timeout, is skipped. Every failure is retried with the default interval, and the cluster stays in `SchedulingFailure` until it succeeds. |
 | `SuspendReleaseFailed` | Deleting the driver pod (`SparkApplication`), the master and worker StatefulSets or the HorizontalPodAutoscaler or PodDisruptionBudget of the workers (`SparkCluster`), or the Kueue `Workload` of a resource suspended while running fails, or its pods cannot be listed. A failure which may clear on its own, such as a timeout, is skipped. Every failure is retried with the default interval. |
 | `SuspendCheckFailed` | The driver of a suspended `SparkApplication`, or the master of a suspended `SparkCluster` which has not started yet, cannot be read to check whether it was requested, so the resource is neither held, which would release its Kueue `Workload`, nor started. Transport-level errors and throttled requests are skipped. Every such failure is retried with the default interval. While the failure lasts, it is republished on every reconciliation, subject to [`minIntervalSeconds`](#event-frequency). Once the check succeeds again, the next `SuspendHeld` event is published even within that interval, so that it supersedes this one. |
 | `KueueResourceFlavorReadFailed` | Reading the `ResourceFlavor`s which Kueue assigned to an admitted `Workload` fails, so the node selector and the tolerations of the flavors cannot be applied. Transport-level errors are skipped and retried every 5 seconds, while a persistent failure is retried with the default interval. |
@@ -219,7 +220,7 @@ and `spark.kubernetes.executor.secretKeyRef.[EnvName]`. To keep the details of f
 resource status and the operator log only, exclude their reasons, e.g. as follows.
 
 ```properties
-spark.kubernetes.operator.events.excludedReasons=SchedulingFailure,ReconcileError,CleanupError,StatusUpdateFailed,ClusterRequestFailed,SuspendCheckFailed,SuspendReleaseFailed,Kueue.*Failed
+spark.kubernetes.operator.events.excludedReasons=SchedulingFailure,ReconcileError,CleanupError,StatusUpdateFailed,ClusterRequestFailed,ClusterReleaseFailed,SuspendCheckFailed,SuspendReleaseFailed,Kueue.*Failed
 ```
 
 ## Metrics
