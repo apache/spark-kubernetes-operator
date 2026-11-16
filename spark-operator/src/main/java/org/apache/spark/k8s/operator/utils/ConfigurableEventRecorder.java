@@ -24,6 +24,7 @@ import static org.apache.spark.k8s.operator.config.SparkOperatorConf.KUBERNETES_
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.KUBERNETES_EVENTS_MIN_INTERVAL_SECONDS;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -78,8 +79,12 @@ public class ConfigurableEventRecorder implements EventRecorder {
   /** Monotonic time source, in nanoseconds, so that a wall clock adjustment cannot stall events. */
   private final LongSupplier nanoTime;
 
-  /** Time at which each {@link RecordedEvent} was last recorded, see {@link #withinMinInterval}. */
-  private final Map<RecordedEvent, Long> lastRecorded = new ConcurrentHashMap<>();
+  /**
+   * Time at which each {@link RecordedEvent} was last recorded, by the uid of the resource it is
+   * about, see {@link #withinMinInterval}. Each inner map is only touched inside a {@code compute}
+   * of its uid, so it needs no synchronization of its own.
+   */
+  private final Map<String, Map<RecordedEvent, Long>> lastRecorded = new ConcurrentHashMap<>();
 
   /** Time at which {@link #lastRecorded} was last swept, see {@link #sweep}. */
   private final AtomicLong lastSweep;
@@ -189,12 +194,14 @@ public class ConfigurableEventRecorder implements EventRecorder {
    * what the last one said is free of new information. A reason whose message varies between
    * repeats, such as one embedding the cause of a failure, keeps reaching the user.
    *
-   * <p>A {@code Normal} event which repeats after a {@code Warning} event on the same resource is
-   * not free of new information either: it says that the condition the warning reported is over,
-   * e.g. a suspended resource held again once its driver or master can be read, while the warning
-   * would otherwise stay the newest event until the interval ends. So a published warning drops
-   * the {@code Normal} entries of its resource. That scans the map, which is kept to the events of
-   * the last interval, only when a warning is published, not on every event.
+   * <p>An event which repeats after an event of the other type on the same resource is not free of
+   * new information either. A {@code Normal} one says that the condition the warning reported is
+   * over, e.g. a suspended resource held again once its driver or master can be read, while the
+   * warning would otherwise stay the newest event until the interval ends. A {@code Warning} one
+   * says that the condition is back, e.g. the same failure after a recovery, which the warning it
+   * repeats no longer says. So a published event drops the entries of the other type of its
+   * resource. The entries are kept by uid, so that only the events of that one resource are
+   * scanned, however many resources published events in the last interval.
    *
    * @param event The event to record.
    * @param uid The uid of the resource the event is about, null when it cannot be determined.
@@ -216,20 +223,19 @@ public class ConfigurableEventRecorder implements EventRecorder {
     sweep(now, minInterval);
     AtomicBoolean admitted = new AtomicBoolean();
     // compute is atomic per key, so concurrent reconcile threads cannot both admit the same event.
+    RecordedEvent key = new RecordedEvent(event.type(), event.reason(), event.message());
     lastRecorded.compute(
-        new RecordedEvent(uid, event.type(), event.reason(), event.message()),
-        (key, previous) -> {
+        uid,
+        (id, events) -> {
+          Map<RecordedEvent, Long> recorded = events == null ? new HashMap<>() : events;
+          Long previous = recorded.get(key);
           if (previous == null || now - previous >= minInterval) {
             admitted.set(true);
-            return now;
+            recorded.keySet().removeIf(other -> other.type() != key.type());
+            recorded.put(key, now);
           }
-          return previous;
+          return recorded;
         });
-    if (admitted.get() && event.type() == EventType.WARNING) {
-      lastRecorded
-          .keySet()
-          .removeIf(key -> key.type() == EventType.NORMAL && key.uid().equals(uid));
-    }
     return !admitted.get();
   }
 
@@ -263,7 +269,14 @@ public class ConfigurableEventRecorder implements EventRecorder {
     long previous = lastSweep.get();
     // Only the thread that wins the compareAndSet sweeps, the others carry on recording.
     if (now - previous >= minInterval && lastSweep.compareAndSet(previous, now)) {
-      lastRecorded.entrySet().removeIf(entry -> now - entry.getValue() >= minInterval);
+      for (String uid : lastRecorded.keySet()) {
+        lastRecorded.computeIfPresent(
+            uid,
+            (id, events) -> {
+              events.values().removeIf(recordedAt -> now - recordedAt >= minInterval);
+              return events.isEmpty() ? null : events;
+            });
+      }
     }
   }
 
@@ -274,7 +287,7 @@ public class ConfigurableEventRecorder implements EventRecorder {
    * @return The number of tracked events.
    */
   int trackedEventCount() {
-    return lastRecorded.size();
+    return lastRecorded.values().stream().mapToInt(Map::size).sum();
   }
 
   private static String uidOf(Context<?> context) {
@@ -298,8 +311,8 @@ public class ConfigurableEventRecorder implements EventRecorder {
     }
   }
 
-  /** Identity of an event for the purpose of the minimum interval. */
-  private record RecordedEvent(String uid, EventType type, String reason, String message) {}
+  /** Identity of an event of one resource for the purpose of the minimum interval. */
+  private record RecordedEvent(EventType type, String reason, String message) {}
 
   private record BoundRecorder(EventRecorder delegate, Context<?> context)
       implements ResourceEventRecorder {

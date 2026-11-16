@@ -34,6 +34,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
 import java.net.SocketException;
 import java.time.Duration;
 import java.time.Instant;
@@ -598,6 +599,28 @@ class AppInitStepTest {
     Assertions.assertEquals(
         ApplicationStateSummary.Submitted,
         application.getStatus().getCurrentState().getCurrentStateSummary());
+  }
+
+  @Test
+  void suspendedAppWithBrokenConnectionPublishesNoEvent() {
+    // A request which got no response, e.g. a broken connection, is classified by its cause. It is
+    // transport level, so no event is written to an API server which is already failing.
+    AppInitStep appInitStep = new AppInitStep();
+    SparkAppContext mockContext = mock(SparkAppContext.class);
+    SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+    SparkApplication application = new SparkApplication();
+    application.setMetadata(applicationMetadata);
+    application.getSpec().setSuspend(true);
+    when(mockContext.getResource()).thenReturn(application);
+    when(mockContext.getCurrentAttemptDriverPod())
+        .thenThrow(new KubernetesClientException("broken", new IOException("Connection reset")));
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+
+    ReconcileProgress progress = appInitStep.reconcile(mockContext, recorder);
+
+    Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
+    verifyNoInteractions(recorder);
+    verifyNoInteractions(eventRecorder);
   }
 
   @ParameterizedTest

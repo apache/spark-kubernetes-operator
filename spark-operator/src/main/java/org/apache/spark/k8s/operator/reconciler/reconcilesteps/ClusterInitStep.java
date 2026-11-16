@@ -20,6 +20,8 @@
 package org.apache.spark.k8s.operator.reconciler.reconcilesteps;
 
 import static org.apache.spark.k8s.operator.Constants.CLUSTER_READY_MESSAGE;
+import static org.apache.spark.k8s.operator.Constants.CLUSTER_REQUEUED_MESSAGE;
+import static org.apache.spark.k8s.operator.Constants.CLUSTER_RESUMED_MESSAGE;
 import static org.apache.spark.k8s.operator.Constants.CLUSTER_SCHEDULE_FAILURE_MESSAGE;
 import static org.apache.spark.k8s.operator.Constants.CLUSTER_SUSPENDED_MESSAGE;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.KUEUE_ENABLED;
@@ -31,10 +33,8 @@ import static org.apache.spark.k8s.operator.utils.SparkExceptionUtils.buildGener
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
 import java.util.Optional;
 
-import io.fabric8.kubernetes.api.model.OwnerReference;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.apps.StatefulSet;
 import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicy;
@@ -50,6 +50,7 @@ import org.apache.spark.k8s.operator.status.ClusterState;
 import org.apache.spark.k8s.operator.status.ClusterStatus;
 import org.apache.spark.k8s.operator.status.SuspendReason;
 import org.apache.spark.k8s.operator.utils.EventUtils;
+import org.apache.spark.k8s.operator.utils.ModelUtils;
 import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 import org.apache.spark.k8s.operator.utils.SparkClusterStatusRecorder;
 
@@ -266,19 +267,22 @@ public final class ClusterInitStep extends ClusterReconcileStep {
   }
 
   /**
-   * Checks whether the cluster has had no state but its initial Submitted state, which is never
-   * persisted while it is suspended. A cluster resumed from Suspended or queued again after a Kueue
-   * eviction has persisted another Submitted state instead, at a later key, since the keys of the
-   * state transition history keep increasing even when the history is trimmed. Only a cluster in
-   * its initial submission may have a master which was never requested, so only it looks the
-   * master up while suspended. A change which persists another state before the master is
-   * requested must keep this check in step with it.
+   * Checks whether the cluster is in its initial submission, as opposed to resumed from Suspended
+   * or queued again after a Kueue eviction. The initial Submitted state is never persisted while
+   * the cluster is suspended, whereas {@code ClusterSuspendStep} persists a Submitted state with
+   * {@code CLUSTER_RESUMED_MESSAGE} or {@code CLUSTER_REQUEUED_MESSAGE} for the others. Only a
+   * cluster in its initial submission may have a master which was never requested, so only it looks
+   * the master up while suspended. Any other Submitted state counts as initial, so that a change
+   * which persists another state before the master is requested makes the cluster look the master
+   * up, which holds it if the master is absent, rather than showing a cluster which never started
+   * as released.
    *
    * @param cluster The SparkCluster.
    * @return True if the cluster is in its initial submission, false otherwise.
    */
   private static boolean isInitialSubmission(SparkCluster cluster) {
-    return cluster.getStatus().getStateTransitionHistory().lastKey() == 0L;
+    String message = cluster.getStatus().getCurrentState().getMessage();
+    return !CLUSTER_RESUMED_MESSAGE.equals(message) && !CLUSTER_REQUEUED_MESSAGE.equals(message);
   }
 
   /**
@@ -299,14 +303,6 @@ public final class ClusterInitStep extends ClusterReconcileStep {
     // The name alone is not enough: a StatefulSet left by a deleted SparkCluster of the same
     // name, which is still being garbage collected, was not requested by this one, and would
     // otherwise move a recreated cluster which never ran to Suspended.
-    return master != null && isOwnedBy(master, context.getResource());
-  }
-
-  private static boolean isOwnedBy(StatefulSet statefulSet, SparkCluster cluster) {
-    String uid = cluster.getMetadata().getUid();
-    List<OwnerReference> ownerReferences = statefulSet.getMetadata().getOwnerReferences();
-    return uid != null
-        && ownerReferences != null
-        && ownerReferences.stream().anyMatch(reference -> uid.equals(reference.getUid()));
+    return master != null && ModelUtils.isOwnedBy(master, context.getResource());
   }
 }

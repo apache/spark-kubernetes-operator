@@ -26,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -403,6 +404,33 @@ class ConfigurableEventRecorderTest {
     verify(delegate).record(otherHeld, other);
     verify(delegate).record(failed, context);
     verify(delegate).record(heldAgain, context);
+    verifyNoMoreInteractions(delegate);
+  }
+
+  @Test
+  void publishesARepeatedWarningAfterANormalEventOnTheSameResource() {
+    // The same failure after a recovery is not a repeat: the Normal event in between said that the
+    // condition was over, so the warning says that it is back.
+    setMinIntervalSeconds(300L);
+    Context<?> context = contextOf("uid-1");
+    Context<?> other = contextOf("uid-2");
+    EventRecord failed = EventRecord.warning("SuspendCheckFailed", "boom");
+    EventRecord held = EventRecord.normal("SuspendHeld", "held");
+    EventRecord failedAgain = EventRecord.warning("SuspendCheckFailed", "boom");
+
+    timedRecorder.record(failed, context);
+    timedRecorder.record(failed, other);
+    elapseSeconds(60L);
+    timedRecorder.record(held, context);
+    elapseSeconds(60L);
+    timedRecorder.record(failedAgain, context);
+    timedRecorder.record(EventRecord.warning("SuspendCheckFailed", "boom"), context);
+    // Another resource is not affected by the recovery
+    timedRecorder.record(EventRecord.warning("SuspendCheckFailed", "boom"), other);
+
+    verify(delegate, times(2)).record(failed, context);
+    verify(delegate).record(failed, other);
+    verify(delegate).record(held, context);
     verifyNoMoreInteractions(delegate);
   }
 

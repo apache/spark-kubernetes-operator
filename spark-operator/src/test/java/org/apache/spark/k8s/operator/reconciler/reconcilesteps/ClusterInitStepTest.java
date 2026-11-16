@@ -32,6 +32,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
@@ -824,6 +825,30 @@ class ClusterInitStepTest {
   }
 
   @Test
+  void leftoverMasterOfDeletedClusterDoesNotBypassKueueAdmission() {
+    // A StatefulSet of the same name left by a deleted SparkCluster, which is still being garbage
+    // collected, was not requested by this cluster, so this one still requests its admission
+    // instead of applying the flavors of a Workload which it never had.
+    ClusterInitStep clusterInitStep = new ClusterInitStep();
+    SparkClusterContext mockContext = mock(SparkClusterContext.class);
+    SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
+    SparkCluster cluster = buildKueueCluster();
+    StatefulSet leftover = statefulSet("cluster1-master");
+    leftover.getMetadata().getOwnerReferences().get(0).setUid("deleted-uid");
+    kubernetesClient.resource(leftover).create();
+    when(mockContext.getResource()).thenReturn(cluster);
+    when(mockContext.getClient()).thenReturn(kubernetesClient);
+    when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+
+    clusterInitStep.reconcile(mockContext, recorder);
+
+    Assertions.assertNotNull(getWorkload());
+    verify(mockContext, never()).getMasterServiceSpec();
+    verifyNoInteractions(recorder);
+  }
+
+  @Test
   @SuppressWarnings("unchecked")
   void masterRequestedBeforeBypassesKueueAdmission() {
     ClusterInitStep clusterInitStep = new ClusterInitStep();
@@ -1128,6 +1153,30 @@ class ClusterInitStepTest {
     Assertions.assertEquals(
         ClusterStateSummary.Submitted,
         cluster.getStatus().getCurrentState().getCurrentStateSummary());
+  }
+
+  @Test
+  void suspendedClusterWithBrokenConnectionPublishesNoEvent() {
+    // A request which got no response, e.g. a broken connection, is classified by its cause. It is
+    // transport level, so no event is written to an API server which is already failing.
+    ClusterInitStep clusterInitStep = new ClusterInitStep();
+    SparkClusterContext mockContext = mock(SparkClusterContext.class);
+    SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
+    SparkCluster cluster = buildKueueCluster();
+    cluster.getSpec().setSuspend(true);
+    KubernetesClient mockClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    when(mockClient.resource(masterStatefulSetSpec).get())
+        .thenThrow(new KubernetesClientException("broken", new IOException("Connection reset")));
+    when(mockContext.getResource()).thenReturn(cluster);
+    when(mockContext.getClient()).thenReturn(mockClient);
+    when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+
+    ReconcileProgress progress = clusterInitStep.reconcile(mockContext, recorder);
+
+    Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), progress);
+    verifyNoInteractions(recorder);
+    verifyNoInteractions(eventRecorder);
   }
 
   @ParameterizedTest
