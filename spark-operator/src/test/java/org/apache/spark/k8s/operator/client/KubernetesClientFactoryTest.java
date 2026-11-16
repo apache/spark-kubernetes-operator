@@ -22,11 +22,13 @@ package org.apache.spark.k8s.operator.client;
 import static java.net.HttpURLConnection.HTTP_UNAVAILABLE;
 import static org.apache.spark.k8s.operator.metrics.source.KubernetesMetricsInterceptor.HTTP_REQUEST_FAILED_GROUP;
 import static org.apache.spark.k8s.operator.metrics.source.KubernetesMetricsInterceptor.HTTP_REQUEST_GROUP;
+import static org.apache.spark.k8s.operator.utils.TestUtils.meterCount;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 
+import com.codahale.metrics.MetricRegistry;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.server.mock.EnableKubernetesMockClient;
@@ -46,13 +48,14 @@ class KubernetesClientFactoryTest {
   @Test
   void withoutRetriesSendsAFailedRequestOnceThroughTheSameInterceptors() {
     KubernetesMetricsInterceptor interceptor = new KubernetesMetricsInterceptor();
+    MetricRegistry metrics = interceptor.metricRegistry();
     try (KubernetesClient given =
         KubernetesClientFactory.buildKubernetesClient(
             List.of(interceptor), client.getConfiguration())) {
       // The given client retries a request which fails once, and the retry finds no ConfigMap.
       server.expect().get().withPath(CONFIG_MAP_PATH).andReturn(HTTP_UNAVAILABLE, null).once();
       assertThat(given.configMaps().inNamespace("ns-1").withName("cm-1").get()).isNull();
-      assertThat(meterCount(interceptor, HTTP_REQUEST_GROUP)).isEqualTo(2L);
+      assertThat(meterCount(metrics, HTTP_REQUEST_GROUP)).isEqualTo(2L);
 
       server.expect().get().withPath(CONFIG_MAP_PATH).andReturn(HTTP_UNAVAILABLE, null).once();
       KubernetesClient withoutRetries = KubernetesClientFactory.withoutRetries(given);
@@ -62,21 +65,17 @@ class KubernetesClientFactoryTest {
               KubernetesClientException.class,
               e -> assertThat(e.getCode()).isEqualTo(HTTP_UNAVAILABLE));
       // The single request is still measured by the interceptor of the given client.
-      assertThat(meterCount(interceptor, HTTP_REQUEST_GROUP)).isEqualTo(3L);
+      assertThat(meterCount(metrics, HTTP_REQUEST_GROUP)).isEqualTo(3L);
 
       // A connection failure is counted as a request but not as failed, since fabric8 reports it
       // to the interceptors only while the request has a retry left.
-      long failed = meterCount(interceptor, HTTP_REQUEST_FAILED_GROUP);
+      long failed = meterCount(metrics, HTTP_REQUEST_FAILED_GROUP);
       server.shutdown();
       assertThatThrownBy(
               () -> withoutRetries.configMaps().inNamespace("ns-1").withName("cm-1").get())
           .isInstanceOf(KubernetesClientException.class);
-      assertThat(meterCount(interceptor, HTTP_REQUEST_GROUP)).isEqualTo(4L);
-      assertThat(meterCount(interceptor, HTTP_REQUEST_FAILED_GROUP)).isEqualTo(failed);
+      assertThat(meterCount(metrics, HTTP_REQUEST_GROUP)).isEqualTo(4L);
+      assertThat(meterCount(metrics, HTTP_REQUEST_FAILED_GROUP)).isEqualTo(failed);
     }
-  }
-
-  private static long meterCount(KubernetesMetricsInterceptor interceptor, String name) {
-    return interceptor.metricRegistry().meter(name).getCount();
   }
 }

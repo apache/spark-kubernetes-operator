@@ -30,6 +30,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
@@ -62,6 +64,7 @@ public class KubernetesMetricsInterceptor implements Interceptor, Source {
   private final Meter requestRateMeter;
   private final Meter responseRateMeter;
   private final Map<String, Meter> namespacedResourceMethodMeters = new ConcurrentHashMap<>();
+  private final AtomicBoolean missingTimedConsumerLogged = new AtomicBoolean();
 
   /** Constructs a new KubernetesMetricsInterceptor, initializing metric registries. */
   public KubernetesMetricsInterceptor() {
@@ -92,6 +95,25 @@ public class KubernetesMetricsInterceptor implements Interceptor, Source {
   }
 
   /**
+   * Called before a request is sent, to allow wrapping the consumer of the response body.
+   *
+   * <p>Wraps the consumer to carry the request start time, which {@link #after(HttpRequest,
+   * HttpResponse, AsyncBody.Consumer)} finds with {@link AsyncBody.Consumer#unwrap(Class)}. fabric8
+   * passes to it the outermost consumer after all interceptors have wrapped it, so an interceptor
+   * which wraps the consumer after this one must delegate {@code unwrap(...)}, or no latency is
+   * recorded and a warning is logged once.
+   *
+   * @param consumer the consumer of the response body
+   * @param request the request about to be sent
+   * @return the consumer carrying the request start time
+   */
+  @Override
+  public AsyncBody.Consumer<List<ByteBuffer>> consumer(
+      AsyncBody.Consumer<List<ByteBuffer>> consumer, HttpRequest request) {
+    return new TimedConsumer(consumer);
+  }
+
+  /**
    * Called before a request to allow for the manipulation of the request
    *
    * @param builder used to modify the request
@@ -103,21 +125,38 @@ public class KubernetesMetricsInterceptor implements Interceptor, Source {
   }
 
   /**
-   * Called after a non-WebSocket HTTP response is received. The body might or might not be already
-   * consumed.
+   * Called after an HTTP response is received. The body might or might not be already consumed.
    *
    * <p>Should be used to analyze response codes and headers, original response shouldn't be
    * altered.
    *
+   * <p>fabric8 also calls this for a WebSocket upgrade response with a {@code null} consumer, and
+   * again for an HTTP request re-sent after another interceptor's {@link
+   * Interceptor#afterFailure(BasicBuilder, HttpResponse, RequestTags)} returns {@code true}, e.g.
+   * fabric8's {@code TokenRefreshInterceptor} on a {@code 401} or {@code
+   * BackwardsCompatibilityInterceptor} for a legacy API version. The two values of a request
+   * re-sent this way add up to the time from sending it until the re-sent response arrives.
+   *
    * @param request the original request sent to the server.
    * @param response the response received from the server.
+   * @param consumer the consumer of the response body, or {@code null} for a WebSocket upgrade.
    */
   @Override
   public void after(
       HttpRequest request,
       HttpResponse<?> response,
       AsyncBody.Consumer<List<ByteBuffer>> consumer) {
-    updateResponseMetrics(response, System.nanoTime());
+    Objects.requireNonNull(response);
+    TimedConsumer timedConsumer = consumer == null ? null : consumer.unwrap(TimedConsumer.class);
+    if (timedConsumer != null) {
+      responseLatency.update(timedConsumer.restart());
+    } else if (consumer != null && missingTimedConsumerLogged.compareAndSet(false, true)) {
+      log.warn(
+          "No response latency is recorded, because an interceptor added after {} wraps the "
+              + "response body consumer without delegating AsyncBody.Consumer#unwrap(...).",
+          KubernetesMetricsInterceptor.class.getSimpleName());
+    }
+    updateResponseMetrics(response);
   }
 
   /**
@@ -184,11 +223,8 @@ public class KubernetesMetricsInterceptor implements Interceptor, Source {
         });
   }
 
-  private void updateResponseMetrics(HttpResponse response, long startTimeNanos) {
-    Objects.requireNonNull(response);
-    final long latency = System.nanoTime() - startTimeNanos;
+  private void updateResponseMetrics(HttpResponse response) {
     responseRateMeter.mark();
-    responseLatency.update(latency);
     getMeterByResponseCode(response.code()).mark();
     if (KUBERNETES_CLIENT_METRICS_GROUP_BY_RESPONSE_CODE_GROUP_ENABLED.getValue()) {
       int index = response.code() / 100 - 1;
@@ -231,6 +267,40 @@ public class KubernetesMetricsInterceptor implements Interceptor, Source {
       return Optional.of(Pair.of(segments.get(index + 1), segments.get(index + 2)));
     } else {
       return Optional.empty();
+    }
+  }
+
+  /**
+   * Consumer of a response body which carries the start time of its request, restarted at each
+   * response so that the values of a re-sent request add up to its latency.
+   */
+  private static final class TimedConsumer implements AsyncBody.Consumer<List<ByteBuffer>> {
+    private static final AtomicLongFieldUpdater<TimedConsumer> START_TIME_NANOS =
+        AtomicLongFieldUpdater.newUpdater(TimedConsumer.class, "startTimeNanos");
+
+    private final AsyncBody.Consumer<List<ByteBuffer>> delegate;
+    // Updated through START_TIME_NANOS, so that each request needs only one allocation.
+    @SuppressWarnings({"PMD.AvoidUsingVolatile", "PMD.UnusedPrivateField"})
+    private volatile long startTimeNanos = System.nanoTime();
+
+    TimedConsumer(AsyncBody.Consumer<List<ByteBuffer>> delegate) {
+      this.delegate = delegate;
+    }
+
+    long restart() {
+      long now = System.nanoTime();
+      return now - START_TIME_NANOS.getAndSet(this, now);
+    }
+
+    @Override
+    public void consume(List<ByteBuffer> value, AsyncBody asyncBody) throws Exception {
+      delegate.consume(value, asyncBody);
+    }
+
+    @Override
+    public <U> U unwrap(Class<U> target) {
+      U self = AsyncBody.Consumer.super.unwrap(target);
+      return self != null ? self : delegate.unwrap(target);
     }
   }
 }
