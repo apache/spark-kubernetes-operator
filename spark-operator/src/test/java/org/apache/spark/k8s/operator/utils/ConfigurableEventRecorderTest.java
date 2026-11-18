@@ -26,7 +26,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -428,9 +427,10 @@ class ConfigurableEventRecorderTest {
     // Another resource is not affected by the recovery
     timedRecorder.record(EventRecord.warning("SuspendCheckFailed", "boom"), other);
 
-    verify(delegate, times(2)).record(failed, context);
+    verify(delegate).record(failed, context);
     verify(delegate).record(failed, other);
     verify(delegate).record(held, context);
+    verify(delegate).record(failedAgain, context);
     verifyNoMoreInteractions(delegate);
   }
 
