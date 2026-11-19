@@ -49,9 +49,11 @@ import org.mockito.ArgumentCaptor;
 import org.apache.spark.k8s.operator.SparkAppResourceSpec;
 import org.apache.spark.k8s.operator.SparkAppSubmissionWorker;
 import org.apache.spark.k8s.operator.SparkApplication;
+import org.apache.spark.k8s.operator.config.SparkOperatorConf;
 import org.apache.spark.k8s.operator.kueue.KueuePodSetInfo;
 import org.apache.spark.k8s.operator.spec.BaseApplicationTemplateSpec;
 import org.apache.spark.k8s.operator.utils.ModelUtils;
+import org.apache.spark.k8s.operator.utils.TestUtils;
 
 class SparkAppResourceSpecFactoryTest {
 
@@ -167,6 +169,38 @@ class SparkAppResourceSpecFactoryTest {
     // The temp files are cleaned up, and the SparkApplication is not modified
     templateFiles.values().forEach(path -> assertFalse(Files.exists(Path.of(path)), path));
     assertEquals(originalSpec, ModelUtils.objectMapper.writeValueAsString(app.getSpec()));
+  }
+
+  @Test
+  void testBuildResourceSpecPinsPinnedAttemptToItsZone() {
+    SparkApplication app = new SparkApplication();
+    app.setMetadata(
+        new ObjectMetaBuilder().withNamespace("foo").withName("bar-app").withUid("uid").build());
+    app.setStatus(app.getStatus().pinCurrentAttemptToZone("us-east-1a"));
+    TestUtils.setConfigKey(
+        SparkOperatorConf.ZONE_PINNING_SPARK_CONF, "spark.celeborn.tags.tagsExpr=az-{zone}");
+    try {
+      SparkAppResourceSpec mockSpec = mock(SparkAppResourceSpec.class);
+      Pod driver = new PodBuilder().withNewMetadata().endMetadata().build();
+      when(mockSpec.getConfiguredPod()).thenReturn(driver);
+      ArgumentCaptor<Map<String, String>> captor = ArgumentCaptor.forClass(Map.class);
+      SparkAppSubmissionWorker mockWorker = mock(SparkAppSubmissionWorker.class);
+      when(mockWorker.getResourceSpec(any(), any(), captor.capture())).thenReturn(mockSpec);
+
+      SparkAppResourceSpecFactory.buildResourceSpec(
+          app, mock(KubernetesClient.class), mockWorker, Map.of());
+
+      Map<String, String> props = captor.getValue();
+      assertEquals(
+          "us-east-1a",
+          props.get("spark.kubernetes.driver.node.selector.topology.kubernetes.io/zone"));
+      assertEquals(
+          "us-east-1a",
+          props.get("spark.kubernetes.executor.node.selector.topology.kubernetes.io/zone"));
+      assertEquals("az-us-east-1a", props.get("spark.celeborn.tags.tagsExpr"));
+    } finally {
+      TestUtils.setConfigKey(SparkOperatorConf.ZONE_PINNING_SPARK_CONF, "");
+    }
   }
 
   private static Toleration toleration(String key) {

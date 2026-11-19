@@ -16723,6 +16723,8 @@ spec:
                           type: integer
                         schedulingFailureRestartCounter:
                           type: integer
+                        zone:
+                          type: string
                       type: object
                     stateTransitionHistory:
                       additionalProperties:
@@ -18181,6 +18183,8 @@ spec:
                           type: integer
                         schedulingFailureRestartCounter:
                           type: integer
+                        zone:
+                          type: string
                       type: object
                     stateTransitionHistory:
                       additionalProperties:

@@ -52,6 +52,14 @@ public class ApplicationAttemptInfo extends BaseAttemptInfo {
   protected long schedulingFailureRestartCounter;
 
   /**
+   * The topology zone which the driver and executors of this attempt are pinned to, or null if the
+   * attempt is not pinned. It is chosen once per attempt, before the driver is requested.
+   *
+   * @since 1.1.0
+   */
+  protected String zone;
+
+  /**
    * Constructs a new ApplicationAttemptInfo with all counters set to zero.
    *
    * @since 0.8.0
@@ -63,18 +71,46 @@ public class ApplicationAttemptInfo extends BaseAttemptInfo {
   }
 
   /**
-   * Constructs a new ApplicationAttemptInfo with the given id and restart counters.
+   * Constructs a new ApplicationAttemptInfo with the given id and restart counters, which is not
+   * pinned to a zone.
    *
    * @since 0.8.0
+   */
+  public ApplicationAttemptInfo(
+      long id,
+      long restartCounter,
+      long failureRestartCounter,
+      long schedulingFailureRestartCounter) {
+    this(id, restartCounter, failureRestartCounter, schedulingFailureRestartCounter, null);
+  }
+
+  /**
+   * Constructs a new ApplicationAttemptInfo with the given id, restart counters and zone.
+   *
+   * @since 1.1.0
    */
   @JsonCreator
   public ApplicationAttemptInfo(
       @JsonProperty("id") long id,
       @JsonProperty("restartCounter") long restartCounter,
       @JsonProperty("failureRestartCounter") long failureRestartCounter,
-      @JsonProperty("schedulingFailureRestartCounter") long schedulingFailureRestartCounter) {
+      @JsonProperty("schedulingFailureRestartCounter") long schedulingFailureRestartCounter,
+      @JsonProperty("zone") String zone) {
     super(id, restartCounter);
     this.failureRestartCounter = failureRestartCounter;
     this.schedulingFailureRestartCounter = schedulingFailureRestartCounter;
+    this.zone = zone;
+  }
+
+  /**
+   * Returns a copy of this attempt info which is pinned to the given zone.
+   *
+   * @param pinnedZone The zone of the attempt.
+   * @return A new ApplicationAttemptInfo with the same id and counters.
+   * @since 1.1.0
+   */
+  public ApplicationAttemptInfo withZone(String pinnedZone) {
+    return new ApplicationAttemptInfo(
+        id, restartCounter, failureRestartCounter, schedulingFailureRestartCounter, pinnedZone);
   }
 }

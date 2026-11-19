@@ -202,6 +202,94 @@ class AppInitStepTest {
   }
 
   @Test
+  void zoneIsPinnedBeforeTheDriverIsRequested() {
+    TestUtils.setConfigKey(SparkOperatorConf.ZONE_PINNING_ZONES, "us-east-1a");
+    try {
+      AppInitStep appInitStep = new AppInitStep();
+      SparkAppContext mocksparkAppContext = mock(SparkAppContext.class);
+      SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+      SparkApplication application = new SparkApplication();
+      application.setMetadata(applicationMetadata);
+      when(mocksparkAppContext.getResource()).thenReturn(application);
+      when(mocksparkAppContext.getCachedApplications()).thenReturn(Stream.empty());
+      when(mocksparkAppContext.getEventRecorder()).thenReturn(eventRecorder);
+      when(mocksparkAppContext.getClient()).thenReturn(kubernetesClient);
+      ArgumentCaptor<ApplicationStatus> statusCaptor =
+          ArgumentCaptor.forClass(ApplicationStatus.class);
+      when(recorder.persistStatus(any(), statusCaptor.capture())).thenReturn(true);
+
+      ReconcileProgress reconcileProgress = appInitStep.reconcile(mocksparkAppContext, recorder);
+
+      Assertions.assertEquals(ReconcileProgress.completeAndImmediateRequeue(), reconcileProgress);
+      ApplicationStatus persisted = statusCaptor.getValue();
+      Assertions.assertEquals(
+          "us-east-1a", persisted.getCurrentAttemptSummary().getAttemptInfo().getZone());
+      Assertions.assertEquals(
+          ApplicationStateSummary.Submitted,
+          persisted.getCurrentState().getCurrentStateSummary());
+      verify(mocksparkAppContext, never()).getDriverPodSpec();
+      verify(mocksparkAppContext, never()).getDriverPreResourcesSpec();
+      ArgumentCaptor<EventRecord> eventCaptor = ArgumentCaptor.forClass(EventRecord.class);
+      verify(eventRecorder).record(eventCaptor.capture());
+      Assertions.assertEquals(EventUtils.REASON_ZONE_PINNED, eventCaptor.getValue().reason());
+    } finally {
+      TestUtils.setConfigKey(SparkOperatorConf.ZONE_PINNING_ZONES, "");
+    }
+  }
+
+  @Test
+  void zoneIsPinnedAgainAfterFailedStatusUpdate() {
+    TestUtils.setConfigKey(SparkOperatorConf.ZONE_PINNING_ZONES, "us-east-1a");
+    try {
+      AppInitStep appInitStep = new AppInitStep();
+      SparkAppContext mocksparkAppContext = mock(SparkAppContext.class);
+      SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+      SparkApplication application = new SparkApplication();
+      application.setMetadata(applicationMetadata);
+      when(mocksparkAppContext.getResource()).thenReturn(application);
+      when(mocksparkAppContext.getCachedApplications()).thenReturn(Stream.empty());
+      when(mocksparkAppContext.getEventRecorder()).thenReturn(eventRecorder);
+      when(recorder.persistStatus(any(), any())).thenReturn(false);
+
+      ReconcileProgress reconcileProgress = appInitStep.reconcile(mocksparkAppContext, recorder);
+
+      Assertions.assertEquals(ReconcileProgress.completeAndImmediateRequeue(), reconcileProgress);
+      verify(mocksparkAppContext, never()).getDriverPodSpec();
+      verifyNoInteractions(eventRecorder);
+    } finally {
+      TestUtils.setConfigKey(SparkOperatorConf.ZONE_PINNING_ZONES, "");
+    }
+  }
+
+  @Test
+  void pinnedAttemptRequestsTheDriver() {
+    TestUtils.setConfigKey(SparkOperatorConf.ZONE_PINNING_ZONES, "us-east-1a");
+    try {
+      AppInitStep appInitStep = new AppInitStep();
+      SparkAppContext mocksparkAppContext = mock(SparkAppContext.class);
+      SparkAppStatusRecorder recorder = mock(SparkAppStatusRecorder.class);
+      SparkApplication application = new SparkApplication();
+      application.setMetadata(applicationMetadata);
+      application.setStatus(application.getStatus().pinCurrentAttemptToZone("us-east-1b"));
+      when(mocksparkAppContext.getResource()).thenReturn(application);
+      when(mocksparkAppContext.getDriverPreResourcesSpec()).thenReturn(List.of());
+      when(mocksparkAppContext.getDriverPodSpec()).thenReturn(driverPodSpec);
+      when(mocksparkAppContext.getDriverResourcesSpec()).thenReturn(List.of());
+      when(mocksparkAppContext.getClient()).thenReturn(kubernetesClient);
+      when(recorder.persistStatus(any(), any())).thenReturn(true);
+
+      ReconcileProgress reconcileProgress = appInitStep.reconcile(mocksparkAppContext, recorder);
+
+      Assertions.assertEquals(ReconcileProgress.completeAndDefaultRequeue(), reconcileProgress);
+      Assertions.assertNotNull(
+          kubernetesClient.pods().inNamespace("default").withName("driver-pod").get());
+      verify(mocksparkAppContext, never()).getCachedApplications();
+    } finally {
+      TestUtils.setConfigKey(SparkOperatorConf.ZONE_PINNING_ZONES, "");
+    }
+  }
+
+  @Test
   void createdPreResourcesPatchedWithOwnerReferencesToDriver() {
     AppInitStep appInitStep = new AppInitStep();
     SparkAppContext mocksparkAppContext = mock(SparkAppContext.class);

@@ -104,6 +104,9 @@ public final class EventUtils {
    */
   public static final String REASON_KUEUE_DISABLED = "KueueDisabled";
 
+  /** Reason for an event describing the zone which an application attempt is pinned to. */
+  public static final String REASON_ZONE_PINNED = "ZonePinned";
+
   /** Maximum number of characters an event message may have, including the ellipsis. */
   static final int MAX_MESSAGE_LENGTH = 1024;
 

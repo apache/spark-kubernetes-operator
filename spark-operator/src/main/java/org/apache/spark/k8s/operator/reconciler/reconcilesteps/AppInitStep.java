@@ -55,6 +55,7 @@ import org.apache.spark.k8s.operator.status.ApplicationStatus;
 import org.apache.spark.k8s.operator.utils.EventUtils;
 import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
 import org.apache.spark.k8s.operator.utils.SparkAppStatusRecorder;
+import org.apache.spark.k8s.operator.utils.ZonePinningUtils;
 
 /** Request all driver and its resources when starting an attempt. */
 @Slf4j
@@ -123,9 +124,10 @@ public final class AppInitStep extends AppReconcileStep {
       }
     }
     try {
-      Optional<ReconcileProgress> kueueHold = holdForKueueAdmission(context, app, driverRequested);
-      if (kueueHold.isPresent()) {
-        return kueueHold.get();
+      Optional<ReconcileProgress> hold =
+          holdBeforeDriverRequest(context, statusRecorder, app, driverRequested);
+      if (hold.isPresent()) {
+        return hold.get();
       }
       List<HasMetadata> preResourcesSpec = context.getDriverPreResourcesSpec();
       for (HasMetadata resource : preResourcesSpec) {
@@ -184,6 +186,60 @@ public final class AppInitStep extends AppReconcileStep {
                 new ApplicationState(
                     ApplicationStateSummary.DriverRequested, Constants.DRIVER_REQUESTED_MESSAGE));
     return attemptStatusUpdate(context, statusRecorder, updatedStatus, completeAndDefaultRequeue());
+  }
+
+  /**
+   * Holds the driver request for the Kueue admission, see {@link #holdForKueueAdmission}, and then
+   * for pinning the current attempt to a zone, see {@link #pinToZone}.
+   *
+   * @param context The SparkAppContext for the application.
+   * @param statusRecorder The SparkAppStatusRecorder for recording status updates.
+   * @param app The SparkApplication.
+   * @param driverRequested Whether the driver was found requested already in this reconcile.
+   * @return The progress to return instead of requesting the driver, or empty to proceed.
+   */
+  private Optional<ReconcileProgress> holdBeforeDriverRequest(
+      SparkAppContext context,
+      SparkAppStatusRecorder statusRecorder,
+      SparkApplication app,
+      boolean driverRequested) {
+    Optional<ReconcileProgress> kueueHold = holdForKueueAdmission(context, app, driverRequested);
+    if (kueueHold.isPresent() || !ZonePinningUtils.needsZone(app)) {
+      return kueueHold;
+    }
+    return Optional.of(pinToZone(context, statusRecorder));
+  }
+
+  /**
+   * Chooses the zone of the current attempt and records it in the status before any driver
+   * resource is requested, so that every resource spec built for the attempt from then on, which
+   * the driver and the executor pod template are created from, gets the same zone. The driver is
+   * requested in the next reconcile, which reads the recorded zone, since the resource spec of this
+   * context may have been built without it already.
+   *
+   * @param context The SparkAppContext for the application.
+   * @param statusRecorder The SparkAppStatusRecorder for recording status updates.
+   * @return The progress which requeues the application right away.
+   * @throws IllegalArgumentException if the zone annotation is not a valid label value.
+   */
+  private ReconcileProgress pinToZone(
+      SparkAppContext context, SparkAppStatusRecorder statusRecorder) {
+    SparkApplication app = context.getResource();
+    String zone = ZonePinningUtils.chooseZone(app, context.getCachedApplications());
+    ApplicationStatus updatedStatus = app.getStatus().pinCurrentAttemptToZone(zone);
+    if (!statusRecorder.persistStatus(context, updatedStatus)) {
+      log.warn("Failed to persist the zone of the attempt, will retry in next reconcile attempt");
+      return completeAndImmediateRequeue();
+    }
+    EventUtils.normal(
+        context.getEventRecorder(),
+        EventUtils.REASON_ZONE_PINNED,
+        "Pinned the driver and executors of attempt "
+            + app.getStatus().getCurrentAttemptSummary().getAttemptInfo().getId()
+            + " to zone "
+            + zone
+            + ".");
+    return completeAndImmediateRequeue();
   }
 
   /**

@@ -57,6 +57,12 @@ public final class Constants {
   public static final String ANNOTATION_KUEUE_RESERVE_MAX_EXECUTORS =
       "spark.operator/kueue-reserve-max-executors";
 
+  /**
+   * The annotation which pins every attempt of a SparkApplication to the given topology zone,
+   * whether or not `spark.kubernetes.operator.zonePinning.zones` is set.
+   */
+  public static final String ANNOTATION_ZONE = "spark.operator/zone";
+
   /** The API group for Kueue resources. */
   public static final String KUEUE_API_GROUP = "kueue.x-k8s.io";
 

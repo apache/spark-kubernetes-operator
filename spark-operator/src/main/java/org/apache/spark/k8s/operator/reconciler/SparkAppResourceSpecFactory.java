@@ -50,6 +50,7 @@ import org.apache.spark.k8s.operator.spec.ApplicationSpec;
 import org.apache.spark.k8s.operator.spec.BaseApplicationTemplateSpec;
 import org.apache.spark.k8s.operator.utils.ModelUtils;
 import org.apache.spark.k8s.operator.utils.ReconcilerUtils;
+import org.apache.spark.k8s.operator.utils.ZonePinningUtils;
 
 /** Factory for creating SparkAppResourceSpec objects. */
 @Slf4j
@@ -130,6 +131,7 @@ public final class SparkAppResourceSpecFactory {
               confOverrides.put("spark.kubernetes.executor.label." + k, v);
             });
     confOverrides.put("spark.kubernetes.namespace", app.getMetadata().getNamespace());
+    confOverrides.putAll(ZonePinningUtils.sparkConfOverrides(app));
     if (app.getSpec().getSparkConf().containsKey("spark.app.name")) {
       confOverrides.put("spark.app.name", app.getMetadata().getName());
     }

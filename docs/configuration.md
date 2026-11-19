@@ -128,6 +128,7 @@ events, since the resource stays in its initializing state without a state trans
 | `SuspendHeld` | The resource is held by `spec.suspend`, so the driver (or master and worker) is not requested. It is republished every 30 minutes while the hold lasts (`spark.kubernetes.operator.reconciler.suspendHoldRequeueIntervalSeconds`), so a repeat bumps the `count` of the one event rather than creating another. A repeat is also subject to [`minIntervalSeconds`](#event-frequency). Suspending a queued resource releases its Kueue `Workload`, and the message says so, since the `KueueAdmissionPending` event it was queued with outlives that `Workload`; that repeat carries a new `message`, so it is published even within the interval. |
 | `KueueAdmissionPending` | The Kueue `Workload` waits for the admission, for its reactivation, or for the requeue backoff after an eviction. It is republished while it waits, subject to [`minIntervalSeconds`](#event-frequency), so a repeat bumps the `count` of the one event rather than creating another. |
 | `KueueAdmitted` | Kueue admitted the `Workload`, so the driver (or master and worker) is requested. |
+| `ZonePinned` | An attempt of a `SparkApplication` is pinned to a topology zone before its driver is requested. See [Zone Pinning](spark_custom_resources.md#zone-pinning). |
 
 The `reason` values and the reporting component are stable, while the `message` values may change
 between releases. Note that Kubernetes retains events only for a limited time (one hour by
