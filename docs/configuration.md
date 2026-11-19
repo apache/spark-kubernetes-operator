@@ -169,10 +169,11 @@ such a repeat merely bumps the `count` of the one `Event` object, yet still cost
 write on the API server. A repeat whose `message` differs is always published, because the
 operator rewrites the `message` of the existing `Event`, so the current cause of a failure and the
 `SuspendHeld` message that retracts a stale `KueueAdmissionPending` keep reaching the user.
-Likewise, a `Normal` event which repeats after a `Warning` event on the same resource is published,
-since it says that the warning no longer applies, e.g. `SuspendHeld` once the check which
-`SuspendCheckFailed` reported succeeds again. The resource is identified by its `metadata.uid`, so
-a resource that reuses the name of a deleted one starts over.
+Likewise, an event which repeats after an event of the other type on the same resource is
+published. A `Normal` event says that the warning no longer applies, e.g. `SuspendHeld` once the
+check which `SuspendCheckFailed` reported succeeds again, and a `Warning` event says that the
+condition is back, e.g. the same failure after a recovery. The resource is identified by its
+`metadata.uid`, so a resource that reuses the name of a deleted one starts over.
 
 An event is only published when a reconciliation emits it, so the effective period is this
 interval **rounded up to the next repeat**, not the interval itself. With the defaults,
