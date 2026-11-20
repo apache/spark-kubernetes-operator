@@ -952,4 +952,60 @@ class ApplicationStatusTest {
                 ApplicationState.class)
             .getSuspendReason());
   }
+
+  @Test
+  void testPinCurrentAttemptToZoneKeepsStateAndCounters() {
+    ApplicationStatus status =
+        new ApplicationStatus().appendNewState(new ApplicationState(Succeeded, "bar"));
+    RestartConfig restartConfig = new RestartConfig();
+    restartConfig.setRestartPolicy(RestartPolicy.Always);
+    restartConfig.setMaxRestartAttempts(3L);
+    ApplicationStatus restarted = status.terminateOrRestart(restartConfig, "restart", false);
+
+    ApplicationStatus pinned = restarted.pinCurrentAttemptToZone("us-east-1a");
+
+    assertEquals(restarted.getCurrentState(), pinned.getCurrentState());
+    assertEquals(restarted.getStateTransitionHistory(), pinned.getStateTransitionHistory());
+    assertEquals(restarted.getPreviousAttemptSummary(), pinned.getPreviousAttemptSummary());
+    ApplicationAttemptInfo before = restarted.getCurrentAttemptSummary().getAttemptInfo();
+    ApplicationAttemptInfo after = pinned.getCurrentAttemptSummary().getAttemptInfo();
+    assertEquals(before.getId(), after.getId());
+    assertEquals(before.getRestartCounter(), after.getRestartCounter());
+    assertEquals(before.getFailureRestartCounter(), after.getFailureRestartCounter());
+    assertEquals(
+        before.getSchedulingFailureRestartCounter(), after.getSchedulingFailureRestartCounter());
+    assertNull(before.getZone());
+    assertEquals("us-east-1a", after.getZone());
+  }
+
+  @Test
+  void testNextAttemptIsNotPinned() {
+    RestartConfig restartConfig = new RestartConfig();
+    restartConfig.setRestartPolicy(RestartPolicy.Always);
+    restartConfig.setMaxRestartAttempts(3L);
+    ApplicationStatus pinned =
+        new ApplicationStatus()
+            .pinCurrentAttemptToZone("us-east-1a")
+            .appendNewState(new ApplicationState(Succeeded, "bar"));
+
+    ApplicationStatus restarted = pinned.terminateOrRestart(restartConfig, "restart", false);
+
+    assertNull(restarted.getCurrentAttemptSummary().getAttemptInfo().getZone());
+    assertEquals(
+        "us-east-1a", restarted.getPreviousAttemptSummary().getAttemptInfo().getZone());
+  }
+
+  @Test
+  void testZoneSerialization() throws Exception {
+    ObjectMapper mapper = new ObjectMapper();
+    ApplicationAttemptInfo unpinned = new ApplicationAttemptInfo(1L, 2L, 3L, 4L);
+    String unpinnedJson = mapper.writeValueAsString(unpinned);
+    assertFalse(unpinnedJson.contains("zone"));
+    assertEquals(unpinned, mapper.readValue(unpinnedJson, ApplicationAttemptInfo.class));
+
+    ApplicationAttemptInfo pinned = unpinned.withZone("us-east-1b");
+    String pinnedJson = mapper.writeValueAsString(pinned);
+    assertTrue(pinnedJson.contains("\"zone\":\"us-east-1b\""));
+    assertEquals(pinned, mapper.readValue(pinnedJson, ApplicationAttemptInfo.class));
+  }
 }

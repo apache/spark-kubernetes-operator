@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Pod;
@@ -206,6 +207,17 @@ public class SparkAppContext extends BaseContext<SparkApplication> {
         sparkApplication.getMetadata().getName(),
         LABEL_SPARK_ROLE_DRIVER_VALUE,
         LABEL_SPARK_ROLE_EXECUTOR_VALUE);
+  }
+
+  /**
+   * Returns the SparkApplications in the informer cache of the operator, which covers every
+   * watched namespace.
+   *
+   * @return A Stream of the cached SparkApplications.
+   */
+  @SuppressWarnings("unchecked")
+  public Stream<SparkApplication> getCachedApplications() {
+    return ((Context<SparkApplication>) josdkContext).getPrimaryCache().list();
   }
 
   private SparkAppResourceSpec getSecondaryResourceSpec() {

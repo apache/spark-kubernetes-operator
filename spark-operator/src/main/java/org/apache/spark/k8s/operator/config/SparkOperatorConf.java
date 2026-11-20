@@ -805,6 +805,57 @@ public final class SparkOperatorConf {
           .build();
 
   /**
+   * Comma-separated list of topology zones which operator pins SparkApplications to. If empty,
+   * only applications with the `spark.operator/zone` annotation are pinned.
+   */
+  public static final ConfigOption<String> ZONE_PINNING_ZONES =
+      ConfigOption.<String>builder()
+          .key("spark.kubernetes.operator.zonePinning.zones")
+          .enableDynamicOverride(true)
+          .description(
+              "Comma-separated list of topology zones, e.g. 'us-east-1a,us-east-1b'. "
+                  + "When set, operator pins each attempt of a SparkApplication to the zone "
+                  + "with the fewest active SparkApplications pinned to it, unless the "
+                  + "application sets the 'spark.operator/zone' annotation, before it requests "
+                  + "the driver. The driver and the executors of the attempt get a node "
+                  + "selector on the zone, and the zone is recorded in the attempt info of the "
+                  + "status. If empty, only applications with the annotation are pinned. "
+                  + "Applications queued through Kueue are not pinned.")
+          .typeParameterClass(String.class)
+          .defaultValue("")
+          .build();
+
+  /** The node label which holds the topology zone of a node. */
+  public static final ConfigOption<String> ZONE_PINNING_TOPOLOGY_KEY =
+      ConfigOption.<String>builder()
+          .key("spark.kubernetes.operator.zonePinning.topologyKey")
+          .enableDynamicOverride(true)
+          .description(
+              "The node label which operator selects the zone of a pinned SparkApplication on, "
+                  + "for both the driver and the executors.")
+          .typeParameterClass(String.class)
+          .defaultValue("topology.kubernetes.io/zone")
+          .build();
+
+  /**
+   * Semicolon-separated Spark configurations which operator sets for a pinned SparkApplication,
+   * with `{zone}` replaced by its zone.
+   */
+  public static final ConfigOption<String> ZONE_PINNING_SPARK_CONF =
+      ConfigOption.<String>builder()
+          .key("spark.kubernetes.operator.zonePinning.sparkConf")
+          .enableDynamicOverride(true)
+          .description(
+              "Semicolon-separated 'key=value' Spark configurations which operator sets for "
+                  + "a pinned SparkApplication, with '{zone}' in the value replaced by its "
+                  + "zone, e.g. 'spark.celeborn.tags.tagsExpr=az-{zone}' so that a remote "
+                  + "shuffle service keeps the shuffle in the same zone. A key which the "
+                  + "application sets in its sparkConf is not overridden.")
+          .typeParameterClass(String.class)
+          .defaultValue("")
+          .build();
+
+  /**
    * Enable leader election for the operator to allow running standby instances. When this is
    * disabled, only one operator instance is expected to be up and running at any time (replica = 1)
    * to avoid race condition.

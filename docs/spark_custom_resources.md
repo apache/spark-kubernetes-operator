@@ -917,6 +917,59 @@ relates it to the reconciliation.
   the `Workload`. It requires `spark.plugins=org.apache.spark.deploy.DriverTimeoutPlugin`, as in
   [this example](../examples/pi-with-driver-timeout.yaml).
 
+## Zone Pinning
+
+On a cluster which spans several topology zones, the driver and the executors of one application
+can land in different zones, and so can a remote shuffle service which they push the shuffle to.
+The traffic between zones is slower than within a zone and, on public clouds, billed per GB. The
+operator can pin each attempt of a `SparkApplication` to a single zone.
+
+* Set `spark.kubernetes.operator.zonePinning.zones` to the zones to pin to, e.g.
+  `us-east-1a,us-east-1b,us-east-1c`. Each attempt is pinned to the zone with the fewest active
+  `SparkApplication`s pinned to it. The count includes the zones which the operator chose in the
+  last minute and its cache does not show yet, and a tie is broken by taking turns, so that
+  applications submitted together spread over the zones. The count is the number of
+  applications, not their resource requests. It is kept in the memory of the leader, so a burst
+  of applications during a change of leader may spread less evenly.
+* Alternatively, or in addition, set the `spark.operator/zone` annotation on a `SparkApplication`
+  to pin every attempt of it to that zone, whether or not zones are configured.
+
+```yaml
+apiVersion: spark.apache.org/v1
+kind: SparkApplication
+metadata:
+  name: pi-in-one-zone
+  annotations:
+    spark.operator/zone: us-east-1a
+```
+
+The zone is chosen before the driver is requested, published as a `ZonePinned` event and recorded
+in `status.currentAttemptSummary.attemptInfo.zone`. The driver and the executors then get a node
+selector on the label `spark.kubernetes.operator.zonePinning.topologyKey`, which is
+`topology.kubernetes.io/zone` by default, through
+`spark.kubernetes.{driver,executor}.node.selector.*`. A node selector in a pod template on the
+same label is overridden. A restarted or resumed attempt chooses its zone again.
+
+`spark.kubernetes.operator.zonePinning.sparkConf` sets Spark configurations which depend on the
+zone, as semicolon-separated `key=value` pairs, with `{zone}` in the value replaced by the zone.
+For example, to keep the shuffle of [Apache Celeborn](https://celeborn.apache.org/) in the zone of
+the application, with Celeborn workers tagged by their zone:
+
+```properties
+spark.kubernetes.operator.zonePinning.zones=us-east-1a,us-east-1b,us-east-1c
+spark.kubernetes.operator.zonePinning.sparkConf=spark.celeborn.tags.tagsExpr=az-{zone}
+```
+
+A key which the application sets in its `sparkConf` is not overridden.
+
+Note the following.
+
+* A pinned attempt cannot move to another zone, so its pods stay pending while the zone has no
+  capacity for them.
+* A `SparkApplication` queued through [Kueue](#kueue) is not pinned, since Kueue decides the
+  placement of an admitted application.
+* A `SparkCluster` is not pinned.
+
 ## Spark Cluster
 
 Spark Operator also supports launching Spark clusters in k8s via `SparkCluster` custom resource,

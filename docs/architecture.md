@@ -113,7 +113,9 @@ flowchart TD
     init([Submitted or ScheduledToRestart]) --> suspend{spec.suspend?}
     suspend -->|set, nothing requested yet| suspendHold[Release the Workload, SuspendHeld event]
     suspend -->|unset, or requested already| queued{Queue label and Kueue enabled?}
-    queued -->|no| request[Request the driver, or the master and workers]
+    queued -->|no| zone{SparkApplication to pin, and no zone recorded yet?}
+    zone -->|no| request[Request the driver, or the master and workers]
+    zone -->|yes| pin[Record the zone of the attempt, ZonePinned event]
     queued -->|yes| requested{Driver or master requested already?}
     requested -->|yes| reapply[Apply the flavors of the earlier admission]
     requested -->|no| admission{Admission of the Workload}
@@ -126,6 +128,7 @@ flowchart TD
     suspendHold --> hold([Stay in the same state until the next reconciliation])
     kueueHold --> hold
     stale --> hold
+    pin --> hold
 ```
 
 * `spec.suspend` comes first (`SuspendUtils`), so a suspended resource is held without a
@@ -144,8 +147,13 @@ flowchart TD
   failed, is not held and requests no admission, since it has to complete the initialization
   rather than run unobserved. Its resources are applied again in that reconciliation, so the
   flavors of the earlier admission are applied again as well, rather than dropped from them.
+* A `SparkApplication` which is not queued is pinned to a topology zone before its driver is
+  requested, if `spark.kubernetes.operator.zonePinning.zones` is set or it has the
+  `spark.operator/zone` annotation. The zone is recorded in the attempt info of the status and the
+  reconciliation is requeued right away, so that every resource spec built for the attempt from
+  then on gets the same zone. See [Zone Pinning](spark_custom_resources.md#zone-pinning).
 * A hold changes no state. The initial `Submitted` state of a first attempt is not persisted to the
-  API server until the next state, so `kubectl get` shows an empty `Current State`, and the
+  API server until the next state, unless the attempt is pinned to a zone, so `kubectl get` shows an empty `Current State`, and the
   `SuspendHeld`, `KueueAdmissionPending` and `KueueAdmitted`
   [events](configuration.md#kubernetes-events) show the progress instead. A hold completes the
   reconciliation with a requeue, after `spark.kubernetes.operator.reconciler.intervalSeconds` while

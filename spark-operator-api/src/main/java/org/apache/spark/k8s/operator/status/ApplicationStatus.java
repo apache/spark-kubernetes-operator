@@ -248,6 +248,24 @@ public class ApplicationStatus
   }
 
   /**
+   * Returns a copy of this status whose current attempt is pinned to the given zone. The state and
+   * its history are unchanged.
+   *
+   * @param zone The zone which the driver and executors of the current attempt are pinned to.
+   * @return An updated ApplicationStatus object.
+   * @since 1.1.0
+   */
+  public ApplicationStatus pinCurrentAttemptToZone(String zone) {
+    return new ApplicationStatus(
+        currentState,
+        stateTransitionHistory,
+        previousAttemptSummary,
+        new ApplicationAttemptSummary(
+            currentAttemptSummary.getAttemptInfo().withZone(zone),
+            currentAttemptSummary.getStateTransitionHistory()));
+  }
+
+  /**
    * Starts the next attempt with the given state as its first state.
    *
    * @param state The first state of the next attempt.
