@@ -926,9 +926,11 @@ operator can pin each attempt of a `SparkApplication` to a single zone.
 
 * Set `spark.kubernetes.operator.zonePinning.zones` to the zones to pin to, e.g.
   `us-east-1a,us-east-1b,us-east-1c`. Each attempt is pinned to the zone with the fewest active
-  `SparkApplication`s pinned to it. A tie is broken by the uid of the application, so that
-  applications submitted together spread over the tied zones. The count is the number of
-  applications, not their resource requests.
+  `SparkApplication`s pinned to it. The count includes the zones which the operator chose in the
+  last minute and its cache does not show yet, and a tie is broken by taking turns, so that
+  applications submitted together spread over the zones. The count is the number of
+  applications, not their resource requests. It is kept in the memory of the leader, so a burst
+  of applications during a change of leader may spread less evenly.
 * Alternatively, or in addition, set the `spark.operator/zone` annotation on a `SparkApplication`
   to pin every attempt of it to that zone, whether or not zones are configured.
 

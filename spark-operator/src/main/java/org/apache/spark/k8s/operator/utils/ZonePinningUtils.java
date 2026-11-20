@@ -24,15 +24,20 @@ import static org.apache.spark.k8s.operator.config.SparkOperatorConf.ZONE_PINNIN
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.ZONE_PINNING_TOPOLOGY_KEY;
 import static org.apache.spark.k8s.operator.config.SparkOperatorConf.ZONE_PINNING_ZONES;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.spark.k8s.operator.Constants;
@@ -62,6 +67,18 @@ public final class ZonePinningUtils {
   // A Kubernetes label value, which a node selector requires.
   private static final Pattern LABEL_VALUE =
       Pattern.compile("([A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?)");
+
+  /** How long a zone chosen by this operator counts before the informer cache shows it. */
+  static final Duration RECENT_PIN_TTL = Duration.ofSeconds(60);
+
+  // Zones chosen by this operator by the uid of the application, counted until the cache shows
+  // them, so that applications which are pinned at the same time spread over the zones.
+  private static final Map<String, RecentPin> RECENT_PINS = new ConcurrentHashMap<>();
+
+  // Takes turns among the least loaded zones.
+  private static final AtomicLong TIE_BREAKER = new AtomicLong();
+
+  private record RecentPin(String zone, Instant pinnedAt) {}
 
   private ZonePinningUtils() {}
 
@@ -114,8 +131,9 @@ public final class ZonePinningUtils {
   /**
    * Chooses the zone of the current attempt of the application. The zone annotation wins.
    * Otherwise, it is the configured zone with the fewest other applications which are not
-   * terminated and whose current attempt is pinned to it. A tie is broken by the uid of the
-   * application, so that applications which are submitted together spread over the tied zones.
+   * terminated and whose current attempt is pinned to it, counting the zones which this operator
+   * chose recently and the cache does not show yet. Ties are broken by taking turns, so that
+   * applications which are submitted together spread over the tied zones.
    *
    * @param app The SparkApplication.
    * @param otherApps The applications known to the operator, which may include the given one.
@@ -125,6 +143,12 @@ public final class ZonePinningUtils {
    */
   public static String chooseZone(
       final SparkApplication app, final Stream<SparkApplication> otherApps) {
+    return chooseZone(app, otherApps, Instant.now());
+  }
+
+  static String chooseZone(
+      final SparkApplication app, final Stream<SparkApplication> otherApps, final Instant now) {
+    String uid = app.getMetadata().getUid();
     Optional<String> requested = requestedZone(app);
     if (requested.isPresent()) {
       String zone = requested.get();
@@ -135,6 +159,7 @@ public final class ZonePinningUtils {
                 + " must be a valid label value, but is: "
                 + zone);
       }
+      rememberPin(uid, zone, now);
       return zone;
     }
     List<String> zones = configuredZones();
@@ -142,19 +167,51 @@ public final class ZonePinningUtils {
       throw new IllegalArgumentException(
           "No zone to pin to, set " + ZONE_PINNING_ZONES.getKey() + " or the annotation.");
     }
-    String uid = app.getMetadata().getUid();
-    Map<String, Long> pinned =
-        otherApps
-            .filter(other -> !Objects.equals(uid, other.getMetadata().getUid()))
-            .filter(ZonePinningUtils::isActive)
-            .map(ZonePinningUtils::currentAttemptZone)
-            .flatMap(Optional::stream)
-            .collect(Collectors.groupingBy(zone -> zone, Collectors.counting()));
+    Map<String, Long> pinned = new HashMap<>();
+    Set<String> cachedPins = new HashSet<>();
+    otherApps
+        .filter(other -> !Objects.equals(uid, other.getMetadata().getUid()))
+        .forEach(
+            other ->
+                currentAttemptZone(other)
+                    .ifPresent(
+                        zone -> {
+                          cachedPins.add(other.getMetadata().getUid());
+                          if (isActive(other)) {
+                            pinned.merge(zone, 1L, Long::sum);
+                          }
+                        }));
+    RECENT_PINS
+        .entrySet()
+        .removeIf(
+            entry ->
+                cachedPins.contains(entry.getKey())
+                    || entry.getValue().pinnedAt().plus(RECENT_PIN_TTL).isBefore(now));
+    RECENT_PINS.forEach(
+        (otherUid, pin) -> {
+          if (!Objects.equals(uid, otherUid)) {
+            pinned.merge(pin.zone(), 1L, Long::sum);
+          }
+        });
     long fewest = zones.stream().mapToLong(zone -> pinned.getOrDefault(zone, 0L)).min().orElse(0L);
     List<String> leastLoaded =
         zones.stream().filter(zone -> pinned.getOrDefault(zone, 0L) == fewest).toList();
-    int index = Math.floorMod(Objects.hashCode(uid), leastLoaded.size());
-    return leastLoaded.get(index);
+    int index = (int) Math.floorMod(TIE_BREAKER.getAndIncrement(), (long) leastLoaded.size());
+    String zone = leastLoaded.get(index);
+    rememberPin(uid, zone, now);
+    return zone;
+  }
+
+  /** Forgets the zones chosen recently, for tests. */
+  static void forgetRecentPins() {
+    RECENT_PINS.clear();
+    TIE_BREAKER.set(0);
+  }
+
+  private static void rememberPin(final String uid, final String zone, final Instant now) {
+    if (uid != null) {
+      RECENT_PINS.put(uid, new RecentPin(zone, now));
+    }
   }
 
   /**

@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -33,6 +34,7 @@ import java.util.stream.Stream;
 
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import org.apache.spark.k8s.operator.Constants;
@@ -44,8 +46,14 @@ import org.apache.spark.k8s.operator.status.ApplicationStatus;
 
 class ZonePinningUtilsTest {
 
+  @BeforeEach
+  void forgetRecentPins() {
+    ZonePinningUtils.forgetRecentPins();
+  }
+
   @AfterEach
   void resetConf() {
+    ZonePinningUtils.forgetRecentPins();
     TestUtils.setConfigKey(SparkOperatorConf.ZONE_PINNING_ZONES, "");
     TestUtils.setConfigKey(SparkOperatorConf.ZONE_PINNING_SPARK_CONF, "");
     TestUtils.setConfigKey(
@@ -120,20 +128,79 @@ class ZonePinningUtilsTest {
   }
 
   @Test
-  void tieIsBrokenByUid() {
+  void tiesTakeTurns() {
+    TestUtils.setConfigKey(SparkOperatorConf.ZONE_PINNING_ZONES, "a,b");
+    assertEquals(
+        "a", ZonePinningUtils.chooseZone(app("uid-0", Map.of(), Map.of(), null), Stream.empty()));
+    // uid-0 is terminated by now, so a and b tie again
+    assertEquals(
+        "b",
+        ZonePinningUtils.chooseZone(
+            app("uid-1", Map.of(), Map.of(), null),
+            Stream.of(terminated(app("uid-0", Map.of(), Map.of(), "a")))));
+  }
+
+  @Test
+  void applicationsPinnedTogetherSpreadBeforeTheCacheShowsThem() {
     TestUtils.setConfigKey(SparkOperatorConf.ZONE_PINNING_ZONES, "a,b,c");
+    Instant now = Instant.parse("2026-11-20T00:00:00Z");
     Set<String> chosen = new HashSet<>();
-    for (int i = 0; i < 50; i++) {
-      SparkApplication app = app("uid-" + i, Map.of(), Map.of(), null);
-      String zone =
-          ZonePinningUtils.chooseZone(app, Stream.of(app("other", Map.of(), Map.of(), "a")));
-      // The same application always gets the same zone
-      assertEquals(
-          zone,
-          ZonePinningUtils.chooseZone(app, Stream.of(app("other", Map.of(), Map.of(), "a"))));
-      chosen.add(zone);
+    for (int i = 0; i < 3; i++) {
+      // The cache shows none of the other pins yet
+      chosen.add(
+          ZonePinningUtils.chooseZone(
+              app("uid-" + i, Map.of(), Map.of(), null), Stream.empty(), now));
     }
-    assertEquals(Set.of("b", "c"), chosen);
+    assertEquals(Set.of("a", "b", "c"), chosen);
+  }
+
+  @Test
+  void recentPinIsCountedOnceTheCacheShowsIt() {
+    TestUtils.setConfigKey(SparkOperatorConf.ZONE_PINNING_ZONES, "a,b");
+    Instant now = Instant.parse("2026-11-20T00:00:00Z");
+    assertEquals(
+        "a",
+        ZonePinningUtils.chooseZone(app("uid-0", Map.of(), Map.of(), null), Stream.empty(), now));
+    // The cache shows uid-0 in a now, which is not counted twice, and two in b
+    assertEquals(
+        "a",
+        ZonePinningUtils.chooseZone(
+            app("uid-1", Map.of(), Map.of(), null),
+            Stream.of(
+                app("uid-0", Map.of(), Map.of(), "a"),
+                app("uid-9", Map.of(), Map.of(), "b"),
+                app("uid-8", Map.of(), Map.of(), "b")),
+            now));
+  }
+
+  @Test
+  void recentPinExpires() {
+    TestUtils.setConfigKey(SparkOperatorConf.ZONE_PINNING_ZONES, "a,b");
+    Instant now = Instant.parse("2026-11-20T00:00:00Z");
+    ZonePinningUtils.chooseZone(
+        app("uid-0", Map.of(), Map.of(), null),
+        Stream.of(app("uid-9", Map.of(), Map.of(), "b")),
+        now);
+    // uid-0 would tie a with b, but its recent pin has expired
+    Instant later = now.plus(ZonePinningUtils.RECENT_PIN_TTL).plusSeconds(1);
+    Stream<SparkApplication> others = Stream.of(app("uid-9", Map.of(), Map.of(), "b"));
+    assertEquals(
+        "a",
+        ZonePinningUtils.chooseZone(app("uid-1", Map.of(), Map.of(), null), others, later));
+  }
+
+  @Test
+  void repinningTheSameApplicationDoesNotCountItsOwnRecentPin() {
+    TestUtils.setConfigKey(SparkOperatorConf.ZONE_PINNING_ZONES, "a,b");
+    Instant now = Instant.parse("2026-11-20T00:00:00Z");
+    SparkApplication app = app("uid-0", Map.of(), Map.of(), null);
+    Stream<SparkApplication> others = Stream.of(app("uid-9", Map.of(), Map.of(), "b"));
+    assertEquals("a", ZonePinningUtils.chooseZone(app, others, now));
+    // E.g. after a failed status update
+    assertEquals(
+        "a",
+        ZonePinningUtils.chooseZone(
+            app, Stream.of(app("uid-9", Map.of(), Map.of(), "b")), now));
   }
 
   @Test
