@@ -591,6 +591,40 @@ class ClusterInitStepTest {
     verify(mockContext, never()).getEventRecorder();
   }
 
+  @Test
+  void submittedStateWithAnotherMessageLooksUpTheMaster() {
+    // Only the messages of a resume and of a requeue skip the lookup. Any other persisted Submitted
+    // state, e.g. one a later change writes before the master is requested, is treated as an
+    // initial submission, so a master which does not exist holds the cluster instead of releasing
+    // a cluster which never started.
+    ClusterInitStep clusterInitStep = new ClusterInitStep();
+    SparkClusterContext mockContext = mock(SparkClusterContext.class);
+    SparkClusterStatusRecorder recorder = mock(SparkClusterStatusRecorder.class);
+    SparkCluster cluster = buildKueueCluster();
+    cluster.setStatus(
+        cluster
+            .getStatus()
+            .appendNewState(
+                new ClusterState(ClusterStateSummary.Submitted, "Waiting for something else"),
+                true));
+    cluster.getSpec().setSuspend(true);
+    KubernetesClient mockClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+    stubWorkloadRead(mockClient, null);
+    when(mockClient.resource(masterStatefulSetSpec).get()).thenReturn(null);
+    when(mockContext.getResource()).thenReturn(cluster);
+    when(mockContext.getClient()).thenReturn(mockClient);
+    when(mockContext.getMasterStatefulSetSpec()).thenReturn(masterStatefulSetSpec);
+    when(mockContext.getEventRecorder()).thenReturn(eventRecorder);
+
+    Assertions.assertEquals(
+        SUSPEND_HOLD_PROGRESS, clusterInitStep.reconcile(mockContext, recorder));
+
+    verify(mockContext).getMasterStatefulSetSpec();
+    verifyNoInteractions(recorder);
+    EventRecord event = captureEvents(1).get(0);
+    Assertions.assertEquals(EventUtils.REASON_SUSPEND_HELD, event.reason());
+  }
+
   @SuppressWarnings("unchecked")
   private void stubFailingServiceApply(
       SparkClusterContext mockContext, SparkCluster cluster, KubernetesClientException failure) {

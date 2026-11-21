@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
 import java.util.regex.Pattern;
@@ -56,8 +57,9 @@ import org.apache.spark.k8s.operator.client.KubernetesClientFactory;
  * drops an event repeated on the same resource with the same reason and the same message within
  * {@link
  * org.apache.spark.k8s.operator.config.SparkOperatorConf#KUBERNETES_EVENTS_MIN_INTERVAL_SECONDS}.
- * A {@code Warning} event published on a resource ends the interval of its {@code Normal} events,
- * so that the next one is published even if it repeats, see {@link #withinMinInterval}.
+ * An event published on a resource ends the interval of its events of the other type, {@code
+ * Normal} or {@code Warning}, so that the next one is published even if it repeats, see {@link
+ * #withinMinInterval}.
  *
  * <p>Registered once for the whole operator via {@link
  * io.javaoperatorsdk.operator.api.config.ConfigurationServiceOverrider#withEventRecorder}, so that
@@ -132,6 +134,8 @@ public class ConfigurableEventRecorder implements EventRecorder {
   /**
    * Records the given event, unless event publishing is disabled, its reason is excluded, or the
    * same reason and message were already recorded on the same resource within the minimum interval.
+   * An event of the other type, {@code Normal} or {@code Warning}, recorded on the resource since
+   * then ends that interval, so the event is recorded.
    *
    * @param event The event to record.
    * @param context The reconciliation the event is recorded from.
@@ -287,7 +291,17 @@ public class ConfigurableEventRecorder implements EventRecorder {
    * @return The number of tracked events.
    */
   int trackedEventCount() {
-    return lastRecorded.values().stream().mapToInt(Map::size).sum();
+    // Read inside compute like every other access, since the inner maps are not thread-safe.
+    AtomicInteger count = new AtomicInteger();
+    for (String uid : lastRecorded.keySet()) {
+      lastRecorded.computeIfPresent(
+          uid,
+          (id, events) -> {
+            count.addAndGet(events.size());
+            return events;
+          });
+    }
+    return count.get();
   }
 
   private static String uidOf(Context<?> context) {
