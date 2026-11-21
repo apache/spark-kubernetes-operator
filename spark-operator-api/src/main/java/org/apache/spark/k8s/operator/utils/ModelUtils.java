@@ -146,6 +146,24 @@ public final class ModelUtils {
   }
 
   /**
+   * Checks whether the given resource has an owner reference to the given owner. The uid rather
+   * than the name identifies the owner, since a name can be reused by a later resource.
+   *
+   * @param resource The resource whose owner references are checked.
+   * @param owner The presumed owner.
+   * @return True if the owner has a uid and the resource has an owner reference to it, false
+   *     otherwise.
+   * @since 1.2.0
+   */
+  public static boolean isOwnedBy(HasMetadata resource, HasMetadata owner) {
+    String uid = owner.getMetadata().getUid();
+    List<OwnerReference> ownerReferences = resource.getMetadata().getOwnerReferences();
+    return uid != null
+        && ownerReferences != null
+        && ownerReferences.stream().anyMatch(reference -> uid.equals(reference.getUid()));
+  }
+
+  /**
    * Converts a Kubernetes resource to its JSON string representation.
    *
    * @param resource The resource to convert.

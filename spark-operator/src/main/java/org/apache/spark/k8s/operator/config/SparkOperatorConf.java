@@ -373,7 +373,8 @@ public final class SparkOperatorConf {
 
   /**
    * Minimum interval (in seconds) between two Kubernetes Events with the same reason and the same
-   * message on the same Spark resource.
+   * message on the same Spark resource. An event of the other type, Normal or Warning, published on
+   * the resource in between ends the interval.
    */
   public static final ConfigOption<Long> KUBERNETES_EVENTS_MIN_INTERVAL_SECONDS =
       ConfigOption.<Long>builder()
@@ -388,6 +389,9 @@ public final class SparkOperatorConf {
                   + "still costs a read and a write on the API server. A repeat whose message "
                   + "differs, for instance because it embeds the cause of a failure, is always "
                   + "published, since the operator rewrites the message of the existing Event. "
+                  + "An event of the other type, Normal or Warning, published on the same "
+                  + "resource in between also ends the interval, so that e.g. a SuspendHeld "
+                  + "which follows a SuspendCheckFailed is published even within it. "
                   + "An event is only published when a reconciliation emits it, so the effective "
                   + "period is this interval rounded up to the next repeat. Keep this interval "
                   + "plus the interval at which the repeats are emitted within the '--event-ttl' "
